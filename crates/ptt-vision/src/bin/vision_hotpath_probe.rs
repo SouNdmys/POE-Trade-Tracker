@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::time::{Instant, SystemTime};
 
 use ptt_vision::{
-    BandDetection, BandDetectionSettings, BgraCropBuffer, BlueMaskSettings, BlueTextMask,
-    CaptureRegion, CapturedFrame, PhysicalBandDetector, build_blue_mask_into,
+    BandDetection, BandDetectionSettings, BgraCropBuffer, BlueMaskSettings, CaptureRegion,
+    CapturedFrame, PhysicalBandDetector, TextInkMask, build_blue_mask_into,
 };
 
 fn main() {
@@ -13,7 +13,7 @@ fn main() {
         std::process::exit(2);
     });
     let frame = synthetic_tooltip(options.width, options.height);
-    let mut mask = BlueTextMask::default();
+    let mut mask = TextInkMask::default();
     let mut detector = PhysicalBandDetector::new();
     let mut crop_buffers = Vec::new();
 
@@ -103,11 +103,7 @@ fn write_csv(
     Ok(())
 }
 
-fn prepare_crops(
-    mask: &BlueTextMask,
-    detection: &BandDetection,
-    buffers: &mut Vec<BgraCropBuffer>,
-) {
+fn prepare_crops(mask: &TextInkMask, detection: &BandDetection, buffers: &mut Vec<BgraCropBuffer>) {
     let required = detection.bands.len() + usize::from(detection.fallback_crop.is_some());
     buffers.resize_with(required, BgraCropBuffer::default);
     for (slot, band) in detection.bands.iter().enumerate() {

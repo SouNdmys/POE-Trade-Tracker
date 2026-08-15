@@ -25,8 +25,9 @@ pub use bands::{
 pub use capture::{CaptureError, ScreenCapture};
 pub use frame::{BYTES_PER_PIXEL, CaptureRegion, CapturedFrame, FrameError, PixelRect};
 pub use mask::{
-    BlueMaskIntensityMode, BlueMaskSettings, BlueTextMask, FNV1A_64_OFFSET_BASIS, FNV1A_64_PRIME,
-    build_blue_mask, build_blue_mask_into, fnv1a64,
+    BlueMaskIntensityMode, BlueMaskSettings, FNV1A_64_OFFSET_BASIS, FNV1A_64_PRIME, TextInkMask,
+    WarmMaskSettings, build_blue_mask, build_blue_mask_into, build_warm_mask, build_warm_mask_into,
+    fnv1a64,
 };
 
 #[cfg(windows)]

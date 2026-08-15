@@ -1,8 +1,8 @@
 use std::fmt;
 
 use crate::{
-    BYTES_PER_PIXEL, BlueTextMask, CaptureRegion, FNV1A_64_OFFSET_BASIS, FNV1A_64_PRIME,
-    FrameError, PixelRect,
+    BYTES_PER_PIXEL, CaptureRegion, FNV1A_64_OFFSET_BASIS, FNV1A_64_PRIME, FrameError, PixelRect,
+    TextInkMask,
 };
 
 /// Defaults mirror the proven .NET POE blue-affix preprocessing path.
@@ -122,7 +122,7 @@ impl PhysicalBandDetector {
     /// Detects physical glyph rows while reusing row-projection scratch buffers.
     pub fn detect(
         &mut self,
-        mask: &BlueTextMask,
+        mask: &TextInkMask,
         settings: BandDetectionSettings,
     ) -> Result<BandDetection, BandDetectionError> {
         settings.validate()?;
@@ -276,7 +276,7 @@ pub struct BgraCropBuffer {
 /// Traditional-Chinese Windows OCR performs its own multi-line layout analysis, so it consumes
 /// this combined crop rather than one image per physical row.
 pub fn combined_crop_metadata(
-    mask: &BlueTextMask,
+    mask: &TextInkMask,
     margin: usize,
 ) -> Result<CropMetadata, BandDetectionError> {
     let source_region = mask.source_region().ok_or(BandDetectionError::EmptyMask)?;
@@ -357,7 +357,7 @@ impl BgraCropBuffer {
     /// Rebuilds this crop while retaining the largest allocation seen by this buffer.
     pub fn prepare(
         &mut self,
-        mask: &BlueTextMask,
+        mask: &TextInkMask,
         metadata: &CropMetadata,
     ) -> Result<(), BandDetectionError> {
         metadata
@@ -393,7 +393,7 @@ impl BgraCropBuffer {
 
 /// Materializes an OCR-friendly grayscale BGRA crop from metadata returned by detection.
 pub fn crop_mask_bgra(
-    mask: &BlueTextMask,
+    mask: &TextInkMask,
     metadata: &CropMetadata,
 ) -> Result<CroppedMask, BandDetectionError> {
     let mut buffer = BgraCropBuffer::default();
@@ -407,7 +407,7 @@ pub fn crop_mask_bgra(
     })
 }
 
-fn crop_fingerprint(mask: &BlueTextMask, rect: PixelRect) -> u64 {
+fn crop_fingerprint(mask: &TextInkMask, rect: PixelRect) -> u64 {
     let mut fingerprint = FNV1A_64_OFFSET_BASIS;
     fingerprint ^= rect.width as u64;
     fingerprint = fingerprint.wrapping_mul(FNV1A_64_PRIME);

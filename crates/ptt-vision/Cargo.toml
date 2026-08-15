@@ -22,3 +22,7 @@ path = "src/bin/vision_hotpath_probe.rs"
 [[bin]]
 name = "screenshot-decode-probe"
 path = "src/bin/screenshot_decode_probe.rs"
+
+[[bin]]
+name = "warm-band-probe"
+path = "src/bin/warm_band_probe.rs"
