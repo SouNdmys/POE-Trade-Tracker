@@ -6,7 +6,6 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use gpui::{Context, FocusHandle, IntoElement, ParentElement, Render, Styled, Window, div, px};
-use gpui_component::StyledExt as _;
 
 use crate::theme::*;
 use crate::ui::{
