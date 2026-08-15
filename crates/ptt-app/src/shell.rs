@@ -401,17 +401,21 @@ impl Render for AppShell {
                     .gap_3()
                     .p_3()
                     .child(
-                        panel().flex_grow().child(panel_header("LAST BOOK")).child(
-                            div().p_3().flex().flex_col().gap_1().children(
-                                std::iter::once(
-                                    self.last_header
-                                        .clone()
-                                        .unwrap_or_else(|| "waiting for a book…".to_owned()),
-                                )
-                                .chain(self.last_rows.iter().cloned())
-                                .map(|line| mono(line).text_size(fs(FS_12))),
+                        panel()
+                            .flex_grow()
+                            .overflow_hidden()
+                            .child(panel_header("LAST BOOK"))
+                            .child(
+                                div().p_3().flex().flex_col().gap_1().children(
+                                    std::iter::once(
+                                        self.last_header
+                                            .clone()
+                                            .unwrap_or_else(|| "waiting for a book…".to_owned()),
+                                    )
+                                    .chain(self.last_rows.iter().cloned())
+                                    .map(|line| mono(line).text_size(fs(FS_12))),
+                                ),
                             ),
-                        ),
                     )
                     .child(
                         div()
@@ -419,18 +423,21 @@ impl Render for AppShell {
                             .flex()
                             .flex_col()
                             .gap_3()
-                            .child(panel().child(panel_header("OPPORTUNITIES")).child(
-                                div().p_3().flex().flex_col().gap_1().children(
-                                    if self.last_analysis.is_empty() {
-                                        vec![mono("—").text_size(fs(FS_12))]
-                                    } else {
-                                        self.last_analysis
-                                            .iter()
-                                            .map(|line| mono(line.clone()).text_size(fs(FS_12)))
-                                            .collect()
-                                    },
-                                ),
-                            ))
+                            .child(
+                                panel()
+                                    .overflow_hidden()
+                                    .child(panel_header("OPPORTUNITIES"))
+                                    .child(div().p_3().flex().flex_col().gap_1().children(
+                                        if self.last_analysis.is_empty() {
+                                            vec![mono("—").text_size(fs(FS_12))]
+                                        } else {
+                                            self.last_analysis
+                                                .iter()
+                                                .map(|line| mono(line.clone()).text_size(fs(FS_12)))
+                                                .collect()
+                                        },
+                                    )),
+                            )
                             .child(panel().child(panel_header("SKIPS")).child(
                                 div().p_3().flex().flex_col().gap_1().children(
                                     if skip_lines.is_empty() {

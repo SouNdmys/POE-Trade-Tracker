@@ -304,12 +304,14 @@ mod windows_backend {
         let _ = sender.send(UiEvent::Stopped);
     }
 
-    /// Compact one-word-ish label from a debug-formatted skip reason.
+    /// Compact label from a debug-formatted skip reason, keeping the inner
+    /// rows-reject variant visible ("Rows(LeadOutOfWindow ...)" -> "LeadOutOfWindow").
     fn skip_label(debug_text: &str) -> String {
-        debug_text
+        let inner = debug_text.strip_prefix("Rows(").unwrap_or(debug_text);
+        inner
             .split(['{', '('])
             .next()
-            .unwrap_or(debug_text)
+            .unwrap_or(inner)
             .trim()
             .to_owned()
     }
