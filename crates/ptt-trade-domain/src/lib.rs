@@ -536,6 +536,22 @@ pub enum QuoteEdgeRole {
     CompetingReverseTaker,
 }
 
+impl QuoteEdgeRole {
+    /// The execution type this role always carries (F6): taker roles exist
+    /// only where a standing order was directly observed; the two reverse-
+    /// reference roles can never be executed.
+    #[must_use]
+    pub fn execution_type(self) -> ExecutionType {
+        match self {
+            QuoteEdgeRole::AvailableTaker | QuoteEdgeRole::CompetingReverseTaker => {
+                ExecutionType::Taker
+            }
+            QuoteEdgeRole::AvailableReverseMakerReference
+            | QuoteEdgeRole::CompetingMakerReference => ExecutionType::MakerReference,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfirmedOrderRow {
@@ -1271,6 +1287,68 @@ mod tests {
         assert_eq!(reverse.rate.numerator, 2);
         assert_eq!(reverse.rate.denominator, 3);
         assert_eq!(reverse.execution_type, ExecutionType::MakerReference);
+    }
+
+    /// F6: bid/ask separation is structural. Both taker edges correspond to
+    /// real actions against observed standing orders (taking an available
+    /// offer, or selling into a competing bid at *their* listed price); the
+    /// two maker-reference edges are reference-only and the engine never
+    /// grants them execution eligibility. No edge is ever priced off an
+    /// unobserved synthetic reciprocal of a different order.
+    #[test]
+    fn f6_taker_edges_only_exist_where_a_standing_order_was_observed() {
+        let competing_row = ConfirmedOrderRow::try_new(
+            QuoteSide::Competing,
+            0,
+            Comparator::Exact,
+            "3:2",
+            "500",
+            false,
+            Some(990_000),
+        )
+        .expect("row");
+        let capture = ConfirmedCapture::try_new(
+            Utc::now(),
+            context(),
+            MarketAssetId::try_new("divine-orb").expect("need"),
+            MarketAssetId::try_new("chaos-orb").expect("have"),
+            vec![competing_row],
+            provenance(),
+            "{}".to_owned(),
+            "{}".to_owned(),
+            vec![ReviewAuditEntry {
+                field_path: "need".to_owned(),
+                before: json!("divine-orb"),
+                after: json!("divine-orb"),
+                kind: ReviewAuditKind::AcceptedMachineValue,
+            }],
+        )
+        .expect("confirmed capture");
+
+        let forward = &capture.quote_edges[0];
+        assert_eq!(forward.role, QuoteEdgeRole::CompetingMakerReference);
+        assert_eq!(forward.execution_type, ExecutionType::MakerReference);
+        let reverse = &capture.quote_edges[1];
+        assert_eq!(reverse.role, QuoteEdgeRole::CompetingReverseTaker);
+        assert_eq!(reverse.execution_type, ExecutionType::Taker);
+        // The reverse taker trades the *same observed order* from the other
+        // direction — its rate is the exact inverse, nothing interpolated.
+        assert_eq!(reverse.rate, forward.rate.inverse());
+
+        for (role, execution) in [
+            (QuoteEdgeRole::AvailableTaker, ExecutionType::Taker),
+            (
+                QuoteEdgeRole::AvailableReverseMakerReference,
+                ExecutionType::MakerReference,
+            ),
+            (
+                QuoteEdgeRole::CompetingMakerReference,
+                ExecutionType::MakerReference,
+            ),
+            (QuoteEdgeRole::CompetingReverseTaker, ExecutionType::Taker),
+        ] {
+            assert_eq!(role.execution_type(), execution);
+        }
     }
 
     #[test]
