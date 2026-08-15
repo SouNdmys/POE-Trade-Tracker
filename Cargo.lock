@@ -251,6 +251,8 @@ dependencies = [
  "ptt-ocr-onnx",
  "ptt-ocr-win",
  "ptt-vision",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

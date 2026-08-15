@@ -13,6 +13,8 @@ ptt-core = { path = "../ptt-core" }
 ptt-ocr-onnx = { path = "../ptt-ocr-onnx" }
 ptt-ocr-win = { path = "../ptt-ocr-win" }
 ptt-vision = { path = "../ptt-vision" }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [[bin]]
 name = "book-probe"

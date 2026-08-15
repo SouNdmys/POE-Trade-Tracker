@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "profile": "poe2-zh-TW",
+  "screenshot_dir": "test-screenshots",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.03.32.74.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "chaos_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.03.45.76.png",
+      "expect": "accept",
+      "need": "exalted_orb",
+      "have": "chaos_orb",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.04.78.png",
+      "expect": "accept",
+      "need": "omen_of_whittling",
+      "have": "chaos_orb",
+      "min_rows": 6
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.08.21.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.09.23.png",
+      "expect": "accept",
+      "need": "omen_of_whittling",
+      "have": "divine_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.13.94.png",
+      "expect": "accept",
+      "need": "hinekoras_lock",
+      "have": "divine_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.36.50.png",
+      "expect": "accept",
+      "need": "perfect_chaos_orb",
+      "have": "chaos_orb",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.41.45.png",
+      "expect": "accept",
+      "need": "perfect_chaos_orb",
+      "have": "exalted_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.58.50.png",
+      "expect": "accept",
+      "need": "exalted_orb",
+      "have": "divine_orb",
+      "min_rows": 3
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.04.55.png",
+      "expect": "accept",
+      "need": "mirror_of_kalandra",
+      "have": "divine_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.18.31.png",
+      "expect": "accept",
+      "need": "perfect_exalted_orb",
+      "have": "divine_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.22.75.png",
+      "expect": "accept",
+      "need": "perfect_exalted_orb",
+      "have": "chaos_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.26.31.png",
+      "expect": "accept",
+      "need": "perfect_exalted_orb",
+      "have": "exalted_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.40.54.png",
+      "expect": "accept",
+      "need": "lightning_catalyst",
+      "have": "exalted_orb",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.51.82.png",
+      "expect": "accept",
+      "need": "preserved_skull",
+      "have": "exalted_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.05.59.49.png",
+      "expect": "accept",
+      "need": "preserved_skull",
+      "have": "chaos_orb",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.06.45.46.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "exalted_orb",
+      "min_rows": 2
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.06.59.08.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.07.03.59.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.07.17.98.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.07.25.98.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.07.35.34.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.07.41.63.png",
+      "expect": "skip"
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.08.08.22.png",
+      "expect": "skip"
+    }
+  ]
+}
