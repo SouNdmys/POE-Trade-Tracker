@@ -7,6 +7,7 @@
 //! shutdown contract. Only the generation primitive lives here for now so
 //! earlier layers can already stamp work with the session that issued it.
 
+pub mod analysis;
 #[cfg(windows)]
 pub mod live;
 

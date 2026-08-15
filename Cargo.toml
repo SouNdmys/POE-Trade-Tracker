@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/ptt-app",
     "crates/ptt-catalog",
     "crates/ptt-core",
     "crates/ptt-monitoring",

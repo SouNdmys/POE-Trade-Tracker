@@ -1,0 +1,20 @@
+[package]
+name = "ptt-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "POE Trade Tracker GPUI desktop app"
+
+[dependencies]
+gpui = "0.2"
+gpui-component = "0.5"
+
+[target.'cfg(windows)'.dependencies]
+chrono.workspace = true
+ptt-monitoring = { path = "../ptt-monitoring" }
+ptt-recognition = { path = "../ptt-recognition" }
+ptt-runtime = { path = "../ptt-runtime" }
+ptt-storage = { path = "../ptt-storage" }
+ptt-trade-domain = { path = "../ptt-trade-domain" }
