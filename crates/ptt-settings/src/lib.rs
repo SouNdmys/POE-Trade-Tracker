@@ -34,13 +34,23 @@ pub struct Region {
     pub height: u32,
 }
 
-/// Per-profile calibration and thresholds. Keyed by `ProfileId` display form
-/// (e.g. `poe2-zh-TW`); the panel region is per desktop resolution by nature
-/// of being calibrated on the resolution it was drawn on.
+/// Per-profile calibration. Keyed by `ProfileId` display form (e.g.
+/// `poe2-zh-TW`); regions are tied to the desktop resolution they were drawn
+/// on. The user calibrates three text-only regions (icons deliberately
+/// excluded — they degrade OCR): the "I need" name, the "I have" name, and
+/// the order-tables area holding at most 12 ratio rows (6 available + 6
+/// competing, sometimes fewer). The exchange panel shifts sideways when the
+/// stash or character panels are open; calibration assumes the centered
+/// default position, and a shifted panel simply fails the anchor/identity
+/// gates and is skipped.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ProfileSettings {
     #[serde(default)]
-    pub panel_region: Option<Region>,
+    pub need_name_region: Option<Region>,
+    #[serde(default)]
+    pub have_name_region: Option<Region>,
+    #[serde(default)]
+    pub tables_region: Option<Region>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -277,7 +287,7 @@ mod tests {
             ui_language: UiLanguage::Chinese,
             ..AppSettings::default()
         };
-        settings.profile_mut(default_active_profile()).panel_region = Some(Region {
+        settings.profile_mut(default_active_profile()).tables_region = Some(Region {
             x: 458,
             y: 60,
             width: 720,
