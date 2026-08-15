@@ -4405,6 +4405,7 @@ dependencies = [
  "ptt-core",
  "ptt-recognition",
  "ptt-vision",
+ "sha2 0.10.9",
 ]
 
 [[package]]

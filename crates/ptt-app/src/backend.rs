@@ -233,7 +233,12 @@ mod windows_backend {
             Duration::from_secs(60 * 60 * 24),
             cancel,
             |event| match event {
-                SessionEvent::Accepted { book, elapsed } => {
+                SessionEvent::Accepted {
+                    book,
+                    elapsed,
+                    captured_at,
+                    frame_hashes,
+                } => {
                     sequence += 1;
                     let need_id = book.observation.identity.need_asset_id.clone();
                     let have_id = book.observation.identity.have_asset_id.clone();
@@ -260,9 +265,14 @@ mod windows_backend {
                         .collect();
 
                     let analysis = (|| -> Result<Vec<String>, String> {
-                        let capture =
-                            capture_from_book(&book, &context, chrono::Utc::now(), sequence)
-                                .map_err(|error| format!("mapping: {error:?}"))?;
+                        let capture = capture_from_book(
+                            &book,
+                            &context,
+                            chrono::DateTime::<chrono::Utc>::from(captured_at),
+                            frame_hashes.clone(),
+                            sequence,
+                        )
+                        .map_err(|error| format!("mapping: {error:?}"))?;
                         store
                             .persist_capture(&capture)
                             .map_err(|error| format!("persist: {error}"))?;

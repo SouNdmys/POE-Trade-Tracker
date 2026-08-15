@@ -53,17 +53,13 @@ pub fn domain_asset_id(catalog_id: &str) -> Result<MarketAssetId, DomainError> {
     MarketAssetId::try_new(catalog_id.replace('_', "-"))
 }
 
-/// 64-hex encoding of the content signature for the frame-hash slots.
-fn signature_hash(signature: u64) -> String {
-    format!("{signature:016x}").repeat(4)
-}
-
 /// Maps an accepted (double-read-confirmed) book into a `ConfirmedCapture`,
 /// running the full domain validation on the way.
 pub fn capture_from_book(
     book: &RecognizedBook,
     context: &MarketContext,
     captured_at: DateTime<Utc>,
+    frame_hashes: [String; 2],
     capture_sequence: u64,
 ) -> Result<ConfirmedCapture, DomainError> {
     let signature = book.observation.signature.0;
@@ -75,9 +71,9 @@ pub fn capture_from_book(
         source: "live_watch_double_read".to_owned(),
         evidence_id: format!("sig-{signature:016x}"),
         evidence_removed: true,
-        // Both reads agreed on this content signature; the two slots record
-        // that agreement (POE1's two-frame stability contract, repurposed).
-        frame_hashes: vec![signature_hash(signature), signature_hash(signature)],
+        // Real SHA-256 digests of the two independently captured frames
+        // whose recognitions agreed (POE1's two-frame stability contract).
+        frame_hashes: frame_hashes.into(),
         profile_sha256: ptt_catalog::POE2_CATALOG_SHA256.to_owned(),
         provider_id: context.observation_identity.ocr_provider_id.clone(),
         provider_version: context.observation_identity.ocr_provider_version.clone(),
@@ -182,7 +178,14 @@ mod tests {
             have_text: "混沌石".to_owned(),
         };
         let context = poe2_live_context("test-league").expect("context");
-        let capture = capture_from_book(&book, &context, Utc::now(), 1).expect("capture");
+        let capture = capture_from_book(
+            &book,
+            &context,
+            Utc::now(),
+            ["a".repeat(64), "b".repeat(64)],
+            1,
+        )
+        .expect("capture");
 
         assert_eq!(capture.need_asset_id.as_str(), "divine-orb");
         assert_eq!(capture.have_asset_id.as_str(), "chaos-orb");

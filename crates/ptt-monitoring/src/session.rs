@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use ptt_recognition::profiles::poe2_zhtw::{RecognizedBook, Route, SkipReason};
 use ptt_vision::{
@@ -32,6 +32,11 @@ pub enum SessionEvent {
     Accepted {
         book: RecognizedBook,
         elapsed: Duration,
+        /// Wall time the first confirmed frame was captured (not dispatched).
+        captured_at: SystemTime,
+        /// SHA-256 of the two independently captured tables frames that
+        /// agreed — the double-read evidence, one digest per read.
+        frame_hashes: [String; 2],
     },
     FrameSkipped {
         reason: SkipReason,
@@ -84,7 +89,11 @@ pub fn run_session(
     let mut tables_frame = CapturedFrame::default();
     let mut need_frame = CapturedFrame::default();
     let mut have_frame = CapturedFrame::default();
+    let mut tables_frame_second = CapturedFrame::default();
+    let mut need_frame_second = CapturedFrame::default();
+    let mut have_frame_second = CapturedFrame::default();
     let mut mask = TextInkMask::default();
+    let mut mask_second = TextInkMask::default();
     let mut gate = crate::MonitorGate::new();
     let mut stats = SessionStats::default();
     let started = Instant::now();
@@ -123,9 +132,24 @@ pub fn run_session(
 
             let first = recognize(&need_frame, &have_frame, &tables_frame)
                 .map_err(|reason| SessionEvent::FrameSkipped { reason })?;
-            // Double-read confirmation on the same frames: accept only when
-            // a second pass agrees on the content signature.
-            let second = recognize(&need_frame, &have_frame, &tables_frame)
+            // Double-read confirmation on a SECOND, independent capture:
+            // re-reading the same buffers could never disagree with itself,
+            // so the confirmation pass gets fresh pixels. The screen must
+            // still show the same content (fingerprint check) and the two
+            // recognitions must agree on the content signature.
+            capture_pair(&mut capture, tables_region, &mut tables_frame_second)
+                .and_then(|()| capture_pair(&mut capture, need_region, &mut need_frame_second))
+                .and_then(|()| capture_pair(&mut capture, have_region, &mut have_frame_second))
+                .map_err(SessionEvent::CaptureError)?;
+            build_warm_mask_into(
+                &tables_frame_second,
+                WarmMaskSettings::default(),
+                &mut mask_second,
+            );
+            if mask_second.fingerprint() != mask.fingerprint() {
+                return Err(SessionEvent::ConfirmationMismatch);
+            }
+            let second = recognize(&need_frame_second, &have_frame_second, &tables_frame_second)
                 .map_err(|reason| SessionEvent::FrameSkipped { reason })?;
             if first.observation.signature != second.observation.signature {
                 return Err(SessionEvent::ConfirmationMismatch);
@@ -133,16 +157,31 @@ pub fn run_session(
             Ok(SessionEvent::Accepted {
                 book: first,
                 elapsed: recognition_started.elapsed(),
+                captured_at: tables_frame.captured_at(),
+                frame_hashes: [
+                    frame_sha256(&tables_frame),
+                    frame_sha256(&tables_frame_second),
+                ],
             })
         })();
 
         stats.recognitions += 1;
         gate.mark_handled();
         match outcome {
-            Ok(SessionEvent::Accepted { book, elapsed }) => {
+            Ok(SessionEvent::Accepted {
+                book,
+                elapsed,
+                captured_at,
+                frame_hashes,
+            }) => {
                 if gate.should_emit(book.observation.signature) {
                     stats.accepted += 1;
-                    on_event(SessionEvent::Accepted { book, elapsed });
+                    on_event(SessionEvent::Accepted {
+                        book,
+                        elapsed,
+                        captured_at,
+                        frame_hashes,
+                    });
                 } else {
                     stats.duplicates += 1;
                     on_event(SessionEvent::Duplicate);
@@ -165,6 +204,19 @@ pub fn run_session(
         }
     }
     stats
+}
+
+/// SHA-256 over the frame's pixel buffer, hex-encoded — real image digests
+/// for the provenance frame-hash slots.
+fn frame_sha256(frame: &CapturedFrame) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(frame.bgra_pixels());
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write;
+        write!(hex, "{byte:02x}").expect("string write");
+    }
+    hex
 }
 
 fn capture_pair(

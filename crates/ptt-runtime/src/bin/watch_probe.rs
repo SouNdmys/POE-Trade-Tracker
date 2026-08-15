@@ -55,7 +55,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::time::Duration::from_secs(seconds),
         &CANCEL,
         |event| {
-            let SessionEvent::Accepted { book, elapsed } = event else {
+            let SessionEvent::Accepted {
+                book,
+                elapsed,
+                captured_at,
+                frame_hashes,
+            } = event
+            else {
                 if let SessionEvent::FrameSkipped { .. } | SessionEvent::CaptureError(_) = event {
                     // Quiet: the session stats summarize skips at the end.
                 }
@@ -73,7 +79,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
 
             // Persist through the domain; a mapping failure is loud, never fatal.
-            let capture = match capture_from_book(&book, &context, Utc::now(), sequence) {
+            let capture = match capture_from_book(
+                &book,
+                &context,
+                chrono::DateTime::<Utc>::from(captured_at),
+                frame_hashes,
+                sequence,
+            ) {
                 Ok(capture) => capture,
                 Err(error) => {
                     println!("  capture mapping failed: {error:?}");

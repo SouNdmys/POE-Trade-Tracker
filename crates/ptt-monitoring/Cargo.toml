@@ -11,6 +11,7 @@ description = "Auto-watch loop for POE Trade Tracker: fingerprint gating, stabil
 ptt-core = { path = "../ptt-core" }
 ptt-recognition = { path = "../ptt-recognition" }
 ptt-vision = { path = "../ptt-vision" }
+sha2.workspace = true
 
 [[bin]]
 name = "session-probe"

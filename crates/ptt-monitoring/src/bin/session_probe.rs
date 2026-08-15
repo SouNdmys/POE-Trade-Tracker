@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::time::Duration::from_secs(seconds),
         &CANCEL,
         |event| match event {
-            SessionEvent::Accepted { book, elapsed } => {
+            SessionEvent::Accepted { book, elapsed, .. } => {
                 println!(
                     "ACCEPT [{:.0}ms] {} -> {} rows={} sig={:016X} row_skips={}",
                     elapsed.as_secs_f64() * 1e3,
