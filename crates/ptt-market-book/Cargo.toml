@@ -1,0 +1,15 @@
+[package]
+name = "ptt-market-book"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Coherent current book and quote-edge selection for POE Trade Tracker"
+
+[dependencies]
+chrono.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+ptt-trade-domain = { path = "../ptt-trade-domain" }
+

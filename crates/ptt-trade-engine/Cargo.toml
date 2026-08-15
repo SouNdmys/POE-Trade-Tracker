@@ -1,0 +1,16 @@
+[package]
+name = "ptt-trade-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Exact multi-level fill, bounded conversion, and cycle analysis for POE Trade Tracker"
+
+[dependencies]
+chrono.workspace = true
+ptt-market-book = { path = "../ptt-market-book" }
+serde.workspace = true
+thiserror.workspace = true
+ptt-trade-domain = { path = "../ptt-trade-domain" }
+

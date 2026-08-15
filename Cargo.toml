@@ -10,6 +10,9 @@ members = [
     "crates/ptt-recognition",
     "crates/ptt-runtime",
     "crates/ptt-settings",
+    "crates/ptt-trade-domain",
+    "crates/ptt-trade-engine",
+    "crates/ptt-market-book",
     "crates/ptt-vision",
 ]
 
@@ -22,9 +25,12 @@ repository = "https://github.com/SouNdmys/POE-Trade-Tracker"
 rust-version = "1.88"
 
 [workspace.dependencies]
+chrono = { version = "0.4.42", default-features = false, features = ["clock", "serde", "std"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sha2 = "=0.10.9"
+thiserror = "2.0.18"
+uuid = { version = "1.22.0", features = ["serde", "v4"] }
 
 [profile.release]
 codegen-units = 1
