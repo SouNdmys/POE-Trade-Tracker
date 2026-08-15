@@ -3,7 +3,9 @@
 //! native OCR calls are never force-killed, the loop simply stops pacing.
 
 #[cfg(windows)]
-pub use windows_backend::{Backend, UiEvent};
+pub use windows_backend::{
+    Backend, RegionSlot, ShellMsg, UiEvent, spawn_calibration, spawn_hotkey_thread,
+};
 
 #[cfg(windows)]
 mod windows_backend {
@@ -17,6 +19,122 @@ mod windows_backend {
     use ptt_recognition::profiles::poe2_zhtw::Route;
     use ptt_runtime::live::{capture_from_book, domain_asset_id, poe2_live_context};
     use ptt_storage::MarketStore;
+
+    /// Which of the three calibrated regions a wizard run targets.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum RegionSlot {
+        Need,
+        Have,
+        Tables,
+    }
+
+    impl RegionSlot {
+        pub fn override_name(self) -> &'static str {
+            match self {
+                RegionSlot::Need => "NEED",
+                RegionSlot::Have => "HAVE",
+                RegionSlot::Tables => "TABLES",
+            }
+        }
+
+        pub fn label(self) -> &'static str {
+            match self {
+                RegionSlot::Need => "Need name",
+                RegionSlot::Have => "Have name",
+                RegionSlot::Tables => "Order tables",
+            }
+        }
+    }
+
+    /// Shell-level messages from the hotkey thread and calibration runs.
+    #[derive(Debug)]
+    pub enum ShellMsg {
+        HotkeyToggle,
+        Calibrated {
+            slot: RegionSlot,
+            x: i32,
+            y: i32,
+            width: u32,
+            height: u32,
+        },
+        CalibrationCancelled(RegionSlot),
+        CalibrationFailed(RegionSlot, String),
+    }
+
+    /// Registers the global watch-toggle hotkey on a dedicated thread with
+    /// its own message loop (RegisterHotKey requires one). Returns false when
+    /// registration failed (another app owns the combination).
+    pub fn spawn_hotkey_thread(sender: std::sync::mpsc::Sender<ShellMsg>, binding: String) -> bool {
+        let (ready_tx, ready_rx) = channel();
+        std::thread::Builder::new()
+            .name("ptt-hotkeys".to_owned())
+            .spawn(move || {
+                use ptt_platform_win::{
+                    HotKeyAction, HotKeyConfig, HotKeyManager, StartMonitoringHotKey,
+                };
+                use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
+
+                let config = HotKeyConfig {
+                    start: StartMonitoringHotKey::parse_or_default(Some(&binding)),
+                };
+                let mut manager = match HotKeyManager::register_for_current_thread(config) {
+                    Ok(manager) => manager,
+                    Err(error) => {
+                        eprintln!("global hotkey registration failed: {error}");
+                        let _ = ready_tx.send(false);
+                        return;
+                    }
+                };
+                // Only the toggle is wanted in P3.
+                manager.unregister(HotKeyAction::SelectRegion);
+                manager.unregister(HotKeyAction::StopOrAcknowledge);
+                let _ = ready_tx.send(true);
+                let mut message = MSG::default();
+                // SAFETY: standard thread message loop; the manager outlives it.
+                while unsafe { GetMessageW(&mut message, None, 0, 0) }.as_bool() {
+                    if message.message == WM_HOTKEY
+                        && manager
+                            .action_for_message(message.message, message.wParam.0)
+                            .is_some()
+                        && sender.send(ShellMsg::HotkeyToggle).is_err()
+                    {
+                        break;
+                    }
+                }
+            })
+            .expect("spawn hotkey thread");
+        ready_rx.recv().unwrap_or(false)
+    }
+
+    /// Runs the fullscreen region-selection overlay on its own thread and
+    /// reports the outcome back to the shell.
+    pub fn spawn_calibration(sender: std::sync::mpsc::Sender<ShellMsg>, slot: RegionSlot) {
+        std::thread::Builder::new()
+            .name("ptt-calibrate".to_owned())
+            .spawn(move || {
+                use ptt_platform_win::{RegionSelectionOverlay, SelectionOverlayConfig};
+                let message = match RegionSelectionOverlay::select(SelectionOverlayConfig::default())
+                {
+                    Ok(Some(rect)) => match (u32::try_from(rect.width), u32::try_from(rect.height))
+                    {
+                        (Ok(width), Ok(height)) if width > 0 && height > 0 => {
+                            ShellMsg::Calibrated {
+                                slot,
+                                x: rect.x,
+                                y: rect.y,
+                                width,
+                                height,
+                            }
+                        }
+                        _ => ShellMsg::CalibrationFailed(slot, "degenerate region".to_owned()),
+                    },
+                    Ok(None) => ShellMsg::CalibrationCancelled(slot),
+                    Err(error) => ShellMsg::CalibrationFailed(slot, error.to_string()),
+                };
+                let _ = sender.send(message);
+            })
+            .expect("spawn calibration thread");
+    }
 
     #[derive(Debug)]
     pub enum UiEvent {

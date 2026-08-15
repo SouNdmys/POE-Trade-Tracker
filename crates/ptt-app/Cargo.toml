@@ -13,6 +13,10 @@ gpui-component = "0.5"
 
 [target.'cfg(windows)'.dependencies]
 chrono.workspace = true
+ptt-core = { path = "../ptt-core" }
+ptt-platform-win = { path = "../ptt-platform-win" }
+ptt-settings = { path = "../ptt-settings" }
+windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 ptt-monitoring = { path = "../ptt-monitoring" }
 ptt-recognition = { path = "../ptt-recognition" }
 ptt-runtime = { path = "../ptt-runtime" }

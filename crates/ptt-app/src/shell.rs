@@ -13,7 +13,9 @@ use crate::ui::{
 };
 
 #[cfg(windows)]
-use crate::backend::{Backend, UiEvent};
+use crate::backend::{
+    Backend, RegionSlot, ShellMsg, UiEvent, spawn_calibration, spawn_hotkey_thread,
+};
 
 const LOG_CAPACITY: usize = 120;
 
@@ -21,6 +23,15 @@ pub struct AppShell {
     pub focus_handle: FocusHandle,
     #[cfg(windows)]
     backend: Option<Backend>,
+    #[cfg(windows)]
+    settings_store: ptt_settings::SettingsStore,
+    #[cfg(windows)]
+    settings: ptt_settings::AppSettings,
+    #[cfg(windows)]
+    shell_rx: std::sync::mpsc::Receiver<ShellMsg>,
+    #[cfg(windows)]
+    shell_tx: std::sync::mpsc::Sender<ShellMsg>,
+    hotkey_ok: bool,
     watching: bool,
     accepted: u64,
     skips: BTreeMap<String, u64>,
@@ -48,10 +59,48 @@ impl AppShell {
         })
         .detach();
 
+        #[cfg(windows)]
+        let (settings_store, settings, shell_tx, shell_rx, hotkey_ok) = {
+            let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+            let store =
+                ptt_settings::SettingsStore::release_default_from(std::path::Path::new(&local));
+            let loaded = store.load();
+            let settings = loaded.settings;
+            // Re-apply persisted calibration to the recognition route.
+            if let Some(profile) = settings.profile(settings.active_profile) {
+                for (name, region) in [
+                    ("NEED", profile.need_name_region),
+                    ("HAVE", profile.have_name_region),
+                    ("TABLES", profile.tables_region),
+                ] {
+                    if let Some(region) = region {
+                        ptt_recognition::profiles::poe2_zhtw::set_region_override(
+                            name,
+                            (region.x, region.y, region.width, region.height),
+                        );
+                    }
+                }
+            }
+            let (tx, rx) = std::sync::mpsc::channel();
+            let hotkey_ok = spawn_hotkey_thread(tx.clone(), settings.hotkeys.toggle_watch.clone());
+            (store, settings, tx, rx, hotkey_ok)
+        };
+        #[cfg(not(windows))]
+        let hotkey_ok = false;
+
         Self {
             focus_handle: cx.focus_handle(),
             #[cfg(windows)]
             backend: None,
+            #[cfg(windows)]
+            settings_store,
+            #[cfg(windows)]
+            settings,
+            #[cfg(windows)]
+            shell_rx,
+            #[cfg(windows)]
+            shell_tx,
+            hotkey_ok,
             watching: false,
             accepted: 0,
             skips: BTreeMap::new(),
@@ -73,6 +122,31 @@ impl AppShell {
     fn tick(&mut self, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {
+            let mut dirty = false;
+            let messages: Vec<ShellMsg> =
+                std::iter::from_fn(|| self.shell_rx.try_recv().ok()).collect();
+            for message in messages {
+                dirty = true;
+                match message {
+                    ShellMsg::HotkeyToggle => self.toggle_watch(cx),
+                    ShellMsg::Calibrated {
+                        slot,
+                        x,
+                        y,
+                        width,
+                        height,
+                    } => self.apply_calibration(slot, x, y, width, height),
+                    ShellMsg::CalibrationCancelled(slot) => {
+                        self.push_log(format!("calibration cancelled: {}", slot.label()));
+                    }
+                    ShellMsg::CalibrationFailed(slot, error) => {
+                        self.push_log(format!("calibration failed: {} — {error}", slot.label()));
+                    }
+                }
+            }
+            if dirty {
+                cx.notify();
+            }
             let events: Vec<UiEvent> = self
                 .backend
                 .as_ref()
@@ -114,6 +188,51 @@ impl AppShell {
         }
     }
 
+    #[cfg(windows)]
+    fn apply_calibration(&mut self, slot: RegionSlot, x: i32, y: i32, width: u32, height: u32) {
+        let region = ptt_settings::Region {
+            x,
+            y,
+            width,
+            height,
+        };
+        let profile = self.settings.active_profile;
+        let entry = self.settings.profile_mut(profile);
+        match slot {
+            RegionSlot::Need => entry.need_name_region = Some(region),
+            RegionSlot::Have => entry.have_name_region = Some(region),
+            RegionSlot::Tables => entry.tables_region = Some(region),
+        }
+        ptt_recognition::profiles::poe2_zhtw::set_region_override(
+            slot.override_name(),
+            (x, y, width, height),
+        );
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.push_log(format!(
+                "calibrated {}: {x},{y} {width}x{height}",
+                slot.label()
+            )),
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
+        // A running session captured its regions at start; restart it so the
+        // new geometry takes effect immediately.
+        if self.watching {
+            if let Some(mut backend) = self.backend.take() {
+                backend.stop();
+            }
+            self.backend = Some(Backend::start());
+        }
+    }
+
+    #[cfg(windows)]
+    fn start_calibration(&mut self, slot: RegionSlot) {
+        self.push_log(format!(
+            "drag the {} region on screen (Esc cancels)",
+            slot.label()
+        ));
+        spawn_calibration(self.shell_tx.clone(), slot);
+    }
+
     fn toggle_watch(&mut self, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {
@@ -133,6 +252,82 @@ impl AppShell {
         {
             let _ = cx;
         }
+    }
+}
+
+impl AppShell {
+    #[cfg(windows)]
+    fn region_text(region: Option<ptt_settings::Region>) -> String {
+        match region {
+            Some(region) => format!(
+                "{},{}  {}x{}",
+                region.x, region.y, region.width, region.height
+            ),
+            None => "preset (2560x1440)".to_owned(),
+        }
+    }
+
+    #[cfg(windows)]
+    fn settings_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let profile = self.settings.active_profile;
+        let entry = self.settings.profile(profile).cloned().unwrap_or_default();
+        let rows: [(RegionSlot, &'static str, Option<ptt_settings::Region>); 3] = [
+            (RegionSlot::Need, "cal-need", entry.need_name_region),
+            (RegionSlot::Have, "cal-have", entry.have_name_region),
+            (RegionSlot::Tables, "cal-tables", entry.tables_region),
+        ];
+        let hotkey_line = if self.hotkey_ok {
+            format!(
+                "hotkey {}  toggles watch",
+                self.settings.hotkeys.toggle_watch
+            )
+        } else {
+            format!(
+                "hotkey {} unavailable (in use elsewhere)",
+                self.settings.hotkeys.toggle_watch
+            )
+        };
+        panel().child(panel_header("SETTINGS")).child(
+            div()
+                .p_3()
+                .flex()
+                .flex_col()
+                .gap_2()
+                .children(rows.into_iter().map(|(slot, id, region)| {
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(90.0))
+                                .text_size(fs(FS_12))
+                                .text_color(c(TEXT_META))
+                                .child(slot.label()),
+                        )
+                        .child(
+                            mono(Self::region_text(region))
+                                .text_size(fs(FS_12))
+                                .flex_grow(),
+                        )
+                        .child(button(id, LedgerButton::Quiet, "Calibrate", cx).on_click(
+                            cx.listener(move |this, _, _, cx| {
+                                this.start_calibration(slot);
+                                cx.notify();
+                            }),
+                        ))
+                }))
+                .child(
+                    mono(hotkey_line)
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META)),
+                ),
+        )
+    }
+
+    #[cfg(not(windows))]
+    fn settings_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
+        panel().child(panel_header("SETTINGS"))
     }
 }
 
@@ -251,7 +446,8 @@ impl Render for AppShell {
                                             .collect()
                                     },
                                 ),
-                            )),
+                            ))
+                            .child(self.settings_panel(cx)),
                     ),
             )
             .child(

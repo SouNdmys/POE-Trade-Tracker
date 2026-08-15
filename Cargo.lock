@@ -4359,11 +4359,15 @@ dependencies = [
  "chrono",
  "gpui",
  "gpui-component",
+ "ptt-core",
  "ptt-monitoring",
+ "ptt-platform-win",
  "ptt-recognition",
  "ptt-runtime",
+ "ptt-settings",
  "ptt-storage",
  "ptt-trade-domain",
+ "windows 0.61.3",
 ]
 
 [[package]]

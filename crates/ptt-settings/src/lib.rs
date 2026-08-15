@@ -63,7 +63,7 @@ pub struct Hotkeys {
 impl Default for Hotkeys {
     fn default() -> Self {
         Self {
-            toggle_watch: "Ctrl+Alt+F11".to_string(),
+            toggle_watch: "Ctrl+Alt+F10".to_string(),
             toggle_hud: "Alt+F11".to_string(),
             manual_capture: "Alt+F12".to_string(),
         }

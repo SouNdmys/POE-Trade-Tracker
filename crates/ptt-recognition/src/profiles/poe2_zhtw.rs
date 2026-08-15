@@ -68,6 +68,33 @@ pub enum RowSkip {
     },
 }
 
+/// Calibration overrides for the three profile regions, keyed by "NEED",
+/// "HAVE", "TABLES". Set by the app when the user draws regions; consulted
+/// on every capture, so a re-calibration applies from the next watch start.
+type RegionRect = (i32, i32, u32, u32);
+type RegionOverrideMap = std::sync::RwLock<std::collections::BTreeMap<String, RegionRect>>;
+
+static REGION_OVERRIDES: std::sync::OnceLock<RegionOverrideMap> = std::sync::OnceLock::new();
+
+fn overrides() -> &'static RegionOverrideMap {
+    REGION_OVERRIDES.get_or_init(|| std::sync::RwLock::new(std::collections::BTreeMap::new()))
+}
+
+pub fn set_region_override(name: &str, region: RegionRect) {
+    overrides()
+        .write()
+        .expect("region override lock")
+        .insert(name.to_owned(), region);
+}
+
+pub fn region_override(name: &str) -> Option<RegionRect> {
+    overrides()
+        .read()
+        .expect("region override lock")
+        .get(name)
+        .copied()
+}
+
 #[cfg(windows)]
 pub use windows_route::{RecognizedBook, Route};
 
@@ -75,6 +102,7 @@ pub use windows_route::{RecognizedBook, Route};
 mod windows_route {
     use super::{
         HAVE_NAME_REGION, NEED_NAME_REGION, RowSkip, SkipReason, TABLES_REGION, default_row_layout,
+        region_override,
     };
     use crate::book::{BookIdentity, BookObservation, RowObservation};
     use crate::fields::{Comparator, FieldReject, parse_ratio, parse_stock, split_row_line};
@@ -267,9 +295,14 @@ mod windows_route {
             Some(tokens.join(" "))
         }
 
-        /// Preset region, overridable via `PTT_POE2_<NAME>_ROI=x,y,w,h` for
-        /// calibration experiments without recompiling.
+        /// Preset region, with two override layers: a runtime override set by
+        /// the app's calibration wizard (wins), then the
+        /// `PTT_POE2_<NAME>_ROI=x,y,w,h` env override for probe experiments.
         fn region(name: &str, preset: (i32, i32, u32, u32)) -> CaptureRegion {
+            if let Some(region) = region_override(name) {
+                return CaptureRegion::new(region.0, region.1, region.2, region.3)
+                    .expect("calibrated regions are validated on set");
+            }
             let from_env = std::env::var(format!("PTT_POE2_{name}_ROI"))
                 .ok()
                 .and_then(|value| {
