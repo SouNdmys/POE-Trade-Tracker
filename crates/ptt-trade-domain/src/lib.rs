@@ -54,6 +54,7 @@ impl fmt::Display for MarketAssetId {
 #[serde(rename_all = "snake_case")]
 pub enum Game {
     Poe1,
+    Poe2,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -66,6 +67,7 @@ pub enum Realm {
 #[serde(rename_all = "snake_case")]
 pub enum ClientLanguage {
     English,
+    TraditionalChinese,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -180,11 +182,36 @@ impl MarketContext {
         parser_version: impl Into<String>,
         observation_identity: ObservationIdentity,
     ) -> Result<Self, DomainError> {
+        Self::try_new_for(
+            Game::Poe1,
+            ClientLanguage::English,
+            league,
+            game_ui_build,
+            layout_profile_id,
+            layout_profile_version,
+            parser_version,
+            observation_identity,
+        )
+    }
+
+    /// Game-dimensioned constructor for the unified tracker; the legacy
+    /// `try_new` keeps the ported POE1 call sites and tests compiling.
+    #[allow(clippy::too_many_arguments)]
+    pub fn try_new_for(
+        game: Game,
+        client_language: ClientLanguage,
+        league: impl Into<String>,
+        game_ui_build: impl Into<String>,
+        layout_profile_id: impl Into<String>,
+        layout_profile_version: u32,
+        parser_version: impl Into<String>,
+        observation_identity: ObservationIdentity,
+    ) -> Result<Self, DomainError> {
         let context = Self {
-            game: Game::Poe1,
+            game,
             realm: Realm::Pc,
             league: league.into().trim().to_owned(),
-            client_language: ClientLanguage::English,
+            client_language,
             game_ui_build: game_ui_build.into().trim().to_owned(),
             layout_profile_id: layout_profile_id.into().trim().to_owned(),
             layout_profile_version,
@@ -242,6 +269,7 @@ impl MarketContext {
 const fn game_key(game: Game) -> &'static str {
     match game {
         Game::Poe1 => "poe1",
+        Game::Poe2 => "poe2",
     }
 }
 
@@ -254,6 +282,7 @@ const fn realm_key(realm: Realm) -> &'static str {
 const fn client_language_key(language: ClientLanguage) -> &'static str {
     match language {
         ClientLanguage::English => "english",
+        ClientLanguage::TraditionalChinese => "traditional-chinese",
     }
 }
 
