@@ -7,6 +7,9 @@
 //! shutdown contract. Only the generation primitive lives here for now so
 //! earlier layers can already stamp work with the session that issued it.
 
+#[cfg(windows)]
+pub mod live;
+
 /// Monotonically increasing id for a runtime session. Work stamped with an old
 /// generation is discarded on arrival; replacement invalidates the generation
 /// *before* waiting on anything.

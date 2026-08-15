@@ -463,8 +463,13 @@ name = "ptt-runtime"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "ptt-catalog",
  "ptt-core",
  "ptt-market-book",
+ "ptt-monitoring",
+ "ptt-ocr-onnx",
+ "ptt-recognition",
+ "ptt-storage",
  "ptt-trade-domain",
  "ptt-trade-engine",
  "rusqlite",
