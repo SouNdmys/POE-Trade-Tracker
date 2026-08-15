@@ -55,9 +55,10 @@ pub enum RowsReject {
         top: i32,
         height: u32,
     },
-    /// Zero or more than one inter-table gap found.
-    TableSplitAmbiguous {
-        gaps: usize,
+    /// A band straddles the calibrated table boundary.
+    SplitStraddled {
+        top: i32,
+        height: u32,
     },
     /// More logical rows than the game can display on one side.
     TooManyRows {
@@ -73,7 +74,12 @@ pub struct RowLayout {
     pub single_height: (u32, u32),
     pub merged_height_max: u32,
     pub row_pitch: u32,
-    pub table_gap_min: i32,
+    /// Calibrated y boundary between the two tables (region coordinates).
+    /// The popup position is fixed per profile, so side assignment is a
+    /// threshold test — gap inference proved unsafe when partial detection
+    /// removed the visual gap and shifted the split (live-session bug:
+    /// available rows briefly ingested as competing).
+    pub table_split_top: i32,
     pub max_rows_per_side: u8,
 }
 
@@ -83,7 +89,8 @@ impl Default for RowLayout {
             single_height: (38, 52),
             merged_height_max: 130,
             row_pitch: 31,
-            table_gap_min: 40,
+            // Corpus: available crops top 60-213, competing 321-474.
+            table_split_top: 280,
             max_rows_per_side: 6,
         }
     }
@@ -128,34 +135,22 @@ pub fn classify_rows(bands: &[BandGeometry], layout: &RowLayout) -> Result<RowPl
         estimated.push((band, rows));
     }
 
-    // Find the single inter-table gap: distance between the *bottom* of one
-    // band and the top of the next exceeding the layout threshold.
-    let mut split_indices = Vec::new();
-    for index in 1..estimated.len() {
-        let previous = estimated[index - 1].0;
-        let previous_bottom = previous.top + previous.height as i32;
-        let gap = estimated[index].0.top - previous_bottom;
-        if gap >= layout.table_gap_min {
-            split_indices.push(index);
-        }
-    }
-    if split_indices.len() != 1 {
-        return Err(RowsReject::TableSplitAmbiguous {
-            gaps: split_indices.len(),
-        });
-    }
-    let split = split_indices[0];
-
     let mut plan = RowPlan {
         bands: Vec::with_capacity(estimated.len()),
         available_rows: 0,
         competing_rows: 0,
     };
-    for (index, (band, rows)) in estimated.iter().enumerate() {
-        let side = if index < split {
+    for (band, rows) in estimated.iter() {
+        let bottom = band.top + band.height as i32;
+        let side = if bottom <= layout.table_split_top {
             Side::Available
-        } else {
+        } else if band.top >= layout.table_split_top {
             Side::Competing
+        } else {
+            return Err(RowsReject::SplitStraddled {
+                top: band.top,
+                height: band.height,
+            });
         };
         let counter = match side {
             Side::Available => &mut plan.available_rows,
@@ -257,24 +252,36 @@ mod tests {
     }
 
     #[test]
-    fn missing_or_double_gap_is_ambiguous() {
-        let one_table: Vec<BandGeometry> = [60, 91, 121].into_iter().map(|t| band(t, 45)).collect();
-        assert!(matches!(
-            classify_rows(&one_table, &RowLayout::default()),
-            Err(RowsReject::TableSplitAmbiguous { gaps: 0 })
-        ));
+    fn sides_come_from_the_calibrated_boundary_not_gap_inference() {
+        // Partial detection (missing early available rows) must not shift
+        // rows across tables — the live-session mislabel bug.
+        let partial: Vec<BandGeometry> = [152, 183, 213, 321, 352]
+            .into_iter()
+            .map(|t| band(t, 45))
+            .collect();
+        let plan = classify_rows(&partial, &RowLayout::default()).unwrap();
+        assert_eq!(plan.available_rows, 3);
+        assert_eq!(plan.competing_rows, 2);
 
-        let three_groups: Vec<BandGeometry> =
-            [60, 200, 340].into_iter().map(|t| band(t, 45)).collect();
+        // A one-sided detection stays one-sided instead of being rejected.
+        let one_table: Vec<BandGeometry> = [60, 91, 121].into_iter().map(|t| band(t, 45)).collect();
+        let plan = classify_rows(&one_table, &RowLayout::default()).unwrap();
+        assert_eq!(plan.available_rows, 3);
+        assert_eq!(plan.competing_rows, 0);
+    }
+
+    #[test]
+    fn boundary_straddling_band_rejects_the_frame() {
+        let bands = vec![band(60, 45), band(255, 45), band(321, 45)];
         assert!(matches!(
-            classify_rows(&three_groups, &RowLayout::default()),
-            Err(RowsReject::TableSplitAmbiguous { gaps: 2 })
+            classify_rows(&bands, &RowLayout::default()),
+            Err(RowsReject::SplitStraddled { top: 255, .. })
         ));
     }
 
     #[test]
     fn overfull_side_rejects() {
-        let mut bands: Vec<BandGeometry> = (0..7).map(|i| band(60 + i * 31, 45)).collect();
+        let mut bands: Vec<BandGeometry> = (0..7).map(|i| band(18 + i * 31, 45)).collect();
         bands.push(band(500, 45));
         assert!(matches!(
             classify_rows(&bands, &RowLayout::default()),

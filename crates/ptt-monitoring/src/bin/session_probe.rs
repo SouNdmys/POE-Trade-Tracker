@@ -46,6 +46,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         row.stock
                     );
                 }
+                for skip in &book.skipped_rows {
+                    println!("  SKIPPED-ROW {skip:?}");
+                }
             }
             SessionEvent::FrameSkipped { reason } => println!("skip: {reason:?}"),
             SessionEvent::ConfirmationMismatch => println!("skip: double-read mismatch"),
