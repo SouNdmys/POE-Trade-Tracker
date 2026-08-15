@@ -15,7 +15,7 @@ pub use route::{
 };
 pub use triangle::{
     ProfitKind, TriangleDiagnostics, TriangleEvaluation, TriangleEvaluationStatus, TriangleRequest,
-    TriangleResult, find_triangle_opportunities,
+    TriangleResult, canonical_cycle_key, find_triangle_opportunities,
 };
 
 use thiserror::Error;
