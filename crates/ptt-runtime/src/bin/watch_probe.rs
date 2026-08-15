@@ -99,7 +99,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Recompute the whole book and show what matters for this pair.
             let outcome = (|| -> Result<(), Box<dyn std::error::Error>> {
-                let observations = store.load_observations(&context_key)?;
+                let observations = store.load_observations(
+                    &context_key,
+                    Some(Utc::now() - chrono::Duration::hours(2)),
+                )?;
                 let need = domain_asset_id(&need_id)?;
                 let have = domain_asset_id(&have_id)?;
                 for line in ptt_runtime::analysis::pair_analysis_lines(

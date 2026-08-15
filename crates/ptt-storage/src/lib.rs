@@ -14,7 +14,7 @@ use ptt_trade_domain::{
     Comparator, ConfirmedCapture, ExecutionType, MarketAssetId, MarketEdgeObservation, QuoteEdge,
     QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
 };
-use rusqlite::{Connection, OpenFlags, params};
+use rusqlite::{Connection, OpenFlags, TransactionBehavior, params};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     captured_at TEXT NOT NULL,
     confirmed_at TEXT NOT NULL,
     machine_draft_json TEXT NOT NULL,
+    confirmation_mode TEXT NOT NULL DEFAULT 'automatic_consensus',
+    frame_hash_first TEXT NOT NULL DEFAULT '',
+    frame_hash_second TEXT NOT NULL DEFAULT '',
+    provider_id TEXT NOT NULL DEFAULT '',
+    model_sha256 TEXT NOT NULL DEFAULT '',
+    review_json TEXT NOT NULL DEFAULT '',
     CHECK (need_asset_id <> have_asset_id)
 ) STRICT;
 
@@ -74,7 +80,23 @@ CREATE INDEX IF NOT EXISTS quote_edges_by_context ON quote_edges(context_key);
 CREATE INDEX IF NOT EXISTS quote_edges_by_snapshot ON quote_edges(snapshot_id);
 CREATE INDEX IF NOT EXISTS snapshots_by_pair
     ON market_snapshots(context_key, need_asset_id, have_asset_id);
+CREATE INDEX IF NOT EXISTS quote_edges_by_context_time
+    ON quote_edges(context_key, captured_at);
 "#;
+
+/// Columns added after the first shipped baseline; applied idempotently so
+/// databases created before them keep working.
+const SNAPSHOT_UPGRADE_COLUMNS: [(&str, &str); 6] = [
+    (
+        "confirmation_mode",
+        "TEXT NOT NULL DEFAULT 'automatic_consensus'",
+    ),
+    ("frame_hash_first", "TEXT NOT NULL DEFAULT ''"),
+    ("frame_hash_second", "TEXT NOT NULL DEFAULT ''"),
+    ("provider_id", "TEXT NOT NULL DEFAULT ''"),
+    ("model_sha256", "TEXT NOT NULL DEFAULT ''"),
+    ("review_json", "TEXT NOT NULL DEFAULT ''"),
+];
 
 pub struct MarketStore {
     connection: Connection,
@@ -97,14 +119,42 @@ impl MarketStore {
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         connection.pragma_update(None, "synchronous", "NORMAL")?;
+        // Without a busy timeout the first contended access fails instantly
+        // (SQLITE_BUSY) and the book is lost; 5s rides out a concurrent
+        // probe/app sharing the file.
+        connection.busy_timeout(std::time::Duration::from_secs(5))?;
         connection.execute_batch(BASELINE_SCHEMA)?;
+        Self::apply_upgrades(&connection)?;
         Ok(Self { connection })
+    }
+
+    fn apply_upgrades(connection: &Connection) -> Result<(), StorageError> {
+        let mut existing = std::collections::BTreeSet::new();
+        {
+            let mut statement = connection.prepare("PRAGMA table_info(market_snapshots)")?;
+            let mut rows = statement.query([])?;
+            while let Some(row) = rows.next()? {
+                existing.insert(row.get::<_, String>(1)?);
+            }
+        }
+        for (name, definition) in SNAPSHOT_UPGRADE_COLUMNS {
+            if !existing.contains(name) {
+                connection.execute_batch(&format!(
+                    "ALTER TABLE market_snapshots ADD COLUMN {name} {definition};"
+                ))?;
+            }
+        }
+        Ok(())
     }
 
     /// Persists one accepted book atomically: context (idempotent), snapshot,
     /// and every quote edge exactly as the domain constructed them.
     pub fn persist_capture(&mut self, capture: &ConfirmedCapture) -> Result<(), StorageError> {
-        let transaction = self.connection.transaction()?;
+        // Immediate: take the write lock up front instead of upgrading a
+        // deferred transaction mid-way (the classic contention failure).
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute(
             "INSERT OR IGNORE INTO market_contexts (context_key, context_json, created_at)
              VALUES (?1, ?2, ?3)",
@@ -117,8 +167,10 @@ impl MarketStore {
         )?;
         transaction.execute(
             "INSERT INTO market_snapshots (snapshot_id, capture_id, context_key,
-                 need_asset_id, have_asset_id, captured_at, confirmed_at, machine_draft_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 need_asset_id, have_asset_id, captured_at, confirmed_at, machine_draft_json,
+                 confirmation_mode, frame_hash_first, frame_hash_second, provider_id,
+                 model_sha256, review_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 capture.snapshot_id,
                 capture.capture_id,
@@ -128,6 +180,22 @@ impl MarketStore {
                 capture.captured_at.to_rfc3339(),
                 capture.confirmed_at.to_rfc3339(),
                 capture.machine_draft_json,
+                enum_key(&capture.provenance.confirmation_mode)?,
+                capture
+                    .provenance
+                    .frame_hashes
+                    .first()
+                    .cloned()
+                    .unwrap_or_default(),
+                capture
+                    .provenance
+                    .frame_hashes
+                    .get(1)
+                    .cloned()
+                    .unwrap_or_default(),
+                capture.provenance.provider_id,
+                capture.provenance.model_sha256,
+                capture.review_json,
             ],
         )?;
         for edge in &capture.quote_edges {
@@ -174,19 +242,27 @@ impl MarketStore {
     /// All stored snapshots are complete and active by construction in the
     /// auto-accept flow; the coherent-book layer still reduces to the newest
     /// snapshot per pair.
+    /// Loads stored edges for a context as engine-ready observations.
+    /// `since` bounds the read to edges captured at or after the cutoff --
+    /// analysis only consumes the freshness window, and an unbounded read
+    /// grows O(season) on the accept path. Pass `None` for full history.
     pub fn load_observations(
         &self,
         context_key: &str,
+        since: Option<DateTime<Utc>>,
     ) -> Result<Vec<MarketEdgeObservation>, StorageError> {
-        let mut statement = self.connection.prepare(
+        // RFC3339 with a fixed offset compares lexicographically in time
+        // order, so the TEXT column filter is exact.
+        let cutoff = since.map(|value| value.to_rfc3339()).unwrap_or_default();
+        let mut statement = self.connection.prepare_cached(
             "SELECT edge_id, snapshot_id, quote_id, context_key, from_asset_id, to_asset_id,
                  rate_text, rate_numerator, rate_denominator, source_side, execution_type, role,
                  stock, original_need_asset_id, original_have_asset_id, original_row_index,
                  comparator, user_edited, machine_confidence_ppm, captured_at, confirmed_at
-             FROM quote_edges WHERE context_key = ?1
+             FROM quote_edges WHERE context_key = ?1 AND captured_at >= ?2
              ORDER BY snapshot_id, original_row_index, role",
         )?;
-        let rows = statement.query_map(params![context_key], |row| {
+        let rows = statement.query_map(params![context_key, cutoff], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,

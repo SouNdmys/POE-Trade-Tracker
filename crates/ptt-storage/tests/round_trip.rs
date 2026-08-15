@@ -103,7 +103,7 @@ fn capture_round_trips_to_identical_observations() {
     store.persist_capture(&capture).expect("persist");
 
     let observations = store
-        .load_observations(&capture.context.stable_key())
+        .load_observations(&capture.context.stable_key(), None)
         .expect("load");
     assert_eq!(observations.len(), 4, "two rows -> four edges");
     let stored: Vec<_> = observations.iter().map(|o| &o.edge).collect();
@@ -118,10 +118,32 @@ fn capture_round_trips_to_identical_observations() {
 
     assert!(
         store
-            .load_observations("other-context")
+            .load_observations("other-context", None)
             .expect("load")
             .is_empty(),
         "context isolation"
+    );
+}
+
+#[test]
+fn mid_capture_edge_failure_rolls_back_the_whole_book() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    let good = capture();
+    store.persist_capture(&good).expect("persist");
+
+    // A second capture whose LAST edge violates a CHECK constraint after
+    // earlier edges of the same capture inserted: the transaction must roll
+    // everything back, leaving only the first capture rows.
+    let mut bad = capture();
+    bad.quote_edges.last_mut().expect("edges").stock = 0;
+    assert!(store.persist_capture(&bad).is_err(), "CHECK must fail");
+    let observations = store
+        .load_observations(&good.context.stable_key(), None)
+        .expect("load");
+    assert_eq!(
+        observations.len(),
+        4,
+        "no partial rows from the bad capture"
     );
 }
 
@@ -135,7 +157,7 @@ fn duplicate_snapshot_insert_fails_atomically() {
         "same snapshot id must not double-insert"
     );
     let observations = store
-        .load_observations(&capture.context.stable_key())
+        .load_observations(&capture.context.stable_key(), None)
         .expect("load");
     assert_eq!(observations.len(), 4, "failed insert left no partial rows");
 }

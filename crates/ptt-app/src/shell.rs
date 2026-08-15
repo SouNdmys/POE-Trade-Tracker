@@ -190,9 +190,11 @@ impl AppShell {
                     UiEvent::Fault(message) => {
                         self.fault = Some(message);
                         self.watching = false;
+                        self.backend = None;
                     }
                     UiEvent::Stopped => {
                         self.watching = false;
+                        self.backend = None;
                     }
                 }
             }
@@ -364,9 +366,12 @@ impl Render for AppShell {
             LedgerButton::Primary
         };
 
-        let mut skip_lines: Vec<String> = self
-            .skips
-            .iter()
+        // Highest counts first: an alphabetical slice would hide the
+        // dominant failure mode once reasons exceed the display cap.
+        let mut ranked: Vec<(&String, &u64)> = self.skips.iter().collect();
+        ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
+        let mut skip_lines: Vec<String> = ranked
+            .into_iter()
             .map(|(reason, count)| format!("{count:>5}  {reason}"))
             .collect();
         skip_lines.truncate(10);

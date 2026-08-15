@@ -30,7 +30,7 @@ impl Default for SessionConfig {
 #[derive(Debug)]
 pub enum SessionEvent {
     Accepted {
-        book: RecognizedBook,
+        book: Box<RecognizedBook>,
         elapsed: Duration,
         /// Wall time the first confirmed frame was captured (not dispatched).
         captured_at: SystemTime,
@@ -155,7 +155,7 @@ pub fn run_session(
                 return Err(SessionEvent::ConfirmationMismatch);
             }
             Ok(SessionEvent::Accepted {
-                book: first,
+                book: Box::new(first),
                 elapsed: recognition_started.elapsed(),
                 captured_at: tables_frame.captured_at(),
                 frame_hashes: [

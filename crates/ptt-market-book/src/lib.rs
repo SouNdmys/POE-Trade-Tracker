@@ -438,11 +438,13 @@ impl QuoteSelectionPolicy {
                 minimum_lots_verified: false,
             },
             // F3: the auto-watch loop stamps every book at capture, so the
-            // cross-leg skew gate runs armed by default — multi-pair routes
-            // whose legs were captured more than 90s apart are flagged and
-            // lose execution eligibility instead of passing silently.
+            // cross-leg skew gate runs armed by default. The window matches
+            // the freshness "fresh" band (10 min): the tracker reads one
+            // panel at a time, so cross-pair legs are minutes apart by
+            // construction — a 90s window would flag every multi-leg result
+            // and stop discriminating genuinely stale legs.
             capture_skew: CaptureSkewPolicy {
-                max_capture_skew_seconds: Some(90),
+                max_capture_skew_seconds: Some(600),
                 calibration_status: PolicyCalibrationStatus::Verified,
             },
             product_execution_allowed: false,
@@ -1129,7 +1131,7 @@ mod tests {
             PolicyCalibrationStatus::Unverified
         );
         assert!(!policy.cost_verification.all_verified());
-        assert_eq!(policy.capture_skew.max_capture_skew_seconds, Some(90));
+        assert_eq!(policy.capture_skew.max_capture_skew_seconds, Some(600));
         assert!(!policy.product_execution_allowed);
         assert!(policy.is_personal_default());
 

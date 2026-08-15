@@ -194,7 +194,28 @@ mod windows_backend {
         }
     }
 
+    /// Sends a Fault if the worker unwinds without a normal exit, so a panic
+    /// can never leave the UI stuck on WATCHING with a silently dead channel.
+    struct FaultOnDrop {
+        sender: Sender<UiEvent>,
+        armed: bool,
+    }
+
+    impl Drop for FaultOnDrop {
+        fn drop(&mut self) {
+            if self.armed {
+                let _ = self.sender.send(UiEvent::Fault(
+                    "watch worker terminated unexpectedly".into(),
+                ));
+            }
+        }
+    }
+
     fn run_watch(cancel: &AtomicBool, sender: &Sender<UiEvent>) {
+        let mut sentinel = FaultOnDrop {
+            sender: sender.clone(),
+            armed: true,
+        };
         let route = match Route::new() {
             Ok(route) => route,
             Err(reason) => {
@@ -264,7 +285,10 @@ mod windows_backend {
                         })
                         .collect();
 
-                    let analysis = (|| -> Result<Vec<String>, String> {
+                    // A book only counts as accepted once it is durably
+                    // persisted; mapping/persist failures surface as a loud
+                    // fault instead of a phantom accept.
+                    let persisted = (|| -> Result<(), String> {
                         let capture = capture_from_book(
                             &book,
                             &context,
@@ -275,9 +299,22 @@ mod windows_backend {
                         .map_err(|error| format!("mapping: {error:?}"))?;
                         store
                             .persist_capture(&capture)
-                            .map_err(|error| format!("persist: {error}"))?;
+                            .map_err(|error| format!("persist: {error}"))
+                    })();
+                    if let Err(error) = persisted {
+                        let _ = sender.send(UiEvent::Skipped("persist-failed".into()));
+                        let _ = sender.send(UiEvent::Fault(format!(
+                            "book NOT stored ({need_id} -> {have_id}): {error}"
+                        )));
+                        return;
+                    }
+
+                    let analysis = (|| -> Result<Vec<String>, String> {
                         let observations = store
-                            .load_observations(&context_key)
+                            .load_observations(
+                                &context_key,
+                                Some(chrono::Utc::now() - chrono::Duration::hours(2)),
+                            )
                             .map_err(|error| format!("load: {error}"))?;
                         let need =
                             domain_asset_id(&need_id).map_err(|error| format!("{error:?}"))?;
@@ -291,7 +328,7 @@ mod windows_backend {
                         )
                         .map_err(|error| format!("analysis: {error}"))
                     })()
-                    .unwrap_or_else(|error| vec![format!("pipeline error: {error}")]);
+                    .unwrap_or_else(|error| vec![format!("analysis error: {error}")]);
 
                     let _ = sender.send(UiEvent::Accepted {
                         header,
@@ -306,11 +343,12 @@ mod windows_backend {
                     let _ = sender.send(UiEvent::Skipped("double-read mismatch".to_owned()));
                 }
                 SessionEvent::Duplicate => {}
-                SessionEvent::CaptureError(error) => {
-                    let _ = sender.send(UiEvent::Skipped(format!("capture: {error}")));
+                SessionEvent::CaptureError(_) => {
+                    let _ = sender.send(UiEvent::Skipped("capture-error".into()));
                 }
             },
         );
+        sentinel.armed = false;
         let _ = sender.send(UiEvent::Stopped);
     }
 

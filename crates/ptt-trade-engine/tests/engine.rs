@@ -426,7 +426,7 @@ fn none_fee_keeps_gross_theory_and_armed_skew_gate_passes_zero_skew() {
     // F3: the skew gate is armed by default and measured directly; legs
     // captured together pass it cleanly instead of being "unverified".
     assert_eq!(evidence.capture_skew_seconds, 0);
-    assert_eq!(evidence.max_capture_skew_seconds, Some(90));
+    assert_eq!(evidence.max_capture_skew_seconds, Some(600));
     assert_eq!(evidence.exceeds_max_capture_skew, Some(false));
     assert!(
         !opportunity
