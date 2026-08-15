@@ -1,0 +1,7 @@
+# OCR production assets and catalog data are SHA-256 pinned; Git must never rewrite
+# their line endings or the runtime integrity checks will fail.
+assets/ocr/PP-OCRv5_mobile_rec.onnx binary
+assets/ocr/ppocrv5_dict.txt binary
+crates/ptt-catalog/data/** binary
+tests/screenshots/*.png binary
+tests/screenshots/*.jpg binary

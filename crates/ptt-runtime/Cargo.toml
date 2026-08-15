@@ -1,0 +1,11 @@
+[package]
+name = "ptt-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Background actor runtime for POE Trade Tracker (skeleton; full port lands in P2)"
+
+[dependencies]
+ptt-core = { path = "../ptt-core" }

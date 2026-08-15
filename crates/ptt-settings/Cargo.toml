@@ -1,0 +1,13 @@
+[package]
+name = "ptt-settings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Versioned, crash-safe JSON settings store for POE Trade Tracker"
+
+[dependencies]
+ptt-core = { path = "../ptt-core" }
+serde.workspace = true
+serde_json.workspace = true

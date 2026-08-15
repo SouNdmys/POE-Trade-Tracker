@@ -1,0 +1,16 @@
+.vs/
+.idea/
+target/
+target-*/
+artifacts/
+vendor/
+.cargo-vendor-config.toml
+_to_delete/
+*.user
+*.suo
+
+# Local gameplay captures are large and may contain private desktop details. Keep the
+# compact JSON manifests/corpora in Git, but do not publish raw screenshot fixtures.
+tests/screenshots/**/*.png
+tests/screenshots/**/*.jpg
+tests/screenshots/**/*.jpeg
