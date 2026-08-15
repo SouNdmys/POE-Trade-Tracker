@@ -96,9 +96,12 @@ impl Default for RowLayout {
             single_height: (38, 52),
             merged_height_max: 130,
             row_pitch: 31,
-            // Corpus: first available crop top is 60; competing follows the
-            // available rows at a ~62px visual gap wherever they end.
-            first_row_top: (45, 80),
+            // The guard's job is rejecting frames whose LEADING rows went
+            // undetected (top jumps by a pitch multiple). Preset ROI puts the
+            // first crop top at 60; a user-calibrated tight box puts it near
+            // the detector margin (~5-20). (0, 90) accepts both while a
+            // missing first row (top >= ~107 in either geometry) still fails.
+            first_row_top: (0, 90),
             table_gap_min: 40,
             max_rows_per_side: 6,
         }

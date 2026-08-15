@@ -74,20 +74,20 @@ mod windows_backend {
                 };
                 use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
 
+                use ptt_platform_win::HotKeyTarget;
+
                 let config = HotKeyConfig {
                     start: StartMonitoringHotKey::parse_or_default(Some(&binding)),
                 };
-                let mut manager = match HotKeyManager::register_for_current_thread(config) {
-                    Ok(manager) => manager,
-                    Err(error) => {
-                        eprintln!("global hotkey registration failed: {error}");
-                        let _ = ready_tx.send(false);
-                        return;
-                    }
-                };
-                // Only the toggle is wanted in P3.
-                manager.unregister(HotKeyAction::SelectRegion);
-                manager.unregister(HotKeyAction::StopOrAcknowledge);
+                // Register ONLY the toggle: the all-or-nothing helper would
+                // let an unrelated app owning Ctrl+Shift+F11/F12 veto the one
+                // combination we actually use.
+                let mut manager = HotKeyManager::unregistered(HotKeyTarget::CurrentThread, config);
+                if let Err(error) = manager.register(HotKeyAction::StartMonitoring) {
+                    eprintln!("global hotkey registration failed: {error}");
+                    let _ = ready_tx.send(false);
+                    return;
+                }
                 let _ = ready_tx.send(true);
                 let mut message = MSG::default();
                 // SAFETY: standard thread message loop; the manager outlives it.

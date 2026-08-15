@@ -69,8 +69,8 @@ pub enum RowSkip {
 }
 
 /// Calibration overrides for the three profile regions, keyed by "NEED",
-/// "HAVE", "TABLES". Set by the app when the user draws regions; consulted
-/// on every capture, so a re-calibration applies from the next watch start.
+/// "HAVE", "TABLES". Set by the app when the user draws regions; captured
+/// once per watch session start (Route::regions()).
 type RegionRect = (i32, i32, u32, u32);
 type RegionOverrideMap = std::sync::RwLock<std::collections::BTreeMap<String, RegionRect>>;
 
@@ -80,11 +80,18 @@ fn overrides() -> &'static RegionOverrideMap {
     REGION_OVERRIDES.get_or_init(|| std::sync::RwLock::new(std::collections::BTreeMap::new()))
 }
 
-pub fn set_region_override(name: &str, region: RegionRect) {
+/// Installs an override after validating it as a capturable region; returns
+/// false (and installs nothing) for degenerate geometry, so a corrupt
+/// settings file can never panic the watch thread.
+pub fn set_region_override(name: &str, region: RegionRect) -> bool {
+    if ptt_vision::CaptureRegion::new(region.0, region.1, region.2, region.3).is_err() {
+        return false;
+    }
     overrides()
         .write()
         .expect("region override lock")
         .insert(name.to_owned(), region);
+    true
 }
 
 pub fn region_override(name: &str) -> Option<RegionRect> {
@@ -299,9 +306,10 @@ mod windows_route {
         /// the app's calibration wizard (wins), then the
         /// `PTT_POE2_<NAME>_ROI=x,y,w,h` env override for probe experiments.
         fn region(name: &str, preset: (i32, i32, u32, u32)) -> CaptureRegion {
-            if let Some(region) = region_override(name) {
-                return CaptureRegion::new(region.0, region.1, region.2, region.3)
-                    .expect("calibrated regions are validated on set");
+            if let Some(region) = region_override(name)
+                && let Ok(valid) = CaptureRegion::new(region.0, region.1, region.2, region.3)
+            {
+                return valid;
             }
             let from_env = std::env::var(format!("PTT_POE2_{name}_ROI"))
                 .ok()

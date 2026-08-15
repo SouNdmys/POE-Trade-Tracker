@@ -73,13 +73,29 @@ impl AppShell {
                     ("HAVE", profile.have_name_region),
                     ("TABLES", profile.tables_region),
                 ] {
-                    if let Some(region) = region {
-                        ptt_recognition::profiles::poe2_zhtw::set_region_override(
+                    if let Some(region) = region
+                        && !ptt_recognition::profiles::poe2_zhtw::set_region_override(
                             name,
                             (region.x, region.y, region.width, region.height),
-                        );
+                        )
+                    {
+                        eprintln!("ignoring invalid persisted region for {name}");
                     }
                 }
+            }
+            // Normalize the stored binding through the supported set and
+            // write the resolved value back, so the UI never advertises a
+            // combination that is not actually registered (legacy files hold
+            // "Ctrl+Alt+F11", which is outside the supported options).
+            let mut settings = settings;
+            let resolved = ptt_platform_win::StartMonitoringHotKey::parse_or_default(Some(
+                &settings.hotkeys.toggle_watch,
+            ))
+            .setting_value()
+            .to_owned();
+            if settings.hotkeys.toggle_watch != resolved {
+                settings.hotkeys.toggle_watch = resolved;
+                let _ = store.save(&settings);
             }
             let (tx, rx) = std::sync::mpsc::channel();
             let hotkey_ok = spawn_hotkey_thread(tx.clone(), settings.hotkeys.toggle_watch.clone());

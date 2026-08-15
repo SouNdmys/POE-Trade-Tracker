@@ -55,17 +55,30 @@ pub struct ProfileSettings {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hotkeys {
+    #[serde(default = "default_toggle_watch")]
     pub toggle_watch: String,
+    #[serde(default = "default_toggle_hud")]
     pub toggle_hud: String,
+    #[serde(default = "default_manual_capture")]
     pub manual_capture: String,
+}
+
+fn default_toggle_watch() -> String {
+    "Ctrl+Alt+F10".to_string()
+}
+fn default_toggle_hud() -> String {
+    "Alt+F11".to_string()
+}
+fn default_manual_capture() -> String {
+    "Alt+F12".to_string()
 }
 
 impl Default for Hotkeys {
     fn default() -> Self {
         Self {
-            toggle_watch: "Ctrl+Alt+F10".to_string(),
-            toggle_hud: "Alt+F11".to_string(),
-            manual_capture: "Alt+F12".to_string(),
+            toggle_watch: default_toggle_watch(),
+            toggle_hud: default_toggle_hud(),
+            manual_capture: default_manual_capture(),
         }
     }
 }
