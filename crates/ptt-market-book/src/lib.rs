@@ -226,8 +226,12 @@ impl FreshnessPolicy {
         usable_max_age_seconds: u64,
         stale_max_age_seconds: u64,
     ) -> Result<Self, MarketBookError> {
+        // F1: strict ordering everywhere. The POE1/POE2 shipping policies set
+        // fresh == usable, which made `FreshnessStatus::Usable` unreachable
+        // (`classify` tests fresh first); equality is now rejected so the
+        // middle band always exists.
         if fresh_max_age_seconds == 0
-            || fresh_max_age_seconds > usable_max_age_seconds
+            || fresh_max_age_seconds >= usable_max_age_seconds
             || usable_max_age_seconds >= stale_max_age_seconds
         {
             return Err(MarketBookError::InvalidFreshnessPolicy);
@@ -301,8 +305,8 @@ pub enum QuoteSelectionStrategy {
     Historical,
 }
 
-pub const POE1_PERSONAL_BETA_POLICY_ID: &str = "poe1_personal_beta_unverified_v1";
-pub const POE1_PERSONAL_BETA_POLICY_SOURCE: &str = "POE1 Personal Beta safety policy: provisional selection thresholds are uncalibrated; fees, Gold cost, minimum lots, and capture skew remain unverified";
+pub const PERSONAL_DEFAULT_POLICY_ID: &str = "personal_default_v1";
+pub const PERSONAL_DEFAULT_POLICY_SOURCE: &str = "POE Trade Tracker personal default: selection thresholds are provisional; capture skew is measured directly by the auto-watch capture timestamps (F3); fees and minimum lots remain unverified";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -401,9 +405,7 @@ impl QuoteSelectionPolicy {
         Ok(())
     }
 
-    pub fn poe1_personal_beta_unverified_v1(
-        strategy: QuoteSelectionStrategy,
-    ) -> Result<Self, MarketBookError> {
+    pub fn personal_default(strategy: QuoteSelectionStrategy) -> Result<Self, MarketBookError> {
         let inclusion = match strategy {
             QuoteSelectionStrategy::Historical => FreshnessInclusion {
                 include_fresh: true,
@@ -426,8 +428,8 @@ impl QuoteSelectionPolicy {
         };
         let policy = Self {
             identity: QuoteSelectionPolicyIdentity {
-                policy_id: POE1_PERSONAL_BETA_POLICY_ID.to_owned(),
-                source: POE1_PERSONAL_BETA_POLICY_SOURCE.to_owned(),
+                policy_id: PERSONAL_DEFAULT_POLICY_ID.to_owned(),
+                source: PERSONAL_DEFAULT_POLICY_SOURCE.to_owned(),
                 calibration_status: PolicyCalibrationStatus::Unverified,
             },
             cost_verification: CostVerification {
@@ -435,13 +437,19 @@ impl QuoteSelectionPolicy {
                 gold_cost_verified: false,
                 minimum_lots_verified: false,
             },
+            // F3: the auto-watch loop stamps every book at capture, so the
+            // cross-leg skew gate runs armed by default — multi-pair routes
+            // whose legs were captured more than 90s apart are flagged and
+            // lose execution eligibility instead of passing silently.
             capture_skew: CaptureSkewPolicy {
-                max_capture_skew_seconds: None,
-                calibration_status: PolicyCalibrationStatus::Unverified,
+                max_capture_skew_seconds: Some(90),
+                calibration_status: PolicyCalibrationStatus::Verified,
             },
             product_execution_allowed: false,
             strategy,
-            freshness: FreshnessPolicy::try_new(2 * 60 * 60, 2 * 60 * 60, 24 * 60 * 60)?,
+            // F1: an auto-watching tracker refreshes books continuously, so
+            // fresh is minutes, not hours — and strictly below usable.
+            freshness: FreshnessPolicy::try_new(10 * 60, 60 * 60, 24 * 60 * 60)?,
             inclusion,
             minimum_confidence_ppm: 850_000,
             minimum_stock: 0,
@@ -454,9 +462,8 @@ impl QuoteSelectionPolicy {
     }
 
     #[must_use]
-    pub fn is_poe1_personal_beta_unverified_v1(&self) -> bool {
-        Self::poe1_personal_beta_unverified_v1(self.strategy)
-            .is_ok_and(|canonical| *self == canonical)
+    pub fn is_personal_default(&self) -> bool {
+        Self::personal_default(self.strategy).is_ok_and(|canonical| *self == canonical)
     }
 }
 
@@ -1054,9 +1061,8 @@ mod tests {
             build_coherent_current_book("context-a", &observations, DataVisibility::default())
                 .expect("book");
         assert_eq!(book.views.len(), 1);
-        let policy =
-            QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(QuoteSelectionStrategy::Instant)
-                .expect("policy");
+        let policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+            .expect("policy");
         let result =
             select_quote_edges(&book, &policy, at(10) + Duration::minutes(5)).expect("selection");
         assert!(
@@ -1088,10 +1094,8 @@ mod tests {
                 .expect("book");
         let instant = select_quote_edges(
             &book,
-            &QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(
-                QuoteSelectionStrategy::Instant,
-            )
-            .expect("instant policy"),
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("instant policy"),
             at(10) + Duration::minutes(5),
         )
         .expect("instant");
@@ -1103,10 +1107,8 @@ mod tests {
         }));
         let maker = select_quote_edges(
             &book,
-            &QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(
-                QuoteSelectionStrategy::BalancedMaker,
-            )
-            .expect("maker policy"),
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::BalancedMaker)
+                .expect("maker policy"),
             at(10) + Duration::minutes(5),
         )
         .expect("maker");
@@ -1119,22 +1121,21 @@ mod tests {
 
     #[test]
     fn poe1_personal_beta_policy_is_canonical_unverified_and_analysis_only() {
-        let policy =
-            QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(QuoteSelectionStrategy::Instant)
-                .expect("policy");
-        assert_eq!(policy.identity.policy_id, POE1_PERSONAL_BETA_POLICY_ID);
+        let policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+            .expect("policy");
+        assert_eq!(policy.identity.policy_id, PERSONAL_DEFAULT_POLICY_ID);
         assert_eq!(
             policy.identity.calibration_status,
             PolicyCalibrationStatus::Unverified
         );
         assert!(!policy.cost_verification.all_verified());
-        assert_eq!(policy.capture_skew.max_capture_skew_seconds, None);
+        assert_eq!(policy.capture_skew.max_capture_skew_seconds, Some(90));
         assert!(!policy.product_execution_allowed);
-        assert!(policy.is_poe1_personal_beta_unverified_v1());
+        assert!(policy.is_personal_default());
 
         let mut forged = policy.clone();
         forged.minimum_confidence_ppm = 0;
-        assert!(!forged.is_poe1_personal_beta_unverified_v1());
+        assert!(!forged.is_personal_default());
 
         let observations = snapshot_edges(
             "snapshot",
@@ -1197,10 +1198,8 @@ mod tests {
                 .expect("book");
         let result = select_quote_edges(
             &book,
-            &QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(
-                QuoteSelectionStrategy::Instant,
-            )
-            .expect("policy"),
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("policy"),
             at(10) + Duration::minutes(5),
         )
         .expect("selection");
@@ -1225,6 +1224,27 @@ mod tests {
                     .reasons
                     .contains(&QuoteRejectReason::OutsideTopBookBand)
         }));
+    }
+
+    /// F1: the POE1/POE2 shipping bug — fresh == usable made `Usable`
+    /// unreachable. Equality must be rejected at construction, and the
+    /// default policy must classify some age as `Usable`.
+    #[test]
+    fn f1_usable_freshness_band_is_reachable() {
+        assert!(FreshnessPolicy::try_new(7200, 7200, 86_400).is_err());
+
+        let policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+            .expect("default policy")
+            .freshness;
+        assert!(policy.fresh_max_age_seconds < policy.usable_max_age_seconds);
+        let now = at(20);
+        let mid_age = i64::try_from(policy.fresh_max_age_seconds + 1).expect("fits");
+        assert_eq!(
+            policy
+                .classify(now - Duration::seconds(mid_age), now)
+                .status,
+            FreshnessStatus::Usable
+        );
     }
 
     #[test]

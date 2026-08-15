@@ -114,8 +114,7 @@ fn candidate(
 }
 
 fn selection(strategy: QuoteSelectionStrategy, pairs: Vec<PairSpec<'_>>) -> QuoteSelectionResult {
-    let mut policy =
-        QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(strategy).expect("policy");
+    let mut policy = QuoteSelectionPolicy::personal_default(strategy).expect("policy");
     policy.identity.policy_id = "test_verified_policy".to_owned();
     policy.identity.source = "test-only calibrated fixture".to_owned();
     policy.identity.calibration_status = PolicyCalibrationStatus::Verified;
@@ -293,7 +292,7 @@ fn unknown_fee_only_produces_gross_theory() {
 }
 
 #[test]
-fn unverified_poe1_policy_overrides_known_zero_fee_to_unknown_theory() {
+fn unverified_policy_overrides_known_zero_fee_to_unknown_theory() {
     let catalog = whole_catalog(&["a", "b"]);
     let mut safe_selection = selection(
         QuoteSelectionStrategy::Instant,
@@ -307,9 +306,8 @@ fn unverified_poe1_policy_overrides_known_zero_fee_to_unknown_theory() {
             }],
         }],
     );
-    safe_selection.policy =
-        QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(QuoteSelectionStrategy::Instant)
-            .expect("safe policy");
+    safe_selection.policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+        .expect("safe policy");
     let index = MarketDepthIndex::try_from_selection(&safe_selection, catalog.clone())
         .expect("analysis index");
     let fill = index
@@ -358,12 +356,12 @@ fn unverified_poe1_policy_overrides_known_zero_fee_to_unknown_theory() {
     );
     assert_eq!(
         conversion.analysis_policy.identity.policy_id,
-        "poe1_personal_beta_unverified_v1"
+        "personal_default_v1"
     );
 }
 
 #[test]
-fn uncalibrated_capture_skew_and_none_fee_keep_triangle_gross_theory() {
+fn none_fee_keeps_gross_theory_and_armed_skew_gate_passes_zero_skew() {
     let catalog = whole_catalog(&["a", "b", "c"]);
     let mut selected = selection(
         QuoteSelectionStrategy::Instant,
@@ -397,9 +395,8 @@ fn uncalibrated_capture_skew_and_none_fee_keep_triangle_gross_theory() {
             },
         ],
     );
-    selected.policy =
-        QuoteSelectionPolicy::poe1_personal_beta_unverified_v1(QuoteSelectionStrategy::Instant)
-            .expect("safe policy");
+    selected.policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+        .expect("safe policy");
     let index = MarketDepthIndex::try_from_selection(&selected, catalog.clone()).expect("index");
     let result = find_triangle_opportunities(
         &index,
@@ -426,13 +423,20 @@ fn uncalibrated_capture_skew_and_none_fee_keep_triangle_gross_theory() {
     let evidence = opportunity
         .capture_time_evidence
         .expect("capture time evidence");
+    // F3: the skew gate is armed by default and measured directly; legs
+    // captured together pass it cleanly instead of being "unverified".
     assert_eq!(evidence.capture_skew_seconds, 0);
-    assert_eq!(evidence.max_capture_skew_seconds, None);
-    assert_eq!(evidence.exceeds_max_capture_skew, None);
+    assert_eq!(evidence.max_capture_skew_seconds, Some(90));
+    assert_eq!(evidence.exceeds_max_capture_skew, Some(false));
     assert!(
-        opportunity
+        !opportunity
             .risk_flags
             .contains(&ExecutionRiskFlag::CaptureSkewUnverified)
+    );
+    assert!(
+        !opportunity
+            .risk_flags
+            .contains(&ExecutionRiskFlag::CaptureSkewExceeded)
     );
 }
 

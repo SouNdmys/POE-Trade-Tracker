@@ -374,3 +374,48 @@ fn count_status(
     )
     .map_err(|_| EngineError::NumericOverflow)
 }
+
+/// F4: canonical identity of a cycle regardless of which asset the search
+/// started from — rotate so the lexicographically smallest asset id leads.
+/// Radar-level enumeration over many starts dedupes on this key, eliminating
+/// the rotation-duplicate class (POE2 audit B-06) by construction.
+#[must_use]
+pub fn canonical_cycle_key(cycle: &[MarketAssetId]) -> String {
+    if cycle.is_empty() {
+        return String::new();
+    }
+    let pivot = cycle
+        .iter()
+        .enumerate()
+        .min_by(|left, right| left.1.cmp(right.1))
+        .map(|(index, _)| index)
+        .unwrap_or(0);
+    let mut parts = Vec::with_capacity(cycle.len());
+    for offset in 0..cycle.len() {
+        parts.push(cycle[(pivot + offset) % cycle.len()].to_string());
+    }
+    parts.join(">")
+}
+
+#[cfg(test)]
+mod canonical_cycle_tests {
+    use super::*;
+
+    fn id(text: &str) -> MarketAssetId {
+        MarketAssetId::try_new(text).expect("asset id")
+    }
+
+    #[test]
+    fn f4_rotations_share_one_canonical_key() {
+        let rotation_a = [id("divine"), id("exalted"), id("chaos")];
+        let rotation_b = [id("exalted"), id("chaos"), id("divine")];
+        let rotation_c = [id("chaos"), id("divine"), id("exalted")];
+        let key = canonical_cycle_key(&rotation_a);
+        assert_eq!(key, canonical_cycle_key(&rotation_b));
+        assert_eq!(key, canonical_cycle_key(&rotation_c));
+        assert!(key.starts_with("chaos>"));
+
+        let different = [id("chaos"), id("exalted"), id("divine")];
+        assert_ne!(key, canonical_cycle_key(&different), "direction matters");
+    }
+}

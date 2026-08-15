@@ -754,3 +754,42 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod capture_skew_tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    fn at(seconds: i64) -> DateTime<Utc> {
+        Utc.timestamp_opt(1_700_000_000 + seconds, 0)
+            .single()
+            .expect("time")
+    }
+
+    /// F3: legs captured more than the armed maximum apart are flagged and
+    /// lose eligibility; legs inside the window pass.
+    #[test]
+    fn f3_cross_leg_capture_skew_gate_flags_and_blocks() {
+        let exceeded = CaptureTimeEvidence::from_range(
+            at(0),
+            at(120),
+            Some(90),
+            PolicyCalibrationStatus::Verified,
+        );
+        assert_eq!(exceeded.capture_skew_seconds, 120);
+        assert_eq!(exceeded.exceeds_max_capture_skew, Some(true));
+        let mut risks = BTreeSet::new();
+        assert!(!apply_capture_skew_safety(&mut risks, Some(exceeded), 3));
+        assert!(risks.contains(&ExecutionRiskFlag::CaptureSkewExceeded));
+
+        let inside = CaptureTimeEvidence::from_range(
+            at(0),
+            at(60),
+            Some(90),
+            PolicyCalibrationStatus::Verified,
+        );
+        let mut risks = BTreeSet::new();
+        assert!(apply_capture_skew_safety(&mut risks, Some(inside), 3));
+        assert!(risks.is_empty());
+    }
+}
