@@ -269,14 +269,10 @@ mod windows_route {
         /// frames simply skip.
         fn ocr_name_resolved<'catalog>(
             &self,
-            path: &std::path::Path,
-            preset: (&str, (i32, i32, u32, u32)),
+            frame: &ptt_vision::CapturedFrame,
+            label: &str,
             catalog: &'catalog ptt_catalog::Catalog,
         ) -> Result<(Option<&'catalog ptt_catalog::CatalogAsset>, String), SkipReason> {
-            let frame = self
-                .decoder
-                .decode(path, Some(Self::region(preset.0, preset.1)))
-                .map_err(|error| SkipReason::Decode(format!("{error:?}")))?;
             let rect = ptt_vision::PixelRect::new(0, 0, frame.width(), frame.height())
                 .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
             let ladder: &[usize] = &[2, 3, 4];
@@ -290,15 +286,13 @@ mod windows_route {
                     .worker
                     .recognize(
                         OcrLanguagePreference::TraditionalChinese,
-                        Self::upscaled_frame_rect(&frame, rect, factor)?,
+                        Self::upscaled_frame_rect(frame, rect, factor)?,
                     )
                     .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
                 let text = recognition.text();
                 if std::env::var_os("PTT_DEBUG_OCR").is_some() {
                     eprintln!(
-                        "debug {} x{}: lines={} text={:?}",
-                        preset.0,
-                        factor,
+                        "debug {label} x{factor}: lines={} text={:?}",
                         recognition.lines.len(),
                         text
                     );
@@ -310,13 +304,23 @@ mod windows_route {
                     last_text = text;
                 }
             }
-            if let Some((asset, text)) = self.paddle_name_fallback(&frame, catalog) {
+            if let Some((asset, text)) = self.paddle_name_fallback(frame, catalog) {
                 if std::env::var_os("PTT_DEBUG_OCR").is_some() {
-                    eprintln!("debug {} paddle: text={:?} -> {}", preset.0, text, asset.id);
+                    eprintln!("debug {label} paddle: text={:?} -> {}", text, asset.id);
                 }
                 return Ok((Some(asset), text));
             }
             Ok((None, last_text))
+        }
+
+        /// The three capture regions this profile reads (env overrides
+        /// applied), for live capture callers.
+        pub fn regions() -> (CaptureRegion, CaptureRegion, CaptureRegion) {
+            (
+                Self::region("NEED", NEED_NAME_REGION),
+                Self::region("HAVE", HAVE_NAME_REGION),
+                Self::region("TABLES", TABLES_REGION),
+            )
         }
 
         /// Full offline route over one screenshot file.
@@ -324,24 +328,38 @@ mod windows_route {
             &self,
             path: &std::path::Path,
         ) -> Result<RecognizedBook, SkipReason> {
+            let (need_region, have_region, tables_region) = Self::regions();
+            let decode = |region: CaptureRegion| {
+                self.decoder
+                    .decode(path, Some(region))
+                    .map_err(|error| SkipReason::Decode(format!("{error:?}")))
+            };
+            let need_frame = decode(need_region)?;
+            let have_frame = decode(have_region)?;
+            let tables_frame = decode(tables_region)?;
+            self.recognize_frames(&need_frame, &have_frame, &tables_frame)
+        }
+
+        /// Live route over already-captured frames (name slots + tables).
+        pub fn recognize_frames(
+            &self,
+            need_frame: &ptt_vision::CapturedFrame,
+            have_frame: &ptt_vision::CapturedFrame,
+            tables_frame: &ptt_vision::CapturedFrame,
+        ) -> Result<RecognizedBook, SkipReason> {
             let catalog = ptt_catalog::poe2();
 
-            let (need, need_text) =
-                self.ocr_name_resolved(path, ("NEED", NEED_NAME_REGION), catalog)?;
+            let (need, need_text) = self.ocr_name_resolved(need_frame, "NEED", catalog)?;
             let need = need.ok_or(SkipReason::NeedNameUnresolved {
                 text: need_text.clone(),
             })?;
-            let (have, have_text) =
-                self.ocr_name_resolved(path, ("HAVE", HAVE_NAME_REGION), catalog)?;
+            let (have, have_text) = self.ocr_name_resolved(have_frame, "HAVE", catalog)?;
             let have = have.ok_or(SkipReason::HaveNameUnresolved {
                 text: have_text.clone(),
             })?;
 
-            let frame = self
-                .decoder
-                .decode(path, Some(Self::region("TABLES", TABLES_REGION)))
-                .map_err(|error| SkipReason::Decode(format!("{error:?}")))?;
-            let mask = build_warm_mask(&frame, WarmMaskSettings::default());
+            let frame = tables_frame;
+            let mask = build_warm_mask(frame, WarmMaskSettings::default());
             let detection = PhysicalBandDetector::new()
                 .detect(&mask, BandDetectionSettings::default())
                 .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
@@ -394,7 +412,7 @@ mod windows_route {
                     .recognize(
                         OcrLanguagePreference::English,
                         Self::upscaled_frame_rect_2x(
-                            &frame,
+                            frame,
                             detection.bands[band_index].crop.source_rect,
                         )?,
                     )

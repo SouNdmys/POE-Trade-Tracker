@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/ptt-catalog",
     "crates/ptt-core",
+    "crates/ptt-monitoring",
     "crates/ptt-ocr-onnx",
     "crates/ptt-ocr-win",
     "crates/ptt-platform-win",

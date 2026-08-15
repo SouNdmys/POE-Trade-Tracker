@@ -1,0 +1,17 @@
+[package]
+name = "ptt-monitoring"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Auto-watch loop for POE Trade Tracker: fingerprint gating, stability, double-read confirmation, book dedupe"
+
+[dependencies]
+ptt-core = { path = "../ptt-core" }
+ptt-recognition = { path = "../ptt-recognition" }
+ptt-vision = { path = "../ptt-vision" }
+
+[[bin]]
+name = "session-probe"
+path = "src/bin/session_probe.rs"

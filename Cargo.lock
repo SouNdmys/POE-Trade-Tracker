@@ -216,6 +216,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptt-monitoring"
+version = "0.1.0"
+dependencies = [
+ "ptt-core",
+ "ptt-recognition",
+ "ptt-vision",
+]
+
+[[package]]
 name = "ptt-ocr-onnx"
 version = "0.1.0"
 dependencies = [
