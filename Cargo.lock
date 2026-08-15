@@ -243,6 +243,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptt-recognition"
+version = "0.1.0"
+dependencies = [
+ "ptt-catalog",
+ "ptt-core",
+ "ptt-ocr-onnx",
+ "ptt-ocr-win",
+ "ptt-vision",
+]
+
+[[package]]
 name = "ptt-runtime"
 version = "0.1.0"
 dependencies = [

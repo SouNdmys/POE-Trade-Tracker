@@ -1,0 +1,19 @@
+[package]
+name = "ptt-recognition"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Per-profile field recognition routes for POE Trade Tracker order books"
+
+[dependencies]
+ptt-catalog = { path = "../ptt-catalog" }
+ptt-core = { path = "../ptt-core" }
+ptt-ocr-onnx = { path = "../ptt-ocr-onnx" }
+ptt-ocr-win = { path = "../ptt-ocr-win" }
+ptt-vision = { path = "../ptt-vision" }
+
+[[bin]]
+name = "book-probe"
+path = "src/bin/book_probe.rs"
