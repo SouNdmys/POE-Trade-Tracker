@@ -38,8 +38,6 @@ pub struct CatalogAsset {
     #[serde(default)]
     pub base_family: Option<String>,
     #[serde(default)]
-    pub currency_exchange_gold_cost: Option<u32>,
-    #[serde(default)]
     pub is_tradeable: bool,
     #[serde(default)]
     pub is_active: bool,
@@ -232,14 +230,8 @@ mod tests {
     }
 
     #[test]
-    fn gold_costs_cover_the_expected_majority() {
+    fn all_assets_are_tradeable_and_active() {
         let catalog = poe2();
-        let with_gold = catalog
-            .assets()
-            .iter()
-            .filter(|asset| asset.currency_exchange_gold_cost.is_some())
-            .count();
-        assert_eq!(with_gold, 618, "gold-cost coverage changed with the data");
         assert!(catalog.assets().iter().all(|asset| asset.is_tradeable));
         assert!(catalog.assets().iter().all(|asset| asset.is_active));
     }
