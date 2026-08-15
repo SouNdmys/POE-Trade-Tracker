@@ -189,6 +189,84 @@ mod windows_route {
             Some((&catalog.assets()[winner], batch.recognition.text))
         }
 
+        /// PP-OCRv5 fallback for a row whose Windows OCR text failed the
+        /// grammar (highlighted market-rate rows lose their "1:", tiny
+        /// stocks vanish, `1` reads as `I`). Runs greedy CTC on the raw
+        /// luminance crop and splits ratio|stock on the spatial gap between
+        /// emission time steps. The same strict grammar re-validates the
+        /// result, so this recovers rows without loosening any gate.
+        fn paddle_row_line(
+            &self,
+            frame: &ptt_vision::CapturedFrame,
+            rect: ptt_vision::PixelRect,
+        ) -> Option<String> {
+            let paddle = self.paddle.as_ref()?;
+            rect.validate_within(frame.width(), frame.height()).ok()?;
+            let source = frame.bgra_pixels();
+            let mut gray = vec![0u8; rect.width * rect.height];
+            for y in 0..rect.height {
+                let source_row = (rect.y + y) * frame.stride();
+                for x in 0..rect.width {
+                    let pixel = source_row + (rect.x + x) * 4;
+                    gray[y * rect.width + x] = ((u32::from(source[pixel + 2]) * 299
+                        + u32::from(source[pixel + 1]) * 587
+                        + u32::from(source[pixel]) * 114)
+                        / 1000) as u8;
+                }
+            }
+            let view =
+                ptt_ocr_onnx::ImageView::gray8(rect.width, rect.height, rect.width, &gray).ok()?;
+            let recognition = paddle
+                .lock()
+                .expect("paddle session lock")
+                .recognize(view)
+                .ok()?;
+
+            // The tensor is height-normalized, so absolute step distances
+            // scale with the crop: use 3x the median inter-glyph delta as the
+            // column boundary (intra-number deltas cluster tightly; the
+            // ratio|stock gap is a far outlier at any scale).
+            let mut deltas: Vec<usize> = recognition
+                .emissions
+                .windows(2)
+                .map(|pair| pair[1].time_step.saturating_sub(pair[0].time_step))
+                .collect();
+            deltas.sort_unstable();
+            let median_delta = deltas.get(deltas.len() / 2).copied().unwrap_or(1);
+            let column_gap_steps = (median_delta * 3).max(4);
+
+            let mut tokens: Vec<String> = Vec::new();
+            let mut previous_step: Option<usize> = None;
+            for emission in &recognition.emissions {
+                let is_gap = previous_step.is_some_and(|step| {
+                    emission.time_step.saturating_sub(step) >= column_gap_steps
+                });
+                if tokens.is_empty() || is_gap {
+                    tokens.push(String::new());
+                }
+                tokens
+                    .last_mut()
+                    .expect("token pushed above")
+                    .push_str(&emission.text);
+                previous_step = Some(emission.time_step);
+            }
+            if std::env::var_os("PTT_DEBUG_OCR").is_some() {
+                eprintln!("debug paddle-row: tokens={tokens:?}");
+            }
+            // A leading bare comparator is part of the ratio.
+            if tokens.len() > 2 && (tokens[0] == "<" || tokens[0] == ">") {
+                let comparator = tokens.remove(0);
+                tokens[0] = format!("{comparator}{}", tokens[0]);
+            }
+            // Exactly ratio + stock, nothing else: a stray token (e.g. a
+            // neighbouring row's partial digit) must never be mistaken for a
+            // stock value, so anything but two columns is rejected.
+            if tokens.len() != 2 {
+                return None;
+            }
+            Some(tokens.join(" "))
+        }
+
         /// Preset region, overridable via `PTT_POE2_<NAME>_ROI=x,y,w,h` for
         /// calibration experiments without recompiling.
         fn region(name: &str, preset: (i32, i32, u32, u32)) -> CaptureRegion {
@@ -456,14 +534,21 @@ mod windows_route {
                     }
                     _ => Err(FieldReject::Malformed),
                 };
-                if recognition.lines.len() > 2 {
-                    skipped.push(RowSkip::LineCount {
-                        side: row_band.side,
-                        row_index: first_row_index,
-                        raw,
-                    });
-                    continue;
-                }
+                // Grammar-failed Windows reads get one PP-OCRv5 retry; the
+                // same strict grammar re-validates, so nothing loosens.
+                let parsed = parsed.or_else(|windows_reject| {
+                    // The tight content rect avoids the padded crop's bleed
+                    // from neighbouring rows (partial digits read as junk).
+                    self.paddle_row_line(frame, detection.bands[band_index].crop.content_rect)
+                        .and_then(|line| {
+                            split_row_line(&line)
+                                .and_then(|(ratio_text, stock_text)| {
+                                    Ok((parse_ratio(&ratio_text)?, parse_stock(&stock_text)?))
+                                })
+                                .ok()
+                        })
+                        .ok_or(windows_reject)
+                });
                 match parsed {
                     Ok((mut ratio, stock)) => {
                         let expects_comparator = row_band.band.left + 6 < median_left;
