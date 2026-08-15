@@ -14,3 +14,6 @@ _to_delete/
 tests/screenshots/**/*.png
 tests/screenshots/**/*.jpg
 tests/screenshots/**/*.jpeg
+
+# Raw test screenshots stay local; only JSON manifests are committed.
+test-screenshots/
