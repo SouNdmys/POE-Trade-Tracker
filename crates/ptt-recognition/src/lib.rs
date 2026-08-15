@@ -7,12 +7,14 @@
 //! shape or failed grammar skips the frame with a typed reason.
 
 pub mod book;
+pub mod comparator;
 pub mod fields;
 pub mod identity;
 pub mod profiles;
 pub mod rows;
 
 pub use book::{BookIdentity, BookObservation, RowObservation, compute_signature};
+pub use comparator::classify_comparator;
 pub use fields::{Comparator, FieldReject, RatioField, parse_ratio, parse_stock, split_row_line};
 pub use identity::{resolve_en_name, resolve_zh_name};
 pub use rows::{BandGeometry, RowBand, RowLayout, RowPlan, RowsReject, Side, classify_rows};

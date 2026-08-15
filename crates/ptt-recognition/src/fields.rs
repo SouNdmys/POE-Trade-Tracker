@@ -66,7 +66,7 @@ fn fold_presentation(text: &str) -> String {
             }
             // Full-width and ratio colons, plus the bullet/middle-dot shapes
             // Windows OCR emits for the game's small ratio colon glyph.
-            '\u{FF1A}' | '\u{2236}' | '\u{2022}' | '\u{00B7}' => Some(':'),
+            '\u{FF1A}' | '\u{2236}' | '\u{2022}' | '\u{00B7}' | ';' => Some(':'),
             '\u{FF0C}' => Some(','),
             '\u{FF0E}' | '\u{2024}' => Some('.'),
             '\u{FF1C}' => Some('<'),

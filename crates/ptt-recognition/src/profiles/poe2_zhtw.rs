@@ -447,13 +447,49 @@ mod windows_route {
                     continue;
                 }
                 match parsed {
-                    Ok((ratio, stock)) => {
+                    Ok((mut ratio, stock)) => {
                         let expects_comparator = row_band.band.left + 6 < median_left;
-                        let comparator_consistent = match ratio.comparator {
-                            Comparator::Exact => !expects_comparator,
-                            _ => expects_comparator,
-                        };
-                        if comparator_consistent {
+                        let mut comparator_ok = true;
+                        if expects_comparator {
+                            // Read the glyph from the mask pixels; OCR is
+                            // unreliable here. Cross-checks: the pixel class
+                            // must match the table-side invariant (available
+                            // boundary rows aggregate downward `<`, competing
+                            // upward `>`) and must not contradict OCR.
+                            let rect = detection.bands[band_index].crop.source_rect;
+                            // Crops carry a 10px horizontal margin, so the
+                            // chevron ink sits ~10px inside the crop edge;
+                            // extend past the normal-row crop x to cover it
+                            // while stopping short of the first digit.
+                            let zone_width =
+                                usize::try_from(median_left - row_band.band.left + 8).unwrap_or(0);
+                            let glyph = crate::comparator::classify_comparator(
+                                &mask,
+                                rect.x,
+                                rect.y,
+                                zone_width,
+                                rect.height,
+                            );
+                            let expected_by_side = match row_band.side {
+                                super::Side::Available => Comparator::LessThan,
+                                super::Side::Competing => Comparator::GreaterThan,
+                            };
+                            match glyph {
+                                Some(read) if read == expected_by_side => match ratio.comparator {
+                                    Comparator::Exact => {
+                                        ratio.comparator = read;
+                                        ratio.normalized =
+                                            format!("{}{}", read.as_str(), ratio.normalized);
+                                    }
+                                    ocr if ocr == read => {}
+                                    _ => comparator_ok = false,
+                                },
+                                _ => comparator_ok = false,
+                            }
+                        } else if ratio.comparator != Comparator::Exact {
+                            comparator_ok = false;
+                        }
+                        if comparator_ok {
                             rows.push(RowObservation {
                                 side: row_band.side,
                                 row_index: first_row_index,
