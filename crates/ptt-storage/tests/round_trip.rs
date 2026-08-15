@@ -109,7 +109,7 @@ fn capture_round_trips_to_identical_observations() {
     let stored: Vec<_> = observations.iter().map(|o| &o.edge).collect();
     for edge in &capture.quote_edges {
         assert!(
-            stored.iter().any(|candidate| *candidate == edge),
+            stored.contains(&edge),
             "edge {} must round-trip unchanged",
             edge.edge_id
         );
