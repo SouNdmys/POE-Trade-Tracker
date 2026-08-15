@@ -462,7 +462,13 @@ dependencies = [
 name = "ptt-runtime"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "ptt-core",
+ "ptt-market-book",
+ "ptt-trade-domain",
+ "ptt-trade-engine",
+ "rusqlite",
+ "serde_json",
 ]
 
 [[package]]

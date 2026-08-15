@@ -9,3 +9,13 @@ description = "Background actor runtime for POE Trade Tracker (skeleton; full po
 
 [dependencies]
 ptt-core = { path = "../ptt-core" }
+chrono.workspace = true
+ptt-market-book = { path = "../ptt-market-book" }
+ptt-trade-domain = { path = "../ptt-trade-domain" }
+ptt-trade-engine = { path = "../ptt-trade-engine" }
+rusqlite = { version = "0.37.0", features = ["bundled", "chrono"] }
+serde_json.workspace = true
+
+[[bin]]
+name = "engine-replay-probe"
+path = "src/bin/engine_replay_probe.rs"
