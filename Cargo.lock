@@ -4459,6 +4459,7 @@ dependencies = [
  "ptt-monitoring",
  "ptt-ocr-onnx",
  "ptt-recognition",
+ "ptt-settings",
  "ptt-storage",
  "ptt-trade-domain",
  "ptt-trade-engine",

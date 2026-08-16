@@ -14,7 +14,7 @@ use ptt_core::BookSignature;
 #[cfg(windows)]
 mod session;
 #[cfg(windows)]
-pub use session::{SessionConfig, SessionEvent, SessionStats, run_session};
+pub use session::{SessionConfig, SessionEvent, SessionStats, run_session, skip_key};
 
 /// Decision for one captured tables-region fingerprint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

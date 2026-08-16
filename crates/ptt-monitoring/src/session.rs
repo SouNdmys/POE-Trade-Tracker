@@ -59,7 +59,12 @@ pub struct SessionStats {
     pub capture_errors: u64,
 }
 
-fn skip_key(reason: &SkipReason) -> String {
+/// The stable bucket name for a skip reason.
+///
+/// Public so callers group skips by the same key the session stats use,
+/// rather than formatting the reason with `Debug` and parsing it back.
+#[must_use]
+pub fn skip_key(reason: &SkipReason) -> String {
     match reason {
         SkipReason::Decode(_) => "decode".into(),
         SkipReason::Ocr(_) => "ocr".into(),

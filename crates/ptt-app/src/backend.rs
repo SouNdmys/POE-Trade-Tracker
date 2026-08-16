@@ -15,10 +15,7 @@ mod windows_backend {
     use std::thread::JoinHandle;
     use std::time::Duration;
 
-    use ptt_monitoring::{SessionConfig, SessionEvent, run_session};
-    use ptt_recognition::profiles::poe2_zhtw::Route;
-    use ptt_runtime::live::{capture_from_book, domain_asset_id, poe2_live_context};
-    use ptt_storage::MarketStore;
+    use ptt_runtime::pipeline::{LivePipeline, PipelineEvent};
 
     /// Which of the three calibrated regions a wizard run targets.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -216,151 +213,47 @@ mod windows_backend {
             sender: sender.clone(),
             armed: true,
         };
-        let route = match Route::new() {
-            Ok(route) => route,
-            Err(reason) => {
-                let _ = sender.send(UiEvent::Fault(format!("route init failed: {reason:?}")));
-                return;
-            }
-        };
-        let db_path = format!(
-            "{}\\PoeTradeTracker\\market.sqlite",
-            std::env::var("LOCALAPPDATA").unwrap_or_default()
-        );
-        if let Some(parent) = std::path::Path::new(&db_path).parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let mut store = match MarketStore::open(&db_path) {
-            Ok(store) => store,
+        let mut pipeline = match LivePipeline::open("live-league", None) {
+            Ok(pipeline) => pipeline,
             Err(error) => {
-                let _ = sender.send(UiEvent::Fault(format!("storage open failed: {error}")));
+                let _ = sender.send(UiEvent::Fault(error.to_string()));
                 return;
             }
         };
-        let context = match poe2_live_context("live-league") {
-            Ok(context) => context,
-            Err(error) => {
-                let _ = sender.send(UiEvent::Fault(format!("context failed: {error:?}")));
-                return;
-            }
-        };
-        let context_key = context.stable_key();
-        let mut sequence: u64 = 0;
 
-        run_session(
-            &route,
-            &SessionConfig::default(),
-            // Effectively unbounded; stop is cancellation-driven.
+        pipeline.run(
+            // Effectively unbounded; stopping is cancellation-driven.
             Duration::from_secs(60 * 60 * 24),
             cancel,
             |event| match event {
-                SessionEvent::Accepted {
-                    book,
-                    elapsed,
-                    captured_at,
-                    frame_hashes,
-                } => {
-                    sequence += 1;
-                    let need_id = book.observation.identity.need_asset_id.clone();
-                    let have_id = book.observation.identity.have_asset_id.clone();
+                PipelineEvent::Accepted(book) => {
                     let header = format!(
-                        "#{sequence} [{:.0}ms] {} -> {} ({} rows)",
-                        elapsed.as_secs_f64() * 1e3,
-                        need_id,
-                        have_id,
-                        book.observation.rows.len(),
+                        "#{} [{:.0}ms] {} -> {} ({} rows)",
+                        book.sequence,
+                        book.elapsed.as_secs_f64() * 1e3,
+                        book.need_asset_id,
+                        book.have_asset_id,
+                        book.rows.len(),
                     );
-                    let rows: Vec<String> = book
-                        .observation
-                        .rows
-                        .iter()
-                        .map(|row| {
-                            format!(
-                                "{} #{} {} stock {}",
-                                row.side.as_str(),
-                                row.row_index,
-                                row.ratio.normalized,
-                                row.stock
-                            )
-                        })
-                        .collect();
-
-                    // A book only counts as accepted once it is durably
-                    // persisted; mapping/persist failures surface as a loud
-                    // fault instead of a phantom accept.
-                    let persisted = (|| -> Result<(), String> {
-                        let capture = capture_from_book(
-                            &book,
-                            &context,
-                            chrono::DateTime::<chrono::Utc>::from(captured_at),
-                            frame_hashes.clone(),
-                            sequence,
-                        )
-                        .map_err(|error| format!("mapping: {error:?}"))?;
-                        store
-                            .persist_capture(&capture)
-                            .map_err(|error| format!("persist: {error}"))
-                    })();
-                    if let Err(error) = persisted {
-                        let _ = sender.send(UiEvent::Skipped("persist-failed".into()));
-                        let _ = sender.send(UiEvent::Fault(format!(
-                            "book NOT stored ({need_id} -> {have_id}): {error}"
-                        )));
-                        return;
-                    }
-
-                    let analysis = (|| -> Result<Vec<String>, String> {
-                        let observations = store
-                            .load_observations(
-                                &context_key,
-                                Some(chrono::Utc::now() - chrono::Duration::hours(2)),
-                            )
-                            .map_err(|error| format!("load: {error}"))?;
-                        let need =
-                            domain_asset_id(&need_id).map_err(|error| format!("{error:?}"))?;
-                        let have =
-                            domain_asset_id(&have_id).map_err(|error| format!("{error:?}"))?;
-                        ptt_runtime::analysis::pair_analysis_lines(
-                            &observations,
-                            &context_key,
-                            &need,
-                            &have,
-                        )
-                        .map_err(|error| format!("analysis: {error}"))
-                    })()
-                    .unwrap_or_else(|error| vec![format!("analysis error: {error}")]);
-
                     let _ = sender.send(UiEvent::Accepted {
                         header,
-                        rows,
-                        analysis,
+                        rows: book.rows,
+                        analysis: book.analysis,
                     });
                 }
-                SessionEvent::FrameSkipped { reason } => {
-                    let _ = sender.send(UiEvent::Skipped(skip_label(&format!("{reason:?}"))));
+                PipelineEvent::Skipped(reason) => {
+                    // Duplicates are the steady state while a panel sits open
+                    // and are not worth a histogram row.
+                    if reason != "duplicate" {
+                        let _ = sender.send(UiEvent::Skipped(reason));
+                    }
                 }
-                SessionEvent::ConfirmationMismatch => {
-                    let _ = sender.send(UiEvent::Skipped("double-read mismatch".to_owned()));
-                }
-                SessionEvent::Duplicate => {}
-                SessionEvent::CaptureError(_) => {
-                    let _ = sender.send(UiEvent::Skipped("capture-error".into()));
+                PipelineEvent::Fault(message) => {
+                    let _ = sender.send(UiEvent::Fault(message));
                 }
             },
         );
         sentinel.armed = false;
         let _ = sender.send(UiEvent::Stopped);
-    }
-
-    /// Compact label from a debug-formatted skip reason, keeping the inner
-    /// rows-reject variant visible ("Rows(LeadOutOfWindow ...)" -> "LeadOutOfWindow").
-    fn skip_label(debug_text: &str) -> String {
-        let inner = debug_text.strip_prefix("Rows(").unwrap_or(debug_text);
-        inner
-            .split(['{', '('])
-            .next()
-            .unwrap_or(inner)
-            .trim()
-            .to_owned()
     }
 }

@@ -15,6 +15,7 @@ ptt-market-book = { path = "../ptt-market-book" }
 ptt-monitoring = { path = "../ptt-monitoring" }
 ptt-ocr-onnx = { path = "../ptt-ocr-onnx" }
 ptt-recognition = { path = "../ptt-recognition" }
+ptt-settings = { path = "../ptt-settings" }
 ptt-storage = { path = "../ptt-storage" }
 ptt-trade-domain = { path = "../ptt-trade-domain" }
 ptt-trade-engine = { path = "../ptt-trade-engine" }
