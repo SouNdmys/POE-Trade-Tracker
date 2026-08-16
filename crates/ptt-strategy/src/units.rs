@@ -59,6 +59,19 @@ pub(crate) fn quanta_scale_to_rate(
     Ratio::from_parts(numerator, denominator).ok()
 }
 
+/// How far `value` sits above `baseline`, in basis points.
+///
+/// Integer division truncates toward zero, matching the engine's own
+/// comparison so the two never disagree on the sign of a small move.
+pub(crate) fn basis_points(value: Rational, baseline: Rational) -> Option<i64> {
+    if baseline.is_zero() {
+        return None;
+    }
+    let (numerator, denominator) = value.checked_div(baseline)?.to_u64_pair()?;
+    let scaled = i128::from(numerator).checked_mul(10_000)? / i128::from(denominator);
+    i64::try_from(scaled - 10_000).ok()
+}
+
 /// Apply a quanta scale, flooring: the game has no fractional orbs.
 pub(crate) fn apply_scale(quanta: u64, scale: Rational) -> Option<u64> {
     Rational::from_u128(u128::from(quanta))

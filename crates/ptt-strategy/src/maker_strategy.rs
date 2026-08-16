@@ -28,8 +28,8 @@ use crate::execution_safety::{
     Actionability, ExecutionRisk, ModelCaveat, RiskAssessment, RiskThresholds, actionability_for,
 };
 use crate::units::{
-    amount_like, apply_scale, quanta_scale_to_rate, rate_to_quanta_scale, rational_from_ratio,
-    unit_value,
+    amount_like, apply_scale, basis_points, quanta_scale_to_rate, rate_to_quanta_scale,
+    rational_from_ratio, unit_value,
 };
 
 /// How aggressively to price a listing.
@@ -209,15 +209,6 @@ fn depth_from(
         .checked_div(unit_value(from_reference.unit)?)?
         .floor_u64()?;
     Some(amount_like(from_reference, quanta))
-}
-
-fn basis_points(value: Rational, baseline: Rational) -> Option<i64> {
-    if baseline.is_zero() {
-        return None;
-    }
-    let (numerator, denominator) = value.checked_div(baseline)?.to_u64_pair()?;
-    let scaled = i128::from(numerator).checked_mul(10_000)? / i128::from(denominator);
-    i64::try_from(scaled - 10_000).ok()
 }
 
 fn edge_risks(evaluated: &EvaluatedQuoteEdge, risks: &mut BTreeSet<ExecutionRisk>) {

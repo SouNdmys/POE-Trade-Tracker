@@ -59,6 +59,22 @@ impl Rational {
         })
     }
 
+    /// An approximation of the square root, to roughly `1e-6` relative.
+    ///
+    /// The square root of a rational is generally irrational, so this is the
+    /// one number in the crate that is not exact. It exists only for the
+    /// geometric midpoint of a buy and a sell price, which is a display and
+    /// ranking figure — never an execution rate — and callers are expected to
+    /// mark it as approximate.
+    pub(crate) fn sqrt_approx(self) -> Option<Self> {
+        const SCALE: u128 = 1_000_000;
+        let scaled = self
+            .num
+            .checked_mul(SCALE.checked_mul(SCALE)?)?
+            .checked_div(self.den)?;
+        Self::new(scaled.isqrt(), SCALE)
+    }
+
     /// The largest integer not greater than this value.
     pub(crate) fn floor_u64(self) -> Option<u64> {
         u64::try_from(self.num / self.den).ok()
