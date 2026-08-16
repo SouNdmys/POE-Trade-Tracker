@@ -21,10 +21,29 @@ pub const POE2_CATALOG_SHA256: &str =
     "d238ba276402eca7cb426f3384ab30b2fb69fd31d9a8aeb9c3ea92843b244b59";
 pub const POE2_CATALOG_ENTRIES: usize = 660;
 
+/// POE1 seed catalog: the currencies the annotated fixture corpus actually
+/// contains, with English names only.
+///
+/// This is a seed, not the game's currency list. POE1 has an order of
+/// magnitude more tradeable items; they land here as the data is authored.
+/// A partial catalog is safe because recognition is closed-lexicon and
+/// fail-skip: an absent currency makes the frame skip, never a wrong id.
+///
+/// Traditional Chinese names are deliberately absent rather than mirrored
+/// from English, so the zh-TW route refuses to start instead of matching
+/// Chinese OCR output against English strings.
+pub const POE1_CATALOG_JSON: &str = include_str!("../data/poe1/currency_seed.en.json");
+pub const POE1_CATALOG_SHA256: &str =
+    "2c3849d7ed9613d2eb16936db92d4ad6a04a56046cce8d575b866a6195abd8de";
+pub const POE1_CATALOG_ENTRIES: usize = 9;
+
 /// One tradeable asset in a game's currency exchange.
 #[derive(Debug, Clone, Deserialize)]
 pub struct CatalogAsset {
     pub id: String,
+    /// Empty when that language has not been authored for this game yet.
+    /// Callers must reject an empty name rather than match against it.
+    #[serde(default)]
     pub name_zh_tw: String,
     pub name_en: String,
     #[serde(default)]
@@ -89,14 +108,23 @@ impl Catalog {
             if by_id.insert(asset.id.clone(), index).is_some() {
                 return Err(CatalogError::DuplicateId(asset.id.clone()));
             }
-            if by_name_zh_tw
-                .insert(asset.name_zh_tw.clone(), index)
-                .is_some()
+            // A language that has not been authored for this game leaves the
+            // name blank. Blanks are skipped rather than indexed: indexing
+            // them would make every such asset a duplicate of every other,
+            // and would make the empty string a lookup key that matches an
+            // arbitrary currency.
+            if !asset.name_zh_tw.trim().is_empty()
+                && by_name_zh_tw
+                    .insert(asset.name_zh_tw.clone(), index)
+                    .is_some()
             {
                 return Err(CatalogError::DuplicateName(asset.name_zh_tw.clone()));
             }
-            let en_key = asset.name_en.to_lowercase();
-            if by_name_en_lower.insert(en_key, index).is_some() {
+            if !asset.name_en.trim().is_empty()
+                && by_name_en_lower
+                    .insert(asset.name_en.to_lowercase(), index)
+                    .is_some()
+            {
                 return Err(CatalogError::DuplicateName(asset.name_en.clone()));
             }
         }
@@ -190,9 +218,54 @@ pub fn poe2() -> &'static Catalog {
     })
 }
 
+/// The POE1 seed catalog, verified against its pin on first access.
+pub fn poe1() -> &'static Catalog {
+    static CATALOG: OnceLock<Catalog> = OnceLock::new();
+    CATALOG.get_or_init(|| {
+        let actual = sha256_hex(POE1_CATALOG_JSON.as_bytes());
+        assert_eq!(
+            actual, POE1_CATALOG_SHA256,
+            "embedded POE1 catalog does not match its pinned SHA-256;              the build is corrupt and recognition must not proceed"
+        );
+        Catalog::from_json(Game::Poe1, POE1_CATALOG_JSON)
+            .expect("pinned POE1 catalog data failed to parse")
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embedded_poe1_seed_matches_pin_and_is_english_only() {
+        let catalog = poe1();
+        assert_eq!(catalog.game(), Game::Poe1);
+        assert_eq!(catalog.len(), POE1_CATALOG_ENTRIES);
+        for asset in catalog.assets() {
+            assert!(
+                !asset.name_en.trim().is_empty(),
+                "{} has no English name",
+                asset.id
+            );
+        }
+        // Pinned deliberately: when the Traditional Chinese names are
+        // authored this test fails, which is the signal to enable the zh-TW
+        // route for POE1 rather than something to quietly relax.
+        assert!(
+            catalog
+                .assets()
+                .iter()
+                .all(|asset| asset.name_zh_tw.trim().is_empty()),
+            "POE1 Traditional Chinese names now exist; enable the zh-TW route              and update this test"
+        );
+    }
+
+    #[test]
+    fn a_blank_name_is_not_indexed_as_a_lookup_key() {
+        // Nine assets all with an empty zh-TW name must not collide as
+        // duplicates, and none of them may be findable by the empty string.
+        assert!(poe1().by_name_zh_tw("").is_none());
+    }
 
     #[test]
     fn embedded_poe2_catalog_matches_pin_and_shape() {

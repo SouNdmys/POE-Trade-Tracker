@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "profile": "poe1-en",
+  "screenshot_dir": "test-screenshots/poe1",
+  "cases": [
+    {
+      "file": "poe1-real-20260728-m01-000001.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "exalted_orb",
+      "min_rows": 10
+    },
+    {
+      "file": "poe1-real-20260728-m01-000002.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "ancient_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000003.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "ancient_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000004.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "orb_of_regret",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000005.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "orb_of_scouring",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000006.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "mirror_of_kalandra",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000007.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "exalted_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000008.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "vaal_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260728-m01-000009.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "orb_of_scouring",
+      "min_rows": 12
+    },
+    {
+      "file": "poe1-real-20260729-m01-000001.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "scarab_of_adversaries",
+      "min_rows": 11
+    }
+  ]
+}

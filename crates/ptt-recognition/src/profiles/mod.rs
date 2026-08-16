@@ -1,5 +1,6 @@
 //! Per-profile bindings of the pure recognition layers to real OCR backends.
 
+pub mod poe1;
 pub mod poe2;
 
 /// Which client language a profile reads names in.
