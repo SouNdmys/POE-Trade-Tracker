@@ -192,13 +192,20 @@ const fn contains_rect(outer: RectI, inner: RectI) -> bool {
         && inner.bottom() <= outer.bottom()
 }
 
-/// HUD 卡片内容(Ledger 两态:冷灰未监控 / 墨青监控中)。
+/// HUD card content (Ledger's two states: cold grey idle, ink-teal watching).
+///
+/// The body is a list rather than a single line: this HUD reports the current
+/// pair's opportunities and the next pair to go capture, which is several
+/// facts, not one.
 #[derive(Clone, Debug, Default)]
 pub struct HudContent {
     pub monitoring: bool,
+    /// Header, left.
     pub status_text: String,
+    /// Header, right — kept short, it is clipped rather than wrapped.
     pub elapsed: String,
-    pub target: String,
+    /// Body lines, painted top to bottom until the card runs out of room.
+    pub lines: Vec<String>,
 }
 
 /// Native HUD construction parameters.

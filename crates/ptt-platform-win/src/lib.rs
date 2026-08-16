@@ -25,7 +25,7 @@ pub use geometry::{PointI, RectI, SizeI};
 pub use handle::NativeWindowHandle;
 pub use hotkeys::{
     HotKeyAction, HotKeyBinding, HotKeyConfig, HotKeyError, HotKeyErrorKind, HotKeyManager,
-    HotKeyModifiers, HotKeyTarget, StartMonitoringHotKey,
+    HotKeyModifiers, HotKeyTarget, HudToggleHotKey, StartMonitoringHotKey,
 };
 pub use hud::{
     CaptureAffinity, HudContent, HudInteractionMode, HudPlacement, HudWindow, HudWindowConfig,
@@ -44,3 +44,5 @@ pub use wave::{
     LoopingWavePlayer, PcmWaveFormat, ValidatedWave, WaveValidationError, WaveValidationErrorKind,
     validate_pcm_wave,
 };
+#[cfg(windows)]
+pub use win32::pump_thread_messages;

@@ -171,19 +171,30 @@ unsafe fn paint_hud(hwnd: HWND) {
             },
             DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
         );
-        hud_text(
-            dc,
-            mono_font,
-            meta,
-            &content.target,
-            RECT {
-                left: client.left + 11,
-                top: client.top + 28,
-                right: client.right - 10,
-                bottom: client.bottom - 4,
-            },
-            DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
-        );
+        // Body lines, stacked until the card runs out of room. Clipping is
+        // deliberate: a HUD that grows to fit its content would cover the
+        // panel it is reporting on.
+        let line_height = 17_i32;
+        let mut top = client.top + 30;
+        for line in &content.lines {
+            if top + line_height > client.bottom - 4 {
+                break;
+            }
+            hud_text(
+                dc,
+                mono_font,
+                meta,
+                line,
+                RECT {
+                    left: client.left + 11,
+                    top,
+                    right: client.right - 10,
+                    bottom: top + line_height,
+                },
+                DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
+            );
+            top += line_height;
+        }
         let _ = DeleteObject(HGDIOBJ(status_font.0));
         let _ = DeleteObject(HGDIOBJ(mono_font.0));
         let _ = DeleteObject(HGDIOBJ(canvas.0));
@@ -470,4 +481,30 @@ pub(super) fn is_window(hwnd: HWND) -> bool {
 
 pub(super) const fn required_passive_style_bits() -> u32 {
     0x0800_00A8 // TOPMOST | TRANSPARENT | TOOLWINDOW | NOACTIVATE
+}
+
+/// Dispatches this thread's pending messages for up to `budget`.
+///
+/// A [`HudWindow`](crate::HudWindow) is thread-bound and repaints from
+/// `WM_PAINT`, so it never draws unless the thread that created it pumps.
+/// Inside the app that is GPUI's own loop; a console tool has to do it
+/// itself, and this exists so such a tool does not have to reach for the
+/// Win32 crate directly.
+pub fn pump_thread_messages(budget: std::time::Duration) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage,
+    };
+
+    let deadline = std::time::Instant::now() + budget;
+    let mut message = MSG::default();
+    while std::time::Instant::now() < deadline {
+        // SAFETY: standard non-blocking pump over this thread's own queue.
+        while unsafe { PeekMessageW(&mut message, None, 0, 0, PM_REMOVE) }.as_bool() {
+            unsafe {
+                let _ = TranslateMessage(&message);
+                DispatchMessageW(&message);
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(8));
+    }
 }

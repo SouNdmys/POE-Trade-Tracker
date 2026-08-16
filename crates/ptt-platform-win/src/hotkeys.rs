@@ -14,18 +14,21 @@ const ERROR_HOTKEY_ALREADY_REGISTERED: u32 = 1409;
 const ACKNOWLEDGE_ID: i32 = 0x50_4F_45;
 const SELECT_REGION_ID: i32 = 0x50_4F_46;
 const START_ID: i32 = 0x50_4F_47;
+const TOGGLE_HUD_ID: i32 = 0x50_4F_48;
 
 /// Semantic action emitted by the three stable global shortcuts.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum HotKeyAction {
     StartMonitoring,
+    ToggleHud,
     SelectRegion,
     StopOrAcknowledge,
 }
 
 impl HotKeyAction {
-    const ALL: [Self; 3] = [
+    const ALL: [Self; 4] = [
         Self::StartMonitoring,
+        Self::ToggleHud,
         Self::SelectRegion,
         Self::StopOrAcknowledge,
     ];
@@ -33,6 +36,7 @@ impl HotKeyAction {
     const fn identifier(self) -> i32 {
         match self {
             Self::StartMonitoring => START_ID,
+            Self::ToggleHud => TOGGLE_HUD_ID,
             Self::SelectRegion => SELECT_REGION_ID,
             Self::StopOrAcknowledge => ACKNOWLEDGE_ID,
         }
@@ -41,8 +45,9 @@ impl HotKeyAction {
     const fn index(self) -> usize {
         match self {
             Self::StartMonitoring => 0,
-            Self::SelectRegion => 1,
-            Self::StopOrAcknowledge => 2,
+            Self::ToggleHud => 1,
+            Self::SelectRegion => 2,
+            Self::StopOrAcknowledge => 3,
         }
     }
 }
@@ -169,6 +174,7 @@ impl fmt::Display for StartMonitoringHotKey {
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct HotKeyConfig {
     pub start: StartMonitoringHotKey,
+    pub hud: HudToggleHotKey,
 }
 
 impl HotKeyConfig {
@@ -176,6 +182,7 @@ impl HotKeyConfig {
     pub const fn binding(self, action: HotKeyAction) -> HotKeyBinding {
         match action {
             HotKeyAction::StartMonitoring => self.start.binding(),
+            HotKeyAction::ToggleHud => self.hud.binding(),
             HotKeyAction::SelectRegion => HotKeyBinding::new(
                 HotKeyModifiers::CONTROL.union(HotKeyModifiers::SHIFT),
                 VK_F11,
@@ -185,6 +192,55 @@ impl HotKeyConfig {
                 VK_F12,
             ),
         }
+    }
+}
+
+/// The supported bindings for showing and hiding the HUD.
+///
+/// A fixed set for the same reason the watch toggle has one: a free-text
+/// binding lets a settings file ask for a combination that cannot be
+/// registered, and the user then has a key that silently does nothing.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum HudToggleHotKey {
+    #[default]
+    AltF11,
+    ControlAltF11,
+    ControlShiftF11,
+}
+
+impl HudToggleHotKey {
+    pub const DEFAULT_SETTING_VALUE: &'static str = "Alt+F11";
+    pub const OPTIONS: [Self; 3] = [Self::AltF11, Self::ControlAltF11, Self::ControlShiftF11];
+
+    /// Parses settings case-insensitively and falls back to the stable default.
+    #[must_use]
+    pub fn parse_or_default(value: Option<&str>) -> Self {
+        let Some(value) = value.map(str::trim) else {
+            return Self::default();
+        };
+        Self::OPTIONS
+            .into_iter()
+            .find(|candidate| candidate.setting_value().eq_ignore_ascii_case(value))
+            .unwrap_or_default()
+    }
+
+    #[must_use]
+    pub const fn setting_value(self) -> &'static str {
+        match self {
+            Self::AltF11 => Self::DEFAULT_SETTING_VALUE,
+            Self::ControlAltF11 => "Ctrl+Alt+F11",
+            Self::ControlShiftF11 => "Ctrl+Shift+F11",
+        }
+    }
+
+    #[must_use]
+    pub const fn binding(self) -> HotKeyBinding {
+        let modifiers = match self {
+            Self::AltF11 => HotKeyModifiers::ALT,
+            Self::ControlAltF11 => HotKeyModifiers::CONTROL.union(HotKeyModifiers::ALT),
+            Self::ControlShiftF11 => HotKeyModifiers::CONTROL.union(HotKeyModifiers::SHIFT),
+        };
+        HotKeyBinding::new(modifiers, VK_F11)
     }
 }
 
@@ -239,7 +295,7 @@ impl std::error::Error for HotKeyError {}
 pub struct HotKeyManager {
     target: HotKeyTarget,
     config: HotKeyConfig,
-    registered: [bool; 3],
+    registered: [bool; HotKeyAction::ALL.len()],
     _thread_bound: PhantomData<Rc<()>>,
 }
 
@@ -264,7 +320,7 @@ impl HotKeyManager {
         Self {
             target,
             config,
-            registered: [false; 3],
+            registered: [false; HotKeyAction::ALL.len()],
             _thread_bound: PhantomData,
         }
     }
@@ -381,6 +437,52 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_action_has_a_slot_and_a_unique_identifier() {
+        // The registration array is indexed by `action.index()`. Adding an
+        // action without widening the array indexes out of bounds, which is
+        // exactly what happened when the HUD toggle was added.
+        for action in HotKeyAction::ALL {
+            assert!(
+                action.index() < HotKeyAction::ALL.len(),
+                "{action:?} indexes past the registration array"
+            );
+        }
+        let mut indices: Vec<usize> = HotKeyAction::ALL.iter().map(|a| a.index()).collect();
+        indices.sort_unstable();
+        indices.dedup();
+        assert_eq!(
+            indices.len(),
+            HotKeyAction::ALL.len(),
+            "two actions share a slot, so one would silently unregister the other"
+        );
+
+        let mut identifiers: Vec<i32> = HotKeyAction::ALL.iter().map(|a| a.identifier()).collect();
+        identifiers.sort_unstable();
+        identifiers.dedup();
+        assert_eq!(
+            identifiers.len(),
+            HotKeyAction::ALL.len(),
+            "two actions share a RegisterHotKey id"
+        );
+    }
+
+    #[test]
+    fn the_hud_binding_round_trips_through_settings_text() {
+        for option in HudToggleHotKey::OPTIONS {
+            assert_eq!(
+                HudToggleHotKey::parse_or_default(Some(option.setting_value())),
+                option
+            );
+        }
+        // Anything outside the supported set falls to the default rather than
+        // registering nothing and leaving the user with a dead key.
+        assert_eq!(
+            HudToggleHotKey::parse_or_default(Some("Ctrl+Alt+Shift+F9")),
+            HudToggleHotKey::AltF11
+        );
+    }
+
+    #[test]
     fn invalid_start_setting_uses_stable_default() {
         assert_eq!(
             StartMonitoringHotKey::parse_or_default(Some("  ctrl+alt+f10 ")),
@@ -424,6 +526,6 @@ mod tests {
         );
         assert_eq!(manager.action_for_message(0, START_ID as usize), None);
         // Prevent Drop from invoking the native unregister adapter in this pure test.
-        manager.registered = [false; 3];
+        manager.registered = [false; HotKeyAction::ALL.len()];
     }
 }

@@ -14,10 +14,18 @@ use crate::ui::{
 
 #[cfg(windows)]
 use crate::backend::{
-    Backend, RegionSlot, ShellMsg, UiEvent, spawn_calibration, spawn_hotkey_thread,
+    Backend, HotkeyRegistration, RegionSlot, ShellMsg, UiEvent, spawn_calibration,
+    spawn_hotkey_thread,
 };
 
 const LOG_CAPACITY: usize = 120;
+
+/// Where the overlay card sits, and how big it is.
+///
+/// Top-left rather than centred: the currency panel occupies the middle of
+/// the screen, which is exactly what the card must not cover.
+const HUD_ORIGIN: (i32, i32) = (24, 24);
+const HUD_SIZE: (i32, i32) = (400, 200);
 
 /// How far back the pages read. Matches the analysis window the watch loop
 /// uses, so a page and the live line never describe different books.
@@ -58,7 +66,11 @@ pub struct AppShell {
     shell_rx: std::sync::mpsc::Receiver<ShellMsg>,
     #[cfg(windows)]
     shell_tx: std::sync::mpsc::Sender<ShellMsg>,
-    hotkey_ok: bool,
+    hotkey_ok: HotkeyRegistration,
+    /// The overlay card, created lazily the first time it is asked for.
+    #[cfg(windows)]
+    hud: Option<ptt_platform_win::HudWindow>,
+    hud_visible: bool,
     watching: bool,
     accepted: u64,
     skips: BTreeMap<String, u64>,
@@ -121,21 +133,36 @@ impl AppShell {
             // combination that is not actually registered (legacy files hold
             // "Ctrl+Alt+F11", which is outside the supported options).
             let mut settings = settings;
-            let resolved = ptt_platform_win::StartMonitoringHotKey::parse_or_default(Some(
+            let resolved_watch = ptt_platform_win::StartMonitoringHotKey::parse_or_default(Some(
                 &settings.hotkeys.toggle_watch,
             ))
             .setting_value()
             .to_owned();
-            if settings.hotkeys.toggle_watch != resolved {
-                settings.hotkeys.toggle_watch = resolved;
+            let resolved_hud = ptt_platform_win::HudToggleHotKey::parse_or_default(Some(
+                &settings.hotkeys.toggle_hud,
+            ))
+            .setting_value()
+            .to_owned();
+            if settings.hotkeys.toggle_watch != resolved_watch
+                || settings.hotkeys.toggle_hud != resolved_hud
+            {
+                settings.hotkeys.toggle_watch = resolved_watch;
+                settings.hotkeys.toggle_hud = resolved_hud;
                 let _ = store.save(&settings);
             }
             let (tx, rx) = std::sync::mpsc::channel();
-            let hotkey_ok = spawn_hotkey_thread(tx.clone(), settings.hotkeys.toggle_watch.clone());
+            let hotkey_ok = spawn_hotkey_thread(
+                tx.clone(),
+                settings.hotkeys.toggle_watch.clone(),
+                settings.hotkeys.toggle_hud.clone(),
+            );
             (store, settings, tx, rx, hotkey_ok)
         };
         #[cfg(not(windows))]
-        let hotkey_ok = false;
+        let hotkey_ok = HotkeyRegistration {
+            watch: false,
+            hud: false,
+        };
 
         Self {
             focus_handle: cx.focus_handle(),
@@ -150,6 +177,9 @@ impl AppShell {
             #[cfg(windows)]
             shell_tx,
             hotkey_ok,
+            #[cfg(windows)]
+            hud: None,
+            hud_visible: false,
             watching: false,
             accepted: 0,
             skips: BTreeMap::new(),
@@ -182,6 +212,7 @@ impl AppShell {
                 dirty = true;
                 match message {
                     ShellMsg::HotkeyToggle => self.toggle_watch(cx),
+                    ShellMsg::HotkeyHud => self.toggle_hud(),
                     ShellMsg::Calibrated {
                         slot,
                         x,
@@ -200,6 +231,9 @@ impl AppShell {
             if self.report_stale {
                 self.refresh_report();
                 dirty = true;
+            }
+            if dirty {
+                self.refresh_hud();
             }
             if dirty {
                 cx.notify();
@@ -339,7 +373,7 @@ impl AppShell {
             (RegionSlot::Have, "cal-have", entry.have_name_region),
             (RegionSlot::Tables, "cal-tables", entry.tables_region),
         ];
-        let hotkey_line = if self.hotkey_ok {
+        let hotkey_line = if self.hotkey_ok.watch {
             format!(
                 "hotkey {}  toggles watch",
                 self.settings.hotkeys.toggle_watch
@@ -395,6 +429,105 @@ impl AppShell {
 }
 
 impl AppShell {
+    /// Shows or hides the overlay card, creating it on first use.
+    ///
+    /// The card is created excluded from capture and click-through from the
+    /// moment it exists: a HUD that appears in a screenshot would be read
+    /// back as part of the panel it is describing, and one that takes clicks
+    /// would steal them from the game.
+    #[cfg(windows)]
+    fn toggle_hud(&mut self) {
+        use ptt_platform_win::{
+            CaptureAffinity, HudInteractionMode, HudWindow, HudWindowConfig, HudWindowPolicy, RectI,
+        };
+
+        if self.hud.is_none() {
+            let Some(bounds) = RectI::new(HUD_ORIGIN.0, HUD_ORIGIN.1, HUD_SIZE.0, HUD_SIZE.1)
+            else {
+                self.push_log("HUD bounds are invalid".to_owned());
+                return;
+            };
+            let config = HudWindowConfig {
+                bounds,
+                policy: HudWindowPolicy {
+                    interaction: HudInteractionMode::Passive,
+                    capture_affinity: CaptureAffinity::Exclude,
+                },
+                visible: false,
+            };
+            match HudWindow::create(config) {
+                Ok(hud) => self.hud = Some(hud),
+                Err(error) => {
+                    self.push_log(format!("HUD unavailable: {error}"));
+                    return;
+                }
+            }
+        }
+        let Some(hud) = self.hud.as_mut() else {
+            return;
+        };
+        let outcome = if self.hud_visible {
+            hud.hide()
+        } else {
+            hud.show()
+        };
+        match outcome {
+            Ok(()) => {
+                self.hud_visible = !self.hud_visible;
+                self.refresh_hud();
+            }
+            Err(error) => self.push_log(format!("HUD toggle failed: {error}")),
+        }
+    }
+
+    /// Pushes the current state onto the card. Cheap and idempotent, so it
+    /// can run on the tick without a dirty flag.
+    #[cfg(windows)]
+    fn refresh_hud(&mut self) {
+        use ptt_platform_win::HudContent;
+
+        if !self.hud_visible {
+            return;
+        }
+        let status = if self.fault.is_some() {
+            "FAULT"
+        } else if self.watching {
+            "WATCHING"
+        } else {
+            "IDLE"
+        };
+        let pair = self.report_pair.as_ref().map_or_else(
+            || "no pair yet".to_owned(),
+            |(have, need)| format!("{have} -> {need}"),
+        );
+        // The card answers two questions and no others: what is this pair
+        // worth, and where should I go next.
+        let mut lines = vec![pair];
+        lines.extend(self.last_analysis.iter().take(3).cloned());
+        if self.page == Page::Monitor {
+            lines.extend(self.report_lines.iter().take(4).cloned());
+        }
+        let content = HudContent {
+            monitoring: self.watching,
+            status_text: status.to_owned(),
+            elapsed: format!("{} ok", self.accepted),
+            lines,
+        };
+        if let Some(hud) = self.hud.as_mut()
+            && let Err(error) = hud.set_content(content)
+        {
+            self.push_log(format!("HUD update failed: {error}"));
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn toggle_hud(&mut self) {
+        self.hud_visible = !self.hud_visible;
+    }
+
+    #[cfg(not(windows))]
+    fn refresh_hud(&mut self) {}
+
     #[cfg(windows)]
     fn show_page(&mut self, page: Page) {
         if self.page != page {

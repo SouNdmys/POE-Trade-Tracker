@@ -4,7 +4,8 @@
 
 #[cfg(windows)]
 pub use windows_backend::{
-    Backend, RegionSlot, ShellMsg, UiEvent, spawn_calibration, spawn_hotkey_thread,
+    Backend, HotkeyRegistration, RegionSlot, ShellMsg, UiEvent, spawn_calibration,
+    spawn_hotkey_thread,
 };
 
 #[cfg(windows)]
@@ -47,6 +48,7 @@ mod windows_backend {
     #[derive(Debug)]
     pub enum ShellMsg {
         HotkeyToggle,
+        HotkeyHud,
         Calibrated {
             slot: RegionSlot,
             x: i32,
@@ -58,16 +60,30 @@ mod windows_backend {
         CalibrationFailed(RegionSlot, String),
     }
 
-    /// Registers the global watch-toggle hotkey on a dedicated thread with
-    /// its own message loop (RegisterHotKey requires one). Returns false when
-    /// registration failed (another app owns the combination).
-    pub fn spawn_hotkey_thread(sender: std::sync::mpsc::Sender<ShellMsg>, binding: String) -> bool {
+    /// Which global shortcuts came up.
+    #[derive(Clone, Copy, Debug)]
+    pub struct HotkeyRegistration {
+        pub watch: bool,
+        pub hud: bool,
+    }
+
+    /// Registers the global shortcuts on a dedicated thread with its own
+    /// message loop (RegisterHotKey requires one).
+    ///
+    /// The two are registered independently: an unrelated app owning one
+    /// combination must not cost the user the other.
+    pub fn spawn_hotkey_thread(
+        sender: std::sync::mpsc::Sender<ShellMsg>,
+        binding: String,
+        hud_binding: String,
+    ) -> HotkeyRegistration {
         let (ready_tx, ready_rx) = channel();
         std::thread::Builder::new()
             .name("ptt-hotkeys".to_owned())
             .spawn(move || {
                 use ptt_platform_win::{
-                    HotKeyAction, HotKeyConfig, HotKeyManager, StartMonitoringHotKey,
+                    HotKeyAction, HotKeyConfig, HotKeyManager, HudToggleHotKey,
+                    StartMonitoringHotKey,
                 };
                 use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
 
@@ -75,32 +91,50 @@ mod windows_backend {
 
                 let config = HotKeyConfig {
                     start: StartMonitoringHotKey::parse_or_default(Some(&binding)),
+                    hud: HudToggleHotKey::parse_or_default(Some(&hud_binding)),
                 };
-                // Register ONLY the toggle: the all-or-nothing helper would
-                // let an unrelated app owning Ctrl+Shift+F11/F12 veto the one
-                // combination we actually use.
+                // Register the two we use, one at a time: the all-or-nothing
+                // helper would let an unrelated app owning any of the legacy
+                // combinations veto everything.
                 let mut manager = HotKeyManager::unregistered(HotKeyTarget::CurrentThread, config);
-                if let Err(error) = manager.register(HotKeyAction::StartMonitoring) {
-                    eprintln!("global hotkey registration failed: {error}");
-                    let _ = ready_tx.send(false);
+                let watch = manager.register(HotKeyAction::StartMonitoring);
+                if let Err(error) = &watch {
+                    eprintln!("watch hotkey registration failed: {error}");
+                }
+                let hud = manager.register(HotKeyAction::ToggleHud);
+                if let Err(error) = &hud {
+                    eprintln!("HUD hotkey registration failed: {error}");
+                }
+                let registration = HotkeyRegistration {
+                    watch: watch.is_ok(),
+                    hud: hud.is_ok(),
+                };
+                let _ = ready_tx.send(registration);
+                if !registration.watch && !registration.hud {
                     return;
                 }
-                let _ = ready_tx.send(true);
                 let mut message = MSG::default();
                 // SAFETY: standard thread message loop; the manager outlives it.
                 while unsafe { GetMessageW(&mut message, None, 0, 0) }.as_bool() {
-                    if message.message == WM_HOTKEY
-                        && manager
-                            .action_for_message(message.message, message.wParam.0)
-                            .is_some()
-                        && sender.send(ShellMsg::HotkeyToggle).is_err()
-                    {
+                    if message.message != WM_HOTKEY {
+                        continue;
+                    }
+                    let outgoing =
+                        match manager.action_for_message(message.message, message.wParam.0) {
+                            Some(HotKeyAction::StartMonitoring) => ShellMsg::HotkeyToggle,
+                            Some(HotKeyAction::ToggleHud) => ShellMsg::HotkeyHud,
+                            _ => continue,
+                        };
+                    if sender.send(outgoing).is_err() {
                         break;
                     }
                 }
             })
             .expect("spawn hotkey thread");
-        ready_rx.recv().unwrap_or(false)
+        ready_rx.recv().unwrap_or(HotkeyRegistration {
+            watch: false,
+            hud: false,
+        })
     }
 
     /// Runs the fullscreen region-selection overlay on its own thread and
