@@ -264,7 +264,9 @@ fn a_future_capture_is_an_anomaly_not_the_freshest_price() {
     // read as the newest possible data and stayed fresh.
     let edges = vec![
         EdgeSpec::new("now", 1_033, 0).build(),
-        EdgeSpec::new("ahead", 1_035, 5).ahead_of_the_clock().build(),
+        EdgeSpec::new("ahead", 1_035, 5)
+            .ahead_of_the_clock()
+            .build(),
     ];
     let points = price_points(&edges, &asset("divine-orb"), &asset("chaos-orb"));
     let summary = summarize(&points, &asset("divine-orb"), &asset("chaos-orb"));

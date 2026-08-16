@@ -4530,6 +4530,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptt-workflows"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ptt-market-book",
+ "ptt-strategy",
+ "ptt-trade-domain",
+ "ptt-trade-engine",
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "pulp"
 version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

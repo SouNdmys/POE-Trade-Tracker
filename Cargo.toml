@@ -17,6 +17,7 @@ members = [
     "crates/ptt-trade-engine",
     "crates/ptt-market-book",
     "crates/ptt-vision",
+    "crates/ptt-workflows",
 ]
 
 [workspace.package]

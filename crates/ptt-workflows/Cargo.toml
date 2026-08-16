@@ -1,0 +1,17 @@
+[package]
+name = "ptt-workflows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Focus groups, coverage gaps, probe queue, and the opportunity radar for POE Trade Tracker"
+
+[dependencies]
+chrono.workspace = true
+ptt-market-book = { path = "../ptt-market-book" }
+ptt-strategy = { path = "../ptt-strategy" }
+ptt-trade-domain = { path = "../ptt-trade-domain" }
+ptt-trade-engine = { path = "../ptt-trade-engine" }
+serde.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,687 @@
+use std::cmp::Ordering;
+
+use ptt_market_book::{QuoteSelectionPolicy, QuoteSelectionResult, QuoteSelectionStrategy};
+use ptt_trade_domain::MarketAssetId;
+use ptt_trade_engine::{
+    AssetAmount, AssetUnitCatalog, ComparisonDirection, ConversionComparisonStatus, ConversionPath,
+    ConversionRequest, EngineError, ExecutionRiskFlag, FeePolicy, MarketDepthIndex,
+    SearchCancellation, TriangleEvaluation, TriangleRequest, find_best_conversion,
+    find_triangle_opportunities,
+};
+use serde::{Deserialize, Serialize};
+
+use crate::WorkflowError;
+use crate::focus::{FocusScope, FocusScopeStatus, ProbePriority};
+use crate::probe::{ProbeCandidate, ProbeReason, ProbeSource};
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RadarStage {
+    Preparing,
+    ConversionScan,
+    TriangleScan,
+    Ranking,
+    Complete,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarProgress {
+    pub stage: RadarStage,
+    pub completed_units: u32,
+    pub total_units: u32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RadarCategory {
+    Executable,
+    Theoretical,
+    ProbeRequired,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RadarItemKind {
+    BestConversion,
+    Triangle,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RadarReason {
+    BetterThanDirect,
+    NoDirectBaseline,
+    TriangleReturn,
+    GrossTheoryOnly,
+    ResidualInventory,
+    MakerReference,
+    SearchTruncated,
+    CaptureSkewUnverified,
+    CaptureSkewExceeded,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarRequest {
+    pub context_key: String,
+    pub start_asset_id: MarketAssetId,
+    pub amount_in: AssetAmount,
+    pub minimum_conversion_improvement_basis_points: u32,
+    pub minimum_triangle_profit_basis_points: u32,
+    pub max_hops: u8,
+    pub max_paths_per_target: u32,
+    /// Ceiling on the search each single target may consume.
+    pub max_expansions_per_target: u32,
+    /// Ceiling on the whole conversion scan.
+    ///
+    /// F8: without this, a scope with two hundred targets quietly does two
+    /// hundred times the per-target work and no result says so. The budget is
+    /// divided equally among targets rather than spent first-come — an
+    /// early-exhausted budget would otherwise leave the tail of the scope
+    /// unscanned while the report claimed full coverage, which is the audit's
+    /// B-09 bias.
+    pub budget: RadarBudget,
+    pub max_triangle_evaluations: u32,
+    pub max_results: u16,
+    pub fee_policy: FeePolicy,
+}
+
+/// How much search one radar run may spend.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarBudget {
+    /// Total state expansions across every target in the scope.
+    pub max_total_expansions: u32,
+    /// Most targets to scan. Zero means every target in scope.
+    pub max_targets: u32,
+}
+
+impl Default for RadarBudget {
+    fn default() -> Self {
+        // Enough to scan a few dozen targets to four hops without the scan
+        // outlasting a user's patience.
+        Self {
+            max_total_expansions: 200_000,
+            max_targets: 0,
+        }
+    }
+}
+
+impl RadarBudget {
+    /// The share of the budget one target gets, given how many there are.
+    ///
+    /// Equal shares, floor-divided, never below one: the last target in the
+    /// scope is scanned as hard as the first.
+    #[must_use]
+    fn per_target(self, target_count: usize) -> u32 {
+        if target_count == 0 {
+            return self.max_total_expansions;
+        }
+        let count = u32::try_from(target_count).unwrap_or(u32::MAX);
+        (self.max_total_expansions / count).max(1)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarItem {
+    pub item_id: String,
+    pub kind: RadarItemKind,
+    pub category: RadarCategory,
+    pub path_asset_ids: Vec<MarketAssetId>,
+    pub amount_in: AssetAmount,
+    pub amount_out: AssetAmount,
+    pub value_basis_points: Option<i64>,
+    pub reasons: Vec<RadarReason>,
+    pub risk_flags: Vec<ExecutionRiskFlag>,
+    pub conversion_path: Option<ConversionPath>,
+    pub triangle: Option<TriangleEvaluation>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarDiagnostics {
+    pub target_count: u32,
+    pub scanned_conversion_count: u32,
+    pub complete_conversion_count: u32,
+    pub missing_conversion_count: u32,
+    pub triangle_evaluation_count: u32,
+    pub item_count_before_limit: u32,
+    /// State expansions the conversion scan consumed.
+    pub expansions_used: u32,
+    /// Targets in scope that the budget did not reach.
+    pub skipped_target_count: u32,
+    /// True when the scan stopped early rather than exhausting the space, so
+    /// a missing opportunity may exist but was never looked for.
+    pub budget_exhausted: bool,
+    /// True when ranked results were cut to fit `max_results`. Distinct from
+    /// `budget_exhausted`: this one means the answers exist and were dropped
+    /// from the list, not that they were never computed.
+    pub results_truncated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarResult {
+    pub context_key: String,
+    pub analysis_policy: QuoteSelectionPolicy,
+    pub start_asset_id: MarketAssetId,
+    pub amount_in: AssetAmount,
+    pub items: Vec<RadarItem>,
+    pub probe_candidates: Vec<ProbeCandidate>,
+    pub diagnostics: RadarDiagnostics,
+}
+
+pub fn run_opportunity_radar(
+    selection: &QuoteSelectionResult,
+    units: &AssetUnitCatalog,
+    scope: &FocusScope,
+    request: &RadarRequest,
+    cancellation: &SearchCancellation,
+    mut progress: impl FnMut(RadarProgress),
+) -> Result<RadarResult, WorkflowError> {
+    validate_request(selection, units, scope, request)?;
+    let mut request = request.clone();
+    if !selection.policy.cost_verification.all_verified() {
+        request.fee_policy = FeePolicy::Unknown;
+    }
+    let restricted = restrict_selection(selection, scope);
+    let index = MarketDepthIndex::try_from_selection(&restricted, units.clone())
+        .map_err(|_| WorkflowError::InvalidMarketSelection)?;
+    let targets = scope
+        .endpoint_asset_ids
+        .iter()
+        .filter(|target| {
+            **target != request.start_asset_id
+                && scope.endpoint_pair_allowed(&request.start_asset_id, target)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    let total_units = count(targets.len())?
+        .checked_add(1)
+        .ok_or(WorkflowError::NumericOverflow)?;
+    progress(RadarProgress {
+        stage: RadarStage::Preparing,
+        completed_units: 0,
+        total_units,
+    });
+
+    let mut items = Vec::new();
+    let mut probe_candidates = Vec::new();
+    let mut scanned_conversion_count = 0_u32;
+    let mut complete_conversion_count = 0_u32;
+    let mut missing_conversion_count = 0_u32;
+    let mut expansions_used = 0_u32;
+    let mut budget_exhausted = false;
+    let per_target_budget = request
+        .budget
+        .per_target(targets.len())
+        .min(request.max_expansions_per_target);
+    for target in &targets {
+        ensure_not_cancelled(cancellation)?;
+        if expansions_used >= request.budget.max_total_expansions {
+            budget_exhausted = true;
+            break;
+        }
+        progress(RadarProgress {
+            stage: RadarStage::ConversionScan,
+            completed_units: scanned_conversion_count,
+            total_units,
+        });
+        let result = find_best_conversion(
+            &index,
+            &ConversionRequest {
+                from_asset_id: request.start_asset_id.clone(),
+                to_asset_id: target.clone(),
+                amount_in: request.amount_in.clone(),
+                max_hops: request.max_hops,
+                max_paths: request.max_paths_per_target,
+                max_expansions: per_target_budget,
+                alternative_limit: 0,
+                allowed_intermediate_asset_ids: Some(scope.intermediate_asset_ids.clone()),
+                fee_policy: request.fee_policy,
+            },
+            cancellation,
+        )
+        .map_err(map_engine_error)?;
+        scanned_conversion_count = scanned_conversion_count
+            .checked_add(1)
+            .ok_or(WorkflowError::NumericOverflow)?;
+        expansions_used = expansions_used.saturating_add(result.diagnostics.expanded_state_count);
+        if result.diagnostics.truncated {
+            budget_exhausted = true;
+        }
+        let Some(best) = result.best_path else {
+            missing_conversion_count = missing_conversion_count
+                .checked_add(1)
+                .ok_or(WorkflowError::NumericOverflow)?;
+            probe_candidates.push(missing_conversion_probe(&request, target));
+            continue;
+        };
+        if !best.is_fully_filled {
+            missing_conversion_count = missing_conversion_count
+                .checked_add(1)
+                .ok_or(WorkflowError::NumericOverflow)?;
+            probe_candidates.push(confirm_conversion_probe(&request, target, &best));
+            continue;
+        }
+        complete_conversion_count = complete_conversion_count
+            .checked_add(1)
+            .ok_or(WorkflowError::NumericOverflow)?;
+        let should_include = match result.comparison.status {
+            ConversionComparisonStatus::ComparableGross
+            | ConversionComparisonStatus::ComparableNet => {
+                result.comparison.direction == Some(ComparisonDirection::Improved)
+                    && result.comparison.basis_points.is_some_and(|basis_points| {
+                        basis_points
+                            >= i64::from(request.minimum_conversion_improvement_basis_points)
+                    })
+            }
+            ConversionComparisonStatus::NoDirectPath => true,
+            ConversionComparisonStatus::IncomparableCoverage
+            | ConversionComparisonStatus::NoPath => false,
+        };
+        if should_include {
+            items.push(conversion_item(
+                items.len(),
+                best,
+                result.comparison.status,
+                result.comparison.basis_points,
+            ));
+        }
+    }
+
+    ensure_not_cancelled(cancellation)?;
+    progress(RadarProgress {
+        stage: RadarStage::TriangleScan,
+        completed_units: scanned_conversion_count,
+        total_units,
+    });
+    let triangles = find_triangle_opportunities(
+        &index,
+        &TriangleRequest {
+            start_asset_id: request.start_asset_id.clone(),
+            amount_in: request.amount_in.clone(),
+            minimum_profit_basis_points: request.minimum_triangle_profit_basis_points,
+            max_results: request.max_results,
+            max_evaluations: request.max_triangle_evaluations,
+            fee_policy: request.fee_policy,
+        },
+        cancellation,
+    )
+    .map_err(map_engine_error)?;
+    for triangle in triangles.opportunities.iter().cloned() {
+        if !triangle.execution_eligible {
+            for step in &triangle.steps {
+                probe_candidates.push(ProbeCandidate {
+                    from_asset_id: step.from_asset_id.clone(),
+                    to_asset_id: step.to_asset_id.clone(),
+                    reason: ProbeReason::OpportunityConfirmation,
+                    source: ProbeSource::OpportunityRadar,
+                    priority: ProbePriority::High,
+                    related_focus_group_id: None,
+                    last_seen_at: None,
+                    freshness_status: None,
+                    expected_value_hint: triangle
+                        .profit_basis_points
+                        .map(|value| format!("triangle theory {value} bps")),
+                    notes: Some("theoretical triangle requires current confirmation".to_owned()),
+                });
+            }
+        }
+        items.push(triangle_item(items.len(), triangle));
+    }
+    progress(RadarProgress {
+        stage: RadarStage::Ranking,
+        completed_units: total_units,
+        total_units,
+    });
+    items.sort_by(compare_items);
+    let item_count_before_limit = count(items.len())?;
+    let result_limit = usize::from(request.max_results);
+    let results_truncated = items.len() > result_limit;
+    if triangles.diagnostics.truncated {
+        budget_exhausted = true;
+    }
+    let skipped_target_count = count(targets.len())?.saturating_sub(scanned_conversion_count);
+    items.truncate(result_limit);
+    deduplicate_probe_candidates(&mut probe_candidates);
+    progress(RadarProgress {
+        stage: RadarStage::Complete,
+        completed_units: total_units,
+        total_units,
+    });
+    Ok(RadarResult {
+        context_key: request.context_key.clone(),
+        analysis_policy: selection.policy.clone(),
+        start_asset_id: request.start_asset_id.clone(),
+        amount_in: request.amount_in.clone(),
+        items,
+        probe_candidates,
+        diagnostics: RadarDiagnostics {
+            target_count: count(targets.len())?,
+            scanned_conversion_count,
+            complete_conversion_count,
+            missing_conversion_count,
+            triangle_evaluation_count: triangles.diagnostics.evaluated_cycle_count,
+            item_count_before_limit,
+            expansions_used,
+            skipped_target_count,
+            budget_exhausted,
+            results_truncated,
+        },
+    })
+}
+
+fn validate_request(
+    selection: &QuoteSelectionResult,
+    units: &AssetUnitCatalog,
+    scope: &FocusScope,
+    request: &RadarRequest,
+) -> Result<(), WorkflowError> {
+    request
+        .fee_policy
+        .validate()
+        .map_err(|_| WorkflowError::InvalidRequest)?;
+    if selection.policy.strategy != QuoteSelectionStrategy::Instant
+        || selection.context_key != request.context_key
+        || request.context_key.trim().is_empty()
+        || scope.status != FocusScopeStatus::Ready
+        || !scope.endpoint_asset_ids.contains(&request.start_asset_id)
+        || request.amount_in.asset_id != request.start_asset_id
+        || request.amount_in.quanta == 0
+        || request.amount_in.unit
+            != units
+                .unit(&request.start_asset_id)
+                .map_err(|_| WorkflowError::InvalidRequest)?
+        || request.minimum_conversion_improvement_basis_points > 1_000_000
+        || request.minimum_triangle_profit_basis_points > 1_000_000
+        || !(1..=4).contains(&request.max_hops)
+        || request.max_paths_per_target == 0
+        || request.max_paths_per_target > 10_000
+        || request.max_expansions_per_target == 0
+        || request.max_expansions_per_target > 1_000_000
+        || request.max_triangle_evaluations == 0
+        || request.max_triangle_evaluations > 1_000_000
+        || request.max_results == 0
+        || request.max_results > 500
+    {
+        return Err(WorkflowError::InvalidRequest);
+    }
+    Ok(())
+}
+
+fn restrict_selection(
+    selection: &QuoteSelectionResult,
+    scope: &FocusScope,
+) -> QuoteSelectionResult {
+    let mut restricted = selection.clone();
+    restricted
+        .selections
+        .retain(|candidate| scope.edge_allowed(&candidate.from_asset_id, &candidate.to_asset_id));
+    restricted
+}
+
+fn conversion_item(
+    index: usize,
+    path: ConversionPath,
+    comparison_status: ConversionComparisonStatus,
+    basis_points: Option<i64>,
+) -> RadarItem {
+    let category = category_for_path(&path);
+    let mut reasons = Vec::new();
+    if matches!(
+        comparison_status,
+        ConversionComparisonStatus::ComparableGross | ConversionComparisonStatus::ComparableNet
+    ) {
+        reasons.push(RadarReason::BetterThanDirect);
+    } else if comparison_status == ConversionComparisonStatus::NoDirectPath {
+        reasons.push(RadarReason::NoDirectBaseline);
+    }
+    append_path_reasons(&path, &mut reasons);
+    RadarItem {
+        item_id: format!(
+            "conversion-{index}-{}",
+            path.path_asset_ids
+                .iter()
+                .map(MarketAssetId::as_str)
+                .collect::<Vec<_>>()
+                .join("-")
+        ),
+        kind: RadarItemKind::BestConversion,
+        category,
+        path_asset_ids: path.path_asset_ids.clone(),
+        amount_in: path.requested_input.clone(),
+        amount_out: path.amount_out.clone(),
+        value_basis_points: basis_points,
+        reasons,
+        risk_flags: path.risk_flags.clone(),
+        conversion_path: Some(path),
+        triangle: None,
+    }
+}
+
+fn triangle_item(index: usize, triangle: TriangleEvaluation) -> RadarItem {
+    let category = if has_capture_skew_risk(&triangle.risk_flags) {
+        RadarCategory::ProbeRequired
+    } else if triangle.execution_eligible {
+        RadarCategory::Executable
+    } else if triangle.is_fully_filled {
+        RadarCategory::Theoretical
+    } else {
+        RadarCategory::ProbeRequired
+    };
+    let mut reasons = vec![RadarReason::TriangleReturn];
+    if !triangle.execution_eligible {
+        reasons.push(RadarReason::GrossTheoryOnly);
+    }
+    if !triangle.residuals.is_empty() {
+        reasons.push(RadarReason::ResidualInventory);
+    }
+    append_capture_skew_reasons(&triangle.risk_flags, &mut reasons);
+    RadarItem {
+        item_id: format!(
+            "triangle-{index}-{}",
+            triangle
+                .cycle_asset_ids
+                .iter()
+                .map(MarketAssetId::as_str)
+                .collect::<Vec<_>>()
+                .join("-")
+        ),
+        kind: RadarItemKind::Triangle,
+        category,
+        path_asset_ids: triangle.cycle_asset_ids.clone(),
+        amount_in: triangle.amount_in.clone(),
+        amount_out: triangle.amount_out.clone(),
+        value_basis_points: triangle.profit_basis_points,
+        reasons,
+        risk_flags: triangle.risk_flags.clone(),
+        conversion_path: None,
+        triangle: Some(triangle),
+    }
+}
+
+fn category_for_path(path: &ConversionPath) -> RadarCategory {
+    if has_capture_skew_risk(&path.risk_flags) {
+        RadarCategory::ProbeRequired
+    } else if path.execution_eligible {
+        RadarCategory::Executable
+    } else if path.is_fully_filled {
+        RadarCategory::Theoretical
+    } else {
+        RadarCategory::ProbeRequired
+    }
+}
+
+fn has_capture_skew_risk(risks: &[ExecutionRiskFlag]) -> bool {
+    risks.contains(&ExecutionRiskFlag::CaptureSkewUnverified)
+        || risks.contains(&ExecutionRiskFlag::CaptureSkewExceeded)
+}
+
+fn append_path_reasons(path: &ConversionPath, reasons: &mut Vec<RadarReason>) {
+    if path.gross_only {
+        reasons.push(RadarReason::GrossTheoryOnly);
+    }
+    if !path.residuals.is_empty() {
+        reasons.push(RadarReason::ResidualInventory);
+    }
+    if path.risk_flags.contains(&ExecutionRiskFlag::MakerReference) {
+        reasons.push(RadarReason::MakerReference);
+    }
+    if path
+        .risk_flags
+        .contains(&ExecutionRiskFlag::SearchTruncated)
+    {
+        reasons.push(RadarReason::SearchTruncated);
+    }
+    append_capture_skew_reasons(&path.risk_flags, reasons);
+}
+
+fn append_capture_skew_reasons(risks: &[ExecutionRiskFlag], reasons: &mut Vec<RadarReason>) {
+    if risks.contains(&ExecutionRiskFlag::CaptureSkewUnverified) {
+        reasons.push(RadarReason::CaptureSkewUnverified);
+    }
+    if risks.contains(&ExecutionRiskFlag::CaptureSkewExceeded) {
+        reasons.push(RadarReason::CaptureSkewExceeded);
+    }
+}
+
+fn missing_conversion_probe(request: &RadarRequest, target: &MarketAssetId) -> ProbeCandidate {
+    ProbeCandidate {
+        from_asset_id: request.start_asset_id.clone(),
+        to_asset_id: target.clone(),
+        reason: ProbeReason::MissingForwardQuote,
+        source: ProbeSource::OpportunityRadar,
+        priority: ProbePriority::High,
+        related_focus_group_id: None,
+        last_seen_at: None,
+        freshness_status: None,
+        expected_value_hint: None,
+        notes: Some("radar could not build a conversion path".to_owned()),
+    }
+}
+
+fn confirm_conversion_probe(
+    request: &RadarRequest,
+    target: &MarketAssetId,
+    path: &ConversionPath,
+) -> ProbeCandidate {
+    ProbeCandidate {
+        from_asset_id: request.start_asset_id.clone(),
+        to_asset_id: target.clone(),
+        reason: ProbeReason::OpportunityConfirmation,
+        source: ProbeSource::OpportunityRadar,
+        priority: ProbePriority::High,
+        related_focus_group_id: None,
+        last_seen_at: None,
+        freshness_status: None,
+        expected_value_hint: None,
+        notes: Some(format!(
+            "partial path with {} residual entries",
+            path.residuals.len()
+        )),
+    }
+}
+
+fn deduplicate_probe_candidates(candidates: &mut Vec<ProbeCandidate>) {
+    candidates.sort_by(|left, right| {
+        left.from_asset_id
+            .cmp(&right.from_asset_id)
+            .then_with(|| left.to_asset_id.cmp(&right.to_asset_id))
+            .then_with(|| left.reason.cmp(&right.reason))
+            .then_with(|| left.priority.cmp(&right.priority))
+    });
+    candidates.dedup_by(|left, right| {
+        left.from_asset_id == right.from_asset_id
+            && left.to_asset_id == right.to_asset_id
+            && left.reason == right.reason
+            && left.source == right.source
+    });
+}
+
+fn compare_items(left: &RadarItem, right: &RadarItem) -> Ordering {
+    left.category
+        .cmp(&right.category)
+        .then_with(|| {
+            right
+                .value_basis_points
+                .unwrap_or(i64::MIN)
+                .cmp(&left.value_basis_points.unwrap_or(i64::MIN))
+        })
+        .then_with(|| right.amount_out.quanta.cmp(&left.amount_out.quanta))
+        .then_with(|| left.path_asset_ids.cmp(&right.path_asset_ids))
+        .then_with(|| left.item_id.cmp(&right.item_id))
+}
+
+fn ensure_not_cancelled(cancellation: &SearchCancellation) -> Result<(), WorkflowError> {
+    if cancellation.is_cancelled() {
+        Err(WorkflowError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+
+const fn map_engine_error(error: EngineError) -> WorkflowError {
+    match error {
+        EngineError::Cancelled => WorkflowError::Cancelled,
+        EngineError::NumericOverflow => WorkflowError::NumericOverflow,
+        EngineError::InvalidAssetUnit
+        | EngineError::InvalidAssetUnitCatalog
+        | EngineError::AmountNotAligned
+        | EngineError::NonPositiveAmount
+        | EngineError::InvalidFeePolicy
+        | EngineError::InvalidQuoteSelection
+        | EngineError::InvalidAnalysisRequest
+        | EngineError::InvalidSearchLimits => WorkflowError::InvalidMarketSelection,
+    }
+}
+
+fn count(value: usize) -> Result<u32, WorkflowError> {
+    u32::try_from(value).map_err(|_| WorkflowError::NumericOverflow)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_budget_is_shared_equally_so_the_last_target_is_scanned_like_the_first() {
+        // B-09: spending the budget first-come leaves the tail of the scope
+        // unscanned while the report still claims it covered the scope.
+        let budget = RadarBudget {
+            max_total_expansions: 1_000,
+            max_targets: 0,
+        };
+        assert_eq!(budget.per_target(4), 250);
+        assert_eq!(
+            budget.per_target(3),
+            333,
+            "floor, so the total is never exceeded"
+        );
+    }
+
+    #[test]
+    fn a_scope_larger_than_the_budget_still_gives_every_target_something() {
+        let budget = RadarBudget {
+            max_total_expansions: 10,
+            max_targets: 0,
+        };
+        assert_eq!(
+            budget.per_target(1_000),
+            1,
+            "a starved target gets a token scan rather than silently none"
+        );
+    }
+
+    #[test]
+    fn an_empty_scope_leaves_the_budget_whole() {
+        let budget = RadarBudget::default();
+        assert_eq!(
+            budget.per_target(0),
+            budget.max_total_expansions,
+            "no targets means nothing to divide among"
+        );
+    }
+}

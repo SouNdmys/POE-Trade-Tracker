@@ -235,11 +235,7 @@ pub fn candles(points: &[PricePoint], size: BucketSize) -> Vec<PriceCandle> {
             let maker_only = taker.is_empty();
             // Prices come from trades when the bucket has them, listings only
             // as a fallback — and the candle says which.
-            let priced: Vec<&PricePoint> = if maker_only {
-                group.to_vec()
-            } else {
-                taker
-            };
+            let priced: Vec<&PricePoint> = if maker_only { group.to_vec() } else { taker };
             let open = priced.first()?.rate.clone();
             let close = priced.last()?.rate.clone();
             let mut high = open.clone();
