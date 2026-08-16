@@ -8,11 +8,17 @@
 
 mod exact;
 mod execution_safety;
+mod maker_strategy;
 mod route_accounting;
+mod units;
 
 pub use execution_safety::{
     Actionability, ExecutionRisk, ModelCaveat, RiskAssessment, RiskThresholds, assess_path,
     assess_steps, assess_triangle,
+};
+pub use maker_strategy::{
+    MakerMode, MakerQueueLevel, MakerRecommendation, MakerRequest, MakerStrategy, MakerWall,
+    StockBasis, calculate_maker_strategy,
 };
 pub use route_accounting::{
     MarkRateSource, MarkRateTable, ProfitTier, ResidualPosition, RouteAccounting,

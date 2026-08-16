@@ -239,7 +239,7 @@ impl RiskAssessment {
         if needs_probe {
             risks.insert(ExecutionRisk::NeedsProbe);
         }
-        let actionability = verdict(&risks);
+        let actionability = actionability_for(&risks);
         Self {
             risks,
             caveats,
@@ -250,7 +250,7 @@ impl RiskAssessment {
 
 /// The ladder, in precedence order: a suspect number outranks a conditional
 /// one, which outranks a missing one, which outranks a clean one.
-fn verdict(risks: &BTreeSet<ExecutionRisk>) -> Actionability {
+pub(crate) fn actionability_for(risks: &BTreeSet<ExecutionRisk>) -> Actionability {
     if risks.iter().any(|risk| risk.is_outlier()) {
         return Actionability::SuspiciousOutlier;
     }
@@ -411,7 +411,7 @@ pub fn assess_path(
     if path.gross_only {
         assessment.caveats.insert(ModelCaveat::GrossProfitOnly);
     }
-    assessment.actionability = verdict(&assessment.risks);
+    assessment.actionability = actionability_for(&assessment.risks);
     assessment
 }
 
@@ -429,7 +429,7 @@ pub fn assess_triangle(
     if !evaluation.residuals.is_empty() {
         assessment.risks.insert(ExecutionRisk::ResidualInventory);
     }
-    assessment.actionability = verdict(&assessment.risks);
+    assessment.actionability = actionability_for(&assessment.risks);
     assessment
 }
 
@@ -482,7 +482,7 @@ mod tests {
         }
         assert!(risks.is_empty(), "model limits are not market hazards");
         assert_eq!(caveats.len(), 3);
-        assert_eq!(verdict(&risks), Actionability::InstantExecutable);
+        assert_eq!(actionability_for(&risks), Actionability::InstantExecutable);
     }
 
     #[test]
@@ -501,7 +501,7 @@ mod tests {
         let mut risks = BTreeSet::new();
         for (risk, expected) in ladder {
             risks.insert(risk);
-            assert_eq!(verdict(&risks), expected, "after adding {risk:?}");
+            assert_eq!(actionability_for(&risks), expected, "after adding {risk:?}");
         }
     }
 
@@ -529,7 +529,7 @@ mod tests {
             assert!(risk.blocks_instant_execution(), "{risk:?}");
             let mut risks = BTreeSet::new();
             risks.insert(risk);
-            assert_ne!(verdict(&risks), Actionability::InstantExecutable);
+            assert_ne!(actionability_for(&risks), Actionability::InstantExecutable);
         }
     }
 

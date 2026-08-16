@@ -33,6 +33,9 @@ use crate::exact::Rational;
 use crate::execution_safety::{
     ExecutionRisk, ModelCaveat, RiskAssessment, RiskThresholds, assess_path,
 };
+use crate::units::{
+    amount_like, apply_scale, quanta_scale_to_rate, rate_to_quanta_scale, whole_units,
+};
 
 /// Current rates used to value inventory the route could not convert.
 ///
@@ -185,28 +188,12 @@ fn simulate(steps: &[PairFill], quanta: u64) -> Option<u64> {
     let mut amount = quanta;
     for step in steps {
         let scale = step_scale(step)?;
-        amount = Rational::from_u128(u128::from(amount))
-            .checked_mul(scale)?
-            .floor_u64()?;
+        amount = apply_scale(amount, scale)?;
         if amount == 0 {
             return Some(0);
         }
     }
     Some(amount)
-}
-
-fn amount_like(reference: &AssetAmount, quanta: u64) -> AssetAmount {
-    AssetAmount {
-        asset_id: reference.asset_id.clone(),
-        quanta,
-        unit: reference.unit,
-    }
-}
-
-/// Whole units of an amount, as an exact rational.
-fn whole_units(amount: &AssetAmount) -> Option<Rational> {
-    let (num, den) = amount.exact_display_fraction();
-    Rational::new(num, den)
 }
 
 fn tier(
@@ -302,35 +289,6 @@ fn remaining_route_scale(
     Some(scale)
 }
 
-fn unit_value(amount: &AssetAmount) -> Option<Rational> {
-    Rational::new(
-        u128::from(amount.unit.numerator),
-        u128::from(amount.unit.denominator),
-    )
-}
-
-/// A whole-units-per-whole-unit rate, expressed as quanta out per quantum in.
-///
-/// Rates are quoted in whole orbs but amounts are held in quanta, so the two
-/// asset units have to be folded in; skipping this is correct only while
-/// every asset happens to have a whole minimum unit, which POE1 assets do
-/// not.
-fn rate_to_quanta_scale(rate: &Ratio, from: &AssetAmount, to: &AssetAmount) -> Option<Rational> {
-    Rational::new(u128::from(rate.numerator), u128::from(rate.denominator))?
-        .checked_mul(unit_value(from)?)?
-        .checked_div(unit_value(to)?)
-}
-
-/// The inverse of [`rate_to_quanta_scale`], for reporting a route-derived
-/// scale as a quotable rate.
-fn quanta_scale_to_rate(scale: Rational, from: &AssetAmount, to: &AssetAmount) -> Option<Ratio> {
-    let (numerator, denominator) = scale
-        .checked_mul(unit_value(to)?)?
-        .checked_div(unit_value(from)?)?
-        .to_u64_pair()?;
-    Ratio::from_parts(numerator, denominator).ok()
-}
-
 /// Derive the three-tier accounting for one route.
 pub fn derive_route_accounting(
     request: RouteAccountingRequest<'_>,
@@ -403,7 +361,7 @@ pub fn derive_route_accounting(
             .rate(&residual.amount.asset_id, &account_reference.asset_id)
         {
             Some(rate) => (
-                rate_to_quanta_scale(&rate, &residual.amount, &account_reference),
+                rate_to_quanta_scale(&rate, residual.amount.unit, account_reference.unit),
                 Some(rate),
                 Some(MarkRateSource::DirectQuote),
             ),
@@ -411,7 +369,7 @@ pub fn derive_route_accounting(
                 match remaining_route_scale(&path.steps, step_index, &account_reference.asset_id) {
                     Some(scale) => (
                         Some(scale),
-                        quanta_scale_to_rate(scale, &residual.amount, &account_reference),
+                        quanta_scale_to_rate(scale, residual.amount.unit, account_reference.unit),
                         Some(MarkRateSource::RemainingRoute),
                     ),
                     None => (None, None, None),
@@ -419,9 +377,7 @@ pub fn derive_route_accounting(
             }
         };
         let marked = scale.and_then(|scale| {
-            Rational::from_u128(u128::from(residual.amount.quanta))
-                .checked_mul(scale)?
-                .floor_u64()
+            apply_scale(residual.amount.quanta, scale)
                 .map(|quanta| amount_like(&account_reference, quanta))
         });
         if let Some(value) = &marked {
