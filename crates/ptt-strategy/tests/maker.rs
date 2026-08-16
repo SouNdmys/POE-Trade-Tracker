@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 use ptt_market_book::{EvaluatedQuoteEdge, FreshnessAssessment, FreshnessStatus};
-use ptt_strategy::{MakerMode, MakerRequest, RiskThresholds, StockBasis, calculate_maker_strategy};
+use ptt_strategy::{MakerMode, MakerRequest, RiskThresholds, calculate_maker_strategy};
 use ptt_trade_domain::{
     Comparator, ExecutionType, MarketAssetId, MarketEdgeObservation, QuoteEdge, QuoteEdgeRole,
     QuoteSide, Ratio, SnapshotRecordStatus,
@@ -85,7 +85,6 @@ fn audit_book() -> Vec<EvaluatedQuoteEdge> {
 fn request<'a>(
     competing: &'a [EvaluatedQuoteEdge],
     amount_in: &'a AssetAmount,
-    basis: StockBasis,
 ) -> MakerRequest<'a> {
     MakerRequest {
         from_asset_id: &amount_in.asset_id,
@@ -93,7 +92,6 @@ fn request<'a>(
         amount_in,
         competing,
         instant: None,
-        stock_basis: basis,
         thresholds: RiskThresholds::default(),
     }
 }
@@ -109,8 +107,7 @@ fn the_queue_front_is_the_lowest_rate_not_the_greediest() {
     // for this book. The front three listings hold 60.
     let book = audit_book();
     let amount_in = amount("divine-orb", 10);
-    let strategy =
-        calculate_maker_strategy(request(&book, &amount_in, StockBasis::FromAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
 
     let rates: Vec<u64> = strategy
         .queue
@@ -139,8 +136,7 @@ fn the_queue_front_is_the_lowest_rate_not_the_greediest() {
 fn depth_ahead_accumulates_from_the_front() {
     let book = audit_book();
     let amount_in = amount("divine-orb", 10);
-    let strategy =
-        calculate_maker_strategy(request(&book, &amount_in, StockBasis::FromAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
 
     let ahead: Vec<u64> = strategy
         .queue
@@ -155,36 +151,68 @@ fn depth_ahead_accumulates_from_the_front() {
 }
 
 #[test]
-fn modes_only_move_backwards_along_one_queue() {
-    let book = audit_book();
+fn opportunity_undercuts_the_front_rather_than_matching_it() {
+    // Matching the front puts you behind it — that order was there first.
+    // The book's front asks 1; the opportunity listing must ask less.
+    let book = vec![
+        listing("front", 784, 10),
+        listing("second", 785, 20),
+        listing("back", 795, 40),
+    ];
     let amount_in = amount("divine-orb", 10);
-    let strategy =
-        calculate_maker_strategy(request(&book, &amount_in, StockBasis::FromAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
 
-    let rate_of = |mode: MakerMode| {
-        strategy
-            .recommendations
-            .iter()
-            .find(|item| item.mode == mode)
-            .map(|item| item.rate.clone())
-            .expect("recommendation")
-    };
-    let fast = rate_of(MakerMode::Fast);
-    let balanced = rate_of(MakerMode::Balanced);
-    let greedy = rate_of(MakerMode::Greedy);
+    let opportunity = strategy
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Opportunity)
+        .expect("opportunity");
+    assert_eq!(
+        opportunity
+            .rate
+            .compare_value(&Ratio::from_parts(784, 1).expect("front")),
+        std::cmp::Ordering::Less,
+        "listing at 784 queues behind the existing 784; 783 takes the front"
+    );
+    assert_eq!(opportunity.rate.numerator, 783);
+    assert!(!opportunity.is_speculative);
 
-    assert!(fast.compare_value(&balanced) != std::cmp::Ordering::Greater);
-    assert!(balanced.compare_value(&greedy) != std::cmp::Ordering::Greater);
-    assert_eq!(greedy.numerator, 4, "greedy asks the best rate in the book");
-    assert_eq!(fast.numerator, 1, "fast sits at the head of the queue");
+    let greedy = strategy
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Greedy)
+        .expect("greedy");
+    assert_eq!(
+        greedy.rate.numerator, 795,
+        "greedy joins the top of the book"
+    );
+    assert!(
+        greedy.is_speculative,
+        "the greedy payoff depends on the market moving, not on today's book"
+    );
+}
+
+#[test]
+fn a_listing_no_better_than_the_instant_price_is_not_worth_making() {
+    // Undercutting a front that already sits below what you could take now
+    // produces a listing that is strictly worse than just trading.
+    let book = vec![listing("front", 1, 10), listing("back", 2, 20)];
+    let amount_in = amount("divine-orb", 10);
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
+    let opportunity = strategy
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Opportunity)
+        .expect("opportunity");
+    // Front is 1:1, so there is no tick below it to take.
+    assert!(opportunity.rate.numerator <= 1);
 }
 
 #[test]
 fn a_wall_is_found_by_the_same_ordering_as_the_queue() {
     let book = audit_book();
     let amount_in = amount("divine-orb", 10);
-    let strategy =
-        calculate_maker_strategy(request(&book, &amount_in, StockBasis::FromAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
 
     let wall = strategy.wall.as_ref().expect("wall");
     assert_eq!(wall.stock, 400);
@@ -205,28 +233,28 @@ fn a_wall_is_found_by_the_same_ordering_as_the_queue() {
 }
 
 #[test]
-fn stock_counted_in_the_destination_asset_is_divided_by_the_rate() {
-    // Same book, opposite stock convention: 400 chaos at 4 chaos per divine
-    // is 100 divine of depth, not 400.
+fn maker_stock_is_read_as_what_the_lister_pays_out() {
+    // Settled by the Divine/Mirror panel: competing rows showed 2, 2, 1, 8
+    // — mirror counts, the asset those listers are giving up — while the
+    // available rows carried exact multiples of the ratio numerator. A
+    // maker-reference edge's stock is therefore in its `from` asset and needs
+    // no conversion.
     let book = audit_book();
     let amount_in = amount("divine-orb", 10);
-    let strategy =
-        calculate_maker_strategy(request(&book, &amount_in, StockBasis::ToAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
 
     let depths: Vec<u64> = strategy
         .queue
         .iter()
         .map(|level| level.depth_from.as_ref().expect("depth").quanta)
         .collect();
-    assert_eq!(depths, vec![10, 10, 10, 100]);
-    assert_eq!(strategy.front_depth_from.expect("front").quanta, 30);
+    assert_eq!(depths, vec![10, 20, 30, 400]);
 }
 
 #[test]
 fn an_empty_competing_book_asks_for_a_probe_instead_of_inventing_a_rate() {
     let amount_in = amount("divine-orb", 10);
-    let strategy =
-        calculate_maker_strategy(request(&[], &amount_in, StockBasis::FromAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&[], &amount_in)).expect("ok");
 
     assert!(strategy.queue.is_empty());
     assert!(
@@ -244,8 +272,7 @@ fn an_empty_competing_book_asks_for_a_probe_instead_of_inventing_a_rate() {
 fn an_order_larger_than_the_visible_book_is_flagged_for_splitting() {
     let book = audit_book();
     let amount_in = amount("divine-orb", 1_000);
-    let strategy =
-        calculate_maker_strategy(request(&book, &amount_in, StockBasis::FromAsset)).expect("ok");
+    let strategy = calculate_maker_strategy(request(&book, &amount_in)).expect("ok");
 
     assert!(strategy.split_order_recommended);
     assert!(

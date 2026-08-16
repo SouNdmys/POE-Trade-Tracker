@@ -33,38 +33,35 @@ use crate::units::{
 };
 
 /// How aggressively to price a listing.
+///
+/// There is deliberately no "middle" mode. Sitting halfway down the queue
+/// means waiting for everything ahead of you to clear at a rate nobody is
+/// competing for — it is strictly worse than either end.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MakerMode {
-    /// Sit just ahead of the current front and fill soon.
-    Fast,
-    /// Mid-book: some waiting for a better rate.
-    Balanced,
-    /// Ask for the best rate in the book and wait.
+    /// Undercut the front of the competing queue by one displayed tick, so
+    /// the next buyer takes your order before anyone else's. In a liquid
+    /// pair this fills; the reward is the gap between the instant price and
+    /// the front of the competing book.
+    Opportunity,
+    /// Join the top of the observed book and wait for the market to move.
+    /// This is a bet on drift, not a better price for the same trade.
     Greedy,
 }
 
 impl MakerMode {
     #[must_use]
-    pub const fn all() -> [Self; 3] {
-        [Self::Fast, Self::Balanced, Self::Greedy]
+    pub const fn all() -> [Self; 2] {
+        [Self::Opportunity, Self::Greedy]
     }
-}
 
-/// Which asset a quote's `stock` counts.
-///
-/// Unresolved: the panel shows one number per row and the live experiment
-/// that settles which side it denominates has not been run. The engine's
-/// depth fill already assumes the *to* asset, so this defaults to the same
-/// answer rather than introducing a second, conflicting assumption — and it
-/// is a named knob so the experiment flips one line rather than hunting
-/// through the arithmetic.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StockBasis {
-    #[default]
-    ToAsset,
-    FromAsset,
+    /// Whether this mode's payoff depends on the market moving rather than
+    /// on someone taking the order at today's prices.
+    #[must_use]
+    pub const fn is_speculative(self) -> bool {
+        matches!(self, Self::Greedy)
+    }
 }
 
 /// One listing in the competing queue, ordered front first.
@@ -110,9 +107,12 @@ pub struct MakerRecommendation {
     pub depth_ahead_from: Option<AssetAmount>,
     /// True when this rate is at or beyond a wall.
     pub behind_wall: bool,
-    /// Set when no competing listing supported this mode and the instant
-    /// price was used instead — a taker price, not a maker one.
-    pub fell_back_to_instant: bool,
+    /// False when the listing price is no better than simply taking the
+    /// instant price, in which case listing is strictly worse than trading.
+    pub beats_instant: bool,
+    /// True when the payoff depends on the market moving rather than on
+    /// someone taking the order at today's prices.
+    pub is_speculative: bool,
     pub assessment: RiskAssessment,
 }
 
@@ -157,7 +157,6 @@ pub struct MakerRequest<'a> {
     /// The taker fill that would happen right now, when the available side
     /// has depth.
     pub instant: Option<&'a PairFill>,
-    pub stock_basis: StockBasis,
     pub thresholds: RiskThresholds,
 }
 
@@ -169,10 +168,6 @@ const WALL_NEIGHBOUR_FACTOR: u64 = 3;
 
 /// ...and at least this much stock, so a 3-versus-1 blip is not a wall.
 const WALL_MINIMUM_STOCK: u64 = 10;
-
-/// Rate improvement, in basis points, that a listing must beat to count as
-/// worth waiting for rather than just taking the instant price.
-const WORTH_LISTING_BASIS_POINTS: i64 = 50;
 
 /// The competing queue, front first.
 ///
@@ -190,25 +185,57 @@ fn queue_order(left: &EvaluatedQuoteEdge, right: &EvaluatedQuoteEdge) -> Orderin
         .then_with(|| left_edge.edge_id.cmp(&right_edge.edge_id))
 }
 
-/// Depth of one listing expressed in the `from` asset.
-fn depth_from(
-    edge_stock: u64,
-    rate: &Ratio,
-    basis: StockBasis,
-    from_reference: &AssetAmount,
-) -> Option<AssetAmount> {
-    let stock = Rational::from_u128(u128::from(edge_stock));
-    // Whole orbs of `from` this listing can absorb. With stock counted in
-    // the `to` asset the rate divides it out; counted in `from` it is
-    // already the answer.
-    let from_whole = match basis {
-        StockBasis::FromAsset => stock,
-        StockBasis::ToAsset => stock.checked_div(rational_from_ratio(rate)?)?,
-    };
-    let quanta = from_whole
+/// Depth of one listing, in the asset its owner is giving away.
+///
+/// Settled by the panel rather than assumed: on a Divine/Mirror book the
+/// available rows carry stock in exact multiples of the ratio numerator
+/// (776 for 776:1, 2325 for 775:1 — one and three mirrors' worth of divine),
+/// while the competing rows carry 2, 2, 1, 8 — mirror counts. Stock is always
+/// denominated in what the lister pays out, which for a maker-reference edge
+/// is the `from` asset. The engine's own maker fill reads it the same way.
+fn depth_from(edge_stock: u64, from_reference: &AssetAmount) -> Option<AssetAmount> {
+    let quanta = Rational::from_u128(u128::from(edge_stock))
         .checked_div(unit_value(from_reference.unit)?)?
         .floor_u64()?;
     Some(amount_like(from_reference, quanta))
+}
+
+/// The rate one displayed tick below `rate`, for undercutting the front.
+///
+/// The tick comes from how the panel writes the quote: "784 : 1" moves in
+/// whole units on the left, "1 : 10.33" moves in hundredths on the right —
+/// and note the directions oppose, since asking fewer of the other currency
+/// per unit means a *larger* number on the right.
+fn undercut(rate: &Ratio) -> Option<Ratio> {
+    let (left, right) = rate.text.split_once(':')?;
+    let (left, right) = (left.trim(), right.trim());
+    let (left_coefficient, left_scale) = coefficient_and_scale(left)?;
+    let (right_coefficient, right_scale) = coefficient_and_scale(right)?;
+
+    if left_coefficient == 1 && left_scale == 0 {
+        // "1 : X" — a larger X is a lower rate.
+        let numerator = 10_u64.checked_pow(right_scale)?;
+        Ratio::from_parts(numerator, right_coefficient.checked_add(1)?).ok()
+    } else {
+        let left_coefficient = left_coefficient.checked_sub(1).filter(|value| *value > 0)?;
+        let numerator = left_coefficient.checked_mul(10_u64.checked_pow(right_scale)?)?;
+        let denominator = right_coefficient.checked_mul(10_u64.checked_pow(left_scale)?)?;
+        Ratio::from_parts(numerator, denominator).ok()
+    }
+}
+
+/// Splits "10.33" into (1033, 2).
+fn coefficient_and_scale(value: &str) -> Option<(u64, u32)> {
+    let (whole, fraction) = value.split_once('.').unwrap_or((value, ""));
+    if whole.is_empty() || !whole.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    if !fraction.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let scale = u32::try_from(fraction.len()).ok()?;
+    let digits = format!("{whole}{fraction}");
+    digits.parse::<u64>().ok().map(|value| (value, scale))
 }
 
 fn edge_risks(evaluated: &EvaluatedQuoteEdge, risks: &mut BTreeSet<ExecutionRisk>) {
@@ -279,12 +306,7 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
     let mut front_depth_quanta: Option<u64> = None;
     for (index, evaluated) in listings.iter().enumerate() {
         let edge = &evaluated.observation.edge;
-        let level_depth = depth_from(
-            edge.stock,
-            &edge.rate,
-            request.stock_basis,
-            request.amount_in,
-        );
+        let level_depth = depth_from(edge.stock, request.amount_in);
         if let Some(depth) = &level_depth {
             cumulative_from = Some(cumulative_from.unwrap_or(0).saturating_add(depth.quanta));
             if index < FRONT_LEVEL_COUNT {
@@ -468,18 +490,21 @@ fn recommendation(
     book_risks: &BTreeSet<ExecutionRisk>,
     caveats: &BTreeSet<ModelCaveat>,
 ) -> Option<MakerRecommendation> {
-    let (level, fell_back_to_instant) = match pick_level(mode, queue, instant_rate) {
-        Some(level) => (Some(level), false),
-        // With nothing in the book worth listing behind, the only honest
-        // number left is the taker price — and saying so beats inventing a
-        // maker rate out of an empty queue.
-        None => (None, instant_rate.is_some()),
+    // Opportunity reads the front of the queue and prices below it; greedy
+    // reads the back and joins it. An empty book supports neither — the only
+    // honest number left is the taker price, and that is not a listing.
+    let level = match mode {
+        MakerMode::Opportunity => queue.first()?,
+        MakerMode::Greedy => queue.last()?,
     };
-    let rate = match (level, instant_rate) {
-        (Some(level), _) => level.rate.clone(),
-        (None, Some(instant)) => instant.clone(),
-        (None, None) => return None,
+    let rate = match mode {
+        // Matching the front puts you *behind* it: that order was there
+        // first and clears first. Undercutting by one displayed tick is what
+        // actually buys the front of the queue.
+        MakerMode::Opportunity => undercut(&level.rate)?,
+        MakerMode::Greedy => level.rate.clone(),
     };
+    let level = Some(level);
 
     let scale = rate_to_quanta_scale(&rate, request.amount_in.unit, to_reference.unit)?;
     let expected_quanta = apply_scale(request.amount_in.quanta, scale)?;
@@ -497,13 +522,14 @@ fn recommendation(
         None => (None, None),
     };
 
+    // Listing below the price you could take right now is strictly worse
+    // than taking it, however good it looks against the competing book.
+    let beats_instant =
+        instant_rate.is_none_or(|instant| rate.compare_value(instant) == Ordering::Greater);
+
     let mut risks = book_risks.clone();
     let caveats = caveats.clone();
-    if fell_back_to_instant {
-        // This is no longer a maker recommendation, so the maker-shaped risks
-        // do not apply — but the caller must know the rate changed meaning.
-        risks.remove(&ExecutionRisk::MakerReference);
-        risks.remove(&ExecutionRisk::MakerDepthExceeded);
+    if !beats_instant {
         risks.insert(ExecutionRisk::NeedsProbe);
     }
     if let Some(level) = level {
@@ -533,38 +559,8 @@ fn recommendation(
         improvement_basis_points,
         depth_ahead_from: level.and_then(|level| level.depth_ahead_from.clone()),
         behind_wall,
-        fell_back_to_instant,
+        beats_instant,
+        is_speculative: mode.is_speculative(),
         assessment,
     })
-}
-
-/// Pick the queue level a mode should list at.
-///
-/// All three read the same front-first queue, so a mode can only ever move
-/// backwards along it — fast at the head, greedy at the tail.
-fn pick_level<'a>(
-    mode: MakerMode,
-    queue: &'a [MakerQueueLevel],
-    instant_rate: Option<&Ratio>,
-) -> Option<&'a MakerQueueLevel> {
-    if queue.is_empty() {
-        return None;
-    }
-    match mode {
-        MakerMode::Fast => {
-            // The first listing far enough above the instant price to be
-            // worth the wait; without an instant reference, the head.
-            match instant_rate {
-                Some(instant) => queue.iter().find(|level| {
-                    rational_from_ratio(&level.rate)
-                        .zip(rational_from_ratio(instant))
-                        .and_then(|(rate, instant)| basis_points(rate, instant))
-                        .is_some_and(|bps| bps >= WORTH_LISTING_BASIS_POINTS)
-                }),
-                None => queue.first(),
-            }
-        }
-        MakerMode::Balanced => queue.get(queue.len() / 2),
-        MakerMode::Greedy => queue.last(),
-    }
 }

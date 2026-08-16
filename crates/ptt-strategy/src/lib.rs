@@ -24,7 +24,7 @@ pub use execution_safety::{
 };
 pub use maker_strategy::{
     MakerMode, MakerQueueLevel, MakerRecommendation, MakerRequest, MakerStrategy, MakerWall,
-    StockBasis, calculate_maker_strategy,
+    calculate_maker_strategy,
 };
 pub use market_policy::{
     AnchorAction, AnchorEvidence, AnchorRecommendation, DEFAULT_CORE_LIQUIDITY, MarketPolicy,

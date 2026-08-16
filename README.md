@@ -12,6 +12,11 @@ shipped [POE Alarm](https://github.com/SouNdmys/POE-Alarm) Rust + GPUI workspace
 - Fail-skip recognition: an uncertain frame is skipped, never guessed
 - License: PolyForm Noncommercial 1.0.0
 
+**Read [docs/CORE-TRADING-MODEL.md](docs/CORE-TRADING-MODEL.md) first.** It is the
+development spine: the three listing tiers (instant fill, undercut the competing
+front, greedy drift bet), why arbitrage detection runs on instant prices, and how
+the panel denominates stock. Every other design decision answers to it.
+
 ## Build
 
 ```powershell
