@@ -36,7 +36,16 @@ pub const AVAILABLE_TABLE_TOP: u32 = 0;
 pub const COMPETING_TABLE_TOP: u32 = 610 - 349;
 
 /// Column offsets within [`TABLES_REGION`].
-pub const COMPARATOR_COLUMN: (u32, u32) = (0, 32);
+/// Where the chevron actually is, which is not where the annotation's cell
+/// box is. The annotator marked the comparator cell as 1145..1177; the glyph
+/// is drawn against that cell's right edge and overhangs into the ratio
+/// column's left padding, spanning roughly 1173..1179. Reading the cell box
+/// cuts the arrow in half and leaves a three-pixel sliver with no apex.
+///
+/// The window is kept tight on the other side too: widen it much past the
+/// glyph and a short ratio's leading digit lands in the same bounding box,
+/// which has the same effect as clipping — no apex to measure.
+pub const COMPARATOR_COLUMN: (u32, u32) = (24, 12);
 pub const RATIO_COLUMN: (u32, u32) = (1177 - 1145, 110);
 pub const STOCK_COLUMN: (u32, u32) = (1287 - 1145, 117);
 
@@ -80,6 +89,13 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
         comparator_column: COMPARATOR_COLUMN,
     }),
     catalog: ptt_catalog::poe1,
+    // The chevron's core clears 140 while the cell background sits near 70,
+    // so a slightly lower threshold than the shared 150 captures the whole
+    // arrow without letting the brighter available-table cell flood.
+    comparator_mask: Some(ptt_vision::WarmMaskSettings {
+        minimum_luminance: 120,
+        maximum_blue_over_red: 12,
+    }),
 };
 
 #[cfg(test)]
@@ -130,5 +146,33 @@ mod tests {
                 offset + span
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod comparator_window {
+    use super::*;
+
+    /// The window was calibrated against the corpus and both edges matter, so
+    /// it is pinned here rather than left as a number someone could round.
+    #[test]
+    fn the_comparator_window_holds_the_glyph_and_excludes_the_ratio() {
+        let (offset, width) = COMPARATOR_COLUMN;
+        // Chevrons were observed spanning offsets 24 through 34.
+        assert!(
+            offset <= 24,
+            "window starts after the leftmost chevron seen"
+        );
+        assert!(
+            offset + width >= 35,
+            "window ends before the rightmost chevron seen"
+        );
+        // The leading ratio digit was observed starting at offset 39 on the
+        // tightest frame; including it gives the glyph a bounding box with no
+        // apex, and the row is then rejected as unverified.
+        assert!(
+            offset + width < 39,
+            "window reaches the ratio digit, which destroys the apex"
+        );
     }
 }

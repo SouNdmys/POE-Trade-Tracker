@@ -22,6 +22,16 @@ pub struct PanelLayout {
     pub rows: fn() -> RowLayout,
     pub row_source: RowSource,
     pub catalog: fn() -> &'static ptt_catalog::Catalog,
+    /// A second, more permissive mask used only to read the comparator glyph.
+    ///
+    /// `None` reuses the main mask, which is what a panel whose chevron is as
+    /// bright as its digits wants. POE1 draws its chevron far dimmer than its
+    /// text — at the shared threshold only the apex tip survives, three pixels
+    /// wide, which has no shape to classify. Lowering the shared threshold
+    /// instead would flood the mask, because POE1's inter-table strip is
+    /// *brighter* than that chevron; the comparator cell's own background is
+    /// dark, so a lower threshold is safe there and only there.
+    pub comparator_mask: Option<ptt_vision::WarmMaskSettings>,
 }
 
 /// How a panel's rows are located.

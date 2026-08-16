@@ -38,6 +38,7 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     rows: default_row_layout,
     row_source: super::RowSource::DetectedBands,
     catalog: ptt_catalog::poe2,
+    comparator_mask: None,
 };
 
 /// Why a frame (or a row within an accepted frame) was not ingested.
@@ -644,6 +645,10 @@ mod windows_route {
 
             let frame = tables_frame;
             let mask = build_warm_mask(frame, WarmMaskSettings::default());
+            let comparator_mask = self
+                .layout
+                .comparator_mask
+                .map(|settings| build_warm_mask(frame, settings));
             let detection = PhysicalBandDetector::new()
                 .detect(&mask, BandDetectionSettings::default())
                 .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
@@ -775,7 +780,29 @@ mod windows_route {
                 });
                 match parsed {
                     Ok((mut ratio, stock)) => {
-                        let expects_comparator = row_band.band.left + 6 < median_left;
+                        // A floating panel infers a boundary row from its
+                        // left edge; a pinned one looks in the column it
+                        // knows the glyph lives in, because POE1's ratios are
+                        // not left-aligned and a wide one like `2.67 : 1`
+                        // reaches into that column without being a boundary
+                        // at all. Shape tells them apart: a chevron is
+                        // several pixels wide, a stray digit stroke is two.
+                        let expects_comparator = match self.layout.row_source {
+                            crate::profiles::RowSource::FixedGrid(grid) => {
+                                let rect = row_crops[band_index].source;
+                                crate::comparator::zone_ink_bounds(
+                                    comparator_mask.as_ref().unwrap_or(&mask),
+                                    rect.x + grid.comparator_column.0 as usize,
+                                    rect.y,
+                                    grid.comparator_column.1 as usize,
+                                    rect.height,
+                                )
+                                .is_some_and(|(width, _, _)| width >= 5)
+                            }
+                            crate::profiles::RowSource::DetectedBands => {
+                                row_band.band.left + 6 < median_left
+                            }
+                        };
                         let mut comparator_ok = true;
                         if expects_comparator {
                             // Read the glyph from the mask pixels; OCR is
@@ -800,7 +827,7 @@ mod windows_route {
                                 ),
                             };
                             let glyph = crate::comparator::classify_comparator(
-                                &mask,
+                                comparator_mask.as_ref().unwrap_or(&mask),
                                 zone_x,
                                 rect.y,
                                 zone_width,

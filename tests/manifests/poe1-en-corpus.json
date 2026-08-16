@@ -1,7 +1,7 @@
 {
   "version": 1,
   "profile": "poe1-en",
-  "note": "Row counts are ground truth from the annotated fixture store. This gate is RED on purpose, at 1 of 10. Every ordinary row now reads correctly on all ten frames — identity, ratio and stock. What is missed is the one aggregate row per table, the \"<\"/\">\" boundary line. Diagnosis (PTT_DEBUG_COMPARATOR=1): inside the comparator column the warm mask lights only a 3px-wide sliver at the column edge, which is the ratio digit bleeding in, not a chevron. The mask thresholds are calibrated for POE2 UI colours and POE1 draws its chevron dimmer, so the glyph falls below them. The fix is to make mask settings part of PanelLayout, the way regions, rows and catalog already are, and calibrate POE1 against this corpus.",
+  "note": "Row counts are ground truth from the annotated fixture store: every field on ten real screenshots marked by hand. Run with `book-probe --manifest tests/manifests/poe1-en-corpus.json --language en`.",
   "screenshot_dir": "test-screenshots/poe1",
   "cases": [
     {

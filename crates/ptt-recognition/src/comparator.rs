@@ -114,6 +114,45 @@ pub fn classify_comparator(
     }
 }
 
+/// The ink bounding box inside a zone, as `(width, height, pixels)`.
+///
+/// A pinned layout uses this to decide whether a row *has* a comparator at
+/// all, rather than inferring it from the row's left edge. That inference
+/// suits a panel whose ratios are left-aligned; POE1's are not, so a wide
+/// ratio like `2.67 : 1` reaches into the comparator column and reads as a
+/// boundary row. Shape separates them: a chevron is several pixels wide, a
+/// stray digit stroke is two or three.
+#[must_use]
+pub fn zone_ink_bounds(
+    mask: &TextInkMask,
+    zone_x: usize,
+    zone_y: usize,
+    zone_width: usize,
+    zone_height: usize,
+) -> Option<(usize, usize, usize)> {
+    let right = (zone_x + zone_width).min(mask.width());
+    let bottom = (zone_y + zone_height).min(mask.height());
+    let (mut min_x, mut max_x) = (usize::MAX, 0usize);
+    let (mut min_y, mut max_y) = (usize::MAX, 0usize);
+    let mut ink = 0usize;
+    for y in zone_y..bottom {
+        for x in zone_x..right {
+            if mask.intensity_at(x, y).unwrap_or(0) == 0 {
+                continue;
+            }
+            ink += 1;
+            min_x = min_x.min(x);
+            max_x = max_x.max(x);
+            min_y = min_y.min(y);
+            max_y = max_y.max(y);
+        }
+    }
+    if ink == 0 || min_x > max_x || min_y > max_y {
+        return None;
+    }
+    Some((max_x - min_x + 1, max_y - min_y + 1, ink))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
