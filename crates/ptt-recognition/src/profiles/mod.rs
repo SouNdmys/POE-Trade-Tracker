@@ -50,6 +50,14 @@ pub struct FixedGrid {
     /// A slice with fewer lit mask pixels than this is an empty row, which is
     /// how a table showing four of six rows is read as four.
     pub min_lit_pixels: u32,
+    /// (offset, width) of the comparator column within the region.
+    ///
+    /// A pinned panel knows where its chevron lives, so the glyph is read
+    /// from that column alone. Deriving the zone from where the other rows'
+    /// ink starts — which is what a floating layout must do — sweeps the
+    /// first digit into the same bounding box, and a chevron beside a digit
+    /// has no apex.
+    pub comparator_column: (u32, u32),
 }
 
 /// Which client language a profile reads names in.

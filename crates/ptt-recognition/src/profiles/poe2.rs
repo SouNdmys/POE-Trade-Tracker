@@ -170,6 +170,16 @@ mod windows_route {
         layout: crate::profiles::PanelLayout,
     }
 
+    /// The two rectangles a row is read from: a padded one for Windows OCR,
+    /// which wants context around the glyphs, and a tight one for the
+    /// PP-OCRv5 retry, which reads a neighbouring row's descender as junk if
+    /// given any.
+    #[derive(Clone, Copy)]
+    struct RowCrops {
+        source: ptt_vision::PixelRect,
+        content: ptt_vision::PixelRect,
+    }
+
     impl Route {
         /// The Traditional Chinese route, which is the corpus-verified one.
         pub fn new() -> Result<Self, SkipReason> {
@@ -234,8 +244,9 @@ mod windows_route {
         fn plan_fixed_grid(
             mask: &ptt_vision::TextInkMask,
             grid: crate::profiles::FixedGrid,
-        ) -> Result<RowPlan, RowsReject> {
+        ) -> Result<(RowPlan, Vec<RowCrops>), RowsReject> {
             let mut bands = Vec::new();
+            let mut crops = Vec::new();
             let mut available_rows = 0_u8;
             let mut competing_rows = 0_u8;
 
@@ -272,6 +283,19 @@ mod windows_route {
                         Side::Competing => competing_rows += 1,
                     }
                     let slice_top = i32::try_from(top).unwrap_or(i32::MAX);
+                    // Windows OCR gets the full row width; the retry gets the
+                    // ink box, which is what stops a neighbouring row's
+                    // descender from arriving as a second text line.
+                    let height = (bottom - top) as usize;
+                    let source = ptt_vision::PixelRect::new(0, top as usize, mask.width(), height)
+                        .map_err(|_| RowsReject::ImplausibleBand {
+                            top: slice_top,
+                            height: bottom - top,
+                        })?;
+                    let content =
+                        ptt_vision::PixelRect::new(left, top as usize, right - left, height)
+                            .unwrap_or(source);
+                    crops.push(RowCrops { source, content });
                     bands.push(RowBand {
                         side,
                         band: BandGeometry {
@@ -289,11 +313,14 @@ mod windows_route {
             if bands.is_empty() {
                 return Err(RowsReject::NoBands);
             }
-            Ok(RowPlan {
-                bands,
-                available_rows,
-                competing_rows,
-            })
+            Ok((
+                RowPlan {
+                    bands,
+                    available_rows,
+                    competing_rows,
+                },
+                crops,
+            ))
         }
 
         /// Which OCR language reads the identity slots.
@@ -631,9 +658,23 @@ mod windows_route {
                     content_fingerprint: band.identity.content_fingerprint,
                 })
                 .collect();
-            let plan = match self.layout.row_source {
+            // Crops travel with the plan. Reading them out of the detector's
+            // array by row index only works while the two lists are 1:1,
+            // which the fixed grid is not — that mismatch had rows OCR'd from
+            // a rectangle belonging to a different row.
+            let (plan, row_crops) = match self.layout.row_source {
                 crate::profiles::RowSource::DetectedBands => {
-                    classify_rows(&geometry, &(self.layout.rows)()).map_err(SkipReason::Rows)?
+                    let plan = classify_rows(&geometry, &(self.layout.rows)())
+                        .map_err(SkipReason::Rows)?;
+                    let crops = detection
+                        .bands
+                        .iter()
+                        .map(|band| RowCrops {
+                            source: band.crop.source_rect,
+                            content: band.crop.content_rect,
+                        })
+                        .collect::<Vec<_>>();
+                    (plan, crops)
                 }
                 crate::profiles::RowSource::FixedGrid(grid) => {
                     Self::plan_fixed_grid(&mask, grid).map_err(SkipReason::Rows)?
@@ -675,10 +716,7 @@ mod windows_route {
                     .worker
                     .recognize(
                         OcrLanguagePreference::English,
-                        Self::upscaled_frame_rect_2x(
-                            frame,
-                            detection.bands[band_index].crop.source_rect,
-                        )?,
+                        Self::upscaled_frame_rect_2x(frame, row_crops[band_index].source)?,
                     )
                     .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
                 let raw = recognition.text();
@@ -725,7 +763,7 @@ mod windows_route {
                 let parsed = parsed.or_else(|windows_reject| {
                     // The tight content rect avoids the padded crop's bleed
                     // from neighbouring rows (partial digits read as junk).
-                    self.paddle_row_line(frame, detection.bands[band_index].crop.content_rect)
+                    self.paddle_row_line(frame, row_crops[band_index].content)
                         .and_then(|line| {
                             split_row_line(&line)
                                 .and_then(|(ratio_text, stock_text)| {
@@ -745,16 +783,25 @@ mod windows_route {
                             // must match the table-side invariant (available
                             // boundary rows aggregate downward `<`, competing
                             // upward `>`) and must not contradict OCR.
-                            let rect = detection.bands[band_index].crop.source_rect;
+                            let rect = row_crops[band_index].source;
                             // Crops carry a 10px horizontal margin, so the
                             // chevron ink sits ~10px inside the crop edge;
                             // extend past the normal-row crop x to cover it
                             // while stopping short of the first digit.
-                            let zone_width =
-                                usize::try_from(median_left - row_band.band.left + 8).unwrap_or(0);
+                            let (zone_x, zone_width) = match self.layout.row_source {
+                                crate::profiles::RowSource::FixedGrid(grid) => (
+                                    rect.x + grid.comparator_column.0 as usize,
+                                    grid.comparator_column.1 as usize,
+                                ),
+                                crate::profiles::RowSource::DetectedBands => (
+                                    rect.x,
+                                    usize::try_from(median_left - row_band.band.left + 8)
+                                        .unwrap_or(0),
+                                ),
+                            };
                             let glyph = crate::comparator::classify_comparator(
                                 &mask,
-                                rect.x,
+                                zone_x,
                                 rect.y,
                                 zone_width,
                                 rect.height,

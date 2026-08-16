@@ -48,6 +48,11 @@ pub fn classify_comparator(
             max_y = max_y.max(y);
         }
     }
+    if std::env::var_os("PTT_DEBUG_COMPARATOR").is_some() {
+        eprintln!(
+            "comparator zone x={zone_x} y={zone_y} w={zone_width} h={zone_height}:              ink={ink} bbox=({min_x},{min_y})..({max_x},{max_y})"
+        );
+    }
     if ink < MINIMUM_INK || min_y >= max_y || min_x >= max_x {
         return None;
     }

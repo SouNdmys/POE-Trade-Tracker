@@ -77,6 +77,7 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
         rows_per_side: 6,
         // A digit or two of ink; below this the slice is an unused row.
         min_lit_pixels: 40,
+        comparator_column: COMPARATOR_COLUMN,
     }),
     catalog: ptt_catalog::poe1,
 };
