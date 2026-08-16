@@ -17,7 +17,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ptt_monitoring::{SessionConfig, SessionEvent, SessionStats, run_session, skip_key};
-use ptt_recognition::profiles::poe2_zhtw::Route;
+use ptt_recognition::profiles::poe2::Route;
 use ptt_storage::MarketStore;
 use ptt_trade_domain::MarketContext;
 
@@ -102,7 +102,7 @@ pub fn apply_saved_calibration() -> Vec<String> {
         ("TABLES", profile.tables_region),
     ] {
         if let Some(region) = region
-            && !ptt_recognition::profiles::poe2_zhtw::set_region_override(
+            && !ptt_recognition::profiles::poe2::set_region_override(
                 name,
                 (region.x, region.y, region.width, region.height),
             )

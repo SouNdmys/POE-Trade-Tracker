@@ -9,7 +9,7 @@
 //! evidence than any single OCR confidence.
 
 use chrono::{DateTime, Utc};
-use ptt_recognition::profiles::poe2_zhtw::RecognizedBook;
+use ptt_recognition::profiles::poe2::RecognizedBook;
 use ptt_recognition::{Comparator as FieldComparator, Side};
 use ptt_trade_domain::{
     CaptureConfirmationMode, CaptureProvenance, ClientLanguage, Comparator, ConfirmedCapture,

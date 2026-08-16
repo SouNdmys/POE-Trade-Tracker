@@ -1,5 +1,14 @@
-//! POE2 Traditional Chinese profile: default 2560×1440 geometry plus the
-//! Windows OCR route from a decoded frame to a `BookObservation`.
+//! POE2 profile: default 2560×1440 geometry plus the Windows OCR route from a
+//! decoded frame to a `BookObservation`.
+//!
+//! The client language is a parameter, not a second profile. The panel's
+//! geometry is identical in every language and the numeric fields are Arabic
+//! numerals everywhere, so the only thing that changes is which catalog name
+//! the identity slots are matched against and which OCR language reads them.
+//!
+//! Only the Traditional Chinese path is corpus-verified. The English path is
+//! built from the same catalog's English names and has no screenshots behind
+//! it yet, so its geometry presets are inherited rather than calibrated.
 //!
 //! Defaults come from the calibrated corpus (docs/P1-CALIBRATION-NOTES.md).
 //! Users on other resolutions calibrate their own regions; these constants
@@ -113,6 +122,7 @@ mod windows_route {
     };
     use crate::book::{BookIdentity, BookObservation, RowObservation};
     use crate::fields::{Comparator, FieldReject, parse_ratio, parse_stock, split_row_line};
+    use crate::profiles::ProfileLanguage;
     use crate::rows::{BandGeometry, classify_rows};
     use ptt_core::CaptureTimestamp;
     use ptt_ocr_win::{OcrLanguagePreference, OcrWorker, OwnedBgraImage};
@@ -140,24 +150,34 @@ mod windows_route {
         /// runs ladder-only and those frames skip.
         paddle: Option<std::sync::Mutex<ptt_ocr_onnx::PaddleCtcSession>>,
         /// One matcher per catalog asset, index-aligned with
-        /// `ptt_catalog::poe2().assets()`.
-        zh_matchers: Vec<ptt_core::FullLineAffixMatcher>,
+        /// `ptt_catalog::poe2().assets()`, built from the active language's
+        /// names.
+        name_matchers: Vec<ptt_core::FullLineAffixMatcher>,
+        language: ProfileLanguage,
     }
 
     impl Route {
+        /// The Traditional Chinese route, which is the corpus-verified one.
         pub fn new() -> Result<Self, SkipReason> {
+            Self::new_for(ProfileLanguage::TraditionalChinese)
+        }
+
+        pub fn new_for(language: ProfileLanguage) -> Result<Self, SkipReason> {
             let paddle = Self::start_paddle_session();
             if paddle.is_none() {
                 eprintln!(
                     "warning: ONNX name fallback unavailable                      (onnxruntime.dll not found; set PTT_ONNXRUNTIME_DLL)"
                 );
             }
-            let zh_matchers = ptt_catalog::poe2()
+            let name_matchers = ptt_catalog::poe2()
                 .assets()
                 .iter()
                 .map(|asset| {
-                    ptt_core::FullLineAffixMatcher::new(&asset.name_zh_tw)
-                        .map_err(|error| SkipReason::Ocr(format!("matcher: {error:?}")))
+                    ptt_core::FullLineAffixMatcher::new(match language {
+                        ProfileLanguage::TraditionalChinese => &asset.name_zh_tw,
+                        ProfileLanguage::English => &asset.name_en,
+                    })
+                    .map_err(|error| SkipReason::Ocr(format!("matcher: {error:?}")))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Self {
@@ -166,8 +186,20 @@ mod windows_route {
                 decoder: WicScreenshotDecoder::new()
                     .map_err(|error| SkipReason::Decode(format!("{error:?}")))?,
                 paddle,
-                zh_matchers,
+                name_matchers,
+                language,
             })
+        }
+
+        /// Which OCR language reads the identity slots.
+        ///
+        /// Numeric lanes are unaffected: ratios and stock are Arabic numerals
+        /// in every client.
+        const fn name_language(&self) -> OcrLanguagePreference {
+            match self.language {
+                ProfileLanguage::TraditionalChinese => OcrLanguagePreference::TraditionalChinese,
+                ProfileLanguage::English => OcrLanguagePreference::English,
+            }
         }
 
         fn start_paddle_session() -> Option<std::sync::Mutex<ptt_ocr_onnx::PaddleCtcSession>> {
@@ -209,7 +241,7 @@ mod windows_route {
             let batch = paddle
                 .lock()
                 .expect("paddle session lock")
-                .recognize_batch(view, &self.zh_matchers)
+                .recognize_batch(view, &self.name_matchers)
                 .ok()?;
             let mut winners = batch
                 .target_supports
@@ -404,7 +436,7 @@ mod windows_route {
                 let recognition = self
                     .worker
                     .recognize(
-                        OcrLanguagePreference::TraditionalChinese,
+                        self.name_language(),
                         Self::upscaled_frame_rect(frame, rect, factor)?,
                     )
                     .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;

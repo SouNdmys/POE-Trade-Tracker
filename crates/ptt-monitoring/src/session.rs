@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime};
 
-use ptt_recognition::profiles::poe2_zhtw::{RecognizedBook, Route, SkipReason};
+use ptt_recognition::profiles::poe2::{RecognizedBook, Route, SkipReason};
 use ptt_vision::{
     CaptureRegion, CapturedFrame, GdiScreenCapture, ScreenCapture, TextInkMask, WarmMaskSettings,
     build_warm_mask_into,

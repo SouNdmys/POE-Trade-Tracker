@@ -30,8 +30,11 @@ struct ManifestCase {
 }
 
 #[cfg(windows)]
-fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use ptt_recognition::profiles::poe2_zhtw::Route;
+fn run_manifest(
+    path: &str,
+    language: ptt_recognition::profiles::ProfileLanguage,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use ptt_recognition::profiles::poe2::Route;
 
     let manifest: Manifest = serde_json::from_str(&std::fs::read_to_string(path)?)?;
     assert_eq!(manifest.version, 1, "unsupported manifest version");
@@ -41,7 +44,8 @@ fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         manifest.profile,
         manifest.cases.len()
     );
-    let route = Route::new().map_err(|reason| format!("route init failed: {reason:?}"))?;
+    let route =
+        Route::new_for(language).map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut failures = 0usize;
     let started = std::time::Instant::now();
     let mut durations = Vec::new();
@@ -111,13 +115,29 @@ fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(windows)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use ptt_recognition::profiles::poe2_zhtw::Route;
+    use ptt_recognition::profiles::{ProfileLanguage, poe2::Route};
 
-    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    let mut arguments: Vec<String> = std::env::args().skip(1).collect();
+    // `--language en` reads the identity slots against the catalog's English
+    // names. The corpus is Traditional Chinese, so this exists for the day
+    // English screenshots arrive rather than for the frozen manifest.
+    let mut language = ProfileLanguage::TraditionalChinese;
+    if let Some(index) = arguments.iter().position(|value| value == "--language") {
+        let value = arguments
+            .get(index + 1)
+            .ok_or("--language needs a value: zh-TW or en")?
+            .clone();
+        language = match value.to_ascii_lowercase().as_str() {
+            "zh-tw" | "zhtw" | "zh" => ProfileLanguage::TraditionalChinese,
+            "en" | "en-us" | "english" => ProfileLanguage::English,
+            other => return Err(format!("unknown language {other:?}").into()),
+        };
+        arguments.drain(index..=index + 1);
+    }
     if let [flag, manifest] = arguments.as_slice()
         && flag == "--manifest"
     {
-        return run_manifest(manifest);
+        return run_manifest(manifest, language);
     }
     let paths: Vec<std::path::PathBuf> = match arguments.as_slice() {
         [single] if single != "--dir" && single != "--manifest" => vec![single.into()],
@@ -137,7 +157,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("usage: book-probe IMAGE | book-probe --dir FOLDER".into()),
     };
 
-    let route = Route::new().map_err(|reason| format!("route init failed: {reason:?}"))?;
+    let route =
+        Route::new_for(language).map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut accepted = 0usize;
     let mut skipped_frames = 0usize;
     for path in &paths {

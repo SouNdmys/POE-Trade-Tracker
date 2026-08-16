@@ -6,7 +6,7 @@
 #[cfg(windows)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ptt_monitoring::{SessionConfig, SessionEvent, run_session};
-    use ptt_recognition::profiles::poe2_zhtw::Route;
+    use ptt_recognition::profiles::poe2::Route;
     use std::sync::atomic::AtomicBool;
 
     let arguments: Vec<String> = std::env::args().skip(1).collect();
