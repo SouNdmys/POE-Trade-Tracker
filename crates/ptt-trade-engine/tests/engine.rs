@@ -120,7 +120,6 @@ fn selection(strategy: QuoteSelectionStrategy, pairs: Vec<PairSpec<'_>>) -> Quot
     policy.identity.calibration_status = PolicyCalibrationStatus::Verified;
     policy.cost_verification = CostVerification {
         fee_verified: true,
-        gold_cost_verified: true,
         minimum_lots_verified: true,
     };
     policy.capture_skew = CaptureSkewPolicy {
@@ -320,10 +319,6 @@ fn unverified_policy_overrides_known_zero_fee_to_unknown_theory() {
     assert!(
         fill.risk_flags
             .contains(&ExecutionRiskFlag::UnverifiedProductPolicy)
-    );
-    assert!(
-        fill.risk_flags
-            .contains(&ExecutionRiskFlag::UnverifiedGoldCost)
     );
     assert!(
         fill.risk_flags

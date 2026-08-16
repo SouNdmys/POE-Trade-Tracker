@@ -4488,6 +4488,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptt-strategy"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ptt-market-book",
+ "ptt-trade-domain",
+ "ptt-trade-engine",
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "ptt-trade-domain"
 version = "0.1.0"
 dependencies = [

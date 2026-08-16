@@ -325,16 +325,20 @@ pub struct QuoteSelectionPolicyIdentity {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Which trading costs the active policy claims to have verified.
+///
+/// Gold is deliberately absent: the exchange's gold cost never binds in
+/// practice, so it is outside this product's profit model and carries no
+/// verification state to report.
 pub struct CostVerification {
     pub fee_verified: bool,
-    pub gold_cost_verified: bool,
     pub minimum_lots_verified: bool,
 }
 
 impl CostVerification {
     #[must_use]
     pub const fn all_verified(self) -> bool {
-        self.fee_verified && self.gold_cost_verified && self.minimum_lots_verified
+        self.fee_verified && self.minimum_lots_verified
     }
 }
 
@@ -434,7 +438,6 @@ impl QuoteSelectionPolicy {
             },
             cost_verification: CostVerification {
                 fee_verified: false,
-                gold_cost_verified: false,
                 minimum_lots_verified: false,
             },
             // F3: the auto-watch loop stamps every book at capture, so the

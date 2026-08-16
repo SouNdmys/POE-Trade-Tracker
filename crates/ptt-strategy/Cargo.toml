@@ -1,0 +1,16 @@
+[package]
+name = "ptt-strategy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Execution safety, route accounting, maker listing strategy, market policy, valuation and price history for POE Trade Tracker"
+
+[dependencies]
+chrono.workspace = true
+ptt-market-book = { path = "../ptt-market-book" }
+ptt-trade-domain = { path = "../ptt-trade-domain" }
+ptt-trade-engine = { path = "../ptt-trade-engine" }
+serde.workspace = true
+thiserror.workspace = true

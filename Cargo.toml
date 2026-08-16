@@ -12,6 +12,7 @@ members = [
     "crates/ptt-runtime",
     "crates/ptt-settings",
     "crates/ptt-storage",
+    "crates/ptt-strategy",
     "crates/ptt-trade-domain",
     "crates/ptt-trade-engine",
     "crates/ptt-market-book",

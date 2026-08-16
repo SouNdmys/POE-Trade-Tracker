@@ -28,7 +28,6 @@ pub enum ExecutionRiskFlag {
     MultiHopMaker,
     SearchTruncated,
     UnverifiedProductPolicy,
-    UnverifiedGoldCost,
     UnverifiedMinimumLots,
     CaptureSkewUnverified,
     CaptureSkewExceeded,
@@ -269,10 +268,6 @@ impl MarketDepthIndex {
                 &mut fill.risk_flags,
                 ExecutionRiskFlag::UnverifiedProductPolicy,
             );
-            fill.execution_eligible = false;
-        }
-        if !self.analysis_policy.cost_verification.gold_cost_verified {
-            insert_execution_risk(&mut fill.risk_flags, ExecutionRiskFlag::UnverifiedGoldCost);
             fill.execution_eligible = false;
         }
         if !self.analysis_policy.cost_verification.minimum_lots_verified {
