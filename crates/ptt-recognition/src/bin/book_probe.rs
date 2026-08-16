@@ -44,8 +44,15 @@ fn run_manifest(
         manifest.profile,
         manifest.cases.len()
     );
-    let route =
-        Route::new_for(language).map_err(|reason| format!("route init failed: {reason:?}"))?;
+    // The manifest names its profile, so a POE1 corpus drives the POE1 panel
+    // without a second flag to keep in sync with the file.
+    let layout = if manifest.profile.starts_with("poe1") {
+        ptt_recognition::profiles::poe1::LAYOUT
+    } else {
+        ptt_recognition::profiles::poe2::LAYOUT
+    };
+    let route = Route::new_with(layout, language)
+        .map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut failures = 0usize;
     let started = std::time::Instant::now();
     let mut durations = Vec::new();
@@ -122,6 +129,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // names. The corpus is Traditional Chinese, so this exists for the day
     // English screenshots arrive rather than for the frozen manifest.
     let mut language = ProfileLanguage::TraditionalChinese;
+    // Which panel the loose-file path reads. The manifest path takes this
+    // from the manifest's own profile name instead.
+    let mut layout = ptt_recognition::profiles::poe2::LAYOUT;
+    if let Some(index) = arguments.iter().position(|value| value == "--game") {
+        let value = arguments
+            .get(index + 1)
+            .ok_or("--game needs a value: poe1 or poe2")?
+            .clone();
+        layout = match value.to_ascii_lowercase().as_str() {
+            "poe1" => ptt_recognition::profiles::poe1::LAYOUT,
+            "poe2" => ptt_recognition::profiles::poe2::LAYOUT,
+            other => return Err(format!("unknown game {other:?}").into()),
+        };
+        arguments.drain(index..=index + 1);
+    }
     if let Some(index) = arguments.iter().position(|value| value == "--language") {
         let value = arguments
             .get(index + 1)
@@ -140,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return run_manifest(manifest, language);
     }
     let paths: Vec<std::path::PathBuf> = match arguments.as_slice() {
-        [single] if single != "--dir" && single != "--manifest" => vec![single.into()],
+        [single] if !single.starts_with("--") => vec![single.into()],
         [flag, folder] if flag == "--dir" => {
             let mut entries: Vec<_> = std::fs::read_dir(folder)?
                 .filter_map(|entry| entry.ok())
@@ -157,8 +179,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("usage: book-probe IMAGE | book-probe --dir FOLDER".into()),
     };
 
-    let route =
-        Route::new_for(language).map_err(|reason| format!("route init failed: {reason:?}"))?;
+    let route = Route::new_with(layout, language)
+        .map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut accepted = 0usize;
     let mut skipped_frames = 0usize;
     for path in &paths {

@@ -29,6 +29,16 @@ pub fn default_row_layout() -> RowLayout {
     RowLayout::default()
 }
 
+/// The POE2 panel, in either client language.
+pub const LAYOUT: super::PanelLayout = super::PanelLayout {
+    key_prefix: "POE2",
+    need_name: NEED_NAME_REGION,
+    have_name: HAVE_NAME_REGION,
+    tables: TABLES_REGION,
+    rows: default_row_layout,
+    catalog: ptt_catalog::poe2,
+};
+
 /// Why a frame (or a row within an accepted frame) was not ingested.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SkipReason {
@@ -92,23 +102,28 @@ fn overrides() -> &'static RegionOverrideMap {
 /// Installs an override after validating it as a capturable region; returns
 /// false (and installs nothing) for degenerate geometry, so a corrupt
 /// settings file can never panic the watch thread.
-pub fn set_region_override(name: &str, region: RegionRect) -> bool {
+pub fn set_region_override(prefix: &str, name: &str, region: RegionRect) -> bool {
     if ptt_vision::CaptureRegion::new(region.0, region.1, region.2, region.3).is_err() {
         return false;
     }
     overrides()
         .write()
         .expect("region override lock")
-        .insert(name.to_owned(), region);
+        .insert(override_key(prefix, name), region);
     true
 }
 
-pub fn region_override(name: &str) -> Option<RegionRect> {
+#[must_use]
+pub fn region_override(prefix: &str, name: &str) -> Option<RegionRect> {
     overrides()
         .read()
         .expect("region override lock")
-        .get(name)
+        .get(&override_key(prefix, name))
         .copied()
+}
+
+fn override_key(prefix: &str, name: &str) -> String {
+    format!("{prefix}:{name}")
 }
 
 #[cfg(windows)]
@@ -116,10 +131,7 @@ pub use windows_route::{RecognizedBook, Route};
 
 #[cfg(windows)]
 mod windows_route {
-    use super::{
-        HAVE_NAME_REGION, NEED_NAME_REGION, RowSkip, SkipReason, TABLES_REGION, default_row_layout,
-        region_override,
-    };
+    use super::{RowSkip, SkipReason, region_override};
     use crate::book::{BookIdentity, BookObservation, RowObservation};
     use crate::fields::{Comparator, FieldReject, parse_ratio, parse_stock, split_row_line};
     use crate::profiles::ProfileLanguage;
@@ -154,6 +166,7 @@ mod windows_route {
         /// names.
         name_matchers: Vec<ptt_core::FullLineAffixMatcher>,
         language: ProfileLanguage,
+        layout: crate::profiles::PanelLayout,
     }
 
     impl Route {
@@ -163,21 +176,40 @@ mod windows_route {
         }
 
         pub fn new_for(language: ProfileLanguage) -> Result<Self, SkipReason> {
+            Self::new_with(super::LAYOUT, language)
+        }
+
+        /// A route over an explicit panel layout, for a second game.
+        pub fn new_with(
+            layout: crate::profiles::PanelLayout,
+            language: ProfileLanguage,
+        ) -> Result<Self, SkipReason> {
             let paddle = Self::start_paddle_session();
             if paddle.is_none() {
                 eprintln!(
                     "warning: ONNX name fallback unavailable                      (onnxruntime.dll not found; set PTT_ONNXRUNTIME_DLL)"
                 );
             }
-            let name_matchers = ptt_catalog::poe2()
+            // A blank name means that language has not been authored for this
+            // game. Refusing here beats building a matcher that silently
+            // matches nothing and then skips every frame forever.
+            let name_matchers = (layout.catalog)()
                 .assets()
                 .iter()
                 .map(|asset| {
-                    ptt_core::FullLineAffixMatcher::new(match language {
+                    let name = match language {
                         ProfileLanguage::TraditionalChinese => &asset.name_zh_tw,
                         ProfileLanguage::English => &asset.name_en,
-                    })
-                    .map_err(|error| SkipReason::Ocr(format!("matcher: {error:?}")))
+                    };
+                    if name.trim().is_empty() {
+                        return Err(SkipReason::Ocr(format!(
+                            "catalog has no {language:?} name for {}; that language is not \
+                             available for this game yet",
+                            asset.id
+                        )));
+                    }
+                    ptt_core::FullLineAffixMatcher::new(name)
+                        .map_err(|error| SkipReason::Ocr(format!("matcher: {error:?}")))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Self {
@@ -188,6 +220,7 @@ mod windows_route {
                 paddle,
                 name_matchers,
                 language,
+                layout,
             })
         }
 
@@ -337,13 +370,14 @@ mod windows_route {
         /// Preset region, with two override layers: a runtime override set by
         /// the app's calibration wizard (wins), then the
         /// `PTT_POE2_<NAME>_ROI=x,y,w,h` env override for probe experiments.
-        fn region(name: &str, preset: (i32, i32, u32, u32)) -> CaptureRegion {
-            if let Some(region) = region_override(name)
+        fn region(&self, name: &str, preset: (i32, i32, u32, u32)) -> CaptureRegion {
+            let prefix = self.layout.key_prefix;
+            if let Some(region) = region_override(prefix, name)
                 && let Ok(valid) = CaptureRegion::new(region.0, region.1, region.2, region.3)
             {
                 return valid;
             }
-            let from_env = std::env::var(format!("PTT_POE2_{name}_ROI"))
+            let from_env = std::env::var(format!("PTT_{prefix}_{name}_ROI"))
                 .ok()
                 .and_then(|value| {
                     let parts: Vec<i64> = value
@@ -448,7 +482,7 @@ mod windows_route {
                         text
                     );
                 }
-                if let Some(asset) = crate::identity::resolve_zh_name(&text, catalog) {
+                if let Some(asset) = crate::identity::resolve_name(&text, catalog, self.language) {
                     return Ok((Some(asset), text));
                 }
                 if !text.trim().is_empty() {
@@ -466,11 +500,11 @@ mod windows_route {
 
         /// The three capture regions this profile reads (env overrides
         /// applied), for live capture callers.
-        pub fn regions() -> (CaptureRegion, CaptureRegion, CaptureRegion) {
+        pub fn regions(&self) -> (CaptureRegion, CaptureRegion, CaptureRegion) {
             (
-                Self::region("NEED", NEED_NAME_REGION),
-                Self::region("HAVE", HAVE_NAME_REGION),
-                Self::region("TABLES", TABLES_REGION),
+                self.region("NEED", self.layout.need_name),
+                self.region("HAVE", self.layout.have_name),
+                self.region("TABLES", self.layout.tables),
             )
         }
 
@@ -479,7 +513,7 @@ mod windows_route {
             &self,
             path: &std::path::Path,
         ) -> Result<RecognizedBook, SkipReason> {
-            let (need_region, have_region, tables_region) = Self::regions();
+            let (need_region, have_region, tables_region) = self.regions();
             let decode = |region: CaptureRegion| {
                 self.decoder
                     .decode(path, Some(region))
@@ -498,7 +532,7 @@ mod windows_route {
             have_frame: &ptt_vision::CapturedFrame,
             tables_frame: &ptt_vision::CapturedFrame,
         ) -> Result<RecognizedBook, SkipReason> {
-            let catalog = ptt_catalog::poe2();
+            let catalog = (self.layout.catalog)();
 
             let (need, need_text) = self.ocr_name_resolved(need_frame, "NEED", catalog)?;
             let need = need.ok_or(SkipReason::NeedNameUnresolved {
@@ -525,7 +559,7 @@ mod windows_route {
                     content_fingerprint: band.identity.content_fingerprint,
                 })
                 .collect();
-            let plan = classify_rows(&geometry, &default_row_layout()).map_err(SkipReason::Rows)?;
+            let plan = classify_rows(&geometry, &(self.layout.rows)()).map_err(SkipReason::Rows)?;
 
             // Boundary rows (the `<`/`>` comparator rows) start further left
             // than the column norm. Until a template classifier lands, a row

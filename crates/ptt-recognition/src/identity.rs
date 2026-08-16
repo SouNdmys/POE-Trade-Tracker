@@ -6,6 +6,27 @@
 
 use ptt_catalog::{Catalog, CatalogAsset};
 
+use crate::profiles::ProfileLanguage;
+
+/// Resolves a name in whichever language the profile reads.
+///
+/// The two languages need different normalization — Traditional Chinese names
+/// contain no spaces and Windows OCR sometimes spaces the glyphs out, while
+/// English names do contain spaces and OCR varies the run lengths — so the
+/// dispatch is here rather than at the call site, where getting it wrong
+/// means every frame skips with a name that looks perfectly correct in the
+/// skip reason.
+pub fn resolve_name<'catalog>(
+    text: &str,
+    catalog: &'catalog Catalog,
+    language: ProfileLanguage,
+) -> Option<&'catalog CatalogAsset> {
+    match language {
+        ProfileLanguage::TraditionalChinese => resolve_zh_name(text, catalog),
+        ProfileLanguage::English => resolve_en_name(text, catalog),
+    }
+}
+
 /// Strips all whitespace (zh-TW names contain none) and resolves against the
 /// closed Traditional Chinese lexicon, aliases included.
 pub fn resolve_zh_name<'catalog>(

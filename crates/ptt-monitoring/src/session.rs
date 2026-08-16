@@ -89,7 +89,7 @@ pub fn run_session(
     cancel: &AtomicBool,
     mut on_event: impl FnMut(SessionEvent),
 ) -> SessionStats {
-    let (need_region, have_region, tables_region) = Route::regions();
+    let (need_region, have_region, tables_region) = route.regions();
     let mut capture = GdiScreenCapture::new();
     let mut tables_frame = CapturedFrame::default();
     let mut need_frame = CapturedFrame::default();

@@ -17,3 +17,7 @@ tests/screenshots/**/*.jpeg
 
 # Raw test screenshots stay local; only JSON manifests are committed.
 test-screenshots/
+
+# POE1 fixture screenshots are the POE1 repo's, mirrored here only to run the
+# corpus locally. They stay out of this repo the same way POE2's do.
+test-screenshots/poe1/

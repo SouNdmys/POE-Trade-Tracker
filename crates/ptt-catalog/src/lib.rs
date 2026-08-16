@@ -21,21 +21,26 @@ pub const POE2_CATALOG_SHA256: &str =
     "d238ba276402eca7cb426f3384ab30b2fb69fd31d9a8aeb9c3ea92843b244b59";
 pub const POE2_CATALOG_ENTRIES: usize = 660;
 
-/// POE1 seed catalog: the currencies the annotated fixture corpus actually
-/// contains, with English names only.
+/// POE1 English catalog: 1,043 assets across 16 categories, transcribed from
+/// 39 in-game selector screenshots.
 ///
-/// This is a seed, not the game's currency list. POE1 has an order of
-/// magnitude more tradeable items; they land here as the data is authored.
-/// A partial catalog is safe because recognition is closed-lexicon and
-/// fail-skip: an absent currency makes the frame skip, never a wrong id.
+/// Converted from `POE1-Trade-Tracker/resources/catalogs/poe1-market-assets.json`
+/// (upstream SHA-256 `2a778e7af6e7d2fa7b9250271ca01bc87e75df4170ebe13d87d6da2d934a06dc`),
+/// which also carries the 60×51 icon templates this crate does not yet use.
 ///
-/// Traditional Chinese names are deliberately absent rather than mirrored
-/// from English, so the zh-TW route refuses to start instead of matching
-/// Chinese OCR output against English strings.
-pub const POE1_CATALOG_JSON: &str = include_str!("../data/poe1/currency_seed.en.json");
+/// Traditional Chinese names are absent — the source recorded English only —
+/// and are deliberately left blank rather than mirrored from English, so the
+/// zh-TW route refuses to start instead of matching Chinese OCR output
+/// against English strings.
+///
+/// Every asset carries a 1/1 minimum unit upstream, because selector
+/// screenshots do not show trade increments. That is inherited rather than
+/// verified.
+pub const POE1_CATALOG_JSON: &str = include_str!("../data/poe1/market_assets.en.json");
 pub const POE1_CATALOG_SHA256: &str =
-    "2c3849d7ed9613d2eb16936db92d4ad6a04a56046cce8d575b866a6195abd8de";
-pub const POE1_CATALOG_ENTRIES: usize = 9;
+    "5640bdd662cd803709bc64c1832c87eb829e4c42df9bfb2f763732b7ff6a8c26";
+pub const POE1_CATALOG_ENTRIES: usize = 1_043;
+pub const POE1_CATALOG_CATEGORIES: usize = 16;
 
 /// One tradeable asset in a game's currency exchange.
 #[derive(Debug, Clone, Deserialize)]
@@ -218,7 +223,7 @@ pub fn poe2() -> &'static Catalog {
     })
 }
 
-/// The POE1 seed catalog, verified against its pin on first access.
+/// The POE1 English catalog, verified against its pin on first access.
 pub fn poe1() -> &'static Catalog {
     static CATALOG: OnceLock<Catalog> = OnceLock::new();
     CATALOG.get_or_init(|| {
@@ -237,10 +242,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn embedded_poe1_seed_matches_pin_and_is_english_only() {
+    fn embedded_poe1_catalog_matches_pin_and_is_english_only() {
         let catalog = poe1();
         assert_eq!(catalog.game(), Game::Poe1);
         assert_eq!(catalog.len(), POE1_CATALOG_ENTRIES);
+        let categories: std::collections::BTreeSet<_> = catalog
+            .assets()
+            .iter()
+            .filter_map(|asset| asset.in_game_category.as_deref())
+            .collect();
+        assert_eq!(categories.len(), POE1_CATALOG_CATEGORIES);
         for asset in catalog.assets() {
             assert!(
                 !asset.name_en.trim().is_empty(),

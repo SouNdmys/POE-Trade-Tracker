@@ -11,13 +11,10 @@
 //! crop rectangles in the POE1 fixture store, where a human marked every
 //! field on ten real screenshots.
 //!
-//! # Status
-//!
-//! Geometry and catalog are in place; the recognition route is still POE2's.
-//! Wiring POE1 up means giving [`super::poe2::Route`] its layout as a
-//! parameter the way the client language already is — the OCR ladder, field
-//! parsers, comparator classifier and book assembly are all layout-agnostic
-//! and must not be duplicated for a second game.
+//! The route itself is [`super::poe2::Route`] driven by [`LAYOUT`]: the OCR
+//! ladder, field parsers, comparator classifier and book assembly are all
+//! layout-agnostic, so a second game is a second layout value rather than a
+//! second copy of the pipeline.
 
 use crate::rows::RowLayout;
 
@@ -26,8 +23,8 @@ use crate::rows::RowLayout;
 /// The name slots exclude the icon boxes to their left (need at x=801, have
 /// at x=1466): the icons are separate evidence, and feeding them to a text
 /// recogniser only adds noise.
-pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (861, 294, 232, 61);
-pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1527, 294, 232, 61);
+pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (856, 294, 238, 61);
+pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1522, 294, 238, 61);
 
 /// Both tables in one region: comparator column (x=1145) through the right
 /// edge of stock (x=1287+117), and the first available row (y=349) through
@@ -59,6 +56,18 @@ pub fn default_row_layout() -> RowLayout {
         max_rows_per_side: 6,
     }
 }
+
+/// The POE1 panel. English only for now — the catalog carries no Traditional
+/// Chinese names, and the route refuses to start in a language the catalog
+/// cannot supply.
+pub const LAYOUT: super::PanelLayout = super::PanelLayout {
+    key_prefix: "POE1",
+    need_name: NEED_NAME_REGION,
+    have_name: HAVE_NAME_REGION,
+    tables: TABLES_REGION,
+    rows: default_row_layout,
+    catalog: ptt_catalog::poe1,
+};
 
 #[cfg(test)]
 mod tests {

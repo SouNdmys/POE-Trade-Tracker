@@ -103,6 +103,7 @@ pub fn apply_saved_calibration() -> Vec<String> {
     ] {
         if let Some(region) = region
             && !ptt_recognition::profiles::poe2::set_region_override(
+                ptt_recognition::profiles::poe2::LAYOUT.key_prefix,
                 name,
                 (region.x, region.y, region.width, region.height),
             )

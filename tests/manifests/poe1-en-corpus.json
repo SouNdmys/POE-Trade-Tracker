@@ -1,76 +1,77 @@
 {
   "version": 1,
   "profile": "poe1-en",
+  "note": "Row counts are ground truth from the annotated fixture store. This gate is RED on purpose. Identity resolves on all ten frames. Rows do not: the captured region spans both tables and the competing header sits between them, so its label text is detected as an extra band and the side overflows six rows; and POE1 rows sit 32px apart with little vertical separation, so the warm mask merges neighbours. Both are the same fix — POE1 pins both tables to known offsets, so its rows can be sliced arithmetically from those offsets instead of detected, which skips the header by construction. Raising max_rows_per_side to hide the header was tried and the geometry tests rejected it: eight 32px rows do not fit the panel.",
   "screenshot_dir": "test-screenshots/poe1",
   "cases": [
     {
       "file": "poe1-real-20260728-m01-000001.png",
       "expect": "accept",
-      "need": "divine_orb",
-      "have": "exalted_orb",
+      "need": "divine-orb",
+      "have": "exalted-orb",
       "min_rows": 10
     },
     {
       "file": "poe1-real-20260728-m01-000002.png",
       "expect": "accept",
-      "need": "divine_orb",
-      "have": "ancient_orb",
+      "need": "divine-orb",
+      "have": "ancient-orb",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000003.png",
       "expect": "accept",
-      "need": "divine_orb",
-      "have": "ancient_orb",
+      "need": "divine-orb",
+      "have": "ancient-orb",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000004.png",
       "expect": "accept",
-      "need": "divine_orb",
-      "have": "orb_of_regret",
+      "need": "divine-orb",
+      "have": "orb-of-regret",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000005.png",
       "expect": "accept",
-      "need": "divine_orb",
-      "have": "orb_of_scouring",
+      "need": "divine-orb",
+      "have": "orb-of-scouring",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000006.png",
       "expect": "accept",
-      "need": "divine_orb",
-      "have": "mirror_of_kalandra",
+      "need": "divine-orb",
+      "have": "mirror-of-kalandra",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000007.png",
       "expect": "accept",
-      "need": "chaos_orb",
-      "have": "exalted_orb",
+      "need": "chaos-orb",
+      "have": "exalted-orb",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000008.png",
       "expect": "accept",
-      "need": "chaos_orb",
-      "have": "vaal_orb",
+      "need": "chaos-orb",
+      "have": "vaal-orb",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260728-m01-000009.png",
       "expect": "accept",
-      "need": "chaos_orb",
-      "have": "orb_of_scouring",
+      "need": "chaos-orb",
+      "have": "orb-of-scouring",
       "min_rows": 12
     },
     {
       "file": "poe1-real-20260729-m01-000001.png",
       "expect": "accept",
-      "need": "chaos_orb",
-      "have": "scarab_of_adversaries",
+      "need": "chaos-orb",
+      "have": "scarab-of-adversaries",
       "min_rows": 11
     }
   ]
