@@ -5,6 +5,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod backend;
+mod i18n;
 mod shell;
 mod theme;
 mod ui;

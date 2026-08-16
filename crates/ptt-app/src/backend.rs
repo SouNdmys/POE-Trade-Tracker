@@ -35,11 +35,11 @@ mod windows_backend {
             }
         }
 
-        pub fn label(self) -> &'static str {
+        pub fn label(self, text: &'static crate::i18n::Text) -> &'static str {
             match self {
-                RegionSlot::Need => "Need name",
-                RegionSlot::Have => "Have name",
-                RegionSlot::Tables => "Order tables",
+                RegionSlot::Need => text.slot_need,
+                RegionSlot::Have => text.slot_have,
+                RegionSlot::Tables => text.slot_tables,
             }
         }
     }

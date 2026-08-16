@@ -197,12 +197,17 @@ mod windows_route {
             layout: crate::profiles::PanelLayout,
             language: ProfileLanguage,
         ) -> Result<Self, SkipReason> {
-            let paddle = Self::start_paddle_session();
-            if paddle.is_none() {
-                eprintln!(
-                    "warning: ONNX name fallback unavailable                      (onnxruntime.dll not found; set PTT_ONNXRUNTIME_DLL)"
-                );
-            }
+            // The bootstrap has four ways to fail and each says which, so a
+            // degraded build is diagnosable. Reporting one fixed cause here
+            // was worse than saying nothing: it named the DLL as missing on a
+            // machine where the DLL was present.
+            let paddle = match Self::start_paddle_session() {
+                Ok(session) => Some(session),
+                Err(reason) => {
+                    eprintln!("warning: ONNX name fallback unavailable: {reason}");
+                    None
+                }
+            };
             // A blank name means that language has not been authored for this
             // game. Refusing here beats building a matcher that silently
             // matches nothing and then skips every frame forever.
@@ -336,23 +341,37 @@ mod windows_route {
             }
         }
 
-        fn start_paddle_session() -> Option<std::sync::Mutex<ptt_ocr_onnx::PaddleCtcSession>> {
-            let dll = std::env::var_os("PTT_ONNXRUNTIME_DLL")
-                .map(std::path::PathBuf::from)
-                .or_else(|| {
-                    std::env::current_exe()
-                        .ok()
-                        .and_then(|exe| Some(exe.parent()?.join("onnxruntime.dll")))
-                })
-                .filter(|path| path.is_file())?;
-            ptt_ocr_onnx::initialize_onnx_runtime(&dll).ok()?;
-            let assets = ptt_ocr_onnx::PaddleAssets::load_source_tree().ok()?;
+        /// Brings up the ONNX fallback, or explains why it could not.
+        ///
+        /// This path is what reads the currencies Windows OCR cannot — losing
+        /// it costs rows on every affected frame and looks exactly like a
+        /// normal skip, so every failure names itself.
+        fn start_paddle_session() -> Result<std::sync::Mutex<ptt_ocr_onnx::PaddleCtcSession>, String>
+        {
+            let configured = std::env::var_os("PTT_ONNXRUNTIME_DLL").map(std::path::PathBuf::from);
+            let beside_exe = std::env::current_exe()
+                .ok()
+                .and_then(|exe| Some(exe.parent()?.join("onnxruntime.dll")));
+            let dll = configured
+                .clone()
+                .or_else(|| beside_exe.clone())
+                .ok_or_else(|| "could not locate the executable directory".to_owned())?;
+            if !dll.is_file() {
+                return Err(format!(
+                    "onnxruntime.dll not found at {} (set PTT_ONNXRUNTIME_DLL to override)",
+                    dll.display()
+                ));
+            }
+            ptt_ocr_onnx::initialize_onnx_runtime(&dll)
+                .map_err(|error| format!("loading {}: {error:?}", dll.display()))?;
+            let assets =
+                ptt_ocr_onnx::PaddleAssets::load_installed().map_err(|error| format!("{error}"))?;
             let session = ptt_ocr_onnx::PaddleCtcSession::from_assets(
                 &assets,
                 ptt_ocr_onnx::PaddleSessionConfig::default(),
             )
-            .ok()?;
-            Some(std::sync::Mutex::new(session))
+            .map_err(|error| format!("starting the recognizer: {error:?}"))?;
+            Ok(std::sync::Mutex::new(session))
         }
 
         /// One inference over the name region's warm mask, re-scored against

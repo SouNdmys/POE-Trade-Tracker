@@ -44,12 +44,25 @@ pub enum Page {
 impl Page {
     const ALL: [Self; 4] = [Self::Monitor, Self::Convert, Self::Watchlist, Self::History];
 
-    fn label(self) -> &'static str {
+    fn label(self, text: &'static crate::i18n::Text) -> &'static str {
         match self {
-            Self::Monitor => "MONITOR",
-            Self::Convert => "CONVERT",
-            Self::Watchlist => "WATCHLIST",
-            Self::History => "HISTORY",
+            Self::Monitor => text.page_monitor,
+            Self::Convert => text.page_convert,
+            Self::Watchlist => text.page_watchlist,
+            Self::History => text.page_history,
+        }
+    }
+
+    /// A stable, language-independent element id.
+    ///
+    /// Ids must not move with the interface language, or a language switch
+    /// reads to the framework as a different set of controls.
+    const fn element_id(self) -> &'static str {
+        match self {
+            Self::Monitor => "page-monitor",
+            Self::Convert => "page-convert",
+            Self::Watchlist => "page-watchlist",
+            Self::History => "page-history",
         }
     }
 }
@@ -222,10 +235,16 @@ impl AppShell {
                         height,
                     } => self.apply_calibration(slot, x, y, width, height),
                     ShellMsg::CalibrationCancelled(slot) => {
-                        self.push_log(format!("calibration cancelled: {}", slot.label()));
+                        self.push_log(format!(
+                            "calibration cancelled: {}",
+                            slot.label(self.text())
+                        ));
                     }
                     ShellMsg::CalibrationFailed(slot, error) => {
-                        self.push_log(format!("calibration failed: {} — {error}", slot.label()));
+                        self.push_log(format!(
+                            "calibration failed: {} — {error}",
+                            slot.label(self.text())
+                        ));
                     }
                 }
             }
@@ -309,7 +328,7 @@ impl AppShell {
         match self.settings_store.save(&self.settings) {
             Ok(()) => self.push_log(format!(
                 "calibrated {}: {x},{y} {width}x{height}",
-                slot.label()
+                slot.label(self.text())
             )),
             Err(error) => self.push_log(format!("settings save failed: {error}")),
         }
@@ -327,7 +346,7 @@ impl AppShell {
     fn start_calibration(&mut self, slot: RegionSlot) {
         self.push_log(format!(
             "drag the {} region on screen (Esc cancels)",
-            slot.label()
+            slot.label(self.text())
         ));
         spawn_calibration(self.shell_tx.clone(), slot);
     }
@@ -355,6 +374,18 @@ impl AppShell {
 }
 
 impl AppShell {
+    /// The catalogue for the stored interface language.
+    fn text(&self) -> &'static crate::i18n::Text {
+        #[cfg(windows)]
+        {
+            crate::i18n::text(self.settings.ui_language)
+        }
+        #[cfg(not(windows))]
+        {
+            crate::i18n::text(ptt_settings::UiLanguage::English)
+        }
+    }
+
     #[cfg(windows)]
     fn region_text(region: Option<ptt_settings::Region>) -> String {
         match region {
@@ -375,18 +406,19 @@ impl AppShell {
             (RegionSlot::Have, "cal-have", entry.have_name_region),
             (RegionSlot::Tables, "cal-tables", entry.tables_region),
         ];
+        let text = self.text();
         let hotkey_line = if self.hotkey_ok.watch {
             format!(
-                "hotkey {}  toggles watch",
-                self.settings.hotkeys.toggle_watch
+                "{} — {}",
+                self.settings.hotkeys.toggle_watch, text.hotkey_ready
             )
         } else {
             format!(
-                "hotkey {} unavailable (in use elsewhere)",
-                self.settings.hotkeys.toggle_watch
+                "{} — {}",
+                self.settings.hotkeys.toggle_watch, text.hotkey_unavailable
             )
         };
-        panel().child(panel_header("SETTINGS")).child(
+        panel().child(panel_header(text.panel_settings)).child(
             div()
                 .p_3()
                 .flex()
@@ -402,20 +434,60 @@ impl AppShell {
                                 .w(px(90.0))
                                 .text_size(fs(FS_12))
                                 .text_color(c(TEXT_META))
-                                .child(slot.label()),
+                                .child(slot.label(text)),
                         )
                         .child(
                             mono(Self::region_text(region))
                                 .text_size(fs(FS_12))
                                 .flex_grow(),
                         )
-                        .child(button(id, LedgerButton::Quiet, "Calibrate", cx).on_click(
-                            cx.listener(move |this, _, _, cx| {
-                                this.start_calibration(slot);
-                                cx.notify();
-                            }),
-                        ))
+                        .child(
+                            button(id, LedgerButton::Quiet, text.calibrate, cx).on_click(
+                                cx.listener(move |this, _, _, cx| {
+                                    this.start_calibration(slot);
+                                    cx.notify();
+                                }),
+                            ),
+                        )
                 }))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(90.0))
+                                .text_size(fs(FS_12))
+                                .text_color(c(TEXT_META))
+                                .child(text.language_label),
+                        )
+                        .children(crate::i18n::LANGUAGES.into_iter().map(|language| {
+                            let active = language == self.settings.ui_language;
+                            button(
+                                match language {
+                                    ptt_settings::UiLanguage::English => "lang-en",
+                                    ptt_settings::UiLanguage::Chinese => "lang-zh",
+                                },
+                                if active {
+                                    LedgerButton::Primary
+                                } else {
+                                    LedgerButton::Quiet
+                                },
+                                // Always in its own language: someone who
+                                // cannot read the current one still finds
+                                // theirs.
+                                crate::i18n::native_label(language),
+                                cx,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.set_language(language);
+                                    cx.notify();
+                                },
+                            ))
+                        })),
+                )
                 .child(
                     mono(hotkey_line)
                         .text_size(fs(FS_10_5))
@@ -424,9 +496,21 @@ impl AppShell {
         )
     }
 
+    /// Switches the interface language and persists it.
+    #[cfg(windows)]
+    fn set_language(&mut self, language: ptt_settings::UiLanguage) {
+        if self.settings.ui_language == language {
+            return;
+        }
+        self.settings.ui_language = language;
+        if let Err(error) = self.settings_store.save(&self.settings) {
+            self.push_log(format!("could not save language: {error}"));
+        }
+    }
+
     #[cfg(not(windows))]
     fn settings_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
-        panel().child(panel_header("SETTINGS"))
+        panel().child(panel_header(self.text().panel_settings))
     }
 }
 
@@ -563,8 +647,7 @@ impl AppShell {
             return;
         }
         let Some((have, need)) = self.report_pair.clone() else {
-            self.report_lines =
-                vec!["waiting for a book — start watching and open a pair".to_owned()];
+            self.report_lines = vec![self.text().waiting_for_book.to_owned()];
             return;
         };
         self.report_lines = match self.build_report(&have, &need) {
@@ -654,13 +737,13 @@ impl AppShell {
             .children(Page::ALL.into_iter().map(|page| {
                 let active = page == self.page;
                 button(
-                    page.label(),
+                    page.element_id(),
                     if active {
                         LedgerButton::Primary
                     } else {
                         LedgerButton::Secondary
                     },
-                    page.label(),
+                    page.label(self.text()),
                     cx,
                 )
                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -671,9 +754,10 @@ impl AppShell {
     }
 
     fn report_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
-        let title = self.page.label();
+        let text = self.text();
+        let title = self.page.label(text);
         let lines = if self.report_lines.is_empty() {
-            vec!["—".to_owned()]
+            vec![text.nothing_yet.to_owned()]
         } else {
             self.report_lines.clone()
         };
@@ -686,14 +770,15 @@ impl AppShell {
                     .items_center()
                     .child(panel_header(title))
                     .child(div().flex_grow())
-                    .child(div().pr_3().child(
-                        button("report-refresh", LedgerButton::Secondary, "Refresh", cx).on_click(
-                            cx.listener(|this, _, _, cx| {
-                                this.refresh_report();
-                                cx.notify();
-                            }),
+                    .child(
+                        div().pr_3().child(
+                            button("report-refresh", LedgerButton::Secondary, text.refresh, cx)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.refresh_report();
+                                    cx.notify();
+                                })),
                         ),
-                    )),
+                    ),
             )
             .child(
                 div().p_3().flex().flex_col().gap_1().children(
@@ -707,15 +792,20 @@ impl AppShell {
 
 impl Render for AppShell {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let text = self.text();
         let (dot_kind, state_label) = if self.fault.is_some() {
-            (StatusKind::Error, "FAULT")
+            (StatusKind::Error, text.state_fault)
         } else if self.watching {
-            (StatusKind::Monitoring, "WATCHING")
+            (StatusKind::Monitoring, text.state_watching)
         } else {
-            (StatusKind::Idle, "IDLE")
+            (StatusKind::Idle, text.state_idle)
         };
         let skip_total: u64 = self.skips.values().sum();
-        let button_label = if self.watching { "Stop" } else { "Start watch" };
+        let button_label = if self.watching {
+            text.stop_watch
+        } else {
+            text.start_watch
+        };
         let button_kind = if self.watching {
             LedgerButton::Secondary
         } else {
@@ -752,15 +842,11 @@ impl Render for AppShell {
                     .border_b_1()
                     .border_color(c(HAIRLINE_STRONG))
                     .child(status_dot(dot_kind))
-                    .child(
-                        div()
-                            .text_size(fs(FS_12_5))
-                            .child(spaced("POE TRADE TRACKER")),
-                    )
+                    .child(div().text_size(fs(FS_12_5)).child(spaced(text.app_title)))
                     .child(
                         mono(format!(
-                            "{state_label}   accepted {}   skips {}",
-                            self.accepted, skip_total
+                            "{state_label}   {} {}   {} {}",
+                            text.accepted_label, self.accepted, text.skips_label, skip_total
                         ))
                         .text_color(c(TEXT_META)),
                     )
@@ -783,12 +869,12 @@ impl Render for AppShell {
                                 panel()
                                     .flex_grow()
                                     .overflow_hidden()
-                                    .child(panel_header("LAST BOOK"))
+                                    .child(panel_header(text.panel_last_book))
                                     .child(
                                         div().p_3().flex().flex_col().gap_1().children(
                                             std::iter::once(
                                                 self.last_header.clone().unwrap_or_else(|| {
-                                                    "waiting for a book…".to_owned()
+                                                    text.waiting_for_book.to_owned()
                                                 }),
                                             )
                                             .chain(self.last_rows.iter().cloned())
@@ -805,10 +891,12 @@ impl Render for AppShell {
                                     .child(
                                         panel()
                                             .overflow_hidden()
-                                            .child(panel_header("OPPORTUNITIES"))
+                                            .child(panel_header(text.panel_opportunities))
                                             .child(div().p_3().flex().flex_col().gap_1().children(
                                                 if self.last_analysis.is_empty() {
-                                                    vec![mono("—").text_size(fs(FS_12))]
+                                                    vec![
+                                                        mono(text.nothing_yet).text_size(fs(FS_12)),
+                                                    ]
                                                 } else {
                                                     self.last_analysis
                                                         .iter()
@@ -819,10 +907,10 @@ impl Render for AppShell {
                                                 },
                                             )),
                                     )
-                                    .child(panel().child(panel_header("SKIPS")).child(
+                                    .child(panel().child(panel_header(text.panel_skips)).child(
                                         div().p_3().flex().flex_col().gap_1().children(
                                             if skip_lines.is_empty() {
-                                                vec![mono("—").text_size(fs(FS_12))]
+                                                vec![mono(text.nothing_yet).text_size(fs(FS_12))]
                                             } else {
                                                 skip_lines
                                                     .into_iter()
@@ -838,10 +926,12 @@ impl Render for AppShell {
                                     .child(
                                         panel()
                                             .overflow_hidden()
-                                            .child(panel_header("PROBE QUEUE"))
+                                            .child(panel_header(text.panel_probe_queue))
                                             .child(div().p_3().flex().flex_col().gap_1().children(
                                                 if self.report_lines.is_empty() {
-                                                    vec![mono("—").text_size(fs(FS_12))]
+                                                    vec![
+                                                        mono(text.nothing_yet).text_size(fs(FS_12)),
+                                                    ]
                                                 } else {
                                                     self.report_lines
                                                         .iter()
@@ -863,8 +953,10 @@ impl Render for AppShell {
                             .p_3()
                             .child(
                                 mono(match &self.report_pair {
-                                    Some((have, need)) => format!("pair: {have} -> {need}"),
-                                    None => "pair: none captured yet".to_owned(),
+                                    Some((have, need)) => {
+                                        format!("{}: {have} -> {need}", text.pair_prefix)
+                                    }
+                                    None => text.no_pair_yet.to_owned(),
                                 })
                                 .text_size(fs(FS_12))
                                 .text_color(c(TEXT_META)),
@@ -885,7 +977,7 @@ impl Render for AppShell {
                     .border_t_1()
                     .border_color(c(HAIRLINE))
                     .child(match &self.fault {
-                        Some(fault) => mono(format!("fault: {fault}"))
+                        Some(fault) => mono(format!("{}: {fault}", text.fault_prefix))
                             .text_size(fs(FS_11_5))
                             .text_color(c(DANGER)),
                         None => mono(self.log.back().cloned().unwrap_or_default())

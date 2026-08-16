@@ -35,6 +35,9 @@ impl PaddleAssetPaths {
     }
 
     /// Resolves the checked-in official assets when running from this repository.
+    ///
+    /// The path is baked in at compile time, so it only exists on the machine
+    /// that built the binary. A shipped build must not depend on it.
     pub fn source_tree() -> Self {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let asset_root = root.join("assets/ocr");
@@ -42,6 +45,19 @@ impl PaddleAssetPaths {
             asset_root.join(MODEL_FILE_NAME),
             asset_root.join(DICTIONARY_FILE_NAME),
         )
+    }
+
+    /// Resolves assets shipped beside the executable.
+    ///
+    /// Packages lay them out as `assets/ocr/` next to the exe, matching how
+    /// `onnxruntime.dll` is already found.
+    pub fn beside_executable() -> Option<Self> {
+        let directory = std::env::current_exe().ok()?.parent()?.to_path_buf();
+        let asset_root = directory.join("assets").join("ocr");
+        Some(Self::new(
+            asset_root.join(MODEL_FILE_NAME),
+            asset_root.join(DICTIONARY_FILE_NAME),
+        ))
     }
 }
 
@@ -65,6 +81,33 @@ impl PaddleAssets {
 
     pub fn load_source_tree() -> Result<Self, PaddleError> {
         Self::load(&PaddleAssetPaths::source_tree())
+    }
+
+    /// Loads assets from wherever this build can actually find them.
+    ///
+    /// Beside the executable first, because that is where a package puts
+    /// them; the source tree second, so a developer run needs no copy step.
+    /// The error names both attempts — a build that silently loses the ONNX
+    /// fallback recognises fewer currencies with nothing to say why.
+    pub fn load_installed() -> Result<Self, PaddleError> {
+        let beside = PaddleAssetPaths::beside_executable();
+        if let Some(paths) = &beside
+            && paths.model.is_file()
+        {
+            return Self::load(paths);
+        }
+        let source = PaddleAssetPaths::source_tree();
+        if source.model.is_file() {
+            return Self::load(&source);
+        }
+        Err(PaddleError::InvalidAsset(format!(
+            "OCR model not found beside the executable ({}) or in the source tree ({})",
+            beside.map_or_else(
+                || "unavailable".to_owned(),
+                |paths| paths.model.display().to_string()
+            ),
+            source.model.display()
+        )))
     }
 
     /// Validates bytes against the immutable hashes recorded for POE Trade Tracker 1.0.
