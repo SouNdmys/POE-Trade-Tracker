@@ -150,7 +150,7 @@ maker 腿的收益是**条件性的**，条件是有人来吃你的单。
 | `ptt-recognition` | 两张表分别落到 `Available` / `Competing`，侧别错标比漏抓严重得多 |
 | `ptt-trade-domain` | 四角色边模型不变；库存侧别由角色决定，禁止合成倒数边（F6） |
 | `ptt-trade-engine` | 套利搜索默认跑 Instant 策略；maker 结果必须带 `MakerReference` 风险 |
-| `ptt-strategy::maker_strategy` | 队首 = 最低比率；机会模式必须**低于**对手最低档，不是等于 |
+| `ptt-strategy::maker_strategy` | 队首 = 最低比率（唯一定义，`queue_order`）；机会模式默认低于对手最低档一跳，等价挂单需显式开 `match_front` 并标注 `queued_behind_front` |
 | `ptt-strategy::execution_safety` | maker 腿永远达不到 `InstantExecutable` |
 | `ptt-app` Convert 页 | 三个档位的数字要并排显示，且贪婪档必须标注为押注 |
 
