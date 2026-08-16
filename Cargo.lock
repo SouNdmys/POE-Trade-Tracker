@@ -4461,8 +4461,10 @@ dependencies = [
  "ptt-recognition",
  "ptt-settings",
  "ptt-storage",
+ "ptt-strategy",
  "ptt-trade-domain",
  "ptt-trade-engine",
+ "ptt-workflows",
  "rusqlite",
  "serde_json",
 ]

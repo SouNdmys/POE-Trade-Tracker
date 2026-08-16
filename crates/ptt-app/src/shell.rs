@@ -19,6 +19,33 @@ use crate::backend::{
 
 const LOG_CAPACITY: usize = 120;
 
+/// How far back the pages read. Matches the analysis window the watch loop
+/// uses, so a page and the live line never describe different books.
+const REPORT_WINDOW_HOURS: i64 = 2;
+
+/// The pages of the app. Monitor answers "is the watcher healthy", the rest
+/// answer questions about what it has collected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Page {
+    Monitor,
+    Convert,
+    Watchlist,
+    History,
+}
+
+impl Page {
+    const ALL: [Self; 4] = [Self::Monitor, Self::Convert, Self::Watchlist, Self::History];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Monitor => "MONITOR",
+            Self::Convert => "CONVERT",
+            Self::Watchlist => "WATCHLIST",
+            Self::History => "HISTORY",
+        }
+    }
+}
+
 pub struct AppShell {
     pub focus_handle: FocusHandle,
     #[cfg(windows)]
@@ -40,6 +67,12 @@ pub struct AppShell {
     last_analysis: Vec<String>,
     log: VecDeque<String>,
     fault: Option<String>,
+    page: Page,
+    /// The pair the report pages describe: the last book that was accepted.
+    report_pair: Option<(String, String)>,
+    report_lines: Vec<String>,
+    /// True when a new book landed since the visible page was last built.
+    report_stale: bool,
 }
 
 impl AppShell {
@@ -125,6 +158,10 @@ impl AppShell {
             last_analysis: Vec::new(),
             log: VecDeque::new(),
             fault: None,
+            page: Page::Monitor,
+            report_pair: None,
+            report_lines: Vec::new(),
+            report_stale: true,
         }
     }
 
@@ -160,6 +197,10 @@ impl AppShell {
                     }
                 }
             }
+            if self.report_stale && self.page != Page::Monitor {
+                self.refresh_report();
+                dirty = true;
+            }
             if dirty {
                 cx.notify();
             }
@@ -175,6 +216,8 @@ impl AppShell {
                 match event {
                     UiEvent::Accepted {
                         header,
+                        need_asset_id,
+                        have_asset_id,
                         rows,
                         analysis,
                     } => {
@@ -183,6 +226,8 @@ impl AppShell {
                         self.last_header = Some(header);
                         self.last_rows = rows;
                         self.last_analysis = analysis;
+                        self.report_pair = Some((have_asset_id, need_asset_id));
+                        self.report_stale = true;
                     }
                     UiEvent::Skipped(reason) => {
                         *self.skips.entry(reason).or_default() += 1;
@@ -349,6 +394,145 @@ impl AppShell {
     }
 }
 
+impl AppShell {
+    #[cfg(windows)]
+    fn show_page(&mut self, page: Page) {
+        if self.page != page {
+            self.page = page;
+            self.report_stale = true;
+        }
+    }
+
+    /// Rebuilds the visible page's report from the store.
+    ///
+    /// Reads happen when the page changes, on request, or after a new book —
+    /// never on the frame tick, so a growing database cannot turn into a
+    /// per-frame query.
+    #[cfg(windows)]
+    fn refresh_report(&mut self) {
+        self.report_stale = false;
+        if self.page == Page::Monitor {
+            self.report_lines.clear();
+            return;
+        }
+        let Some((have, need)) = self.report_pair.clone() else {
+            self.report_lines =
+                vec!["waiting for a book — start watching and open a pair".to_owned()];
+            return;
+        };
+        self.report_lines = match self.build_report(&have, &need) {
+            Ok(lines) => lines,
+            Err(reason) => vec![format!("report unavailable: {reason}")],
+        };
+    }
+
+    #[cfg(windows)]
+    fn build_report(&self, have: &str, need: &str) -> Result<Vec<String>, String> {
+        use ptt_runtime::live::{domain_asset_id, poe2_live_context};
+        use ptt_runtime::pipeline::default_database_path;
+
+        let store = ptt_storage::MarketStore::open(default_database_path())
+            .map_err(|error| format!("storage: {error}"))?;
+        let context = poe2_live_context("live-league").map_err(|error| format!("{error:?}"))?;
+        let context_key = context.stable_key();
+        let observations = store
+            .load_observations(
+                &context_key,
+                Some(chrono::Utc::now() - chrono::Duration::hours(REPORT_WINDOW_HOURS)),
+            )
+            .map_err(|error| format!("load: {error}"))?;
+        let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
+        let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
+
+        match self.page {
+            Page::Monitor => Ok(Vec::new()),
+            Page::Convert => {
+                ptt_runtime::reports::convert_report(&observations, &context_key, &have, &need)
+            }
+            Page::Watchlist => {
+                ptt_runtime::reports::watchlist_report(&observations, &context_key, "live-league")
+            }
+            Page::History => {
+                ptt_runtime::reports::history_report(&observations, &context_key, &have, &need)
+            }
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn show_page(&mut self, page: Page) {
+        self.page = page;
+    }
+
+    #[cfg(not(windows))]
+    fn refresh_report(&mut self) {
+        self.report_stale = false;
+    }
+
+    fn nav_rail(&self, cx: &mut Context<Self>) -> gpui::Div {
+        div()
+            .w(px(132.0))
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .p_2()
+            .bg(c(RAIL))
+            .border_r_1()
+            .border_color(c(HAIRLINE))
+            .children(Page::ALL.into_iter().map(|page| {
+                let active = page == self.page;
+                button(
+                    page.label(),
+                    if active {
+                        LedgerButton::Primary
+                    } else {
+                        LedgerButton::Secondary
+                    },
+                    page.label(),
+                    cx,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.show_page(page);
+                    cx.notify();
+                }))
+            }))
+    }
+
+    fn report_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let title = self.page.label();
+        let lines = if self.report_lines.is_empty() {
+            vec!["—".to_owned()]
+        } else {
+            self.report_lines.clone()
+        };
+        panel()
+            .flex_grow()
+            .overflow_hidden()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .child(panel_header(title))
+                    .child(div().flex_grow())
+                    .child(div().pr_3().child(
+                        button("report-refresh", LedgerButton::Secondary, "Refresh", cx).on_click(
+                            cx.listener(|this, _, _, cx| {
+                                this.refresh_report();
+                                cx.notify();
+                            }),
+                        ),
+                    )),
+            )
+            .child(
+                div().p_3().flex().flex_col().gap_1().children(
+                    lines
+                        .into_iter()
+                        .map(|line| mono(line).text_size(fs(FS_12))),
+                ),
+            )
+    }
+}
+
 impl Render for AppShell {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let (dot_kind, state_label) = if self.fault.is_some() {
@@ -415,68 +599,90 @@ impl Render for AppShell {
                     ),
             )
             .child(
-                // Body: three panels.
-                div()
-                    .flex_grow()
-                    .flex()
-                    .gap_3()
-                    .p_3()
-                    .child(
-                        panel()
+                // Body: navigation rail plus the active page.
+                div().flex_grow().flex().child(self.nav_rail(cx)).child(
+                    if self.page == Page::Monitor {
+                        div()
                             .flex_grow()
-                            .overflow_hidden()
-                            .child(panel_header("LAST BOOK"))
+                            .flex()
+                            .gap_3()
+                            .p_3()
                             .child(
-                                div().p_3().flex().flex_col().gap_1().children(
-                                    std::iter::once(
-                                        self.last_header
-                                            .clone()
-                                            .unwrap_or_else(|| "waiting for a book…".to_owned()),
+                                panel()
+                                    .flex_grow()
+                                    .overflow_hidden()
+                                    .child(panel_header("LAST BOOK"))
+                                    .child(
+                                        div().p_3().flex().flex_col().gap_1().children(
+                                            std::iter::once(
+                                                self.last_header.clone().unwrap_or_else(|| {
+                                                    "waiting for a book…".to_owned()
+                                                }),
+                                            )
+                                            .chain(self.last_rows.iter().cloned())
+                                            .map(|line| mono(line).text_size(fs(FS_12))),
+                                        ),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex_grow()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_3()
+                                    .child(
+                                        panel()
+                                            .overflow_hidden()
+                                            .child(panel_header("OPPORTUNITIES"))
+                                            .child(div().p_3().flex().flex_col().gap_1().children(
+                                                if self.last_analysis.is_empty() {
+                                                    vec![mono("—").text_size(fs(FS_12))]
+                                                } else {
+                                                    self.last_analysis
+                                                        .iter()
+                                                        .map(|line| {
+                                                            mono(line.clone()).text_size(fs(FS_12))
+                                                        })
+                                                        .collect()
+                                                },
+                                            )),
                                     )
-                                    .chain(self.last_rows.iter().cloned())
-                                    .map(|line| mono(line).text_size(fs(FS_12))),
-                                ),
-                            ),
-                    )
-                    .child(
+                                    .child(panel().child(panel_header("SKIPS")).child(
+                                        div().p_3().flex().flex_col().gap_1().children(
+                                            if skip_lines.is_empty() {
+                                                vec![mono("—").text_size(fs(FS_12))]
+                                            } else {
+                                                skip_lines
+                                                    .into_iter()
+                                                    .map(|line| {
+                                                        mono(line)
+                                                            .text_size(fs(FS_12))
+                                                            .text_color(c(TEXT_META))
+                                                    })
+                                                    .collect()
+                                            },
+                                        ),
+                                    ))
+                                    .child(self.settings_panel(cx)),
+                            )
+                    } else {
                         div()
                             .flex_grow()
                             .flex()
                             .flex_col()
                             .gap_3()
+                            .p_3()
                             .child(
-                                panel()
-                                    .overflow_hidden()
-                                    .child(panel_header("OPPORTUNITIES"))
-                                    .child(div().p_3().flex().flex_col().gap_1().children(
-                                        if self.last_analysis.is_empty() {
-                                            vec![mono("—").text_size(fs(FS_12))]
-                                        } else {
-                                            self.last_analysis
-                                                .iter()
-                                                .map(|line| mono(line.clone()).text_size(fs(FS_12)))
-                                                .collect()
-                                        },
-                                    )),
+                                mono(match &self.report_pair {
+                                    Some((have, need)) => format!("pair: {have} -> {need}"),
+                                    None => "pair: none captured yet".to_owned(),
+                                })
+                                .text_size(fs(FS_12))
+                                .text_color(c(TEXT_META)),
                             )
-                            .child(panel().child(panel_header("SKIPS")).child(
-                                div().p_3().flex().flex_col().gap_1().children(
-                                    if skip_lines.is_empty() {
-                                        vec![mono("—").text_size(fs(FS_12))]
-                                    } else {
-                                        skip_lines
-                                            .into_iter()
-                                            .map(|line| {
-                                                mono(line)
-                                                    .text_size(fs(FS_12))
-                                                    .text_color(c(TEXT_META))
-                                            })
-                                            .collect()
-                                    },
-                                ),
-                            ))
-                            .child(self.settings_panel(cx)),
-                    ),
+                            .child(self.report_panel(cx))
+                    },
+                ),
             )
             .child(
                 // Footer: fault or recent log line.

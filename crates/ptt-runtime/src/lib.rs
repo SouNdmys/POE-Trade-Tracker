@@ -12,6 +12,7 @@ pub mod analysis;
 pub mod live;
 #[cfg(windows)]
 pub mod pipeline;
+pub mod reports;
 
 /// Monotonically increasing id for a runtime session. Work stamped with an old
 /// generation is discarded on arrival; replacement invalidates the generation

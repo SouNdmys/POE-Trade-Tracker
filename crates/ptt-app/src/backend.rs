@@ -137,6 +137,10 @@ mod windows_backend {
     pub enum UiEvent {
         Accepted {
             header: String,
+            /// The pair as the panel showed it, so pages can report on it
+            /// without re-parsing the header line.
+            need_asset_id: String,
+            have_asset_id: String,
             rows: Vec<String>,
             analysis: Vec<String>,
         },
@@ -235,8 +239,11 @@ mod windows_backend {
                         book.have_asset_id,
                         book.rows.len(),
                     );
+                    let book = *book;
                     let _ = sender.send(UiEvent::Accepted {
                         header,
+                        need_asset_id: book.need_asset_id,
+                        have_asset_id: book.have_asset_id,
                         rows: book.rows,
                         analysis: book.analysis,
                     });
