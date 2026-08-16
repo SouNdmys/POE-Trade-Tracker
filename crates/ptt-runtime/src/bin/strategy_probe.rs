@@ -29,6 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[derive(serde::Deserialize)]
     struct Manifest {
+        version: u32,
+        profile: String,
         screenshot_dir: String,
         cases: Vec<ManifestCase>,
     }
@@ -53,7 +55,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let manifest: Manifest = serde_json::from_str(&std::fs::read_to_string(&manifest_path)?)?;
-    let route = Route::new().map_err(|reason| format!("route init failed: {reason:?}"))?;
+    if manifest.version != 1 {
+        return Err(format!("unsupported manifest version {}", manifest.version).into());
+    }
+    // The manifest names its own panel and language; picking them here rather
+    // than defaulting keeps this gate reading the corpus the recognition gate
+    // reads, instead of running POE2 geometry over POE1 screenshots and
+    // calling the result a regression.
+    let (layout, language) = if manifest.profile.starts_with("poe1") {
+        (
+            ptt_recognition::profiles::poe1::LAYOUT,
+            ptt_recognition::profiles::ProfileLanguage::English,
+        )
+    } else {
+        (
+            ptt_recognition::profiles::poe2::LAYOUT,
+            ptt_recognition::profiles::ProfileLanguage::TraditionalChinese,
+        )
+    };
+    let route = Route::new_with(layout, language)
+        .map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut store = MarketStore::open_in_memory()?;
     let context = poe2_live_context("corpus-league")?;
     let context_key = context.stable_key();

@@ -94,6 +94,10 @@ pub struct RadarBudget {
     /// Total state expansions across every target in the scope.
     pub max_total_expansions: u32,
     /// Most targets to scan. Zero means every target in scope.
+    ///
+    /// Enforced by the scan loop, which records anything it did not reach in
+    /// `skipped_target_count` — a knob that is only stored would report a
+    /// bound it never applied.
     pub max_targets: u32,
 }
 
@@ -221,6 +225,11 @@ pub fn run_opportunity_radar(
     for target in &targets {
         ensure_not_cancelled(cancellation)?;
         if expansions_used >= request.budget.max_total_expansions {
+            budget_exhausted = true;
+            break;
+        }
+        if request.budget.max_targets > 0 && scanned_conversion_count >= request.budget.max_targets
+        {
             budget_exhausted = true;
             break;
         }

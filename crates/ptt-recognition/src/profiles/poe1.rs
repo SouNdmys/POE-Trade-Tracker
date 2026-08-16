@@ -71,6 +71,7 @@ pub fn default_row_layout() -> RowLayout {
 /// cannot supply.
 pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     key_prefix: "POE1",
+    game: ptt_core::Game::Poe1,
     need_name: NEED_NAME_REGION,
     have_name: HAVE_NAME_REGION,
     tables: TABLES_REGION,

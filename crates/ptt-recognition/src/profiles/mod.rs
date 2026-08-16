@@ -15,6 +15,9 @@ pub struct PanelLayout {
     /// Namespaces calibration overrides and environment variables, so a
     /// calibrated POE2 panel cannot be applied to a POE1 one.
     pub key_prefix: &'static str,
+    /// Which game this panel belongs to, so a caller holding saved settings
+    /// can tell whether they were drawn for this panel at all.
+    pub game: ptt_core::Game,
     pub need_name: (i32, i32, u32, u32),
     pub have_name: (i32, i32, u32, u32),
     pub tables: (i32, i32, u32, u32),
@@ -113,5 +116,22 @@ mod tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+
+    /// Each layout must namespace itself and name its own game.
+    ///
+    /// The prefix keys calibration storage and the game decides whether saved
+    /// regions belong to this panel at all; two layouts sharing either would
+    /// let one game's rectangles be applied to the other's route.
+    #[test]
+    fn layouts_are_distinguishable_by_prefix_and_game() {
+        let layouts = [poe1::LAYOUT, poe2::LAYOUT];
+        assert_ne!(layouts[0].key_prefix, layouts[1].key_prefix);
+        assert_ne!(layouts[0].game, layouts[1].game);
     }
 }

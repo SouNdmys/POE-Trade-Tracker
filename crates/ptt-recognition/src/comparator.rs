@@ -15,6 +15,12 @@ use crate::fields::Comparator;
 const MINIMUM_INK: usize = 10;
 /// How much further the mid third must extend than the outer thirds, px.
 const MINIMUM_APEX_MARGIN: i32 = 3;
+/// Narrowest ink box that can still be a chevron rather than a digit stroke.
+///
+/// Lives here with the other calibrated thresholds: a route that gates on a
+/// bare number instead would keep rejecting boundary rows after these are
+/// retuned, with nothing near the classifier to explain why.
+pub const MINIMUM_GLYPH_WIDTH: usize = 5;
 
 /// Classifies the comparator glyph inside `zone` (mask coordinates).
 pub fn classify_comparator(

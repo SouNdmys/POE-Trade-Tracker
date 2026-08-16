@@ -36,6 +36,11 @@ struct Market {
     units: AssetUnitCatalog,
     selected: Vec<EvaluatedQuoteEdge>,
     mark_rates: MarkRateTable,
+    /// Kept so coverage can reuse them. Building the book clones every
+    /// observation in the window, so doing it twice for one page doubled the
+    /// most expensive step on the UI thread.
+    book: ptt_market_book::CoherentCurrentBook,
+    instant_selection: ptt_market_book::QuoteSelectionResult,
 }
 
 fn build_market(
@@ -77,6 +82,8 @@ fn build_market(
         units,
         selected,
         mark_rates,
+        book,
+        instant_selection: selection,
     })
 }
 
@@ -253,7 +260,7 @@ pub fn watchlist_report(
 
     // Typed coverage gaps for the pairs this focus group cares about, and
     // the probes that would close them.
-    match focus_gaps(observations, context_key, &policy, &seen) {
+    match focus_gaps(observations, context_key, &policy, &seen, Some(&market)) {
         Ok(gap_lines) => lines.extend(gap_lines),
         Err(reason) => lines.push(format!("coverage unavailable: {reason}")),
     }
@@ -299,7 +306,7 @@ pub fn probe_queue(
         return Ok(vec!["no pairs captured yet".to_owned()]);
     }
 
-    let (coverage, candidates) = focus_coverage(observations, context_key, &policy, &seen)?;
+    let (coverage, candidates) = focus_coverage(observations, context_key, &policy, &seen, None)?;
     let missing = coverage
         .iter()
         .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
@@ -408,6 +415,11 @@ fn focus_coverage(
     context_key: &str,
     policy: &MarketPolicy,
     seen: &[MarketAssetId],
+    // The caller's already-built Instant selection, when it has one. Coverage
+    // needs three views of the book and one of them is the Instant view the
+    // watchlist just computed; rebuilding it doubled the book construction on
+    // the UI thread.
+    prebuilt: Option<&Market>,
 ) -> Result<
     (
         Vec<ptt_workflows::FocusCoverage>,
@@ -434,28 +446,36 @@ fn focus_coverage(
     let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
         .map_err(|error| format!("{error}"))?;
 
-    let book = build_coherent_current_book(context_key, observations, DataVisibility::default())
-        .map_err(|error| format!("book: {error}"))?;
+    // Coverage needs three views of one book. The Instant view is the one the
+    // caller already built, so it is borrowed rather than recomputed.
+    let owned;
+    let market = match prebuilt {
+        Some(market) => market,
+        None => {
+            owned = build_market(observations, context_key)?;
+            &owned
+        }
+    };
     let now = Utc::now();
     let mut selections = Vec::new();
     for strategy in [
-        QuoteSelectionStrategy::Instant,
         QuoteSelectionStrategy::FastMaker,
         QuoteSelectionStrategy::Probe,
     ] {
         let policy = QuoteSelectionPolicy::personal_default(strategy)
             .map_err(|error| format!("policy: {error}"))?;
         selections.push(
-            select_quote_edges(&book, &policy, now).map_err(|error| format!("select: {error}"))?,
+            select_quote_edges(&market.book, &policy, now)
+                .map_err(|error| format!("select: {error}"))?,
         );
     }
 
     derive_focus_probe_candidates(
         "live-focus",
         &scope,
+        &market.instant_selection,
         &selections[0],
         &selections[1],
-        &selections[2],
     )
     .map_err(|error| format!("{error}"))
 }
@@ -466,8 +486,9 @@ fn focus_gaps(
     context_key: &str,
     policy: &MarketPolicy,
     seen: &[MarketAssetId],
+    prebuilt: Option<&Market>,
 ) -> Result<Vec<String>, String> {
-    let (coverage, candidates) = focus_coverage(observations, context_key, policy, seen)?;
+    let (coverage, candidates) = focus_coverage(observations, context_key, policy, seen, prebuilt)?;
     let mut lines = Vec::new();
     let incomplete: Vec<_> = coverage
         .iter()

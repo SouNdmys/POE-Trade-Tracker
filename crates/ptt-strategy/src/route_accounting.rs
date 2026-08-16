@@ -136,7 +136,8 @@ pub struct RouteAccounting {
     /// closed loop, the output asset otherwise.
     pub account_asset_id: MarketAssetId,
     pub is_closed_loop: bool,
-    /// The largest input that flows through with nothing stranded.
+    /// The largest input that flows through with nothing stranded. May
+    /// exceed [`Self::requested_input`] when the book has headroom.
     pub closed_input_capacity: AssetAmount,
     /// True when no leg ran out of depth, so the real ceiling is unknown and
     /// the capacity above is only "at least this much".
@@ -267,8 +268,12 @@ fn closed_capacity(path: &ConversionPath) -> Option<(u64, bool)> {
         }
         prefix = prefix.checked_mul(step_scale(step)?)?;
     }
+    // Deliberately unclamped: this is what the book absorbs, which may be
+    // more than was asked for. Clamping it to the request made the field a
+    // copy of `recommended_input` and hid genuine headroom, which reads as
+    // "split your order" when nothing needs splitting.
     match capacity {
-        Some(value) => Some((value.min(path.requested_input.quanta), false)),
+        Some(value) => Some((value, false)),
         None => Some((path.requested_input.quanta, true)),
     }
 }

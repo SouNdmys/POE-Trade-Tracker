@@ -32,6 +32,7 @@ pub fn default_row_layout() -> RowLayout {
 /// The POE2 panel, in either client language.
 pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     key_prefix: "POE2",
+    game: ptt_core::Game::Poe2,
     need_name: NEED_NAME_REGION,
     have_name: HAVE_NAME_REGION,
     tables: TABLES_REGION,
@@ -797,7 +798,9 @@ mod windows_route {
                                     grid.comparator_column.1 as usize,
                                     rect.height,
                                 )
-                                .is_some_and(|(width, _, _)| width >= 5)
+                                .is_some_and(|(width, _, _)| {
+                                    width >= crate::comparator::MINIMUM_GLYPH_WIDTH
+                                })
                             }
                             crate::profiles::RowSource::DetectedBands => {
                                 row_band.band.left + 6 < median_left

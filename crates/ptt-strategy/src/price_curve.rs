@@ -194,20 +194,13 @@ pub fn price_points(
     points
 }
 
+/// The staler of two statuses.
+///
+/// `FreshnessStatus` derives `Ord` in declaration order — Fresh, Usable,
+/// Stale, Archived — so this is the book's ordering rather than a second copy
+/// of it that a newly inserted status could silently contradict.
 fn worst_freshness(left: FreshnessStatus, right: FreshnessStatus) -> FreshnessStatus {
-    fn rank(status: FreshnessStatus) -> u8 {
-        match status {
-            FreshnessStatus::Fresh => 0,
-            FreshnessStatus::Usable => 1,
-            FreshnessStatus::Stale => 2,
-            FreshnessStatus::Archived => 3,
-        }
-    }
-    if rank(right) > rank(left) {
-        right
-    } else {
-        left
-    }
+    left.max(right)
 }
 
 /// Group a series into candles.

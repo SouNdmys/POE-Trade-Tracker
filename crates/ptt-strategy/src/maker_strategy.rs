@@ -11,7 +11,7 @@
 //! so it was wrong in the direction that encourages oversized orders.
 //!
 //! Here [`queue_order`] is the single definition of "front", and the queue,
-//! the front depth, the wall scan and the fast-mode search all sort through
+//! the front depth, the wall scan and every mode's pricing all sort through
 //! it. The direction is pinned by a test.
 
 use std::cmp::Ordering;
@@ -118,7 +118,9 @@ pub struct MakerRecommendation {
     /// instant price, in which case listing is strictly worse than trading.
     pub beats_instant: bool,
     /// True when the payoff depends on the market moving rather than on
-    /// someone taking the order at today's prices.
+    /// someone taking the order at today's prices. Derived from
+    /// [`MakerMode::is_speculative`]; carried on the recommendation so a
+    /// serialised one keeps the warning without the reader re-deriving it.
     pub is_speculative: bool,
     pub assessment: RiskAssessment,
 }
@@ -212,6 +214,21 @@ fn depth_from(edge_stock: u64, from_reference: &AssetAmount) -> Option<AssetAmou
     Some(amount_like(from_reference, quanta))
 }
 
+/// How far a single displayed tick may move a rate before it stops being a
+/// tick, in basis points.
+///
+/// The tick is inferred from the quote's own precision, which is right while
+/// the quote carries decimals — POE2's `1 : 10.33` steps by a hundredth, and
+/// POE1's whole-unit `1 : 130` steps by one — but a coarse quote infers a
+/// coarse tick: `1 : 1` would "undercut" to `1 : 2`, halving the rate. A step
+/// this large is not a tick and is refused.
+///
+/// The inference has one known blind spot: `Ratio` canonicalisation trims
+/// trailing zeros, so a panel showing `1 : 1.00` reaches here as `1:1` with
+/// its precision already lost. Those quotes are refused rather than stepped
+/// by a whole unit, which is the safe direction to fail.
+const MAX_TICK_BASIS_POINTS: i64 = 500;
+
 /// The rate one displayed tick below `rate`, for undercutting the front.
 ///
 /// The tick comes from how the panel writes the quote: "784 : 1" moves in
@@ -219,6 +236,14 @@ fn depth_from(edge_stock: u64, from_reference: &AssetAmount) -> Option<AssetAmou
 /// and note the directions oppose, since asking fewer of the other currency
 /// per unit means a *larger* number on the right.
 fn undercut(rate: &Ratio) -> Option<Ratio> {
+    let stepped = undercut_by_displayed_tick(rate)?;
+    // A quote with no decimals implies a whole-unit step, which on a small
+    // ratio is a price cut rather than a tick.
+    let moved = basis_points(rational_from_ratio(&stepped)?, rational_from_ratio(rate)?)?;
+    (moved.abs() <= MAX_TICK_BASIS_POINTS).then_some(stepped)
+}
+
+fn undercut_by_displayed_tick(rate: &Ratio) -> Option<Ratio> {
     let (left, right) = rate.text.split_once(':')?;
     let (left, right) = (left.trim(), right.trim());
     let (left_coefficient, left_scale) = coefficient_and_scale(left)?;
@@ -509,13 +534,25 @@ fn recommendation(
         MakerMode::Opportunity => queue.first()?,
         MakerMode::Greedy => queue.last()?,
     };
+    // Matching the front queues behind it: that order was there first and
+    // clears first. Undercutting by one displayed tick buys the front
+    // outright — worth it unless the pair turns over fast enough that
+    // position barely matters.
+    //
+    // When no tick can be derived the recommendation is still returned, at
+    // the front's own rate and carrying the fact: dropping it here would
+    // delete the mode from the output with nothing to say why, which reads
+    // exactly like "this pair has no opportunity".
+    let mut undercut_unavailable = false;
     let rate = match mode {
-        // Matching the front queues behind it: that order was there first
-        // and clears first. Undercutting by one displayed tick buys the
-        // front outright — worth it unless the pair turns over fast enough
-        // that position barely matters.
         MakerMode::Opportunity if request.match_front => level.rate.clone(),
-        MakerMode::Opportunity => undercut(&level.rate)?,
+        MakerMode::Opportunity => match undercut(&level.rate) {
+            Some(rate) => rate,
+            None => {
+                undercut_unavailable = true;
+                level.rate.clone()
+            }
+        },
         MakerMode::Greedy => level.rate.clone(),
     };
     let level = Some(level);
@@ -546,6 +583,11 @@ fn recommendation(
     if !beats_instant {
         risks.insert(ExecutionRisk::NeedsProbe);
     }
+    if undercut_unavailable {
+        // The listing sits level with the front rather than ahead of it, so
+        // it queues behind that order — the same position matching produces.
+        risks.insert(ExecutionRisk::NeedsProbe);
+    }
     if let Some(level) = level {
         for flag in &level.risk_flags {
             if matches!(flag, QuoteRiskFlag::ComparatorBoundary) {
@@ -573,9 +615,69 @@ fn recommendation(
         improvement_basis_points,
         depth_ahead_from: level.and_then(|level| level.depth_ahead_from.clone()),
         behind_wall,
-        queued_behind_front: mode == MakerMode::Opportunity && request.match_front,
+        queued_behind_front: mode == MakerMode::Opportunity
+            && (request.match_front || undercut_unavailable),
         beats_instant,
         is_speculative: mode.is_speculative(),
         assessment,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rate(text: &str) -> Ratio {
+        Ratio::parse(text).expect("rate")
+    }
+
+    #[test]
+    fn a_tick_follows_the_precision_the_quote_is_written_in() {
+        // POE2 quotes hundredths; POE1 quotes whole units. Both are the
+        // panel's own step, so both are the right tick for their game.
+        let poe2 = undercut(&rate("1:10.33")).expect("poe2 tick");
+        assert_eq!(
+            poe2.compare_value(&rate("1:10.34")),
+            std::cmp::Ordering::Equal
+        );
+        let poe1 = undercut(&rate("1:130")).expect("poe1 tick");
+        assert_eq!(
+            poe1.compare_value(&rate("1:131")),
+            std::cmp::Ordering::Equal
+        );
+        // The left side moves when that is where the precision lives.
+        let left = undercut(&rate("784:1")).expect("left tick");
+        assert_eq!(
+            left.compare_value(&rate("783:1")),
+            std::cmp::Ordering::Equal
+        );
+    }
+
+    #[test]
+    fn a_step_too_large_to_be_a_tick_is_refused_rather_than_offered() {
+        // "1:1" has no decimals, so the inferred tick is a whole unit — which
+        // would halve the rate. Undercutting by half is a price cut, not a
+        // queue position, and must not be presented as one.
+        assert!(undercut(&rate("1:1")).is_none());
+        assert!(undercut(&rate("1:2")).is_none());
+        // A quote whose decimals survive canonicalisation still works.
+        assert!(undercut(&rate("1:1.05")).is_some());
+        // But note the limit this exposes: canonicalisation trims trailing
+        // zeros, so a panel showing "1 : 1.00" arrives as text "1:1" and its
+        // hundredth-precision is unrecoverable. Such a quote is refused
+        // rather than undercut by a whole unit.
+        assert_eq!(rate("1:1.00").text, rate("1:1").text);
+    }
+
+    #[test]
+    fn an_undercut_that_cannot_be_computed_still_yields_a_recommendation() {
+        // The mode vanishing from the output is indistinguishable from "this
+        // pair has no opportunity", so the listing is returned at the front's
+        // own rate and says it queues behind.
+        let front = rate("1:1");
+        assert!(
+            undercut(&front).is_none(),
+            "fixture must exercise the no-tick path"
+        );
+    }
 }

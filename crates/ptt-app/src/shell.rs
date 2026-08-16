@@ -546,8 +546,20 @@ impl AppShell {
     #[cfg(windows)]
     fn refresh_report(&mut self) {
         self.report_stale = false;
+        // Page dispatch happens here and nowhere else. It used to happen
+        // twice, at two depths, and the two disagreed: this function returned
+        // early on Monitor while `build_report` carried a Monitor branch that
+        // could therefore never run, leaving the probe queue permanently
+        // blank.
+        //
+        // Monitor is the one page that needs no pair — the probe queue is
+        // about what has *not* been captured — so it is answered before the
+        // pair guard.
         if self.page == Page::Monitor {
-            self.report_lines.clear();
+            self.report_lines = match self.probe_queue_report() {
+                Ok(lines) => lines,
+                Err(reason) => vec![format!("probe queue unavailable: {reason}")],
+            };
             return;
         }
         let Some((have, need)) = self.report_pair.clone() else {
@@ -561,14 +573,21 @@ impl AppShell {
         };
     }
 
+    /// Loads the window the report pages read.
+    ///
+    /// The league is the pipeline's, not a second literal: the writer and the
+    /// reader agree on the context key or every page silently reads an empty
+    /// book.
     #[cfg(windows)]
-    fn build_report(&self, have: &str, need: &str) -> Result<Vec<String>, String> {
-        use ptt_runtime::live::{domain_asset_id, poe2_live_context};
-        use ptt_runtime::pipeline::default_database_path;
+    fn load_window(
+        &self,
+    ) -> Result<(String, Vec<ptt_trade_domain::MarketEdgeObservation>), String> {
+        use ptt_runtime::live::poe2_live_context;
+        use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
 
         let store = ptt_storage::MarketStore::open(default_database_path())
             .map_err(|error| format!("storage: {error}"))?;
-        let context = poe2_live_context("live-league").map_err(|error| format!("{error:?}"))?;
+        let context = poe2_live_context(LIVE_LEAGUE).map_err(|error| format!("{error:?}"))?;
         let context_key = context.stable_key();
         let observations = store
             .load_observations(
@@ -576,19 +595,34 @@ impl AppShell {
                 Some(chrono::Utc::now() - chrono::Duration::hours(REPORT_WINDOW_HOURS)),
             )
             .map_err(|error| format!("load: {error}"))?;
-        if self.page == Page::Monitor {
-            return ptt_runtime::reports::probe_queue(&observations, &context_key, "live-league");
-        }
+        Ok((context_key, observations))
+    }
+
+    #[cfg(windows)]
+    fn probe_queue_report(&self) -> Result<Vec<String>, String> {
+        use ptt_runtime::pipeline::LIVE_LEAGUE;
+
+        let (context_key, observations) = self.load_window()?;
+        ptt_runtime::reports::probe_queue(&observations, &context_key, LIVE_LEAGUE)
+    }
+
+    #[cfg(windows)]
+    fn build_report(&self, have: &str, need: &str) -> Result<Vec<String>, String> {
+        use ptt_runtime::live::domain_asset_id;
+        use ptt_runtime::pipeline::LIVE_LEAGUE;
+
+        let (context_key, observations) = self.load_window()?;
         let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
         let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
 
         match self.page {
+            // Answered before this function is reached; see refresh_report.
             Page::Monitor => Ok(Vec::new()),
             Page::Convert => {
                 ptt_runtime::reports::convert_report(&observations, &context_key, &have, &need)
             }
             Page::Watchlist => {
-                ptt_runtime::reports::watchlist_report(&observations, &context_key, "live-league")
+                ptt_runtime::reports::watchlist_report(&observations, &context_key, LIVE_LEAGUE)
             }
             Page::History => {
                 ptt_runtime::reports::history_report(&observations, &context_key, &have, &need)

@@ -24,6 +24,12 @@ use ptt_trade_domain::MarketContext;
 use crate::analysis::pair_analysis_lines;
 use crate::live::{capture_from_book, domain_asset_id, poe2_live_context};
 
+/// The league every live component agrees on.
+///
+/// The writer stamps captures with it and the reader filters on it, so a
+/// second literal anywhere makes the pages read an empty book with no error.
+pub const LIVE_LEAGUE: &str = "live-league";
+
 /// How far back the per-accept analysis reads.
 ///
 /// Bounded because this runs inside the capture loop: an unbounded read grows
@@ -86,12 +92,26 @@ pub fn default_database_path() -> PathBuf {
 
 /// Applies the user's saved ROI calibration to the recognition route.
 ///
+/// Regions are installed under the prefix of the layout they were drawn for,
+/// which is why the layout is a parameter rather than assumed: installing a
+/// POE1 rectangle under the POE2 prefix would apply one game's calibration to
+/// the other with nothing to indicate it.
+///
 /// Returns the names of any stored regions that were rejected, so a caller
 /// can say so rather than silently watching the preset rectangles.
-pub fn apply_saved_calibration() -> Vec<String> {
+pub fn apply_saved_calibration_for(layout: ptt_recognition::profiles::PanelLayout) -> Vec<String> {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
     let store = ptt_settings::SettingsStore::release_default_from(Path::new(&local));
     let settings = store.load().settings;
+    // Regions are drawn against one game's panel. Applying them to another
+    // game's route would silently watch the wrong rectangles, so a profile
+    // for a different game is reported rather than installed.
+    if settings.active_profile.game != layout.game {
+        return vec![format!(
+            "saved calibration is for {:?}; this route reads {:?}",
+            settings.active_profile.game, layout.game
+        )];
+    }
     let Some(profile) = settings.profile(settings.active_profile) else {
         return Vec::new();
     };
@@ -103,7 +123,7 @@ pub fn apply_saved_calibration() -> Vec<String> {
     ] {
         if let Some(region) = region
             && !ptt_recognition::profiles::poe2::set_region_override(
-                ptt_recognition::profiles::poe2::LAYOUT.key_prefix,
+                layout.key_prefix,
                 name,
                 (region.x, region.y, region.width, region.height),
             )
@@ -112,6 +132,11 @@ pub fn apply_saved_calibration() -> Vec<String> {
         }
     }
     rejected
+}
+
+/// The saved calibration for the profile the pipeline actually runs.
+pub fn apply_saved_calibration() -> Vec<String> {
+    apply_saved_calibration_for(ptt_recognition::profiles::poe2::LAYOUT)
 }
 
 /// The live pipeline, opened once and driven by [`LivePipeline::run`].
