@@ -97,23 +97,28 @@ mod tests {
     /// with no indication that the catalog, not the screenshot, is at fault.
     #[test]
     fn every_catalog_asset_is_matchable_in_both_languages() {
-        let assets = ptt_catalog::poe2().assets();
-        assert!(!assets.is_empty(), "catalog is empty");
-        for asset in assets {
-            for (language, name) in [
-                (ProfileLanguage::TraditionalChinese, &asset.name_zh_tw),
-                (ProfileLanguage::English, &asset.name_en),
-            ] {
-                assert!(
-                    !name.trim().is_empty(),
-                    "{} has no name for {language:?}",
-                    asset.id
-                );
-                assert!(
-                    ptt_core::FullLineAffixMatcher::new(name).is_ok(),
-                    "{} cannot be matched in {language:?}: {name:?}",
-                    asset.id
-                );
+        for (game, catalog) in [
+            (ptt_core::Game::Poe2, ptt_catalog::poe2()),
+            (ptt_core::Game::Poe1, ptt_catalog::poe1()),
+        ] {
+            let assets = catalog.assets();
+            assert!(!assets.is_empty(), "{game:?} catalog is empty");
+            for asset in assets {
+                for (language, name) in [
+                    (ProfileLanguage::TraditionalChinese, &asset.name_zh_tw),
+                    (ProfileLanguage::English, &asset.name_en),
+                ] {
+                    assert!(
+                        !name.trim().is_empty(),
+                        "{game:?} {} has no name for {language:?}",
+                        asset.id
+                    );
+                    assert!(
+                        ptt_core::FullLineAffixMatcher::new(name).is_ok(),
+                        "{game:?} {} cannot be matched in {language:?}: {name:?}",
+                        asset.id
+                    );
+                }
             }
         }
     }

@@ -22,5 +22,10 @@ test-screenshots/
 # corpus locally. They stay out of this repo the same way POE2's do.
 test-screenshots/poe1/
 
+# zh-TW item-selector screenshots the POE1 catalog's Chinese names were
+# transcribed from. Same policy as the other captures: the transcription is in
+# the catalog and SHA-256 pinned, so the raw frames stay local.
+Currency-screenshots/
+
 # Packaging output
 target/package/

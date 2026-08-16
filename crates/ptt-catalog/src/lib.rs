@@ -21,25 +21,28 @@ pub const POE2_CATALOG_SHA256: &str =
     "d238ba276402eca7cb426f3384ab30b2fb69fd31d9a8aeb9c3ea92843b244b59";
 pub const POE2_CATALOG_ENTRIES: usize = 660;
 
-/// POE1 English catalog: 1,043 assets across 16 categories, transcribed from
-/// 39 in-game selector screenshots.
+/// POE1 catalog: 1,047 assets across 16 categories, transcribed from in-game
+/// selector screenshots in both languages.
 ///
 /// Converted from `POE1-Trade-Tracker/resources/catalogs/poe1-market-assets.json`
 /// (upstream SHA-256 `2a778e7af6e7d2fa7b9250271ca01bc87e75df4170ebe13d87d6da2d934a06dc`),
 /// which also carries the 60×51 icon templates this crate does not yet use.
 ///
-/// Traditional Chinese names are absent — the source recorded English only —
-/// and are deliberately left blank rather than mirrored from English, so the
-/// zh-TW route refuses to start instead of matching Chinese OCR output
-/// against English strings.
+/// Traditional Chinese names were transcribed from zh-TW selector screenshots
+/// of the same panel (2026-08-16). The join is positional: within a category
+/// the selector reads left-to-right, top-to-bottom, and the English catalogue
+/// came from that same grid, so rank within `trade_list_order` binds the pair.
+/// Four entries were added at the same time — the screenshots showed items the
+/// English source predates — and their English names come from external
+/// lookups rather than from a screenshot.
 ///
 /// Every asset carries a 1/1 minimum unit upstream, because selector
 /// screenshots do not show trade increments. That is inherited rather than
 /// verified.
 pub const POE1_CATALOG_JSON: &str = include_str!("../data/poe1/market_assets.en.json");
 pub const POE1_CATALOG_SHA256: &str =
-    "5640bdd662cd803709bc64c1832c87eb829e4c42df9bfb2f763732b7ff6a8c26";
-pub const POE1_CATALOG_ENTRIES: usize = 1_043;
+    "b1056c7a761591bdedd0a5014237b373ebb2b8805f23def1c6b76b700669084b";
+pub const POE1_CATALOG_ENTRIES: usize = 1_047;
 pub const POE1_CATALOG_CATEGORIES: usize = 16;
 
 /// One tradeable asset in a game's currency exchange.
@@ -242,7 +245,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn embedded_poe1_catalog_matches_pin_and_is_english_only() {
+    fn embedded_poe1_catalog_matches_pin_and_is_fully_bilingual() {
         let catalog = poe1();
         assert_eq!(catalog.game(), Game::Poe1);
         assert_eq!(catalog.len(), POE1_CATALOG_ENTRIES);
@@ -258,23 +261,60 @@ mod tests {
                 "{} has no English name",
                 asset.id
             );
+            // The zh-TW route matches on exact catalogue hits, so one blank
+            // name is one asset the Chinese client can never identify — and
+            // it fails as a skipped frame, not as an error.
+            assert!(
+                !asset.name_zh_tw.trim().is_empty(),
+                "{} has no Traditional Chinese name",
+                asset.id
+            );
+            assert_ne!(
+                asset.name_zh_tw, asset.name_en,
+                "{} mirrors its English name instead of being translated",
+                asset.id
+            );
         }
-        // Pinned deliberately: when the Traditional Chinese names are
-        // authored this test fails, which is the signal to enable the zh-TW
-        // route for POE1 rather than something to quietly relax.
-        assert!(
-            catalog
-                .assets()
-                .iter()
-                .all(|asset| asset.name_zh_tw.trim().is_empty()),
-            "POE1 Traditional Chinese names now exist; enable the zh-TW route              and update this test"
-        );
+    }
+
+    #[test]
+    fn poe1_names_bind_to_the_asset_the_screenshots_showed() {
+        // Spot checks across the transcription's seams: the first category
+        // read, one whose section headers use different words than its items
+        // (Essence of Woe is 悲痛, under a 災禍 header), and the two ends of
+        // the run of cards inserted after the English source was written.
+        let catalog = poe1();
+        for (id, name_zh_tw) in [
+            ("chaos-orb", "混沌石"),
+            ("divine-orb", "神聖石"),
+            ("whispering-essence-of-woe", "悲痛之低語精髓"),
+            ("the-undisputed", "不許你胡說"),
+            ("the-visionary", "空想家"),
+            ("ukatoa-s-ducat", "烏卡托瓦的達克特"),
+        ] {
+            let asset = catalog
+                .by_id(id)
+                .unwrap_or_else(|| panic!("{id} is missing from the catalogue"));
+            assert_eq!(asset.name_zh_tw, name_zh_tw, "{id}");
+            assert_eq!(
+                catalog.by_name_zh_tw(name_zh_tw).map(|a| a.id.as_str()),
+                Some(id)
+            );
+        }
     }
 
     #[test]
     fn a_blank_name_is_not_indexed_as_a_lookup_key() {
-        // Nine assets all with an empty zh-TW name must not collide as
-        // duplicates, and none of them may be findable by the empty string.
+        // Both shipped catalogues are now fully bilingual, so this is tested
+        // against a synthetic one — otherwise the branch that skips blanks
+        // has no coverage and would break unnoticed the next time a catalogue
+        // ships with a language only partly authored.
+        let json = r#"[
+            {"id":"a","name_zh_tw":"","name_en":"First"},
+            {"id":"b","name_zh_tw":"","name_en":"Second"}
+        ]"#;
+        let catalog = Catalog::from_json(Game::Poe1, json).expect("blanks must not collide");
+        assert!(catalog.by_name_zh_tw("").is_none());
         assert!(poe1().by_name_zh_tw("").is_none());
     }
 

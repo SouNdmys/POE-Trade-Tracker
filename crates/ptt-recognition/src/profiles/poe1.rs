@@ -66,9 +66,12 @@ pub fn default_row_layout() -> RowLayout {
     }
 }
 
-/// The POE1 panel. English only for now — the catalog carries no Traditional
-/// Chinese names, and the route refuses to start in a language the catalog
-/// cannot supply.
+/// The POE1 panel. The layout carries no language of its own — geometry is
+/// identical between clients because ratios and stock are Arabic numerals
+/// either way — so `Route::new_with(LAYOUT, language)` builds either one now
+/// that the catalog supplies both. The zh-TW combination is untested against
+/// real frames: the Traditional Chinese screenshots on hand are of the item
+/// selector, not of the exchange panel.
 pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     key_prefix: "POE1",
     game: ptt_core::Game::Poe1,
