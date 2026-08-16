@@ -272,6 +272,59 @@ pub fn watchlist_report(
     Ok(lines)
 }
 
+/// "What should I go look at next": the probe queue on its own.
+///
+/// This is the loop the product is built around — a gap in the book becomes a
+/// suggestion, the suggestion sends the user to that pair in game, the watcher
+/// ingests it, and the suggestion disappears. Monitor shows it permanently so
+/// the next move is always on screen.
+pub fn probe_queue(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    league: &str,
+) -> Result<Vec<String>, String> {
+    let policy = MarketPolicy::default_for(league);
+    let mut seen: Vec<MarketAssetId> = observations
+        .iter()
+        .flat_map(|observation| {
+            [
+                observation.edge.from_asset_id.clone(),
+                observation.edge.to_asset_id.clone(),
+            ]
+        })
+        .collect();
+    seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+    seen.dedup();
+    if seen.is_empty() {
+        return Ok(vec!["no pairs captured yet".to_owned()]);
+    }
+
+    let (coverage, candidates) = focus_coverage(observations, context_key, &policy, &seen)?;
+    let missing = coverage
+        .iter()
+        .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
+        .count();
+    let mut lines = vec![format!(
+        "{} of {} pairs complete",
+        coverage.len() - missing,
+        coverage.len()
+    )];
+    if candidates.is_empty() {
+        lines.push("nothing to probe — the book is current".to_owned());
+        return Ok(lines);
+    }
+    for candidate in candidates.iter().take(6) {
+        lines.push(format!(
+            "{:?}  flip {} -> {}   ({:?})",
+            candidate.priority,
+            candidate.from_asset_id.as_str(),
+            candidate.to_asset_id.as_str(),
+            candidate.reason,
+        ));
+    }
+    Ok(lines)
+}
+
 /// "What has this pair been doing": candles, a summary, and what looks off.
 pub fn history_report(
     observations: &[MarketEdgeObservation],
@@ -350,12 +403,18 @@ pub fn history_report(
 /// Coverage needs three views of the same book — what can be taken now, what
 /// is only listed, and what shows up once old data is allowed — because
 /// "missing" and "stale" are different problems with different fixes.
-fn focus_gaps(
+fn focus_coverage(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     policy: &MarketPolicy,
     seen: &[MarketAssetId],
-) -> Result<Vec<String>, String> {
+) -> Result<
+    (
+        Vec<ptt_workflows::FocusCoverage>,
+        Vec<ptt_workflows::ProbeCandidate>,
+    ),
+    String,
+> {
     let mut items: Vec<FocusGroupItem> = policy
         .core_liquidity
         .iter()
@@ -391,15 +450,24 @@ fn focus_gaps(
         );
     }
 
-    let (coverage, candidates) = derive_focus_probe_candidates(
+    derive_focus_probe_candidates(
         "live-focus",
         &scope,
         &selections[0],
         &selections[1],
         &selections[2],
     )
-    .map_err(|error| format!("{error}"))?;
+    .map_err(|error| format!("{error}"))
+}
 
+/// The same coverage, rendered for the watchlist page.
+fn focus_gaps(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    policy: &MarketPolicy,
+    seen: &[MarketAssetId],
+) -> Result<Vec<String>, String> {
+    let (coverage, candidates) = focus_coverage(observations, context_key, policy, seen)?;
     let mut lines = Vec::new();
     let incomplete: Vec<_> = coverage
         .iter()

@@ -92,6 +92,7 @@ fn request<'a>(
         amount_in,
         competing,
         instant: None,
+        match_front: false,
         thresholds: RiskThresholds::default(),
     }
 }
@@ -176,6 +177,22 @@ fn opportunity_undercuts_the_front_rather_than_matching_it() {
     );
     assert_eq!(opportunity.rate.numerator, 783);
     assert!(!opportunity.is_speculative);
+    assert!(!opportunity.queued_behind_front);
+
+    // Liquid pairs may not be worth the tick; matching is offered, and says
+    // plainly that it queues behind the order already there.
+    let matched = calculate_maker_strategy(MakerRequest {
+        match_front: true,
+        ..request(&book, &amount_in)
+    })
+    .expect("ok");
+    let matched = matched
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Opportunity)
+        .expect("opportunity");
+    assert_eq!(matched.rate.numerator, 784);
+    assert!(matched.queued_behind_front);
 
     let greedy = strategy
         .recommendations

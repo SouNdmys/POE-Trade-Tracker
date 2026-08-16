@@ -1,16 +1,15 @@
 //! Contract tests for price history and anchor valuation.
 
-use chrono::{DateTime, TimeZone, Utc};
-use ptt_market_book::{EvaluatedQuoteEdge, FreshnessAssessment, FreshnessStatus};
+use ptt_market_book::{EvaluatedQuoteEdge, FreshnessStatus};
 use ptt_strategy::{
     AnchorAction, BucketSize, ExecutionRisk, MarketPolicy, PriceAnomalyKind, ValuationMode,
     ValuationRequest, ValuationStatus, anomalies, candles, price_points,
     recommend_liquidity_anchors, summarize, value_against_anchor,
 };
-use ptt_trade_domain::{
-    Comparator, ExecutionType, MarketAssetId, MarketEdgeObservation, QuoteEdge, QuoteEdgeRole,
-    QuoteSide, Ratio, SnapshotRecordStatus,
-};
+use ptt_trade_domain::Ratio;
+
+mod support;
+use support::{EdgeSpec, asset, at};
 
 /// A rate written in hundredths, so 1033 reads as 10.33. Ratios are stored
 /// reduced, so tests compare by value rather than by numerator.
@@ -24,121 +23,6 @@ fn assert_rate(actual: &Ratio, hundredths: u64, label: &str) {
         std::cmp::Ordering::Equal,
         "{label}: expected {hundredths} hundredths, got {actual:?}"
     );
-}
-
-fn asset(id: &str) -> MarketAssetId {
-    MarketAssetId::try_new(id).expect("asset id")
-}
-
-fn at(minute: u32) -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 8, 16, 10, minute, 0)
-        .single()
-        .expect("timestamp")
-}
-
-struct EdgeSpec {
-    id: &'static str,
-    from: &'static str,
-    to: &'static str,
-    /// Rate as `numerator / 100`, so 1033 reads as 10.33.
-    rate_hundredths: u64,
-    stock: u64,
-    minute: u32,
-    execution: ExecutionType,
-    freshness: FreshnessStatus,
-    future: bool,
-}
-
-impl EdgeSpec {
-    fn new(id: &'static str, rate_hundredths: u64, minute: u32) -> Self {
-        Self {
-            id,
-            from: "divine-orb",
-            to: "chaos-orb",
-            rate_hundredths,
-            stock: 1_000,
-            minute,
-            execution: ExecutionType::Taker,
-            freshness: FreshnessStatus::Fresh,
-            future: false,
-        }
-    }
-
-    fn maker(mut self) -> Self {
-        self.execution = ExecutionType::MakerReference;
-        self
-    }
-
-    fn reversed(mut self) -> Self {
-        std::mem::swap(&mut self.from, &mut self.to);
-        self
-    }
-
-    fn stock(mut self, stock: u64) -> Self {
-        self.stock = stock;
-        self
-    }
-
-    fn freshness(mut self, freshness: FreshnessStatus) -> Self {
-        self.freshness = freshness;
-        self
-    }
-
-    fn ahead_of_the_clock(mut self) -> Self {
-        self.future = true;
-        self
-    }
-
-    fn build(self) -> EvaluatedQuoteEdge {
-        EvaluatedQuoteEdge {
-            observation: MarketEdgeObservation {
-                edge: QuoteEdge {
-                    edge_id: self.id.to_owned(),
-                    snapshot_id: format!("snapshot-{}", self.minute),
-                    quote_id: format!("quote-{}", self.id),
-                    context_key: "test-context".to_owned(),
-                    from_asset_id: asset(self.from),
-                    to_asset_id: asset(self.to),
-                    rate: Ratio::from_parts(self.rate_hundredths, 100).expect("rate"),
-                    source_side: if self.execution == ExecutionType::Taker {
-                        QuoteSide::Available
-                    } else {
-                        QuoteSide::Competing
-                    },
-                    execution_type: self.execution,
-                    role: if self.execution == ExecutionType::Taker {
-                        QuoteEdgeRole::AvailableTaker
-                    } else {
-                        QuoteEdgeRole::CompetingMakerReference
-                    },
-                    stock: self.stock,
-                    original_need_asset_id: asset(self.to),
-                    original_have_asset_id: asset(self.from),
-                    original_row_index: 0,
-                    comparator: Comparator::Exact,
-                    user_edited: false,
-                    machine_confidence_ppm: Some(990_000),
-                    captured_at: at(self.minute),
-                    confirmed_at: at(self.minute),
-                },
-                snapshot_complete: true,
-                record_status: SnapshotRecordStatus::Active,
-                record_revision: 1,
-                record_reason: None,
-            },
-            freshness: FreshnessAssessment {
-                status: self.freshness,
-                age_seconds: 60,
-                future_timestamp: self.future,
-            },
-            effective_confidence_ppm: 990_000,
-            risk_flags: Vec::new(),
-            selection_rejections: Vec::new(),
-            execution_blockers: Vec::new(),
-            accepted_for_selection: true,
-            eligible_for_depth_analysis: true,
-        }
-    }
 }
 
 fn series() -> Vec<EvaluatedQuoteEdge> {

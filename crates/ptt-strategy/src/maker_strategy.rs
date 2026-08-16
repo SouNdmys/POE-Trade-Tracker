@@ -40,10 +40,14 @@ use crate::units::{
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MakerMode {
-    /// Undercut the front of the competing queue by one displayed tick, so
-    /// the next buyer takes your order before anyone else's. In a liquid
-    /// pair this fills; the reward is the gap between the instant price and
-    /// the front of the competing book.
+    /// Price against the front of the competing queue: one displayed tick
+    /// below it, so the next buyer takes your order before anyone else's.
+    /// In a liquid pair this fills; the reward is the gap between the
+    /// instant price and the front of the competing book.
+    ///
+    /// See [`MakerRequest::match_front`] for listing *at* the front instead,
+    /// which is the right call when the pair is liquid enough that queue
+    /// position hardly matters — a judgement only the trader can make.
     Opportunity,
     /// Join the top of the observed book and wait for the market to move.
     /// This is a bet on drift, not a better price for the same trade.
@@ -107,6 +111,9 @@ pub struct MakerRecommendation {
     pub depth_ahead_from: Option<AssetAmount>,
     /// True when this rate is at or beyond a wall.
     pub behind_wall: bool,
+    /// True when the listing sits at the competing front rather than below
+    /// it, so it queues behind the order already there.
+    pub queued_behind_front: bool,
     /// False when the listing price is no better than simply taking the
     /// instant price, in which case listing is strictly worse than trading.
     pub beats_instant: bool,
@@ -157,6 +164,11 @@ pub struct MakerRequest<'a> {
     /// The taker fill that would happen right now, when the available side
     /// has depth.
     pub instant: Option<&'a PairFill>,
+    /// Price the opportunity listing *at* the competing front instead of one
+    /// tick below it. Matching queues behind the order already there, which
+    /// costs nothing when the pair turns over fast and costs a fill when it
+    /// does not; the trade-off is the trader's to judge, not this crate's.
+    pub match_front: bool,
     pub thresholds: RiskThresholds,
 }
 
@@ -498,9 +510,11 @@ fn recommendation(
         MakerMode::Greedy => queue.last()?,
     };
     let rate = match mode {
-        // Matching the front puts you *behind* it: that order was there
-        // first and clears first. Undercutting by one displayed tick is what
-        // actually buys the front of the queue.
+        // Matching the front queues behind it: that order was there first
+        // and clears first. Undercutting by one displayed tick buys the
+        // front outright — worth it unless the pair turns over fast enough
+        // that position barely matters.
+        MakerMode::Opportunity if request.match_front => level.rate.clone(),
         MakerMode::Opportunity => undercut(&level.rate)?,
         MakerMode::Greedy => level.rate.clone(),
     };
@@ -559,6 +573,7 @@ fn recommendation(
         improvement_basis_points,
         depth_ahead_from: level.and_then(|level| level.depth_ahead_from.clone()),
         behind_wall,
+        queued_behind_front: mode == MakerMode::Opportunity && request.match_front,
         beats_instant,
         is_speculative: mode.is_speculative(),
         assessment,

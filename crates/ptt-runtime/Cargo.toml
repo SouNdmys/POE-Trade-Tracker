@@ -23,6 +23,7 @@ ptt-trade-domain = { path = "../ptt-trade-domain" }
 ptt-trade-engine = { path = "../ptt-trade-engine" }
 rusqlite = { version = "0.37.0", features = ["bundled", "chrono"] }
 serde_json.workspace = true
+serde.workspace = true
 
 [[bin]]
 name = "engine-replay-probe"
@@ -31,3 +32,7 @@ path = "src/bin/engine_replay_probe.rs"
 [[bin]]
 name = "watch-probe"
 path = "src/bin/watch_probe.rs"
+
+[[bin]]
+name = "strategy-probe"
+path = "src/bin/strategy_probe.rs"

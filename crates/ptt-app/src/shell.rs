@@ -197,7 +197,7 @@ impl AppShell {
                     }
                 }
             }
-            if self.report_stale && self.page != Page::Monitor {
+            if self.report_stale {
                 self.refresh_report();
                 dirty = true;
             }
@@ -441,6 +441,9 @@ impl AppShell {
                 Some(chrono::Utc::now() - chrono::Duration::hours(REPORT_WINDOW_HOURS)),
             )
             .map_err(|error| format!("load: {error}"))?;
+        if self.page == Page::Monitor {
+            return ptt_runtime::reports::probe_queue(&observations, &context_key, "live-league");
+        }
         let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
         let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
 
@@ -663,6 +666,23 @@ impl Render for AppShell {
                                             },
                                         ),
                                     ))
+                                    .child(
+                                        panel()
+                                            .overflow_hidden()
+                                            .child(panel_header("PROBE QUEUE"))
+                                            .child(div().p_3().flex().flex_col().gap_1().children(
+                                                if self.report_lines.is_empty() {
+                                                    vec![mono("—").text_size(fs(FS_12))]
+                                                } else {
+                                                    self.report_lines
+                                                        .iter()
+                                                        .map(|line| {
+                                                            mono(line.clone()).text_size(fs(FS_12))
+                                                        })
+                                                        .collect()
+                                                },
+                                            )),
+                                    )
                                     .child(self.settings_panel(cx)),
                             )
                     } else {

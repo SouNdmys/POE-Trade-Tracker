@@ -1,0 +1,198 @@
+{
+  "note": "Reference vectors emitted from the Electron build's executionSafety.ts and marketPolicy.ts. Regenerate only if those files change.",
+  "safer_pairs": [
+    {
+      "left": "instant_executable",
+      "right": "instant_executable",
+      "result": "instant_executable"
+    },
+    {
+      "left": "instant_executable",
+      "right": "maker_theoretical",
+      "result": "maker_theoretical"
+    },
+    {
+      "left": "instant_executable",
+      "right": "probe_required",
+      "result": "probe_required"
+    },
+    {
+      "left": "instant_executable",
+      "right": "suspicious_outlier",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": "maker_theoretical",
+      "right": "instant_executable",
+      "result": "maker_theoretical"
+    },
+    {
+      "left": "maker_theoretical",
+      "right": "maker_theoretical",
+      "result": "maker_theoretical"
+    },
+    {
+      "left": "maker_theoretical",
+      "right": "probe_required",
+      "result": "probe_required"
+    },
+    {
+      "left": "maker_theoretical",
+      "right": "suspicious_outlier",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": "probe_required",
+      "right": "instant_executable",
+      "result": "probe_required"
+    },
+    {
+      "left": "probe_required",
+      "right": "maker_theoretical",
+      "result": "probe_required"
+    },
+    {
+      "left": "probe_required",
+      "right": "probe_required",
+      "result": "probe_required"
+    },
+    {
+      "left": "probe_required",
+      "right": "suspicious_outlier",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": "suspicious_outlier",
+      "right": "instant_executable",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": "suspicious_outlier",
+      "right": "maker_theoretical",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": "suspicious_outlier",
+      "right": "probe_required",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": "suspicious_outlier",
+      "right": "suspicious_outlier",
+      "result": "suspicious_outlier"
+    },
+    {
+      "left": null,
+      "right": null,
+      "result": "probe_required"
+    }
+  ],
+  "role_capabilities": [
+    {
+      "role": "anchor",
+      "capabilities": {
+        "canStartRoute": true,
+        "canEndRoute": true,
+        "canBridgeRoute": true,
+        "canPriceAnchor": true,
+        "canProbeMarket": true
+      }
+    },
+    {
+      "role": "target",
+      "capabilities": {
+        "canStartRoute": true,
+        "canEndRoute": true,
+        "canBridgeRoute": false,
+        "canPriceAnchor": false,
+        "canProbeMarket": true
+      }
+    },
+    {
+      "role": "bridge",
+      "capabilities": {
+        "canStartRoute": false,
+        "canEndRoute": false,
+        "canBridgeRoute": true,
+        "canPriceAnchor": false,
+        "canProbeMarket": false
+      }
+    },
+    {
+      "role": "watch_only",
+      "capabilities": {
+        "canStartRoute": false,
+        "canEndRoute": false,
+        "canBridgeRoute": false,
+        "canPriceAnchor": false,
+        "canProbeMarket": false
+      }
+    }
+  ],
+  "normalize_cases": [
+    {
+      "input": [
+        "divine_orb",
+        "chaos_orb"
+      ],
+      "label": "plain",
+      "result": [
+        "divine_orb",
+        "chaos_orb"
+      ]
+    },
+    {
+      "input": [
+        "divine_orb",
+        "divine_orb",
+        "chaos_orb"
+      ],
+      "label": "duplicates",
+      "result": [
+        "divine_orb",
+        "chaos_orb"
+      ]
+    },
+    {
+      "input": [
+        "divine_orb",
+        "  ",
+        "chaos_orb"
+      ],
+      "label": "blank entry",
+      "result": [
+        "divine_orb",
+        "chaos_orb"
+      ]
+    },
+    {
+      "input": [],
+      "label": "empty falls back to default",
+      "result": [
+        "divine_orb",
+        "chaos_orb",
+        "exalted_orb"
+      ]
+    },
+    {
+      "input": null,
+      "label": "null falls back to default",
+      "result": [
+        "divine_orb",
+        "chaos_orb",
+        "exalted_orb"
+      ]
+    }
+  ],
+  "anchor_recommendations": [
+    {
+      "currency_id": "annulment_orb",
+      "action": "recommend_core",
+      "recent_quote_count": 6,
+      "fresh_quote_count": 6,
+      "pair_coverage_count": 3,
+      "bidirectional_pair_count": 3,
+      "available_stock_depth": 3000
+    }
+  ]
+}

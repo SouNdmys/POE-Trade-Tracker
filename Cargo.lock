@@ -4466,6 +4466,7 @@ dependencies = [
  "ptt-trade-engine",
  "ptt-workflows",
  "rusqlite",
+ "serde",
  "serde_json",
 ]
 
@@ -4499,6 +4500,7 @@ dependencies = [
  "ptt-trade-domain",
  "ptt-trade-engine",
  "serde",
+ "serde_json",
  "thiserror 2.0.20",
 ]
 

@@ -14,3 +14,6 @@ ptt-trade-domain = { path = "../ptt-trade-domain" }
 ptt-trade-engine = { path = "../ptt-trade-engine" }
 serde.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
