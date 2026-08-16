@@ -36,6 +36,7 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     have_name: HAVE_NAME_REGION,
     tables: TABLES_REGION,
     rows: default_row_layout,
+    row_source: super::RowSource::DetectedBands,
     catalog: ptt_catalog::poe2,
 };
 
@@ -135,7 +136,7 @@ mod windows_route {
     use crate::book::{BookIdentity, BookObservation, RowObservation};
     use crate::fields::{Comparator, FieldReject, parse_ratio, parse_stock, split_row_line};
     use crate::profiles::ProfileLanguage;
-    use crate::rows::{BandGeometry, classify_rows};
+    use crate::rows::{BandGeometry, RowBand, RowPlan, RowsReject, Side, classify_rows};
     use ptt_core::CaptureTimestamp;
     use ptt_ocr_win::{OcrLanguagePreference, OcrWorker, OwnedBgraImage};
     use ptt_vision::{
@@ -221,6 +222,77 @@ mod windows_route {
                 name_matchers,
                 language,
                 layout,
+            })
+        }
+
+        /// Slices a pinned grid into rows, keeping the ones that have ink.
+        ///
+        /// No band detection and no split inference: both table origins are
+        /// known, so the header between them is never looked at, and two rows
+        /// 32px apart cannot merge because the boundary is arithmetic rather
+        /// than a gap in the mask.
+        fn plan_fixed_grid(
+            mask: &ptt_vision::TextInkMask,
+            grid: crate::profiles::FixedGrid,
+        ) -> Result<RowPlan, RowsReject> {
+            let mut bands = Vec::new();
+            let mut available_rows = 0_u8;
+            let mut competing_rows = 0_u8;
+
+            for (side, table_top) in [
+                (Side::Available, grid.available_top),
+                (Side::Competing, grid.competing_top),
+            ] {
+                for index in 0..grid.rows_per_side {
+                    let top = table_top + u32::from(index) * grid.pitch;
+                    let bottom = (top + grid.row_height).min(mask.height() as u32);
+                    if top >= bottom {
+                        break;
+                    }
+                    // Scan the slice once for how much ink it holds and where
+                    // that ink starts, which is what the comparator column
+                    // check downstream reads.
+                    let mut lit = 0_u32;
+                    let mut left = mask.width();
+                    let mut right = 0_usize;
+                    for y in top as usize..bottom as usize {
+                        for x in 0..mask.width() {
+                            if mask.intensity_at(x, y).is_some_and(|value| value > 0) {
+                                lit += 1;
+                                left = left.min(x);
+                                right = right.max(x + 1);
+                            }
+                        }
+                    }
+                    if lit < grid.min_lit_pixels {
+                        continue;
+                    }
+                    match side {
+                        Side::Available => available_rows += 1,
+                        Side::Competing => competing_rows += 1,
+                    }
+                    let slice_top = i32::try_from(top).unwrap_or(i32::MAX);
+                    bands.push(RowBand {
+                        side,
+                        band: BandGeometry {
+                            top: slice_top,
+                            height: bottom - top,
+                            left: i32::try_from(left).unwrap_or(0),
+                            width: u32::try_from(right.saturating_sub(left)).unwrap_or(0),
+                            content_fingerprint: 0,
+                        },
+                        estimated_rows: 1,
+                    });
+                }
+            }
+
+            if bands.is_empty() {
+                return Err(RowsReject::NoBands);
+            }
+            Ok(RowPlan {
+                bands,
+                available_rows,
+                competing_rows,
             })
         }
 
@@ -559,7 +631,14 @@ mod windows_route {
                     content_fingerprint: band.identity.content_fingerprint,
                 })
                 .collect();
-            let plan = classify_rows(&geometry, &(self.layout.rows)()).map_err(SkipReason::Rows)?;
+            let plan = match self.layout.row_source {
+                crate::profiles::RowSource::DetectedBands => {
+                    classify_rows(&geometry, &(self.layout.rows)()).map_err(SkipReason::Rows)?
+                }
+                crate::profiles::RowSource::FixedGrid(grid) => {
+                    Self::plan_fixed_grid(&mask, grid).map_err(SkipReason::Rows)?
+                }
+            };
 
             // Boundary rows (the `<`/`>` comparator rows) start further left
             // than the column norm. Until a template classifier lands, a row

@@ -20,7 +20,36 @@ pub struct PanelLayout {
     pub tables: (i32, i32, u32, u32),
     /// Function rather than value because `RowLayout` is not const.
     pub rows: fn() -> RowLayout,
+    pub row_source: RowSource,
     pub catalog: fn() -> &'static ptt_catalog::Catalog,
+}
+
+/// How a panel's rows are located.
+///
+/// POE2's two tables float relative to each other, so its rows have to be
+/// detected from the warm mask and the table split inferred from the gap.
+/// POE1 pins both tables to fixed offsets, which makes detection not just
+/// unnecessary but actively worse: the header between the tables reads as an
+/// extra band, and rows 32px apart merge into their neighbours. Slicing a
+/// known grid skips the header by construction and cannot merge rows.
+#[derive(Clone, Copy, Debug)]
+pub enum RowSource {
+    DetectedBands,
+    FixedGrid(FixedGrid),
+}
+
+/// A pinned two-table grid, in pixels relative to the captured tables region.
+#[derive(Clone, Copy, Debug)]
+pub struct FixedGrid {
+    pub available_top: u32,
+    pub competing_top: u32,
+    pub pitch: u32,
+    /// How much of each pitch step holds glyphs; the rest is padding.
+    pub row_height: u32,
+    pub rows_per_side: u8,
+    /// A slice with fewer lit mask pixels than this is an empty row, which is
+    /// how a table showing four of six rows is read as four.
+    pub min_lit_pixels: u32,
 }
 
 /// Which client language a profile reads names in.

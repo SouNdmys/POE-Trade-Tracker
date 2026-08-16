@@ -66,6 +66,18 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     have_name: HAVE_NAME_REGION,
     tables: TABLES_REGION,
     rows: default_row_layout,
+    row_source: super::RowSource::FixedGrid(super::FixedGrid {
+        // Inset by two: a slice as tall as the pitch touches its neighbours,
+        // and a descender above or an ascender below lands in the crop as a
+        // second text line.
+        available_top: AVAILABLE_TABLE_TOP + 2,
+        competing_top: COMPETING_TABLE_TOP + 2,
+        pitch: 32,
+        row_height: 28,
+        rows_per_side: 6,
+        // A digit or two of ink; below this the slice is an unused row.
+        min_lit_pixels: 40,
+    }),
     catalog: ptt_catalog::poe1,
 };
 

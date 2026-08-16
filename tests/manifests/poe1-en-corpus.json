@@ -1,7 +1,7 @@
 {
   "version": 1,
   "profile": "poe1-en",
-  "note": "Row counts are ground truth from the annotated fixture store. This gate is RED on purpose. Identity resolves on all ten frames. Rows do not: the captured region spans both tables and the competing header sits between them, so its label text is detected as an extra band and the side overflows six rows; and POE1 rows sit 32px apart with little vertical separation, so the warm mask merges neighbours. Both are the same fix — POE1 pins both tables to known offsets, so its rows can be sliced arithmetically from those offsets instead of detected, which skips the header by construction. Raising max_rows_per_side to hide the header was tried and the geometry tests rejected it: eight 32px rows do not fit the panel.",
+  "note": "Row counts are ground truth from the annotated fixture store. This gate is RED on purpose, at 4 of 10. Geometry is done: identity resolves on all ten frames and the fixed-grid row planner reads whole tables where OCR cooperates. What is left is field OCR on the available side, which drops the thin colon in a ratio (\"1 130\" for \"1:130\") and occasionally splits a cell across two lines. POE2 hit the same class of problem and solved it with a PP-OCRv5 retry over a tightly cropped cell; POE1 needs that path pointed at its columns.",
   "screenshot_dir": "test-screenshots/poe1",
   "cases": [
     {
