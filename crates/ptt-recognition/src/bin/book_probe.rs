@@ -58,6 +58,20 @@ fn run_manifest(
     let mut durations = Vec::new();
     for case in &manifest.cases {
         let file = std::path::Path::new(&manifest.screenshot_dir).join(&case.file);
+        // Checked before recognition rather than left to it. A missing file
+        // fails to decode, decoding failure is a skip, and a negative case
+        // expects a skip — so moving the corpus somewhere else turned every
+        // negative case green while proving nothing at all.
+        if !file.is_file() {
+            failures += 1;
+            println!(
+                "FAIL {} — screenshot missing at {}",
+                case.file,
+                file.display()
+            );
+            durations.push(0.0);
+            continue;
+        }
         let case_started = std::time::Instant::now();
         let outcome = route.recognize_screenshot(&file);
         durations.push(case_started.elapsed().as_secs_f64() * 1e3);

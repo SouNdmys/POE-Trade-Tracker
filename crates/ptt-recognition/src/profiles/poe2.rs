@@ -242,12 +242,52 @@ mod windows_route {
             })
         }
 
-        /// Slices a pinned grid into rows, keeping the ones that have ink.
+        /// The scanline each table's rows actually start on.
         ///
-        /// No band detection and no split inference: both table origins are
-        /// known, so the header between them is never looked at, and two rows
-        /// 32px apart cannot merge because the boundary is arithmetic rather
-        /// than a gap in the mask.
+        /// Returns the first run of [`ANCHOR_RUN`] consecutive scanlines each
+        /// holding at least [`ANCHOR_MIN_LIT`] mask pixels, searched from
+        /// `nominal` through `nominal + window`. A single stray scanline is
+        /// not a row, and the column header ("Ratio"/"比率") is drawn too dim
+        /// to survive the warm mask at all, so the first run found is the
+        /// first row of data.
+        fn find_table_anchor(
+            mask: &ptt_vision::TextInkMask,
+            nominal: u32,
+            window: u32,
+        ) -> Option<u32> {
+            const ANCHOR_MIN_LIT: usize = 3;
+            const ANCHOR_RUN: u32 = 3;
+
+            let limit = (nominal + window).min(mask.height() as u32);
+            let mut run_started: Option<u32> = None;
+            for y in nominal..limit {
+                let lit = (0..mask.width())
+                    .filter(|&x| {
+                        mask.intensity_at(x, y as usize)
+                            .is_some_and(|value| value > 0)
+                    })
+                    .take(ANCHOR_MIN_LIT)
+                    .count();
+                if lit >= ANCHOR_MIN_LIT {
+                    let start = *run_started.get_or_insert(y);
+                    if y - start + 1 >= ANCHOR_RUN {
+                        return Some(start);
+                    }
+                } else {
+                    run_started = None;
+                }
+            }
+            None
+        }
+
+        /// Slices each table into rows, keeping the ones that have ink.
+        ///
+        /// No band detection and no split inference: the split between the two
+        /// tables is a constant, so the header between them is never looked at,
+        /// and two adjacent rows cannot merge because the boundary is
+        /// arithmetic rather than a gap in the mask. Only each table's origin
+        /// is measured, because that is the one part of the geometry the
+        /// client's language moves.
         fn plan_fixed_grid(
             mask: &ptt_vision::TextInkMask,
             grid: crate::profiles::FixedGrid,
@@ -257,10 +297,20 @@ mod windows_route {
             let mut available_rows = 0_u8;
             let mut competing_rows = 0_u8;
 
-            for (side, table_top) in [
+            for (side, nominal_top) in [
                 (Side::Available, grid.available_top),
                 (Side::Competing, grid.competing_top),
             ] {
+                // No ink within a row's reach of where the table should be
+                // means the table is empty. Slicing from the nominal top then
+                // finds nothing either, which is the same answer by a slower
+                // route, so skip it.
+                let Some(first_ink) =
+                    Self::find_table_anchor(mask, nominal_top, grid.anchor_window)
+                else {
+                    continue;
+                };
+                let table_top = first_ink.saturating_sub(grid.anchor_lead_in);
                 for index in 0..grid.rows_per_side {
                     let top = table_top + u32::from(index) * grid.pitch;
                     let bottom = (top + grid.row_height).min(mask.height() as u32);
@@ -807,24 +857,44 @@ mod windows_route {
                         // reaches into that column without being a boundary
                         // at all. Shape tells them apart: a chevron is
                         // several pixels wide, a stray digit stroke is two.
-                        let expects_comparator = match self.layout.row_source {
+                        //
+                        // Shape alone is not enough, though. The comparator
+                        // mask is deliberately more permissive than the row
+                        // mask, and a long ratio's leading digit puts a
+                        // five-pixel-wide soft edge in the column, which reads
+                        // as a chevron and gets written onto a row OCR never
+                        // saw one on. So the column is only consulted on the
+                        // one row that can hold a comparator: the aggregate
+                        // ("everything past this") is the last slot of its
+                        // table by construction, and across both corpora all
+                        // 22 genuine comparators sit there.
+                        let last_slot = match self.layout.row_source {
                             crate::profiles::RowSource::FixedGrid(grid) => {
-                                let rect = row_crops[band_index].source;
-                                crate::comparator::zone_ink_bounds(
-                                    comparator_mask.as_ref().unwrap_or(&mask),
-                                    rect.x + grid.comparator_column.0 as usize,
-                                    rect.y,
-                                    grid.comparator_column.1 as usize,
-                                    rect.height,
-                                )
-                                .is_some_and(|(width, _, _)| {
-                                    width >= crate::comparator::MINIMUM_GLYPH_WIDTH
-                                })
+                                u32::from(first_row_index) + 1 == u32::from(grid.rows_per_side)
                             }
-                            crate::profiles::RowSource::DetectedBands => {
-                                row_band.band.left + 6 < median_left
-                            }
+                            crate::profiles::RowSource::DetectedBands => true,
                         };
+                        let expects_comparator = last_slot
+                            && match self.layout.row_source {
+                                crate::profiles::RowSource::FixedGrid(grid) => {
+                                    let rect = row_crops[band_index].source;
+                                    crate::comparator::zone_ink_bounds(
+                                        comparator_mask.as_ref().unwrap_or(&mask),
+                                        rect.x + grid.comparator_column.0 as usize,
+                                        rect.y,
+                                        grid.comparator_column.1 as usize,
+                                        rect.height,
+                                    )
+                                    .is_some_and(
+                                        |(width, _, _)| {
+                                            width >= crate::comparator::MINIMUM_GLYPH_WIDTH
+                                        },
+                                    )
+                                }
+                                crate::profiles::RowSource::DetectedBands => {
+                                    row_band.band.left + 6 < median_left
+                                }
+                            };
                         let mut comparator_ok = true;
                         if expects_comparator {
                             // Read the glyph from the mask pixels; OCR is

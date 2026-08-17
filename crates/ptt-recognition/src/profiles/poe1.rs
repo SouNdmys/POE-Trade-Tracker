@@ -80,12 +80,22 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     tables: TABLES_REGION,
     rows: default_row_layout,
     row_source: super::RowSource::FixedGrid(super::FixedGrid {
-        // Inset by two: a slice as tall as the pitch touches its neighbours,
-        // and a descender above or an ascender below lands in the crop as a
-        // second text line.
-        available_top: AVAILABLE_TABLE_TOP + 2,
-        competing_top: COMPETING_TABLE_TOP + 2,
-        pitch: 32,
+        // Where each table starts if the client is English. Both are search
+        // origins, not assertions: the zh-TW column header is taller and puts
+        // the first row about 15px further down.
+        available_top: AVAILABLE_TABLE_TOP,
+        competing_top: COMPETING_TABLE_TOP,
+        // Under one pitch, so an empty first row cannot anchor to the second.
+        anchor_window: 31,
+        // Rows measure 15-19px of ink in a 28px slice, so there is 9px of
+        // slack to spend. Five above the first row leaves four below the
+        // sixth once the pitch error has accumulated.
+        anchor_lead_in: 5,
+        // Measured, not assumed: six row tops span 153px in both clients, in
+        // every one of the 21 frames on hand. The 32 this used to carry was
+        // over by 1.4px per row, and only fitted because the old origin
+        // happened to leave exactly enough headroom to absorb the drift.
+        pitch: 31,
         row_height: 28,
         rows_per_side: 6,
         // A digit or two of ink; below this the slice is an unused row.

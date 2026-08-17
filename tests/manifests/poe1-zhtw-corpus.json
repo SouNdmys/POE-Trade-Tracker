@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "profile": "poe1-zhtw",
+  "note": "POE1 Traditional Chinese exchange panel, 2560x1440, captured 2026-08-17. Run with `book-probe --manifest tests/manifests/poe1-zhtw-corpus.json --game poe1 --language zh-tw`. Unlike the English manifest these counts are not from an annotated fixture store -- there is none for zh-TW -- so they were read off the screenshots by eye. Identity pairs are ground truth (both slots checked against the frame); row counts are what the route reads today with the boundary rows it cannot yet verify subtracted, so this gate catches regressions rather than proving correctness. Two frames land mid-animation and are called out individually.",
+  "screenshot_dir": "test-screenshots/poe1/zh-tw",
+  "cases": [
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.02.10.01.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "divine-orb",
+      "note": "Values verified against the frame: available 202.47/202/201/200/199 and the < 199 aggregate, competing 205..209 and the > 209 aggregate. The one wrong field in the whole corpus is here -- stock 82,000 reads as 821000, the comma recognised as a 1 -- while the five other grouped numbers in the same frame parse correctly.",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.02.20.01.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "horned-scarab-of-pandemonium",
+      "min_rows": 10
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.02.28.99.png",
+      "expect": "accept",
+      "need": "ancient-orb",
+      "have": "chaos-orb",
+      "note": "Mid-render: the available table's aggregate row has its chevron on one line and its ratio on the next. All ten accepted rows match the frame; the split row is skipped.",
+      "min_rows": 10
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.02.34.80.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "dead-man-s-sulphur",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.02.46.44.png",
+      "expect": "skip",
+      "note": "Deliberate negative. The panel is repainting: the ratio and stock columns are offset from each other by half a row, so every pair on screen is wrong. Nothing here may ever be accepted.",
+      "min_rows": 0
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.02.55.24.png",
+      "expect": "accept",
+      "need": "divine-orb",
+      "have": "house-of-mirrors",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.03.06.12.png",
+      "expect": "accept",
+      "need": "mirror-of-kalandra",
+      "have": "divine-orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.03.15.74.png",
+      "expect": "accept",
+      "need": "divine-orb",
+      "have": "hinekora-s-lock",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.03.32.83.png",
+      "expect": "accept",
+      "need": "veiled-chaos-orb",
+      "have": "chaos-orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.03.41.00.png",
+      "expect": "accept",
+      "need": "veiled-exalted-orb",
+      "have": "divine-orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.17 - 09.03.45.06.png",
+      "expect": "accept",
+      "need": "veiled-exalted-orb",
+      "have": "chaos-orb",
+      "min_rows": 11
+    }
+  ]
+}

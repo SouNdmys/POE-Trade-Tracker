@@ -51,11 +51,30 @@ pub enum RowSource {
     FixedGrid(FixedGrid),
 }
 
-/// A pinned two-table grid, in pixels relative to the captured tables region.
+/// A two-table grid, in pixels relative to the captured tables region.
+///
+/// The tops are where each table is *expected* to start, not where it is
+/// asserted to start. The distance from the panel's header to its first row is
+/// a function of the client's font: the Traditional Chinese column header is
+/// about 15px taller than the English one, which slides both tables down by
+/// that much and leaves a pinned grid straddling row boundaries — every slice
+/// holding the tail of one row and the head of the next. That does not fail
+/// loudly; it clips leading digits, so `1 : 9.67` is read as `1 : 0.67` and
+/// accepted. Each table's origin is therefore recovered from its own first row
+/// of ink, with the constants below bounding the search.
 #[derive(Clone, Copy, Debug)]
 pub struct FixedGrid {
     pub available_top: u32,
     pub competing_top: u32,
+    /// How far below a nominal top to look for that table's first row. Held to
+    /// less than one pitch so a table whose first row is empty — which in this
+    /// panel means an empty table, since rows fill downward — cannot anchor to
+    /// its second row and shift every slot by one.
+    pub anchor_window: u32,
+    /// How far above the first row's ink the first slice starts. Absorbs the
+    /// residual pitch error over the rows below it, so it has to leave room
+    /// both above the first row and below the last.
+    pub anchor_lead_in: u32,
     pub pitch: u32,
     /// How much of each pitch step holds glyphs; the rest is padding.
     pub row_height: u32,
