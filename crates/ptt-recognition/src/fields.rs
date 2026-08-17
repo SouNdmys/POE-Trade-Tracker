@@ -187,6 +187,19 @@ pub fn parse_stock(text: &str) -> Result<u64, FieldReject> {
         }
     }
     validate_integer_grouping(&compact)?;
+    // Stock is always rendered with thousands separators — every one of the
+    // fourteen four-plus-digit stocks across both corpora carries them, and
+    // none lacks them. So a long run of bare digits is not a big number, it is
+    // a misread separator: `82,000` came back as `821000`, which parses,
+    // validates, and is wrong by a factor of ten. Rejecting it here routes the
+    // row through the PP-OCRv5 retry, which reads the comma.
+    //
+    // Ratios are exempt and must stay that way: the panel prints those without
+    // separators, `1 : 3440` among them.
+    let digit_count = compact.chars().filter(char::is_ascii_digit).count();
+    if digit_count >= 4 && !compact.contains(',') {
+        return Err(FieldReject::CommaGrouping);
+    }
     let digits: String = compact.chars().filter(|c| *c != ',').collect();
     let value: u64 = digits.parse().map_err(|_| FieldReject::Malformed)?;
     if value == 0 || value > MAXIMUM_STOCK {

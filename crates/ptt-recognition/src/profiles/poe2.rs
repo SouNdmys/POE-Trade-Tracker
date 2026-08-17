@@ -776,6 +776,16 @@ mod windows_route {
             let mut skipped = Vec::new();
             let mut available_index: u8 = 0;
             let mut competing_index: u8 = 0;
+            // The row directly above, per table: where its ink starts and what
+            // rate it quoted. Both are what locates the aggregate row's
+            // chevron; see `aggregate_chevron_zone`.
+            let mut previous_row: Option<(
+                super::Side,
+                u8,
+                usize,
+                ptt_core::Decimal,
+                ptt_core::Decimal,
+            )> = None;
             for (band_index, row_band) in plan.bands.iter().enumerate() {
                 let index = match row_band.side {
                     super::Side::Available => &mut available_index,
@@ -795,8 +805,17 @@ mod windows_route {
                     )
                     .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
                 let raw = recognition.text();
+                if std::env::var_os("PTT_DEBUG_OCR").is_some() {
+                    eprintln!(
+                        "debug row: {:?} #{first_row_index} crop y={} h={} raw={raw:?}",
+                        row_band.side,
+                        row_crops[band_index].source.y,
+                        row_crops[band_index].source.height,
+                    );
+                }
 
                 if row_band.estimated_rows > 1 {
+                    previous_row = None;
                     skipped.push(RowSkip::MergedBand {
                         side: row_band.side,
                         first_row_index,
@@ -850,74 +869,87 @@ mod windows_route {
                 });
                 match parsed {
                     Ok((mut ratio, stock)) => {
-                        // A floating panel infers a boundary row from its
-                        // left edge; a pinned one looks in the column it
-                        // knows the glyph lives in, because POE1's ratios are
-                        // not left-aligned and a wide one like `2.67 : 1`
-                        // reaches into that column without being a boundary
-                        // at all. Shape tells them apart: a chevron is
-                        // several pixels wide, a stray digit stroke is two.
+                        // Where the chevron is, measured off this frame.
                         //
-                        // Shape alone is not enough, though. The comparator
-                        // mask is deliberately more permissive than the row
-                        // mask, and a long ratio's leading digit puts a
-                        // five-pixel-wide soft edge in the column, which reads
-                        // as a chevron and gets written onto a row OCR never
-                        // saw one on. So the column is only consulted on the
-                        // one row that can hold a comparator: the aggregate
-                        // ("everything past this") is the last slot of its
-                        // table by construction, and across both corpora all
-                        // 22 genuine comparators sit there.
+                        // A pinned column cannot work here: the ratio and its
+                        // chevron are right-aligned as one unit, so the glyph
+                        // slides with the ratio's width. Measured across both
+                        // corpora its left edge runs x=29 to x=39 and its
+                        // right edge out to 47 — a fixed 24..36 window misses
+                        // short ratios entirely and, because the comparator
+                        // mask is more permissive than the row mask, catches
+                        // the soft edge of a long ratio's leading digit and
+                        // writes a comparator onto a row OCR never saw one on.
+                        //
+                        // What is stable is the panel's own structure. The
+                        // aggregate row quotes the same rate as the row above
+                        // it — it means "this rate and everything past it" —
+                        // and the two are right-aligned, so the only ink the
+                        // aggregate has that its neighbour lacks is the
+                        // chevron. That makes the zone a subtraction:
+                        // `[this row's leftmost ink, the row above's)`. It
+                        // needs no constant, holds in either client, and
+                        // declines by itself when the rates differ, which is
+                        // what a mid-repaint frame looks like. Across 39
+                        // last-slot rows it found all 37 real chevrons and
+                        // rejected both torn frames.
+                        //
+                        // The same structure makes the last slot's aggregate
+                        // mandatory rather than merely possible. Rows fill
+                        // downward, so ink in the last slot means the table is
+                        // full, and a full table's last row is the aggregate —
+                        // true of all 39 last-slot rows on hand. A last row
+                        // that cannot be confirmed as one is therefore a torn
+                        // frame, not an ordinary order, and is skipped. Without
+                        // that, the frame whose chevron and ratio repaint on
+                        // separate lines came back as a plain `1 : 101`.
                         let last_slot = match self.layout.row_source {
                             crate::profiles::RowSource::FixedGrid(grid) => {
                                 u32::from(first_row_index) + 1 == u32::from(grid.rows_per_side)
                             }
-                            crate::profiles::RowSource::DetectedBands => true,
+                            crate::profiles::RowSource::DetectedBands => false,
                         };
-                        let expects_comparator = last_slot
-                            && match self.layout.row_source {
-                                crate::profiles::RowSource::FixedGrid(grid) => {
-                                    let rect = row_crops[band_index].source;
-                                    crate::comparator::zone_ink_bounds(
-                                        comparator_mask.as_ref().unwrap_or(&mask),
-                                        rect.x + grid.comparator_column.0 as usize,
-                                        rect.y,
-                                        grid.comparator_column.1 as usize,
-                                        rect.height,
+                        let aggregate_zone = match self.layout.row_source {
+                            crate::profiles::RowSource::FixedGrid(_) => {
+                                let here = row_crops[band_index].content.x;
+                                previous_row.and_then(|(side, index, left, num, den)| {
+                                    let adjacent = side == row_band.side
+                                        && u32::from(index) + 1 == u32::from(first_row_index);
+                                    let same_rate = num == ratio.left && den == ratio.right;
+                                    (last_slot && adjacent && same_rate && left > here)
+                                        .then_some((here, left - here))
+                                })
+                            }
+                            crate::profiles::RowSource::DetectedBands => {
+                                let rect = row_crops[band_index].source;
+                                (row_band.band.left + 6 < median_left).then(|| {
+                                    (
+                                        rect.x,
+                                        usize::try_from(median_left - row_band.band.left + 8)
+                                            .unwrap_or(0),
                                     )
-                                    .is_some_and(
-                                        |(width, _, _)| {
-                                            width >= crate::comparator::MINIMUM_GLYPH_WIDTH
-                                        },
-                                    )
-                                }
-                                crate::profiles::RowSource::DetectedBands => {
-                                    row_band.band.left + 6 < median_left
-                                }
-                            };
+                                })
+                            }
+                        };
                         let mut comparator_ok = true;
-                        if expects_comparator {
+                        // Trim the zone to the chevron itself before reading
+                        // it; the gap to the ratio is what makes that safe.
+                        let aggregate_zone = aggregate_zone.and_then(|(x, width)| {
+                            crate::comparator::leading_ink_run(
+                                comparator_mask.as_ref().unwrap_or(&mask),
+                                x,
+                                row_crops[band_index].source.y,
+                                width,
+                                row_crops[band_index].source.height,
+                            )
+                        });
+                        if let Some((zone_x, zone_width)) = aggregate_zone {
                             // Read the glyph from the mask pixels; OCR is
                             // unreliable here. Cross-checks: the pixel class
                             // must match the table-side invariant (available
                             // boundary rows aggregate downward `<`, competing
                             // upward `>`) and must not contradict OCR.
                             let rect = row_crops[band_index].source;
-                            // Crops carry a 10px horizontal margin, so the
-                            // chevron ink sits ~10px inside the crop edge;
-                            // extend past the normal-row crop x to cover it
-                            // while stopping short of the first digit.
-                            let (zone_x, zone_width) = match self.layout.row_source {
-                                crate::profiles::RowSource::FixedGrid(grid) => (
-                                    rect.x + grid.comparator_column.0 as usize,
-                                    grid.comparator_column.1 as usize,
-                                ),
-                                crate::profiles::RowSource::DetectedBands => (
-                                    rect.x,
-                                    usize::try_from(median_left - row_band.band.left + 8)
-                                        .unwrap_or(0),
-                                ),
-                            };
                             let glyph = crate::comparator::classify_comparator(
                                 comparator_mask.as_ref().unwrap_or(&mask),
                                 zone_x,
@@ -941,9 +973,21 @@ mod windows_route {
                                 },
                                 _ => comparator_ok = false,
                             }
-                        } else if ratio.comparator != Comparator::Exact {
+                        } else if ratio.comparator != Comparator::Exact || last_slot {
                             comparator_ok = false;
                         }
+                        // Recorded whether or not the comparator check passed:
+                        // the row below reads this one's geometry and rate, not
+                        // its verdict. A row that failed to parse leaves this
+                        // empty instead, since a rate nobody could read cannot
+                        // anchor anything.
+                        previous_row = Some((
+                            row_band.side,
+                            first_row_index,
+                            row_crops[band_index].content.x,
+                            ratio.left,
+                            ratio.right,
+                        ));
                         if comparator_ok {
                             rows.push(RowObservation {
                                 side: row_band.side,
@@ -960,12 +1004,15 @@ mod windows_route {
                             });
                         }
                     }
-                    Err(reject) => skipped.push(RowSkip::Grammar {
-                        side: row_band.side,
-                        row_index: first_row_index,
-                        reject,
-                        raw,
-                    }),
+                    Err(reject) => {
+                        previous_row = None;
+                        skipped.push(RowSkip::Grammar {
+                            side: row_band.side,
+                            row_index: first_row_index,
+                            reject,
+                            raw,
+                        });
+                    }
                 }
             }
 

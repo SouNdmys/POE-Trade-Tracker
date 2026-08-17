@@ -15,12 +15,6 @@ use crate::fields::Comparator;
 const MINIMUM_INK: usize = 10;
 /// How much further the mid third must extend than the outer thirds, px.
 const MINIMUM_APEX_MARGIN: i32 = 3;
-/// Narrowest ink box that can still be a chevron rather than a digit stroke.
-///
-/// Lives here with the other calibrated thresholds: a route that gates on a
-/// bare number instead would keep rejecting boundary rows after these are
-/// retuned, with nothing near the classifier to explain why.
-pub const MINIMUM_GLYPH_WIDTH: usize = 5;
 
 /// Classifies the comparator glyph inside `zone` (mask coordinates).
 pub fn classify_comparator(
@@ -120,43 +114,31 @@ pub fn classify_comparator(
     }
 }
 
-/// The ink bounding box inside a zone, as `(width, height, pixels)`.
+/// Narrows a zone to its first connected column-run of ink.
 ///
-/// A pinned layout uses this to decide whether a row *has* a comparator at
-/// all, rather than inferring it from the row's left edge. That inference
-/// suits a panel whose ratios are left-aligned; POE1's are not, so a wide
-/// ratio like `2.67 : 1` reaches into the comparator column and reads as a
-/// boundary row. Shape separates them: a chevron is several pixels wide, a
-/// stray digit stroke is two or three.
+/// The chevron is one token and the ratio beside it is another, separated by a
+/// real gap — measured at 3 to 13px across both corpora. Without this the zone
+/// borrows a pixel of the neighbouring digit, because the comparator mask is
+/// permissive enough to keep an anti-aliased edge, and one stray pixel on the
+/// right of the box is enough to flatten a `>`'s apex (a `<` survives it,
+/// which is why this only ever showed on the competing side).
+///
+/// Returns `(x, width)` of the run, or `None` for an empty zone.
 #[must_use]
-pub fn zone_ink_bounds(
+pub fn leading_ink_run(
     mask: &TextInkMask,
     zone_x: usize,
     zone_y: usize,
     zone_width: usize,
     zone_height: usize,
-) -> Option<(usize, usize, usize)> {
+) -> Option<(usize, usize)> {
     let right = (zone_x + zone_width).min(mask.width());
     let bottom = (zone_y + zone_height).min(mask.height());
-    let (mut min_x, mut max_x) = (usize::MAX, 0usize);
-    let (mut min_y, mut max_y) = (usize::MAX, 0usize);
-    let mut ink = 0usize;
-    for y in zone_y..bottom {
-        for x in zone_x..right {
-            if mask.intensity_at(x, y).unwrap_or(0) == 0 {
-                continue;
-            }
-            ink += 1;
-            min_x = min_x.min(x);
-            max_x = max_x.max(x);
-            min_y = min_y.min(y);
-            max_y = max_y.max(y);
-        }
-    }
-    if ink == 0 || min_x > max_x || min_y > max_y {
-        return None;
-    }
-    Some((max_x - min_x + 1, max_y - min_y + 1, ink))
+    let inked =
+        |x: usize| (zone_y..bottom).any(|y| mask.intensity_at(x, y).is_some_and(|value| value > 0));
+    let start = (zone_x..right).find(|&x| inked(x))?;
+    let end = (start..right).take_while(|&x| inked(x)).last()?;
+    Some((start, end - start + 1))
 }
 
 #[cfg(test)]

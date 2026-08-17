@@ -10,7 +10,81 @@
       "need": "chaos-orb",
       "have": "divine-orb",
       "note": "Values verified against the frame: available 202.47/202/201/200/199 and the < 199 aggregate, competing 205..209 and the > 209 aggregate. The one wrong field in the whole corpus is here -- stock 82,000 reads as 821000, the comma recognised as a 1 -- while the five other grouped numbers in the same frame parse correctly.",
-      "min_rows": 11
+      "min_rows": 11,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "202.47:1",
+          "stock": 82000
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "202:1",
+          "stock": 6666
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "201:1",
+          "stock": 31155
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "200:1",
+          "stock": 56000
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "199:1",
+          "stock": 6368
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<199:1",
+          "stock": 4362127
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "205:1",
+          "stock": 520
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "206:1",
+          "stock": 800
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "207:1",
+          "stock": 3
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "208:1",
+          "stock": 82
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "209:1",
+          "stock": 4
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">209:1",
+          "stock": 1773
+        }
+      ]
     },
     {
       "file": "Path of Exile Screenshot 2026.08.17 - 09.02.20.01.png",
@@ -25,14 +99,160 @@
       "need": "ancient-orb",
       "have": "chaos-orb",
       "note": "Mid-render: the available table's aggregate row has its chevron on one line and its ratio on the next. All ten accepted rows match the frame; the split row is skipped.",
-      "min_rows": 10
+      "min_rows": 10,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:9.62",
+          "stock": 65
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:9.67",
+          "stock": 9
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:9.80",
+          "stock": 205
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:10",
+          "stock": 441
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:10.10",
+          "stock": 10
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "expect": "skip"
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1:9.60",
+          "stock": 6384
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:9.50",
+          "stock": 12582
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:9.10",
+          "stock": 5824
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:9",
+          "stock": 37242
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:8.80",
+          "stock": 2200
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">1:8.80",
+          "stock": 137845
+        }
+      ]
     },
     {
       "file": "Path of Exile Screenshot 2026.08.17 - 09.02.34.80.png",
       "expect": "accept",
       "need": "chaos-orb",
       "have": "dead-man-s-sulphur",
-      "min_rows": 11
+      "min_rows": 11,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:127.90",
+          "stock": 580
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:128",
+          "stock": 5265
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:129",
+          "stock": 4309
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:135.50",
+          "stock": 400
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:137",
+          "stock": 800
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:137",
+          "stock": 82760
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1:125.88",
+          "stock": 9090
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:111.76",
+          "stock": 38000
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:110",
+          "stock": 93610
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:109.89",
+          "stock": 78900
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:109.29",
+          "stock": 180000
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "expect": "skip"
+        }
+      ]
     },
     {
       "file": "Path of Exile Screenshot 2026.08.17 - 09.02.46.44.png",

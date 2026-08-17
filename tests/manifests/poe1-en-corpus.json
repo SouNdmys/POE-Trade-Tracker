@@ -45,14 +45,162 @@
       "need": "divine-orb",
       "have": "mirror-of-kalandra",
       "note": "Eleven, not the twelve this frame holds. Its last available row is `< 24 : 1`, whose chevron sits at x=37-41 because the ratio is short and the pair is right-aligned as a unit; the pinned comparator column only reaches x=36, so the glyph is invisible to the classifier. Until that column stops being a fixed position the row is skipped, which is the correct answer -- this gate previously scored twelve by reading it as a plain `24 : 1`, turning an aggregate boundary into a real order.",
-      "min_rows": 11
+      "min_rows": 11,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "266:1",
+          "stock": 266
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "264:1",
+          "stock": 264
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "263:1",
+          "stock": 263
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "80:1",
+          "stock": 80
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "24:1",
+          "stock": 24
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<24:1",
+          "stock": 63
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "276:1",
+          "stock": 3
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "277:1",
+          "stock": 1
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "279:1",
+          "stock": 1
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "282:1",
+          "stock": 1
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "283:1",
+          "stock": 1
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">283:1",
+          "stock": 18
+        }
+      ]
     },
     {
       "file": "poe1-real-20260728-m01-000007.png",
       "expect": "accept",
       "need": "chaos-orb",
       "have": "exalted-orb",
-      "min_rows": 12
+      "min_rows": 12,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1.21:1",
+          "stock": 115
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1.18:1",
+          "stock": 59
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1.15:1",
+          "stock": 345
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1.12:1",
+          "stock": 2538
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1.11:1",
+          "stock": 59
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1.11:1",
+          "stock": 38297
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1.23:1",
+          "stock": 40
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1.24:1",
+          "stock": 525
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1.25:1",
+          "stock": 2940
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1.26:1",
+          "stock": 35
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1.26:1",
+          "stock": 81
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">1.26:1",
+          "stock": 18431
+        }
+      ]
     },
     {
       "file": "poe1-real-20260728-m01-000008.png",

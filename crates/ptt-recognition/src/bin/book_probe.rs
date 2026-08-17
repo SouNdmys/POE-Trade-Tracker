@@ -27,6 +27,100 @@ struct ManifestCase {
     have: Option<String>,
     #[serde(default)]
     min_rows: Option<usize>,
+    /// Every row the frame actually shows, read off the screenshot by hand.
+    ///
+    /// Counting rows cannot catch a wrong value, and wrong values are the one
+    /// unacceptable outcome: an aggregate `< 24 : 1` read as a plain `24 : 1`
+    /// kept a gate green for as long as the row count matched.
+    #[serde(default)]
+    rows: Vec<ManifestRow>,
+}
+
+/// One row of ground truth. `ratio` is the route's normalized form — the
+/// comparator, if any, then the pair with no spaces (`<199:1`, `1:9.67`).
+#[cfg(windows)]
+#[derive(serde::Deserialize)]
+struct ManifestRow {
+    side: String,
+    index: u8,
+    /// "accept" (the default) or "skip" for a row the route is known not to
+    /// read yet. A skip that starts being read fails the gate rather than
+    /// passing quietly, so the value gets checked when it appears.
+    #[serde(default)]
+    expect: Option<String>,
+    #[serde(default)]
+    ratio: Option<String>,
+    #[serde(default)]
+    stock: Option<u64>,
+}
+
+/// Compares a frame's ground-truth rows against what the route read.
+///
+/// Four outcomes matter and each is reported separately, because they mean
+/// different things: a value mismatch is a wrong accept, a missing row is a
+/// regression, an unexpected row is either a fix (update the manifest) or an
+/// invention, and a row that was supposed to stay unread but appeared needs
+/// its value checked before it is trusted.
+#[cfg(windows)]
+fn check_rows(
+    expected: &[ManifestRow],
+    observed: &[ptt_recognition::book::RowObservation],
+) -> Vec<String> {
+    use ptt_recognition::rows::Side;
+
+    let mut problems = Vec::new();
+    if expected.is_empty() {
+        return problems;
+    }
+    let key = |side: Side, index: u8| format!("{} #{index}", side.as_str());
+    let seen: std::collections::BTreeMap<String, &ptt_recognition::book::RowObservation> = observed
+        .iter()
+        .map(|row| (key(row.side, row.row_index), row))
+        .collect();
+
+    let mut accounted = std::collections::BTreeSet::new();
+    for want in expected {
+        let side = match want.side.as_str() {
+            "available" => Side::Available,
+            "competing" => Side::Competing,
+            other => {
+                problems.push(format!("manifest row has unknown side {other:?}"));
+                continue;
+            }
+        };
+        let name = key(side, want.index);
+        accounted.insert(name.clone());
+        let skip_expected = want.expect.as_deref() == Some("skip");
+        match (seen.get(&name), skip_expected) {
+            (None, true) => {}
+            (None, false) => problems.push(format!("{name} missing")),
+            (Some(row), true) => problems.push(format!(
+                "{name} was expected to stay unread but came back {} stock={}",
+                row.ratio.normalized, row.stock
+            )),
+            (Some(row), false) => {
+                if let Some(ratio) = &want.ratio
+                    && ratio != &row.ratio.normalized
+                {
+                    problems.push(format!("{name} ratio {} != {ratio}", row.ratio.normalized));
+                }
+                if let Some(stock) = want.stock
+                    && stock != row.stock
+                {
+                    problems.push(format!("{name} stock {} != {stock}", row.stock));
+                }
+            }
+        }
+    }
+    for (name, row) in &seen {
+        if !accounted.contains(name) {
+            problems.push(format!(
+                "{name} is not in the manifest but was read as {} stock={}",
+                row.ratio.normalized, row.stock
+            ));
+        }
+    }
+    problems
 }
 
 #[cfg(windows)]
@@ -97,10 +191,19 @@ fn run_manifest(
                         book.observation.rows.len()
                     ));
                 }
+                problems.extend(check_rows(&case.rows, &book.observation.rows));
                 if problems.is_empty() {
-                    Ok(format!("accept rows={}", book.observation.rows.len()))
+                    Ok(format!(
+                        "accept rows={}{}",
+                        book.observation.rows.len(),
+                        if case.rows.is_empty() {
+                            String::new()
+                        } else {
+                            format!(", {} verified", case.rows.len())
+                        }
+                    ))
                 } else {
-                    Err(problems.join(", "))
+                    Err(problems.join("; "))
                 }
             }
             ("skip", Err(reason)) => Ok(format!("skip {reason:?}")),

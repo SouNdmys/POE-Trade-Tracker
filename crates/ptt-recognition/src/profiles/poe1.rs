@@ -28,24 +28,28 @@ pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1522, 294, 238, 61);
 
 /// Both tables in one region: comparator column (x=1145) through the right
 /// edge of stock (x=1287+117), and the first available row (y=349) through
-/// the last competing row (y=770+32).
-pub const TABLES_REGION: (i32, i32, u32, u32) = (1145, 349, 259, 453);
+/// the last competing row.
+///
+/// The height covers the last row of the *lowest* client, not of the English
+/// one. English rows end 439px in, but the taller zh-TW header pushes the
+/// last competing row down to 437..453 — against a height of 453, whose last
+/// valid row is 452. That clipped the row's final scanline and shrank its
+/// crop from 28px to 19, and Windows OCR returned nothing at all for it. The
+/// last slice needs to end at 462; both clients are empty from 454 to 475, so
+/// there is nothing below to sweep in.
+pub const TABLES_REGION: (i32, i32, u32, u32) = (1145, 349, 259, 470);
 
 /// Where each table starts, relative to [`TABLES_REGION`].
 pub const AVAILABLE_TABLE_TOP: u32 = 0;
 pub const COMPETING_TABLE_TOP: u32 = 610 - 349;
 
 /// Column offsets within [`TABLES_REGION`].
-/// Where the chevron actually is, which is not where the annotation's cell
-/// box is. The annotator marked the comparator cell as 1145..1177; the glyph
-/// is drawn against that cell's right edge and overhangs into the ratio
-/// column's left padding, spanning roughly 1173..1179. Reading the cell box
-/// cuts the arrow in half and leaves a three-pixel sliver with no apex.
 ///
-/// The window is kept tight on the other side too: widen it much past the
-/// glyph and a short ratio's leading digit lands in the same bounding box,
-/// which has the same effect as clipping — no apex to measure.
-pub const COMPARATOR_COLUMN: (u32, u32) = (24, 12);
+/// There is deliberately no comparator column. The chevron is right-aligned
+/// with its ratio, so it has no fixed x — measured across both corpora its
+/// left edge runs 29 to 39 — and any window wide enough to catch it also
+/// catches a neighbouring digit. The route derives its position per row
+/// instead; see the aggregate-zone comment in `poe2::Route`.
 pub const RATIO_COLUMN: (u32, u32) = (1177 - 1145, 110);
 pub const STOCK_COLUMN: (u32, u32) = (1287 - 1145, 117);
 
@@ -88,8 +92,10 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
         // Under one pitch, so an empty first row cannot anchor to the second.
         anchor_window: 31,
         // Rows measure 15-19px of ink in a 28px slice, so there is 9px of
-        // slack to spend. Five above the first row leaves four below the
-        // sixth once the pitch error has accumulated.
+        // slack; the pitch error spends 2 of it by the sixth row. Five leaves
+        // the band centred at the top of the table and still clear at the
+        // bottom. Tightening it to three was tried and costs rows: the lower
+        // slices then sit high enough to clip their own band.
         anchor_lead_in: 5,
         // Measured, not assumed: six row tops span 153px in both clients, in
         // every one of the 21 frames on hand. The 32 this used to carry was
@@ -100,7 +106,6 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
         rows_per_side: 6,
         // A digit or two of ink; below this the slice is an unused row.
         min_lit_pixels: 40,
-        comparator_column: COMPARATOR_COLUMN,
     }),
     catalog: ptt_catalog::poe1,
     // The chevron's core clears 140 while the cell background sits near 70,
@@ -149,44 +154,12 @@ mod tests {
     #[test]
     fn the_columns_stay_inside_the_region() {
         let (_, _, width, _) = TABLES_REGION;
-        for (label, (offset, span)) in [
-            ("comparator", COMPARATOR_COLUMN),
-            ("ratio", RATIO_COLUMN),
-            ("stock", STOCK_COLUMN),
-        ] {
+        for (label, (offset, span)) in [("ratio", RATIO_COLUMN), ("stock", STOCK_COLUMN)] {
             assert!(
                 offset + span <= width,
                 "{label} column ends at {} past the {width}px region",
                 offset + span
             );
         }
-    }
-}
-
-#[cfg(test)]
-mod comparator_window {
-    use super::*;
-
-    /// The window was calibrated against the corpus and both edges matter, so
-    /// it is pinned here rather than left as a number someone could round.
-    #[test]
-    fn the_comparator_window_holds_the_glyph_and_excludes_the_ratio() {
-        let (offset, width) = COMPARATOR_COLUMN;
-        // Chevrons were observed spanning offsets 24 through 34.
-        assert!(
-            offset <= 24,
-            "window starts after the leftmost chevron seen"
-        );
-        assert!(
-            offset + width >= 35,
-            "window ends before the rightmost chevron seen"
-        );
-        // The leading ratio digit was observed starting at offset 39 on the
-        // tightest frame; including it gives the glyph a bounding box with no
-        // apex, and the row is then rejected as unverified.
-        assert!(
-            offset + width < 39,
-            "window reaches the ratio digit, which destroys the apex"
-        );
     }
 }
