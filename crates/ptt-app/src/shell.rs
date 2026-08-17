@@ -132,7 +132,7 @@ impl AppShell {
                     ("TABLES", profile.tables_region),
                 ] {
                     if let Some(region) = region
-                        && !ptt_recognition::profiles::poe2::set_region_override(
+                        && !ptt_recognition::route::set_region_override(
                             ptt_recognition::profiles::poe2::LAYOUT.key_prefix,
                             name,
                             (region.x, region.y, region.width, region.height),
@@ -320,7 +320,7 @@ impl AppShell {
             RegionSlot::Have => entry.have_name_region = Some(region),
             RegionSlot::Tables => entry.tables_region = Some(region),
         }
-        ptt_recognition::profiles::poe2::set_region_override(
+        ptt_recognition::route::set_region_override(
             ptt_recognition::profiles::poe2::LAYOUT.key_prefix,
             slot.override_name(),
             (x, y, width, height),

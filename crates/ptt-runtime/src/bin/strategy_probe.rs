@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         DataVisibility, QuoteSelectionPolicy, QuoteSelectionStrategy, build_coherent_current_book,
         select_quote_edges,
     };
-    use ptt_recognition::profiles::poe2::Route;
+    use ptt_recognition::route::Route;
     use ptt_runtime::live::{capture_from_book, domain_asset_id, poe2_live_context};
     use ptt_storage::MarketStore;
     use ptt_strategy::{

@@ -17,7 +17,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ptt_monitoring::{SessionConfig, SessionEvent, SessionStats, run_session, skip_key};
-use ptt_recognition::profiles::poe2::Route;
+use ptt_recognition::route::Route;
 use ptt_storage::MarketStore;
 use ptt_trade_domain::MarketContext;
 
@@ -122,7 +122,7 @@ pub fn apply_saved_calibration_for(layout: ptt_recognition::profiles::PanelLayou
         ("TABLES", profile.tables_region),
     ] {
         if let Some(region) = region
-            && !ptt_recognition::profiles::poe2::set_region_override(
+            && !ptt_recognition::route::set_region_override(
                 layout.key_prefix,
                 name,
                 (region.x, region.y, region.width, region.height),

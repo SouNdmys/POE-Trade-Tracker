@@ -11,7 +11,7 @@
 //! crop rectangles in the POE1 fixture store, where a human marked every
 //! field on ten real screenshots.
 //!
-//! The route itself is [`super::poe2::Route`] driven by [`LAYOUT`]: the OCR
+//! The route itself is [`crate::route::Route`] driven by [`LAYOUT`]: the OCR
 //! ladder, field parsers, comparator classifier and book assembly are all
 //! layout-agnostic, so a second game is a second layout value rather than a
 //! second copy of the pipeline.
@@ -49,7 +49,7 @@ pub const COMPETING_TABLE_TOP: u32 = 610 - 349;
 /// with its ratio, so it has no fixed x — measured across both corpora its
 /// left edge runs 29 to 39 — and any window wide enough to catch it also
 /// catches a neighbouring digit. The route derives its position per row
-/// instead; see the aggregate-zone comment in `poe2::Route`.
+/// instead; see the aggregate-zone comment in `crate::route`.
 pub const RATIO_COLUMN: (u32, u32) = (1177 - 1145, 110);
 pub const STOCK_COLUMN: (u32, u32) = (1287 - 1145, 117);
 

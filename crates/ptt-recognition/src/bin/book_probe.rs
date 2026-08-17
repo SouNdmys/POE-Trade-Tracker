@@ -128,7 +128,7 @@ fn run_manifest(
     path: &str,
     language: ptt_recognition::profiles::ProfileLanguage,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use ptt_recognition::profiles::poe2::Route;
+    use ptt_recognition::route::Route;
 
     let manifest: Manifest = serde_json::from_str(&std::fs::read_to_string(path)?)?;
     assert_eq!(manifest.version, 1, "unsupported manifest version");
@@ -239,7 +239,8 @@ fn run_manifest(
 
 #[cfg(windows)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use ptt_recognition::profiles::{ProfileLanguage, poe2::Route};
+    use ptt_recognition::profiles::ProfileLanguage;
+    use ptt_recognition::route::Route;
 
     let mut arguments: Vec<String> = std::env::args().skip(1).collect();
     // `--language en` reads the identity slots against the catalog's English

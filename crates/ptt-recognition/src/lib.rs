@@ -11,6 +11,7 @@ pub mod comparator;
 pub mod fields;
 pub mod identity;
 pub mod profiles;
+pub mod route;
 pub mod rows;
 
 pub use book::{BookIdentity, BookObservation, RowObservation, compute_signature};
