@@ -24,7 +24,7 @@ use sha2::{Digest, Sha256};
 /// weight in every build.
 pub const POE2_CATALOG_JSON: &str = include_str!("../data/poe2/currency_master.zh_tw.json");
 pub const POE2_CATALOG_SHA256: &str =
-    "119e479c7c56baba7b5cf3876c9ecdc747f46a8e42d4738b45053a0da258c993";
+    "8094644293bbd9c6aaeeae45eeae35a6ba92c4180ec9359d76498538735dbe28";
 pub const POE2_CATALOG_ENTRIES: usize = 660;
 
 /// POE1 catalog: 1,047 assets across 16 categories, transcribed from in-game
@@ -47,11 +47,29 @@ pub const POE2_CATALOG_ENTRIES: usize = 660;
 /// verified.
 pub const POE1_CATALOG_JSON: &str = include_str!("../data/poe1/market_assets.en.json");
 pub const POE1_CATALOG_SHA256: &str =
-    "b1056c7a761591bdedd0a5014237b373ebb2b8805f23def1c6b76b700669084b";
+    "45bb54a2d48fe11c6972ce2615a73bff3ee4906786368b979b49ed81894a5d1f";
 pub const POE1_CATALOG_ENTRIES: usize = 1_047;
-pub const POE1_CATALOG_CATEGORIES: usize = 16;
+
+/// How the two catalogues were transcribed, kept beside them and deliberately
+/// *not* embedded: which in-game category each asset sits in and where it sits
+/// in the selector's order.
+///
+/// That pairing is what bound 1,043 Traditional Chinese names to their English
+/// counterparts — the selector reads left-to-right, top-to-bottom and both
+/// transcriptions came from the same grid — so it is worth keeping for the next
+/// time the game adds items. It is worth nothing at runtime, where a name maps
+/// to an id and the id is all anything downstream uses, so it stays out of the
+/// binary.
+pub const POE1_TRANSCRIPTION_ORDER_PATH: &str = "data/poe1/transcription-order.json";
+pub const POE2_TRANSCRIPTION_ORDER_PATH: &str = "data/poe2/transcription-order.json";
 
 /// One tradeable asset in a game's currency exchange.
+///
+/// Four fields, because the catalogue answers one question: which asset is
+/// this name. Everything the program does after that — listings, depth,
+/// routes, advice — keys on the id and never looks back here. Anything
+/// describing what a currency *does* in game would be weight in every build
+/// and an invitation to make decisions from it.
 #[derive(Debug, Clone, Deserialize)]
 pub struct CatalogAsset {
     pub id: String,
@@ -62,20 +80,6 @@ pub struct CatalogAsset {
     pub name_en: String,
     #[serde(default)]
     pub aliases: Vec<String>,
-    #[serde(default)]
-    pub in_game_category: Option<String>,
-    #[serde(default)]
-    pub group: Option<String>,
-    #[serde(default)]
-    pub tier: Option<String>,
-    #[serde(default)]
-    pub base_family: Option<String>,
-    #[serde(default)]
-    pub is_tradeable: bool,
-    #[serde(default)]
-    pub is_active: bool,
-    #[serde(default)]
-    pub trade_list_order: Option<u32>,
 }
 
 /// Immutable, indexed catalog for one game.
@@ -255,12 +259,6 @@ mod tests {
         let catalog = poe1();
         assert_eq!(catalog.game(), Game::Poe1);
         assert_eq!(catalog.len(), POE1_CATALOG_ENTRIES);
-        let categories: std::collections::BTreeSet<_> = catalog
-            .assets()
-            .iter()
-            .filter_map(|asset| asset.in_game_category.as_deref())
-            .collect();
-        assert_eq!(categories.len(), POE1_CATALOG_CATEGORIES);
         for asset in catalog.assets() {
             assert!(
                 !asset.name_en.trim().is_empty(),
@@ -359,11 +357,49 @@ mod tests {
         assert_eq!(en_unique.len(), en.len(), "EN names must be unique");
     }
 
+    /// The provenance file still describes the catalogue beside it.
+    ///
+    /// It is not embedded, so nothing at runtime would notice it drifting —
+    /// but the next transcription joins against it, and a stale order file
+    /// would bind Chinese names to the wrong English ones exactly as silently
+    /// as it once bound them correctly.
     #[test]
-    fn all_assets_are_tradeable_and_active() {
-        let catalog = poe2();
-        assert!(catalog.assets().iter().all(|asset| asset.is_tradeable));
-        assert!(catalog.assets().iter().all(|asset| asset.is_active));
+    fn the_transcription_order_still_matches_the_catalogue() {
+        #[derive(serde::Deserialize)]
+        struct OrderEntry {
+            id: String,
+            in_game_category: Option<String>,
+        }
+        for (path, catalog, categories) in [
+            (POE1_TRANSCRIPTION_ORDER_PATH, poe1(), Some(16)),
+            (POE2_TRANSCRIPTION_ORDER_PATH, poe2(), None),
+        ] {
+            let full = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
+            let text = std::fs::read_to_string(&full)
+                .unwrap_or_else(|error| panic!("{}: {error}", full.display()));
+            let entries: Vec<OrderEntry> = serde_json::from_str(&text).expect("order json");
+            assert_eq!(
+                entries.len(),
+                catalog.len(),
+                "{path} describes {} assets, the catalogue has {}",
+                entries.len(),
+                catalog.len()
+            );
+            for entry in &entries {
+                assert!(
+                    catalog.by_id(&entry.id).is_some(),
+                    "{path} names {}, which is not in the catalogue",
+                    entry.id
+                );
+            }
+            if let Some(expected) = categories {
+                let seen: std::collections::BTreeSet<_> = entries
+                    .iter()
+                    .filter_map(|entry| entry.in_game_category.as_deref())
+                    .collect();
+                assert_eq!(seen.len(), expected, "categories in {path}");
+            }
+        }
     }
 
     #[test]
@@ -376,5 +412,62 @@ mod tests {
             Catalog::from_json(Game::Poe2, json),
             Err(CatalogError::DuplicateName(_))
         ));
+    }
+}
+
+#[cfg(test)]
+mod cost_tests {
+    use super::*;
+    use std::time::Instant;
+
+    /// Where the catalogue's cost actually falls.
+    ///
+    /// Recorded because the intuition is that carrying more per-asset data
+    /// slows recognition down, and it does not: identity resolution is a hash
+    /// lookup keyed on the name, so it is independent of both how many fields
+    /// an entry has and how many entries there are. What the data costs is
+    /// parsing, once, at first access. This test prints all three so the
+    /// trade-off is a measurement rather than an argument.
+    #[test]
+    fn parsing_is_where_the_catalogue_costs_anything() {
+        let started = Instant::now();
+        let poe1 = Catalog::from_json(Game::Poe1, POE1_CATALOG_JSON).expect("poe1");
+        let poe1_parse = started.elapsed();
+        let started = Instant::now();
+        let poe2 = Catalog::from_json(Game::Poe2, POE2_CATALOG_JSON).expect("poe2");
+        let poe2_parse = started.elapsed();
+
+        // A name lookup, which is what a frame actually does.
+        let started = Instant::now();
+        let rounds = 100_000;
+        let mut hits = 0usize;
+        for _ in 0..rounds {
+            if poe1.by_name_zh_tw("混沌石").is_some() {
+                hits += 1;
+            }
+        }
+        let per_lookup = started.elapsed() / rounds;
+        assert_eq!(hits, rounds as usize);
+
+        println!(
+            "poe1 parse {poe1_parse:?} ({} entries)  poe2 parse {poe2_parse:?} ({} entries)  \
+             lookup {per_lookup:?}",
+            poe1.len(),
+            poe2.len()
+        );
+        // Parsing happens once per process, behind a OnceLock. A tenth of a
+        // second would still be invisible; anything past that is a real
+        // startup cost worth trimming.
+        assert!(
+            poe1_parse + poe2_parse < std::time::Duration::from_millis(100),
+            "parsing both catalogues costs {:?}",
+            poe1_parse + poe2_parse
+        );
+        // The per-frame path. If this ever stops being sub-microsecond,
+        // matching has quietly become something other than a hash lookup.
+        assert!(
+            per_lookup < std::time::Duration::from_micros(1),
+            "a name lookup costs {per_lookup:?}"
+        );
     }
 }

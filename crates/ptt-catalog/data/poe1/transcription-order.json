@@ -1,0 +1,5237 @@
+[
+  {
+    "id": "allflame-ember-of-kulemak",
+    "in_game_category": "allflame",
+    "trade_list_order": 10
+  },
+  {
+    "id": "allflame-ember-of-resplendence",
+    "in_game_category": "allflame",
+    "trade_list_order": 20
+  },
+  {
+    "id": "allflame-ember-of-propagation",
+    "in_game_category": "allflame",
+    "trade_list_order": 30
+  },
+  {
+    "id": "allflame-ember-of-flesh",
+    "in_game_category": "allflame",
+    "trade_list_order": 40
+  },
+  {
+    "id": "allflame-ember-of-the-wildwood",
+    "in_game_category": "allflame",
+    "trade_list_order": 50
+  },
+  {
+    "id": "allflame-ember-of-the-ethereal",
+    "in_game_category": "allflame",
+    "trade_list_order": 60
+  },
+  {
+    "id": "allflame-ember-of-the-gilded",
+    "in_game_category": "allflame",
+    "trade_list_order": 70
+  },
+  {
+    "id": "allflame-ember-of-toads",
+    "in_game_category": "allflame",
+    "trade_list_order": 80
+  },
+  {
+    "id": "dead-man-s-sulphur",
+    "in_game_category": "allflame",
+    "trade_list_order": 90
+  },
+  {
+    "id": "message-in-a-bottle",
+    "in_game_category": "allflame",
+    "trade_list_order": 100
+  },
+  {
+    "id": "merrick-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 110
+  },
+  {
+    "id": "cyaxan-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 120
+  },
+  {
+    "id": "the-genteel-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 130
+  },
+  {
+    "id": "kishara-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 140
+  },
+  {
+    "id": "telesia-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 150
+  },
+  {
+    "id": "tzamoto-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 160
+  },
+  {
+    "id": "the-changeling-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 170
+  },
+  {
+    "id": "rotmother-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 180
+  },
+  {
+    "id": "brinehook-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 190
+  },
+  {
+    "id": "katakohi-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 200
+  },
+  {
+    "id": "ukatoa-s-ducat",
+    "in_game_category": "allflame",
+    "trade_list_order": 210
+  },
+  {
+    "id": "intrinsic-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 210
+  },
+  {
+    "id": "turbulent-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 220
+  },
+  {
+    "id": "imbued-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 230
+  },
+  {
+    "id": "abrasive-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 240
+  },
+  {
+    "id": "noxious-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 250
+  },
+  {
+    "id": "tempering-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 260
+  },
+  {
+    "id": "fertile-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 270
+  },
+  {
+    "id": "prismatic-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 280
+  },
+  {
+    "id": "accelerating-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 290
+  },
+  {
+    "id": "unstable-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 300
+  },
+  {
+    "id": "tainted-catalyst",
+    "in_game_category": "catalysts",
+    "trade_list_order": 310
+  },
+  {
+    "id": "rogue-s-marker",
+    "in_game_category": "currency",
+    "trade_list_order": 320
+  },
+  {
+    "id": "scroll-of-wisdom",
+    "in_game_category": "currency",
+    "trade_list_order": 330
+  },
+  {
+    "id": "portal-scroll",
+    "in_game_category": "currency",
+    "trade_list_order": 340
+  },
+  {
+    "id": "orb-of-transmutation",
+    "in_game_category": "currency",
+    "trade_list_order": 350
+  },
+  {
+    "id": "orb-of-augmentation",
+    "in_game_category": "currency",
+    "trade_list_order": 360
+  },
+  {
+    "id": "orb-of-chance",
+    "in_game_category": "currency",
+    "trade_list_order": 370
+  },
+  {
+    "id": "orb-of-alteration",
+    "in_game_category": "currency",
+    "trade_list_order": 380
+  },
+  {
+    "id": "chromatic-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 390
+  },
+  {
+    "id": "jeweller-s-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 400
+  },
+  {
+    "id": "orb-of-fusing",
+    "in_game_category": "currency",
+    "trade_list_order": 410
+  },
+  {
+    "id": "orb-of-alchemy",
+    "in_game_category": "currency",
+    "trade_list_order": 420
+  },
+  {
+    "id": "chaos-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 430
+  },
+  {
+    "id": "orb-of-scouring",
+    "in_game_category": "currency",
+    "trade_list_order": 440
+  },
+  {
+    "id": "orb-of-regret",
+    "in_game_category": "currency",
+    "trade_list_order": 450
+  },
+  {
+    "id": "vaal-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 460
+  },
+  {
+    "id": "orb-of-binding",
+    "in_game_category": "currency",
+    "trade_list_order": 470
+  },
+  {
+    "id": "instilling-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 480
+  },
+  {
+    "id": "orb-of-unmaking",
+    "in_game_category": "currency",
+    "trade_list_order": 490
+  },
+  {
+    "id": "blessed-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 500
+  },
+  {
+    "id": "enkindling-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 510
+  },
+  {
+    "id": "regal-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 520
+  },
+  {
+    "id": "divine-vessel",
+    "in_game_category": "currency",
+    "trade_list_order": 530
+  },
+  {
+    "id": "exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 540
+  },
+  {
+    "id": "ancient-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 550
+  },
+  {
+    "id": "stacked-deck",
+    "in_game_category": "currency",
+    "trade_list_order": 560
+  },
+  {
+    "id": "valdo-s-puzzle-box",
+    "in_game_category": "currency",
+    "trade_list_order": 570
+  },
+  {
+    "id": "divine-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 580
+  },
+  {
+    "id": "orb-of-annulment",
+    "in_game_category": "currency",
+    "trade_list_order": 590
+  },
+  {
+    "id": "voidborn-reliquary-key",
+    "in_game_category": "currency",
+    "trade_list_order": 600
+  },
+  {
+    "id": "reflecting-mist",
+    "in_game_category": "currency",
+    "trade_list_order": 610
+  },
+  {
+    "id": "tempering-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 620
+  },
+  {
+    "id": "tailoring-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 630
+  },
+  {
+    "id": "fracturing-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 640
+  },
+  {
+    "id": "veiled-chaos-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 650
+  },
+  {
+    "id": "veiled-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 660
+  },
+  {
+    "id": "sacred-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 670
+  },
+  {
+    "id": "hinekora-s-lock",
+    "in_game_category": "currency",
+    "trade_list_order": 680
+  },
+  {
+    "id": "mirror-of-kalandra",
+    "in_game_category": "currency",
+    "trade_list_order": 690
+  },
+  {
+    "id": "eldritch-chaos-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 700
+  },
+  {
+    "id": "eldritch-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 710
+  },
+  {
+    "id": "eldritch-orb-of-annulment",
+    "in_game_category": "currency",
+    "trade_list_order": 720
+  },
+  {
+    "id": "lesser-eldritch-ember",
+    "in_game_category": "currency",
+    "trade_list_order": 730
+  },
+  {
+    "id": "lesser-eldritch-ichor",
+    "in_game_category": "currency",
+    "trade_list_order": 740
+  },
+  {
+    "id": "greater-eldritch-ember",
+    "in_game_category": "currency",
+    "trade_list_order": 750
+  },
+  {
+    "id": "greater-eldritch-ichor",
+    "in_game_category": "currency",
+    "trade_list_order": 760
+  },
+  {
+    "id": "grand-eldritch-ember",
+    "in_game_category": "currency",
+    "trade_list_order": 770
+  },
+  {
+    "id": "grand-eldritch-ichor",
+    "in_game_category": "currency",
+    "trade_list_order": 780
+  },
+  {
+    "id": "exceptional-eldritch-ember",
+    "in_game_category": "currency",
+    "trade_list_order": 790
+  },
+  {
+    "id": "exceptional-eldritch-ichor",
+    "in_game_category": "currency",
+    "trade_list_order": 800
+  },
+  {
+    "id": "orb-of-conflict",
+    "in_game_category": "currency",
+    "trade_list_order": 810
+  },
+  {
+    "id": "transmutation-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 820
+  },
+  {
+    "id": "alteration-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 830
+  },
+  {
+    "id": "alchemy-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 840
+  },
+  {
+    "id": "chaos-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 850
+  },
+  {
+    "id": "regal-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 860
+  },
+  {
+    "id": "exalted-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 870
+  },
+  {
+    "id": "annulment-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 880
+  },
+  {
+    "id": "fracturing-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 890
+  },
+  {
+    "id": "mirror-shard",
+    "in_game_category": "currency",
+    "trade_list_order": 900
+  },
+  {
+    "id": "armourer-s-scrap",
+    "in_game_category": "currency",
+    "trade_list_order": 910
+  },
+  {
+    "id": "blacksmith-s-whetstone",
+    "in_game_category": "currency",
+    "trade_list_order": 920
+  },
+  {
+    "id": "glassblower-s-bauble",
+    "in_game_category": "currency",
+    "trade_list_order": 930
+  },
+  {
+    "id": "gemcutter-s-prism",
+    "in_game_category": "currency",
+    "trade_list_order": 940
+  },
+  {
+    "id": "maven-s-chisel-of-procurement",
+    "in_game_category": "currency",
+    "trade_list_order": 950
+  },
+  {
+    "id": "maven-s-chisel-of-proliferation",
+    "in_game_category": "currency",
+    "trade_list_order": 960
+  },
+  {
+    "id": "maven-s-chisel-of-avarice",
+    "in_game_category": "currency",
+    "trade_list_order": 970
+  },
+  {
+    "id": "maven-s-chisel-of-divination",
+    "in_game_category": "currency",
+    "trade_list_order": 980
+  },
+  {
+    "id": "maven-s-chisel-of-scarabs",
+    "in_game_category": "currency",
+    "trade_list_order": 990
+  },
+  {
+    "id": "shaper-s-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1000
+  },
+  {
+    "id": "elder-s-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1010
+  },
+  {
+    "id": "crusader-s-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1020
+  },
+  {
+    "id": "redeemer-s-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1030
+  },
+  {
+    "id": "hunter-s-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1040
+  },
+  {
+    "id": "warlord-s-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1050
+  },
+  {
+    "id": "awakener-s-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1060
+  },
+  {
+    "id": "orb-of-dominance",
+    "in_game_category": "currency",
+    "trade_list_order": 1070
+  },
+  {
+    "id": "orb-of-remembrance",
+    "in_game_category": "currency",
+    "trade_list_order": 1080
+  },
+  {
+    "id": "orb-of-unravelling",
+    "in_game_category": "currency",
+    "trade_list_order": 1090
+  },
+  {
+    "id": "orb-of-intention",
+    "in_game_category": "currency",
+    "trade_list_order": 1100
+  },
+  {
+    "id": "tainted-chromatic-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1110
+  },
+  {
+    "id": "tainted-jeweller-s-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1120
+  },
+  {
+    "id": "tainted-armourer-s-scrap",
+    "in_game_category": "currency",
+    "trade_list_order": 1130
+  },
+  {
+    "id": "tainted-blacksmith-s-whetstone",
+    "in_game_category": "currency",
+    "trade_list_order": 1140
+  },
+  {
+    "id": "tainted-orb-of-fusing",
+    "in_game_category": "currency",
+    "trade_list_order": 1150
+  },
+  {
+    "id": "tainted-mythic-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1160
+  },
+  {
+    "id": "tainted-chaos-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1170
+  },
+  {
+    "id": "tainted-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1180
+  },
+  {
+    "id": "tainted-divine-teardrop",
+    "in_game_category": "currency",
+    "trade_list_order": 1190
+  },
+  {
+    "id": "volatile-vaal-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1200
+  },
+  {
+    "id": "templar-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1210
+  },
+  {
+    "id": "fruiting-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1220
+  },
+  {
+    "id": "lightless-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1230
+  },
+  {
+    "id": "grasping-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1240
+  },
+  {
+    "id": "nameless-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1250
+  },
+  {
+    "id": "fungal-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1260
+  },
+  {
+    "id": "chaotic-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1270
+  },
+  {
+    "id": "deceptive-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1280
+  },
+  {
+    "id": "timeless-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1290
+  },
+  {
+    "id": "runic-astrolabe",
+    "in_game_category": "currency",
+    "trade_list_order": 1300
+  },
+  {
+    "id": "memory-of-trauma",
+    "in_game_category": "currency",
+    "trade_list_order": 1310
+  },
+  {
+    "id": "memory-of-reverence",
+    "in_game_category": "currency",
+    "trade_list_order": 1320
+  },
+  {
+    "id": "memory-of-loneliness",
+    "in_game_category": "currency",
+    "trade_list_order": 1330
+  },
+  {
+    "id": "foulborn-orb-of-augmentation",
+    "in_game_category": "currency",
+    "trade_list_order": 1340
+  },
+  {
+    "id": "foulborn-regal-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1350
+  },
+  {
+    "id": "foulborn-exalted-orb",
+    "in_game_category": "currency",
+    "trade_list_order": 1360
+  },
+  {
+    "id": "flesh-of-xesht",
+    "in_game_category": "currency",
+    "trade_list_order": 1370
+  },
+  {
+    "id": "delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1380
+  },
+  {
+    "id": "blacksmith-s-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1390
+  },
+  {
+    "id": "armoursmith-s-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1400
+  },
+  {
+    "id": "jeweller-s-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1410
+  },
+  {
+    "id": "fine-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1420
+  },
+  {
+    "id": "diviner-s-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1430
+  },
+  {
+    "id": "cartographer-s-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1440
+  },
+  {
+    "id": "whispering-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1450
+  },
+  {
+    "id": "singular-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1460
+  },
+  {
+    "id": "thaumaturge-s-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1470
+  },
+  {
+    "id": "obscured-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1480
+  },
+  {
+    "id": "fragmented-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1490
+  },
+  {
+    "id": "blighted-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1500
+  },
+  {
+    "id": "skittering-delirium-orb",
+    "in_game_category": "delirium",
+    "trade_list_order": 1510
+  },
+  {
+    "id": "simulacrum",
+    "in_game_category": "delirium",
+    "trade_list_order": 1520
+  },
+  {
+    "id": "simulacrum-splinter",
+    "in_game_category": "delirium",
+    "trade_list_order": 1530
+  },
+  {
+    "id": "primitive-chaotic-resonator",
+    "in_game_category": "delve",
+    "trade_list_order": 1540
+  },
+  {
+    "id": "potent-chaotic-resonator",
+    "in_game_category": "delve",
+    "trade_list_order": 1550
+  },
+  {
+    "id": "powerful-chaotic-resonator",
+    "in_game_category": "delve",
+    "trade_list_order": 1560
+  },
+  {
+    "id": "prime-chaotic-resonator",
+    "in_game_category": "delve",
+    "trade_list_order": 1570
+  },
+  {
+    "id": "scorched-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1580
+  },
+  {
+    "id": "frigid-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1590
+  },
+  {
+    "id": "metallic-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1600
+  },
+  {
+    "id": "jagged-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1610
+  },
+  {
+    "id": "aberrant-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1620
+  },
+  {
+    "id": "pristine-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1630
+  },
+  {
+    "id": "dense-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1640
+  },
+  {
+    "id": "corroded-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1650
+  },
+  {
+    "id": "prismatic-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1660
+  },
+  {
+    "id": "aetheric-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1670
+  },
+  {
+    "id": "serrated-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1680
+  },
+  {
+    "id": "bound-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1690
+  },
+  {
+    "id": "opulent-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1700
+  },
+  {
+    "id": "deft-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1710
+  },
+  {
+    "id": "lucent-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1720
+  },
+  {
+    "id": "shuddering-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1730
+  },
+  {
+    "id": "fundamental-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1740
+  },
+  {
+    "id": "sanctified-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1750
+  },
+  {
+    "id": "gilded-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1760
+  },
+  {
+    "id": "faceted-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1770
+  },
+  {
+    "id": "bloodstained-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1780
+  },
+  {
+    "id": "hollow-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1790
+  },
+  {
+    "id": "fractured-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1800
+  },
+  {
+    "id": "glyphic-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1810
+  },
+  {
+    "id": "tangled-fossil",
+    "in_game_category": "delve",
+    "trade_list_order": 1820
+  },
+  {
+    "id": "a-dab-of-ink",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1830
+  },
+  {
+    "id": "akil-s-prophecy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1840
+  },
+  {
+    "id": "alivia-s-grace",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1850
+  },
+  {
+    "id": "anarchy-s-price",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1860
+  },
+  {
+    "id": "a-note-in-the-wind",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1870
+  },
+  {
+    "id": "assassin-s-favour",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1880
+  },
+  {
+    "id": "assassin-s-gift",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1890
+  },
+  {
+    "id": "astral-protection",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1900
+  },
+  {
+    "id": "atziri-s-arsenal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1910
+  },
+  {
+    "id": "audacity",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1920
+  },
+  {
+    "id": "beauty-through-death",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1930
+  },
+  {
+    "id": "bowyer-s-dream",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1940
+  },
+  {
+    "id": "broken-truce",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1950
+  },
+  {
+    "id": "cursed-words",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1960
+  },
+  {
+    "id": "dark-dreams",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1970
+  },
+  {
+    "id": "dark-temptation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1980
+  },
+  {
+    "id": "death",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 1990
+  },
+  {
+    "id": "desperate-crusade",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2000
+  },
+  {
+    "id": "destined-to-crumble",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2010
+  },
+  {
+    "id": "draped-in-dreams",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2020
+  },
+  {
+    "id": "duality",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2030
+  },
+  {
+    "id": "emperor-of-purity",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2040
+  },
+  {
+    "id": "endless-night",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2050
+  },
+  {
+    "id": "energy-sword",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2060
+  },
+  {
+    "id": "etched-in-blood",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2070
+  },
+  {
+    "id": "forbidden-power",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2080
+  },
+  {
+    "id": "from-bone-to-ashes",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2090
+  },
+  {
+    "id": "further-invention",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2100
+  },
+  {
+    "id": "gift-of-asenath",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2110
+  },
+  {
+    "id": "humility",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2120
+  },
+  {
+    "id": "hunter-s-resolve",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2130
+  },
+  {
+    "id": "immortal-resolve",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2140
+  },
+  {
+    "id": "imperial-legacy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2150
+  },
+  {
+    "id": "judging-voices",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2160
+  },
+  {
+    "id": "keeper-s-corruption",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2170
+  },
+  {
+    "id": "last-stand",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2180
+  },
+  {
+    "id": "lethean-temptation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2190
+  },
+  {
+    "id": "light-and-truth",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2200
+  },
+  {
+    "id": "lucky-bastion",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2210
+  },
+  {
+    "id": "merciless-armament",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2220
+  },
+  {
+    "id": "might-is-right",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2230
+  },
+  {
+    "id": "misery-in-darkness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2240
+  },
+  {
+    "id": "mitts",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2250
+  },
+  {
+    "id": "nook-s-crown",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2260
+  },
+  {
+    "id": "poisoned-faith",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2270
+  },
+  {
+    "id": "pride-before-the-fall",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2280
+  },
+  {
+    "id": "pride-of-the-first-ones",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2290
+  },
+  {
+    "id": "prometheus",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2300
+  },
+  {
+    "id": "rats",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2310
+  },
+  {
+    "id": "rebirth",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2320
+  },
+  {
+    "id": "reckless-ambition",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2330
+  },
+  {
+    "id": "sambodhi-s-wisdom",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2340
+  },
+  {
+    "id": "the-adventuring-spirit",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2350
+  },
+  {
+    "id": "the-archmage-s-right-hand",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2360
+  },
+  {
+    "id": "the-army-of-blood",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2370
+  },
+  {
+    "id": "the-astromancer",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2380
+  },
+  {
+    "id": "the-avenger",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2390
+  },
+  {
+    "id": "the-battle-born",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2400
+  },
+  {
+    "id": "the-bear-woman",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2410
+  },
+  {
+    "id": "the-beast",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2420
+  },
+  {
+    "id": "the-betrayal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2430
+  },
+  {
+    "id": "the-blazing-fire",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2440
+  },
+  {
+    "id": "the-body",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2450
+  },
+  {
+    "id": "the-brawny-battle-mage",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2460
+  },
+  {
+    "id": "the-carrion-crow",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2470
+  },
+  {
+    "id": "the-catch",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2480
+  },
+  {
+    "id": "the-celestial-justicar",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2490
+  },
+  {
+    "id": "the-chains-that-bind",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2500
+  },
+  {
+    "id": "the-chosen",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2510
+  },
+  {
+    "id": "the-coming-storm",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2520
+  },
+  {
+    "id": "the-conduit",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2530
+  },
+  {
+    "id": "the-dapper-prodigy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2540
+  },
+  {
+    "id": "the-darkest-dream",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2550
+  },
+  {
+    "id": "the-dark-mage",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2560
+  },
+  {
+    "id": "the-deep-ones",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2570
+  },
+  {
+    "id": "the-demoness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2580
+  },
+  {
+    "id": "the-endless-darkness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2590
+  },
+  {
+    "id": "the-enforcer",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2600
+  },
+  {
+    "id": "the-enthusiasts",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2610
+  },
+  {
+    "id": "the-escape",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2620
+  },
+  {
+    "id": "the-ethereal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2630
+  },
+  {
+    "id": "the-fathomless-depths",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2640
+  },
+  {
+    "id": "the-fletcher",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2650
+  },
+  {
+    "id": "the-flora-s-gift",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2660
+  },
+  {
+    "id": "the-formless-sea",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2670
+  },
+  {
+    "id": "the-fox-in-the-brambles",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2680
+  },
+  {
+    "id": "the-gentleman",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2690
+  },
+  {
+    "id": "the-gladiator",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2700
+  },
+  {
+    "id": "the-golden-era",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2710
+  },
+  {
+    "id": "the-greatest-intentions",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2720
+  },
+  {
+    "id": "the-harvester",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2730
+  },
+  {
+    "id": "the-hermit",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2740
+  },
+  {
+    "id": "the-hive-of-knowledge",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2750
+  },
+  {
+    "id": "the-incantation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2760
+  },
+  {
+    "id": "the-inoculated",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2770
+  },
+  {
+    "id": "the-insane-cat",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2780
+  },
+  {
+    "id": "the-insatiable",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2790
+  },
+  {
+    "id": "the-jester",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2800
+  },
+  {
+    "id": "the-jeweller-s-boon",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2810
+  },
+  {
+    "id": "the-journalist",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2820
+  },
+  {
+    "id": "the-king-s-blade",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2830
+  },
+  {
+    "id": "the-king-s-heart",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2840
+  },
+  {
+    "id": "the-last-one-standing",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2850
+  },
+  {
+    "id": "the-last-supper",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2860
+  },
+  {
+    "id": "the-lich",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2870
+  },
+  {
+    "id": "the-long-watch",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2880
+  },
+  {
+    "id": "the-lord-of-celebration",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2890
+  },
+  {
+    "id": "the-lunaris-priestess",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2900
+  },
+  {
+    "id": "the-mercenary",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2910
+  },
+  {
+    "id": "the-oath",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2920
+  },
+  {
+    "id": "the-offering",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2930
+  },
+  {
+    "id": "the-old-man",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2940
+  },
+  {
+    "id": "the-pack-leader",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2950
+  },
+  {
+    "id": "the-pact",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2960
+  },
+  {
+    "id": "the-poet",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2970
+  },
+  {
+    "id": "the-porcupine",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2980
+  },
+  {
+    "id": "the-price-of-loyalty",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 2990
+  },
+  {
+    "id": "the-queen",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3000
+  },
+  {
+    "id": "the-rabid-rhoa",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3010
+  },
+  {
+    "id": "the-road-to-power",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3020
+  },
+  {
+    "id": "the-sacrifice",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3030
+  },
+  {
+    "id": "the-scarred-meadow",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3040
+  },
+  {
+    "id": "the-scavenger",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3050
+  },
+  {
+    "id": "the-shepherd-s-sandals",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3060
+  },
+  {
+    "id": "the-shieldbearer",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3070
+  },
+  {
+    "id": "the-siren",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3080
+  },
+  {
+    "id": "the-soul",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3090
+  },
+  {
+    "id": "the-spoiled-prince",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3100
+  },
+  {
+    "id": "the-stormcaller",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3110
+  },
+  {
+    "id": "the-sun",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3120
+  },
+  {
+    "id": "the-throne",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3130
+  },
+  {
+    "id": "the-tower",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3140
+  },
+  {
+    "id": "the-traitor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3150
+  },
+  {
+    "id": "the-twins",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3160
+  },
+  {
+    "id": "the-tyrant",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3170
+  },
+  {
+    "id": "the-undisputed",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3175
+  },
+  {
+    "id": "the-vast",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3177
+  },
+  {
+    "id": "the-visionary",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3178
+  },
+  {
+    "id": "the-warlord",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3180
+  },
+  {
+    "id": "the-watcher",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3190
+  },
+  {
+    "id": "the-web",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3200
+  },
+  {
+    "id": "the-wedding-gift",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3210
+  },
+  {
+    "id": "the-white-knight",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3220
+  },
+  {
+    "id": "the-whiteout",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3230
+  },
+  {
+    "id": "the-wind",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3240
+  },
+  {
+    "id": "the-wolf-s-shadow",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3250
+  },
+  {
+    "id": "the-wolven-king-s-bite",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3260
+  },
+  {
+    "id": "the-wolverine",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3270
+  },
+  {
+    "id": "the-world-eater",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3280
+  },
+  {
+    "id": "thunderous-skies",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3290
+  },
+  {
+    "id": "toxic-tidings",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3300
+  },
+  {
+    "id": "tranquillity",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3310
+  },
+  {
+    "id": "unchained",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3320
+  },
+  {
+    "id": "vanity",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3330
+  },
+  {
+    "id": "vile-power",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3340
+  },
+  {
+    "id": "who-asked",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3350
+  },
+  {
+    "id": "a-familiar-call",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3360
+  },
+  {
+    "id": "a-modest-request",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3370
+  },
+  {
+    "id": "a-mother-s-parting-gift",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3380
+  },
+  {
+    "id": "apocalypse",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3390
+  },
+  {
+    "id": "a-stone-perfected",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3400
+  },
+  {
+    "id": "azyran-s-reward",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3410
+  },
+  {
+    "id": "bijoux",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3420
+  },
+  {
+    "id": "blind-venture",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3430
+  },
+  {
+    "id": "broken-promises",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3440
+  },
+  {
+    "id": "brotherhood-in-exile",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3450
+  },
+  {
+    "id": "burning-blood",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3460
+  },
+  {
+    "id": "call-to-the-first-ones",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3470
+  },
+  {
+    "id": "choking-guilt",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3480
+  },
+  {
+    "id": "deadly-joy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3490
+  },
+  {
+    "id": "divine-justice",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3500
+  },
+  {
+    "id": "dying-light",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3510
+  },
+  {
+    "id": "father-s-love",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3520
+  },
+  {
+    "id": "fire-of-unknown-origin",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3530
+  },
+  {
+    "id": "friendship",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3540
+  },
+  {
+    "id": "glimmer-of-hope",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3550
+  },
+  {
+    "id": "heterochromia",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3560
+  },
+  {
+    "id": "hope",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3570
+  },
+  {
+    "id": "hubris",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3580
+  },
+  {
+    "id": "hunter-s-reward",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3590
+  },
+  {
+    "id": "imperfect-memories",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3600
+  },
+  {
+    "id": "lachrymal-necrosis",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3610
+  },
+  {
+    "id": "lantador-s-lost-love",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3620
+  },
+  {
+    "id": "lonely-warrior",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3630
+  },
+  {
+    "id": "love-through-ice",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3640
+  },
+  {
+    "id": "luminous-trove",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3650
+  },
+  {
+    "id": "lysah-s-respite",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3660
+  },
+  {
+    "id": "matryoshka",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3670
+  },
+  {
+    "id": "mawr-blaidd",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3680
+  },
+  {
+    "id": "one-last-score",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3690
+  },
+  {
+    "id": "peaceful-moments",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3700
+  },
+  {
+    "id": "perfection",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3710
+  },
+  {
+    "id": "prosperity",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3720
+  },
+  {
+    "id": "reflection-of-the-heart",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3730
+  },
+  {
+    "id": "remembrance",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3740
+  },
+  {
+    "id": "shard-of-fate",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3750
+  },
+  {
+    "id": "silence-and-frost",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3760
+  },
+  {
+    "id": "squandered-prosperity",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3770
+  },
+  {
+    "id": "struck-by-lightning",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3780
+  },
+  {
+    "id": "the-academic",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3790
+  },
+  {
+    "id": "the-apothecary",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3800
+  },
+  {
+    "id": "the-awakened",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3810
+  },
+  {
+    "id": "the-brittle-emperor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3820
+  },
+  {
+    "id": "the-cache",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3830
+  },
+  {
+    "id": "the-celestial-stone",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3840
+  },
+  {
+    "id": "the-craving",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3850
+  },
+  {
+    "id": "the-cursed-king",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3860
+  },
+  {
+    "id": "the-deceiver",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3870
+  },
+  {
+    "id": "the-demon",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3880
+  },
+  {
+    "id": "the-destination",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3890
+  },
+  {
+    "id": "the-doctor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3900
+  },
+  {
+    "id": "the-dungeon-master",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3910
+  },
+  {
+    "id": "the-endurance",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3920
+  },
+  {
+    "id": "the-eternal-war",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3930
+  },
+  {
+    "id": "the-eye-of-the-dragon",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3940
+  },
+  {
+    "id": "the-feast",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3950
+  },
+  {
+    "id": "the-fiend",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3960
+  },
+  {
+    "id": "the-forgotten-treasure",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3970
+  },
+  {
+    "id": "the-forsaken",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3980
+  },
+  {
+    "id": "the-garish-power",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 3990
+  },
+  {
+    "id": "the-gulf",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4000
+  },
+  {
+    "id": "the-last-laugh",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4010
+  },
+  {
+    "id": "the-life-thief",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4020
+  },
+  {
+    "id": "the-lord-in-black",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4030
+  },
+  {
+    "id": "the-lover",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4040
+  },
+  {
+    "id": "the-mayor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4050
+  },
+  {
+    "id": "the-metalsmith-s-gift",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4060
+  },
+  {
+    "id": "the-mind-s-eyes",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4070
+  },
+  {
+    "id": "the-mountain",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4080
+  },
+  {
+    "id": "the-offspring",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4090
+  },
+  {
+    "id": "the-one-that-got-away",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4100
+  },
+  {
+    "id": "the-one-with-all",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4110
+  },
+  {
+    "id": "the-opulent",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4120
+  },
+  {
+    "id": "the-penitent",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4130
+  },
+  {
+    "id": "the-polymath",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4140
+  },
+  {
+    "id": "the-price-of-devotion",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4150
+  },
+  {
+    "id": "the-primordial",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4160
+  },
+  {
+    "id": "the-prince-of-darkness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4170
+  },
+  {
+    "id": "the-return-of-the-rat",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4180
+  },
+  {
+    "id": "the-risk",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4190
+  },
+  {
+    "id": "the-ruthless-ceinture",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4200
+  },
+  {
+    "id": "the-samurai-s-eye",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4210
+  },
+  {
+    "id": "the-sigil",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4220
+  },
+  {
+    "id": "the-spark-and-the-flame",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4230
+  },
+  {
+    "id": "the-standoff",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4240
+  },
+  {
+    "id": "the-strategist",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4250
+  },
+  {
+    "id": "the-sword-king-s-salute",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4260
+  },
+  {
+    "id": "the-thaumaturgist",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4270
+  },
+  {
+    "id": "the-tumbleweed",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4280
+  },
+  {
+    "id": "the-unexpected-prize",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4290
+  },
+  {
+    "id": "the-warden",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4300
+  },
+  {
+    "id": "the-wretched",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4310
+  },
+  {
+    "id": "thirst-for-knowledge",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4320
+  },
+  {
+    "id": "turn-the-other-cheek",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4330
+  },
+  {
+    "id": "void-of-the-elements",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4340
+  },
+  {
+    "id": "when-currents-blaze",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4350
+  },
+  {
+    "id": "winter-s-embrace",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4360
+  },
+  {
+    "id": "abandoned-wealth",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4370
+  },
+  {
+    "id": "acclimatisation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4380
+  },
+  {
+    "id": "alluring-bounty",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4390
+  },
+  {
+    "id": "ambitious-obsession",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4400
+  },
+  {
+    "id": "a-sea-of-blue",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4410
+  },
+  {
+    "id": "brother-s-gift",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4420
+  },
+  {
+    "id": "brother-s-stash",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4430
+  },
+  {
+    "id": "cartographer-s-delight",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4440
+  },
+  {
+    "id": "chaotic-disposition",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4450
+  },
+  {
+    "id": "checkmate",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4460
+  },
+  {
+    "id": "coveted-possession",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4470
+  },
+  {
+    "id": "darker-half",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4480
+  },
+  {
+    "id": "dementophobia",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4490
+  },
+  {
+    "id": "demigod-s-wager",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4500
+  },
+  {
+    "id": "disdain",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4510
+  },
+  {
+    "id": "divine-beauty",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4520
+  },
+  {
+    "id": "echoes-of-love",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4530
+  },
+  {
+    "id": "emperor-s-luck",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4540
+  },
+  {
+    "id": "ever-changing",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4550
+  },
+  {
+    "id": "harmony-of-souls",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4560
+  },
+  {
+    "id": "history",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4570
+  },
+  {
+    "id": "house-of-mirrors",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4580
+  },
+  {
+    "id": "i-see-brothers",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4590
+  },
+  {
+    "id": "loyalty",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4600
+  },
+  {
+    "id": "lucky-connections",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4610
+  },
+  {
+    "id": "lucky-deck",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4620
+  },
+  {
+    "id": "monochrome",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4630
+  },
+  {
+    "id": "no-traces",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4640
+  },
+  {
+    "id": "outfoxed",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4650
+  },
+  {
+    "id": "parasitic-passengers",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4660
+  },
+  {
+    "id": "rain-of-chaos",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4670
+  },
+  {
+    "id": "runic-luck",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4680
+  },
+  {
+    "id": "seven-years-bad-luck",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4690
+  },
+  {
+    "id": "society-s-remorse",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4700
+  },
+  {
+    "id": "the-cacophony",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4710
+  },
+  {
+    "id": "the-catalyst",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4720
+  },
+  {
+    "id": "the-finishing-touch",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4730
+  },
+  {
+    "id": "the-fishmonger",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4740
+  },
+  {
+    "id": "the-fool",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4750
+  },
+  {
+    "id": "the-fortunate",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4760
+  },
+  {
+    "id": "the-gemcutter",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4770
+  },
+  {
+    "id": "the-heroic-shot",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4780
+  },
+  {
+    "id": "the-hoarder",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4790
+  },
+  {
+    "id": "the-innocent",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4800
+  },
+  {
+    "id": "the-inventor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4810
+  },
+  {
+    "id": "the-rusted-bard",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4820
+  },
+  {
+    "id": "the-journey",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4830
+  },
+  {
+    "id": "the-lake",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4840
+  },
+  {
+    "id": "the-long-con",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4850
+  },
+  {
+    "id": "the-master-artisan",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4860
+  },
+  {
+    "id": "the-rabbit-s-foot",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4870
+  },
+  {
+    "id": "the-saint-s-treasure",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4880
+  },
+  {
+    "id": "the-scholar",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4890
+  },
+  {
+    "id": "the-scout",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4900
+  },
+  {
+    "id": "the-seeker",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4910
+  },
+  {
+    "id": "the-sephirot",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4920
+  },
+  {
+    "id": "the-side-quest",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4930
+  },
+  {
+    "id": "the-slumbering-beast",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4940
+  },
+  {
+    "id": "the-survivalist",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4950
+  },
+  {
+    "id": "the-tinkerer-s-table",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4960
+  },
+  {
+    "id": "the-tireless-extractor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4970
+  },
+  {
+    "id": "the-transformation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4980
+  },
+  {
+    "id": "the-union",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 4990
+  },
+  {
+    "id": "the-wrath",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5000
+  },
+  {
+    "id": "three-faces-in-the-dark",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5010
+  },
+  {
+    "id": "three-voices",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5020
+  },
+  {
+    "id": "underground-forest",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5030
+  },
+  {
+    "id": "unrequited-love",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5040
+  },
+  {
+    "id": "vinia-s-token",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5050
+  },
+  {
+    "id": "a-chilling-wind",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5060
+  },
+  {
+    "id": "bound-by-flame",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5070
+  },
+  {
+    "id": "deathly-designs",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5080
+  },
+  {
+    "id": "desecrated-virtue",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5090
+  },
+  {
+    "id": "dialla-s-subjugation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5100
+  },
+  {
+    "id": "doryani-s-epiphany",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5110
+  },
+  {
+    "id": "dying-anguish",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5120
+  },
+  {
+    "id": "gemcutter-s-mercy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5130
+  },
+  {
+    "id": "gemcutter-s-promise",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5140
+  },
+  {
+    "id": "gift-of-the-gemling-queen",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5150
+  },
+  {
+    "id": "grave-knowledge",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5160
+  },
+  {
+    "id": "home",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5170
+  },
+  {
+    "id": "terrible-secret-of-space",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5180
+  },
+  {
+    "id": "the-artist",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5190
+  },
+  {
+    "id": "the-bitter-blossom",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5200
+  },
+  {
+    "id": "the-blessing-of-moosh",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5210
+  },
+  {
+    "id": "the-bones",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5220
+  },
+  {
+    "id": "the-cataclysm",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5230
+  },
+  {
+    "id": "the-doppelganger",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5240
+  },
+  {
+    "id": "the-dragon-s-heart",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5250
+  },
+  {
+    "id": "the-emptiness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5260
+  },
+  {
+    "id": "the-enlightened",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5270
+  },
+  {
+    "id": "the-fox",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5280
+  },
+  {
+    "id": "the-hook",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5290
+  },
+  {
+    "id": "the-magma-crab",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5300
+  },
+  {
+    "id": "the-miracle",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5310
+  },
+  {
+    "id": "the-realm",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5320
+  },
+  {
+    "id": "the-rite-of-elements",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5330
+  },
+  {
+    "id": "the-skeleton",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5340
+  },
+  {
+    "id": "the-summoner",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5350
+  },
+  {
+    "id": "the-wilted-rose",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5360
+  },
+  {
+    "id": "volatile-power",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5370
+  },
+  {
+    "id": "wealth-and-power",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5380
+  },
+  {
+    "id": "a-fate-worse-than-death",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5390
+  },
+  {
+    "id": "altered-perception",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5400
+  },
+  {
+    "id": "avian-pursuit",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5410
+  },
+  {
+    "id": "azure-rage",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5420
+  },
+  {
+    "id": "boon-of-justice",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5430
+  },
+  {
+    "id": "boundless-realms",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5440
+  },
+  {
+    "id": "buried-treasure",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5450
+  },
+  {
+    "id": "cameria-s-cut",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5460
+  },
+  {
+    "id": "divine-shard",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5470
+  },
+  {
+    "id": "eternal-bonds",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5480
+  },
+  {
+    "id": "guardian-s-challenge",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5490
+  },
+  {
+    "id": "her-mask",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5500
+  },
+  {
+    "id": "justified-ambition",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5510
+  },
+  {
+    "id": "last-hope",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5520
+  },
+  {
+    "id": "left-to-fate",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5530
+  },
+  {
+    "id": "lingering-remnants",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5540
+  },
+  {
+    "id": "lost-worlds",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5550
+  },
+  {
+    "id": "man-with-bear",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5560
+  },
+  {
+    "id": "more-is-never-enough",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5570
+  },
+  {
+    "id": "rain-tempter",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5580
+  },
+  {
+    "id": "rebirth-and-renewal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5590
+  },
+  {
+    "id": "sambodhi-s-vow",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5600
+  },
+  {
+    "id": "scholar-of-the-seas",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5610
+  },
+  {
+    "id": "something-dark",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5620
+  },
+  {
+    "id": "the-arena-champion",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5630
+  },
+  {
+    "id": "the-card-sharp",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5640
+  },
+  {
+    "id": "the-deal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5650
+  },
+  {
+    "id": "the-dreamland",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5660
+  },
+  {
+    "id": "the-easy-stroll",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5670
+  },
+  {
+    "id": "the-eldritch-decay",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5680
+  },
+  {
+    "id": "the-encroaching-darkness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5690
+  },
+  {
+    "id": "the-explorer",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5700
+  },
+  {
+    "id": "the-eye-of-terror",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5710
+  },
+  {
+    "id": "the-forbidden-fruit",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5720
+  },
+  {
+    "id": "the-price-of-prescience",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5730
+  },
+  {
+    "id": "the-price-of-protection",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5740
+  },
+  {
+    "id": "the-professor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5750
+  },
+  {
+    "id": "the-silly-boy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5760
+  },
+  {
+    "id": "the-surveyor",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5770
+  },
+  {
+    "id": "the-trial",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5780
+  },
+  {
+    "id": "the-twilight-moon",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5790
+  },
+  {
+    "id": "the-wolf-s-legacy",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5800
+  },
+  {
+    "id": "treasure-hunter",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5810
+  },
+  {
+    "id": "triskaidekaphobia",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5820
+  },
+  {
+    "id": "earth-drinker",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5830
+  },
+  {
+    "id": "pearls-before-swine",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5840
+  },
+  {
+    "id": "succor-of-the-sinless",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5850
+  },
+  {
+    "id": "the-damned",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5860
+  },
+  {
+    "id": "the-dragon",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5870
+  },
+  {
+    "id": "the-drunken-aristocrat",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5880
+  },
+  {
+    "id": "the-hunger",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5890
+  },
+  {
+    "id": "the-progeny-of-lunaris",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5900
+  },
+  {
+    "id": "the-shortcut",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5910
+  },
+  {
+    "id": "the-surgeon",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5920
+  },
+  {
+    "id": "the-witch",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5930
+  },
+  {
+    "id": "a-dusty-memory",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5940
+  },
+  {
+    "id": "alone-in-the-darkness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5950
+  },
+  {
+    "id": "arrogance-of-the-vaal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5960
+  },
+  {
+    "id": "auspicious-ambitions",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5970
+  },
+  {
+    "id": "baited-expectations",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5980
+  },
+  {
+    "id": "boon-of-the-first-ones",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 5990
+  },
+  {
+    "id": "brush-paint-and-palette",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6000
+  },
+  {
+    "id": "chasing-risk",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6010
+  },
+  {
+    "id": "costly-curio",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6020
+  },
+  {
+    "id": "council-of-cats",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6030
+  },
+  {
+    "id": "damnation",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6040
+  },
+  {
+    "id": "doedre-s-madness",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6050
+  },
+  {
+    "id": "eldritch-perfection",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6060
+  },
+  {
+    "id": "fateful-meeting",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6070
+  },
+  {
+    "id": "haunting-shadows",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6080
+  },
+  {
+    "id": "jack-in-the-box",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6090
+  },
+  {
+    "id": "magnum-opus",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6100
+  },
+  {
+    "id": "prejudice",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6110
+  },
+  {
+    "id": "temperance",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6120
+  },
+  {
+    "id": "the-admirer",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6130
+  },
+  {
+    "id": "the-aesthete",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6140
+  },
+  {
+    "id": "the-aspirant",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6150
+  },
+  {
+    "id": "the-breach",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6160
+  },
+  {
+    "id": "the-calling",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6170
+  },
+  {
+    "id": "the-dreamer",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6180
+  },
+  {
+    "id": "the-everlasting",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6190
+  },
+  {
+    "id": "the-forward-gaze",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6200
+  },
+  {
+    "id": "the-gambler",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6210
+  },
+  {
+    "id": "the-hale-heart",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6220
+  },
+  {
+    "id": "the-immortal",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6230
+  },
+  {
+    "id": "the-leviathan",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6240
+  },
+  {
+    "id": "the-lion",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6250
+  },
+  {
+    "id": "the-mad-king",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6260
+  },
+  {
+    "id": "the-messenger",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6270
+  },
+  {
+    "id": "the-nurse",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6280
+  },
+  {
+    "id": "the-patient",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6290
+  },
+  {
+    "id": "the-undaunted",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6300
+  },
+  {
+    "id": "the-valkyrie",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6310
+  },
+  {
+    "id": "the-void",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6320
+  },
+  {
+    "id": "the-wolf",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6330
+  },
+  {
+    "id": "time-lost-relic",
+    "in_game_category": "divination-cards",
+    "trade_list_order": 6340
+  },
+  {
+    "id": "whispering-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6350
+  },
+  {
+    "id": "muttering-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6360
+  },
+  {
+    "id": "weeping-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6370
+  },
+  {
+    "id": "wailing-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6380
+  },
+  {
+    "id": "screaming-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6390
+  },
+  {
+    "id": "shrieking-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6400
+  },
+  {
+    "id": "deafening-essence-of-hatred",
+    "in_game_category": "essences",
+    "trade_list_order": 6410
+  },
+  {
+    "id": "whispering-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6420
+  },
+  {
+    "id": "muttering-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6430
+  },
+  {
+    "id": "weeping-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6440
+  },
+  {
+    "id": "wailing-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6450
+  },
+  {
+    "id": "screaming-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6460
+  },
+  {
+    "id": "shrieking-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6470
+  },
+  {
+    "id": "deafening-essence-of-woe",
+    "in_game_category": "essences",
+    "trade_list_order": 6480
+  },
+  {
+    "id": "whispering-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6490
+  },
+  {
+    "id": "muttering-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6500
+  },
+  {
+    "id": "weeping-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6510
+  },
+  {
+    "id": "wailing-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6520
+  },
+  {
+    "id": "screaming-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6530
+  },
+  {
+    "id": "shrieking-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6540
+  },
+  {
+    "id": "deafening-essence-of-greed",
+    "in_game_category": "essences",
+    "trade_list_order": 6550
+  },
+  {
+    "id": "whispering-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6560
+  },
+  {
+    "id": "muttering-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6570
+  },
+  {
+    "id": "weeping-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6580
+  },
+  {
+    "id": "wailing-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6590
+  },
+  {
+    "id": "screaming-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6600
+  },
+  {
+    "id": "shrieking-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6610
+  },
+  {
+    "id": "deafening-essence-of-contempt",
+    "in_game_category": "essences",
+    "trade_list_order": 6620
+  },
+  {
+    "id": "muttering-essence-of-sorrow",
+    "in_game_category": "essences",
+    "trade_list_order": 6630
+  },
+  {
+    "id": "weeping-essence-of-sorrow",
+    "in_game_category": "essences",
+    "trade_list_order": 6640
+  },
+  {
+    "id": "wailing-essence-of-sorrow",
+    "in_game_category": "essences",
+    "trade_list_order": 6650
+  },
+  {
+    "id": "screaming-essence-of-sorrow",
+    "in_game_category": "essences",
+    "trade_list_order": 6660
+  },
+  {
+    "id": "shrieking-essence-of-sorrow",
+    "in_game_category": "essences",
+    "trade_list_order": 6670
+  },
+  {
+    "id": "deafening-essence-of-sorrow",
+    "in_game_category": "essences",
+    "trade_list_order": 6680
+  },
+  {
+    "id": "muttering-essence-of-anger",
+    "in_game_category": "essences",
+    "trade_list_order": 6690
+  },
+  {
+    "id": "weeping-essence-of-anger",
+    "in_game_category": "essences",
+    "trade_list_order": 6700
+  },
+  {
+    "id": "wailing-essence-of-anger",
+    "in_game_category": "essences",
+    "trade_list_order": 6710
+  },
+  {
+    "id": "screaming-essence-of-anger",
+    "in_game_category": "essences",
+    "trade_list_order": 6720
+  },
+  {
+    "id": "shrieking-essence-of-anger",
+    "in_game_category": "essences",
+    "trade_list_order": 6730
+  },
+  {
+    "id": "deafening-essence-of-anger",
+    "in_game_category": "essences",
+    "trade_list_order": 6740
+  },
+  {
+    "id": "muttering-essence-of-torment",
+    "in_game_category": "essences",
+    "trade_list_order": 6750
+  },
+  {
+    "id": "weeping-essence-of-torment",
+    "in_game_category": "essences",
+    "trade_list_order": 6760
+  },
+  {
+    "id": "wailing-essence-of-torment",
+    "in_game_category": "essences",
+    "trade_list_order": 6770
+  },
+  {
+    "id": "screaming-essence-of-torment",
+    "in_game_category": "essences",
+    "trade_list_order": 6780
+  },
+  {
+    "id": "shrieking-essence-of-torment",
+    "in_game_category": "essences",
+    "trade_list_order": 6790
+  },
+  {
+    "id": "deafening-essence-of-torment",
+    "in_game_category": "essences",
+    "trade_list_order": 6800
+  },
+  {
+    "id": "muttering-essence-of-fear",
+    "in_game_category": "essences",
+    "trade_list_order": 6810
+  },
+  {
+    "id": "weeping-essence-of-fear",
+    "in_game_category": "essences",
+    "trade_list_order": 6820
+  },
+  {
+    "id": "wailing-essence-of-fear",
+    "in_game_category": "essences",
+    "trade_list_order": 6830
+  },
+  {
+    "id": "screaming-essence-of-fear",
+    "in_game_category": "essences",
+    "trade_list_order": 6840
+  },
+  {
+    "id": "shrieking-essence-of-fear",
+    "in_game_category": "essences",
+    "trade_list_order": 6850
+  },
+  {
+    "id": "deafening-essence-of-fear",
+    "in_game_category": "essences",
+    "trade_list_order": 6860
+  },
+  {
+    "id": "weeping-essence-of-suffering",
+    "in_game_category": "essences",
+    "trade_list_order": 6870
+  },
+  {
+    "id": "wailing-essence-of-suffering",
+    "in_game_category": "essences",
+    "trade_list_order": 6880
+  },
+  {
+    "id": "screaming-essence-of-suffering",
+    "in_game_category": "essences",
+    "trade_list_order": 6890
+  },
+  {
+    "id": "shrieking-essence-of-suffering",
+    "in_game_category": "essences",
+    "trade_list_order": 6900
+  },
+  {
+    "id": "deafening-essence-of-suffering",
+    "in_game_category": "essences",
+    "trade_list_order": 6910
+  },
+  {
+    "id": "weeping-essence-of-rage",
+    "in_game_category": "essences",
+    "trade_list_order": 6920
+  },
+  {
+    "id": "wailing-essence-of-rage",
+    "in_game_category": "essences",
+    "trade_list_order": 6930
+  },
+  {
+    "id": "screaming-essence-of-rage",
+    "in_game_category": "essences",
+    "trade_list_order": 6940
+  },
+  {
+    "id": "shrieking-essence-of-rage",
+    "in_game_category": "essences",
+    "trade_list_order": 6950
+  },
+  {
+    "id": "deafening-essence-of-rage",
+    "in_game_category": "essences",
+    "trade_list_order": 6960
+  },
+  {
+    "id": "weeping-essence-of-wrath",
+    "in_game_category": "essences",
+    "trade_list_order": 6970
+  },
+  {
+    "id": "wailing-essence-of-wrath",
+    "in_game_category": "essences",
+    "trade_list_order": 6980
+  },
+  {
+    "id": "screaming-essence-of-wrath",
+    "in_game_category": "essences",
+    "trade_list_order": 6990
+  },
+  {
+    "id": "shrieking-essence-of-wrath",
+    "in_game_category": "essences",
+    "trade_list_order": 7000
+  },
+  {
+    "id": "deafening-essence-of-wrath",
+    "in_game_category": "essences",
+    "trade_list_order": 7010
+  },
+  {
+    "id": "weeping-essence-of-doubt",
+    "in_game_category": "essences",
+    "trade_list_order": 7020
+  },
+  {
+    "id": "wailing-essence-of-doubt",
+    "in_game_category": "essences",
+    "trade_list_order": 7030
+  },
+  {
+    "id": "screaming-essence-of-doubt",
+    "in_game_category": "essences",
+    "trade_list_order": 7040
+  },
+  {
+    "id": "shrieking-essence-of-doubt",
+    "in_game_category": "essences",
+    "trade_list_order": 7050
+  },
+  {
+    "id": "deafening-essence-of-doubt",
+    "in_game_category": "essences",
+    "trade_list_order": 7060
+  },
+  {
+    "id": "wailing-essence-of-anguish",
+    "in_game_category": "essences",
+    "trade_list_order": 7070
+  },
+  {
+    "id": "screaming-essence-of-anguish",
+    "in_game_category": "essences",
+    "trade_list_order": 7080
+  },
+  {
+    "id": "shrieking-essence-of-anguish",
+    "in_game_category": "essences",
+    "trade_list_order": 7090
+  },
+  {
+    "id": "deafening-essence-of-anguish",
+    "in_game_category": "essences",
+    "trade_list_order": 7100
+  },
+  {
+    "id": "wailing-essence-of-loathing",
+    "in_game_category": "essences",
+    "trade_list_order": 7110
+  },
+  {
+    "id": "screaming-essence-of-loathing",
+    "in_game_category": "essences",
+    "trade_list_order": 7120
+  },
+  {
+    "id": "shrieking-essence-of-loathing",
+    "in_game_category": "essences",
+    "trade_list_order": 7130
+  },
+  {
+    "id": "deafening-essence-of-loathing",
+    "in_game_category": "essences",
+    "trade_list_order": 7140
+  },
+  {
+    "id": "wailing-essence-of-spite",
+    "in_game_category": "essences",
+    "trade_list_order": 7150
+  },
+  {
+    "id": "screaming-essence-of-spite",
+    "in_game_category": "essences",
+    "trade_list_order": 7160
+  },
+  {
+    "id": "shrieking-essence-of-spite",
+    "in_game_category": "essences",
+    "trade_list_order": 7170
+  },
+  {
+    "id": "deafening-essence-of-spite",
+    "in_game_category": "essences",
+    "trade_list_order": 7180
+  },
+  {
+    "id": "wailing-essence-of-zeal",
+    "in_game_category": "essences",
+    "trade_list_order": 7190
+  },
+  {
+    "id": "screaming-essence-of-zeal",
+    "in_game_category": "essences",
+    "trade_list_order": 7200
+  },
+  {
+    "id": "shrieking-essence-of-zeal",
+    "in_game_category": "essences",
+    "trade_list_order": 7210
+  },
+  {
+    "id": "deafening-essence-of-zeal",
+    "in_game_category": "essences",
+    "trade_list_order": 7220
+  },
+  {
+    "id": "screaming-essence-of-misery",
+    "in_game_category": "essences",
+    "trade_list_order": 7230
+  },
+  {
+    "id": "shrieking-essence-of-misery",
+    "in_game_category": "essences",
+    "trade_list_order": 7240
+  },
+  {
+    "id": "deafening-essence-of-misery",
+    "in_game_category": "essences",
+    "trade_list_order": 7250
+  },
+  {
+    "id": "screaming-essence-of-dread",
+    "in_game_category": "essences",
+    "trade_list_order": 7260
+  },
+  {
+    "id": "shrieking-essence-of-dread",
+    "in_game_category": "essences",
+    "trade_list_order": 7270
+  },
+  {
+    "id": "deafening-essence-of-dread",
+    "in_game_category": "essences",
+    "trade_list_order": 7280
+  },
+  {
+    "id": "screaming-essence-of-scorn",
+    "in_game_category": "essences",
+    "trade_list_order": 7290
+  },
+  {
+    "id": "shrieking-essence-of-scorn",
+    "in_game_category": "essences",
+    "trade_list_order": 7300
+  },
+  {
+    "id": "deafening-essence-of-scorn",
+    "in_game_category": "essences",
+    "trade_list_order": 7310
+  },
+  {
+    "id": "screaming-essence-of-envy",
+    "in_game_category": "essences",
+    "trade_list_order": 7320
+  },
+  {
+    "id": "shrieking-essence-of-envy",
+    "in_game_category": "essences",
+    "trade_list_order": 7330
+  },
+  {
+    "id": "deafening-essence-of-envy",
+    "in_game_category": "essences",
+    "trade_list_order": 7340
+  },
+  {
+    "id": "essence-of-hysteria",
+    "in_game_category": "essences",
+    "trade_list_order": 7350
+  },
+  {
+    "id": "essence-of-insanity",
+    "in_game_category": "essences",
+    "trade_list_order": 7360
+  },
+  {
+    "id": "essence-of-horror",
+    "in_game_category": "essences",
+    "trade_list_order": 7370
+  },
+  {
+    "id": "essence-of-delirium",
+    "in_game_category": "essences",
+    "trade_list_order": 7380
+  },
+  {
+    "id": "exotic-coinage",
+    "in_game_category": "expedition",
+    "trade_list_order": 7390
+  },
+  {
+    "id": "scrap-metal",
+    "in_game_category": "expedition",
+    "trade_list_order": 7400
+  },
+  {
+    "id": "astragali",
+    "in_game_category": "expedition",
+    "trade_list_order": 7410
+  },
+  {
+    "id": "burial-medallion",
+    "in_game_category": "expedition",
+    "trade_list_order": 7420
+  },
+  {
+    "id": "sacrifice-at-dusk",
+    "in_game_category": "fragments",
+    "trade_list_order": 7430
+  },
+  {
+    "id": "sacrifice-at-noon",
+    "in_game_category": "fragments",
+    "trade_list_order": 7440
+  },
+  {
+    "id": "sacrifice-at-midnight",
+    "in_game_category": "fragments",
+    "trade_list_order": 7450
+  },
+  {
+    "id": "sacrifice-at-dawn",
+    "in_game_category": "fragments",
+    "trade_list_order": 7460
+  },
+  {
+    "id": "mortal-grief",
+    "in_game_category": "fragments",
+    "trade_list_order": 7470
+  },
+  {
+    "id": "mortal-ignorance",
+    "in_game_category": "fragments",
+    "trade_list_order": 7480
+  },
+  {
+    "id": "mortal-rage",
+    "in_game_category": "fragments",
+    "trade_list_order": 7490
+  },
+  {
+    "id": "mortal-hope",
+    "in_game_category": "fragments",
+    "trade_list_order": 7500
+  },
+  {
+    "id": "fragment-of-the-phoenix",
+    "in_game_category": "fragments",
+    "trade_list_order": 7510
+  },
+  {
+    "id": "fragment-of-the-minotaur",
+    "in_game_category": "fragments",
+    "trade_list_order": 7520
+  },
+  {
+    "id": "fragment-of-the-chimera",
+    "in_game_category": "fragments",
+    "trade_list_order": 7530
+  },
+  {
+    "id": "fragment-of-the-hydra",
+    "in_game_category": "fragments",
+    "trade_list_order": 7540
+  },
+  {
+    "id": "fragment-of-enslavement",
+    "in_game_category": "fragments",
+    "trade_list_order": 7550
+  },
+  {
+    "id": "fragment-of-eradication",
+    "in_game_category": "fragments",
+    "trade_list_order": 7560
+  },
+  {
+    "id": "fragment-of-constriction",
+    "in_game_category": "fragments",
+    "trade_list_order": 7570
+  },
+  {
+    "id": "fragment-of-purification",
+    "in_game_category": "fragments",
+    "trade_list_order": 7580
+  },
+  {
+    "id": "fragment-of-terror",
+    "in_game_category": "fragments",
+    "trade_list_order": 7590
+  },
+  {
+    "id": "fragment-of-emptiness",
+    "in_game_category": "fragments",
+    "trade_list_order": 7600
+  },
+  {
+    "id": "fragment-of-shape",
+    "in_game_category": "fragments",
+    "trade_list_order": 7610
+  },
+  {
+    "id": "fragment-of-knowledge",
+    "in_game_category": "fragments",
+    "trade_list_order": 7620
+  },
+  {
+    "id": "al-hezmin-s-crest",
+    "in_game_category": "fragments",
+    "trade_list_order": 7630
+  },
+  {
+    "id": "baran-s-crest",
+    "in_game_category": "fragments",
+    "trade_list_order": 7640
+  },
+  {
+    "id": "drox-s-crest",
+    "in_game_category": "fragments",
+    "trade_list_order": 7650
+  },
+  {
+    "id": "veritania-s-crest",
+    "in_game_category": "fragments",
+    "trade_list_order": 7660
+  },
+  {
+    "id": "offering-to-the-goddess",
+    "in_game_category": "fragments",
+    "trade_list_order": 7670
+  },
+  {
+    "id": "tribute-to-the-goddess",
+    "in_game_category": "fragments",
+    "trade_list_order": 7680
+  },
+  {
+    "id": "gift-to-the-goddess",
+    "in_game_category": "fragments",
+    "trade_list_order": 7690
+  },
+  {
+    "id": "dedication-to-the-goddess",
+    "in_game_category": "fragments",
+    "trade_list_order": 7700
+  },
+  {
+    "id": "the-maven-s-writ",
+    "in_game_category": "fragments",
+    "trade_list_order": 7710
+  },
+  {
+    "id": "crescent-splinter",
+    "in_game_category": "fragments",
+    "trade_list_order": 7720
+  },
+  {
+    "id": "cosmic-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7730
+  },
+  {
+    "id": "decaying-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7740
+  },
+  {
+    "id": "awakening-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7750
+  },
+  {
+    "id": "synthesising-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7760
+  },
+  {
+    "id": "reality-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7770
+  },
+  {
+    "id": "devouring-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7780
+  },
+  {
+    "id": "blazing-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7790
+  },
+  {
+    "id": "traumatic-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7800
+  },
+  {
+    "id": "reverent-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7810
+  },
+  {
+    "id": "lonely-fragment",
+    "in_game_category": "fragments",
+    "trade_list_order": 7820
+  },
+  {
+    "id": "ritual-splinter",
+    "in_game_category": "fragments",
+    "trade_list_order": 7830
+  },
+  {
+    "id": "ritual-vessel",
+    "in_game_category": "fragments",
+    "trade_list_order": 7840
+  },
+  {
+    "id": "an-audience-with-the-king",
+    "in_game_category": "fragments",
+    "trade_list_order": 7850
+  },
+  {
+    "id": "syndicate-medallion",
+    "in_game_category": "fragments",
+    "trade_list_order": 7860
+  },
+  {
+    "id": "sacred-blossom",
+    "in_game_category": "fragments",
+    "trade_list_order": 7870
+  },
+  {
+    "id": "echo-of-loneliness",
+    "in_game_category": "fragments",
+    "trade_list_order": 7880
+  },
+  {
+    "id": "echo-of-trauma",
+    "in_game_category": "fragments",
+    "trade_list_order": 7890
+  },
+  {
+    "id": "echo-of-reverence",
+    "in_game_category": "fragments",
+    "trade_list_order": 7900
+  },
+  {
+    "id": "hivebrain-gland",
+    "in_game_category": "fragments",
+    "trade_list_order": 7910
+  },
+  {
+    "id": "zorath-s-eye-of-malevolence",
+    "in_game_category": "fragments",
+    "trade_list_order": 7920
+  },
+  {
+    "id": "zorath-s-eye-of-authority",
+    "in_game_category": "fragments",
+    "trade_list_order": 7930
+  },
+  {
+    "id": "zorath-s-eye-of-the-inevitable",
+    "in_game_category": "fragments",
+    "trade_list_order": 7940
+  },
+  {
+    "id": "zorath-s-eye-of-the-endless",
+    "in_game_category": "fragments",
+    "trade_list_order": 7950
+  },
+  {
+    "id": "wild-crystallised-lifeforce",
+    "in_game_category": "harvest",
+    "trade_list_order": 7960
+  },
+  {
+    "id": "vivid-crystallised-lifeforce",
+    "in_game_category": "harvest",
+    "trade_list_order": 7970
+  },
+  {
+    "id": "primal-crystallised-lifeforce",
+    "in_game_category": "harvest",
+    "trade_list_order": 7980
+  },
+  {
+    "id": "sacred-crystallised-lifeforce",
+    "in_game_category": "harvest",
+    "trade_list_order": 7990
+  },
+  {
+    "id": "crystallised-rancour",
+    "in_game_category": "harvest",
+    "trade_list_order": 8000
+  },
+  {
+    "id": "timeless-karui-emblem",
+    "in_game_category": "legion",
+    "trade_list_order": 8010
+  },
+  {
+    "id": "timeless-karui-splinter",
+    "in_game_category": "legion",
+    "trade_list_order": 8020
+  },
+  {
+    "id": "timeless-maraketh-emblem",
+    "in_game_category": "legion",
+    "trade_list_order": 8030
+  },
+  {
+    "id": "timeless-maraketh-splinter",
+    "in_game_category": "legion",
+    "trade_list_order": 8040
+  },
+  {
+    "id": "timeless-eternal-emblem",
+    "in_game_category": "legion",
+    "trade_list_order": 8050
+  },
+  {
+    "id": "timeless-eternal-empire-splinter",
+    "in_game_category": "legion",
+    "trade_list_order": 8060
+  },
+  {
+    "id": "timeless-templar-emblem",
+    "in_game_category": "legion",
+    "trade_list_order": 8070
+  },
+  {
+    "id": "timeless-templar-splinter",
+    "in_game_category": "legion",
+    "trade_list_order": 8080
+  },
+  {
+    "id": "timeless-vaal-emblem",
+    "in_game_category": "legion",
+    "trade_list_order": 8090
+  },
+  {
+    "id": "timeless-vaal-splinter",
+    "in_game_category": "legion",
+    "trade_list_order": 8100
+  },
+  {
+    "id": "karui-enshrouding-crystal",
+    "in_game_category": "legion",
+    "trade_list_order": 8110
+  },
+  {
+    "id": "imperial-enshrouding-crystal",
+    "in_game_category": "legion",
+    "trade_list_order": 8120
+  },
+  {
+    "id": "vaal-enshrouding-crystal",
+    "in_game_category": "legion",
+    "trade_list_order": 8130
+  },
+  {
+    "id": "templar-enshrouding-crystal",
+    "in_game_category": "legion",
+    "trade_list_order": 8140
+  },
+  {
+    "id": "maraketh-enshrouding-crystal",
+    "in_game_category": "legion",
+    "trade_list_order": 8150
+  },
+  {
+    "id": "clear-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8160
+  },
+  {
+    "id": "sepia-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8170
+  },
+  {
+    "id": "amber-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8180
+  },
+  {
+    "id": "verdant-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8190
+  },
+  {
+    "id": "teal-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8200
+  },
+  {
+    "id": "azure-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8210
+  },
+  {
+    "id": "indigo-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8220
+  },
+  {
+    "id": "violet-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8230
+  },
+  {
+    "id": "crimson-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8240
+  },
+  {
+    "id": "black-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8250
+  },
+  {
+    "id": "opalescent-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8260
+  },
+  {
+    "id": "silver-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8270
+  },
+  {
+    "id": "golden-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8280
+  },
+  {
+    "id": "tainted-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8290
+  },
+  {
+    "id": "reflective-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8300
+  },
+  {
+    "id": "prismatic-oil",
+    "in_game_category": "oils",
+    "trade_list_order": 8310
+  },
+  {
+    "id": "omen-of-return",
+    "in_game_category": "omens",
+    "trade_list_order": 8320
+  },
+  {
+    "id": "omen-of-death-dancing",
+    "in_game_category": "omens",
+    "trade_list_order": 8330
+  },
+  {
+    "id": "omen-of-refreshment",
+    "in_game_category": "omens",
+    "trade_list_order": 8340
+  },
+  {
+    "id": "omen-of-the-soul-devourer",
+    "in_game_category": "omens",
+    "trade_list_order": 8350
+  },
+  {
+    "id": "omen-of-adrenaline",
+    "in_game_category": "omens",
+    "trade_list_order": 8360
+  },
+  {
+    "id": "omen-of-death-s-door",
+    "in_game_category": "omens",
+    "trade_list_order": 8370
+  },
+  {
+    "id": "omen-of-brilliance",
+    "in_game_category": "omens",
+    "trade_list_order": 8380
+  },
+  {
+    "id": "omen-of-amelioration",
+    "in_game_category": "omens",
+    "trade_list_order": 8390
+  },
+  {
+    "id": "omen-of-the-jeweller",
+    "in_game_category": "omens",
+    "trade_list_order": 8400
+  },
+  {
+    "id": "omen-of-trichromatism",
+    "in_game_category": "omens",
+    "trade_list_order": 8410
+  },
+  {
+    "id": "omen-of-connections",
+    "in_game_category": "omens",
+    "trade_list_order": 8420
+  },
+  {
+    "id": "omen-of-fortune",
+    "in_game_category": "omens",
+    "trade_list_order": 8430
+  },
+  {
+    "id": "runegraft-of-the-river",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8440
+  },
+  {
+    "id": "runegraft-of-the-fortress",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8450
+  },
+  {
+    "id": "runegraft-of-the-combatant",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8460
+  },
+  {
+    "id": "runegraft-of-the-sinistral",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8470
+  },
+  {
+    "id": "runegraft-of-the-bound",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8480
+  },
+  {
+    "id": "runegraft-of-the-warp",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8490
+  },
+  {
+    "id": "runegraft-of-the-soulwick",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8500
+  },
+  {
+    "id": "runegraft-of-bellows",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8510
+  },
+  {
+    "id": "runegraft-of-gemcraft",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8520
+  },
+  {
+    "id": "runegraft-of-blasphemy",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8530
+  },
+  {
+    "id": "runegraft-of-time",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8540
+  },
+  {
+    "id": "runegraft-of-treachery",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8550
+  },
+  {
+    "id": "runegraft-of-quaffing",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8560
+  },
+  {
+    "id": "runegraft-of-restitching",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8570
+  },
+  {
+    "id": "runegraft-of-loyalty",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8580
+  },
+  {
+    "id": "runegraft-of-the-witchmark",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8590
+  },
+  {
+    "id": "runegraft-of-the-novamark",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8600
+  },
+  {
+    "id": "runegraft-of-refraction",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8610
+  },
+  {
+    "id": "runegraft-of-the-jeweller",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8620
+  },
+  {
+    "id": "runegraft-of-stability",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8630
+  },
+  {
+    "id": "runegraft-of-the-angler",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8640
+  },
+  {
+    "id": "runegraft-of-consecration",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8650
+  },
+  {
+    "id": "runegraft-of-fury",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8660
+  },
+  {
+    "id": "runegraft-of-rallying",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8670
+  },
+  {
+    "id": "runegraft-of-rotblood",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8680
+  },
+  {
+    "id": "runegraft-of-the-imbued",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8690
+  },
+  {
+    "id": "runegraft-of-the-agile",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8700
+  },
+  {
+    "id": "runegraft-of-suffering",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8710
+  },
+  {
+    "id": "runegraft-of-the-spellbound",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8720
+  },
+  {
+    "id": "runegraft-of-resurgence",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8730
+  },
+  {
+    "id": "runegraft-of-connection",
+    "in_game_category": "runegrafts",
+    "trade_list_order": 8740
+  },
+  {
+    "id": "breach-scarab-of-the-hive",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8750
+  },
+  {
+    "id": "breach-scarab-of-instability",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8760
+  },
+  {
+    "id": "breach-scarab-of-the-marshal",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8770
+  },
+  {
+    "id": "breach-scarab-of-the-incensed-swarm",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8780
+  },
+  {
+    "id": "breach-scarab-of-resonant-cascade",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8790
+  },
+  {
+    "id": "kalguuran-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8800
+  },
+  {
+    "id": "kalguuran-scarab-of-guarded-riches",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8810
+  },
+  {
+    "id": "kalguuran-scarab-of-refinement",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8820
+  },
+  {
+    "id": "kalguuran-scarab-of-enriching",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8830
+  },
+  {
+    "id": "trarthan-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8840
+  },
+  {
+    "id": "trarthan-scarab-of-infamy",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8850
+  },
+  {
+    "id": "trarthan-scarab-of-renown",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8860
+  },
+  {
+    "id": "trarthan-scarab-of-surprising-alliances",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8870
+  },
+  {
+    "id": "cartography-scarab-of-escalation",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8880
+  },
+  {
+    "id": "cartography-scarab-of-risk",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8890
+  },
+  {
+    "id": "cartography-scarab-of-the-multitude",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8900
+  },
+  {
+    "id": "cartography-scarab-of-corruption",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8910
+  },
+  {
+    "id": "titanic-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8920
+  },
+  {
+    "id": "titanic-scarab-of-treasures",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8930
+  },
+  {
+    "id": "titanic-scarab-of-legend",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8940
+  },
+  {
+    "id": "bestiary-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8950
+  },
+  {
+    "id": "bestiary-scarab-of-duplicating",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8960
+  },
+  {
+    "id": "bestiary-scarab-of-the-herd",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8970
+  },
+  {
+    "id": "influencing-scarab-of-the-shaper",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8980
+  },
+  {
+    "id": "influencing-scarab-of-the-elder",
+    "in_game_category": "scarabs",
+    "trade_list_order": 8990
+  },
+  {
+    "id": "influencing-scarab-of-interference",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9000
+  },
+  {
+    "id": "influencing-scarab-of-hordes",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9010
+  },
+  {
+    "id": "sulphite-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9020
+  },
+  {
+    "id": "sulphite-scarab-of-fumes",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9030
+  },
+  {
+    "id": "divination-scarab-of-the-cloister",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9040
+  },
+  {
+    "id": "divination-scarab-of-pilfering",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9050
+  },
+  {
+    "id": "divination-scarab-of-plenty",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9060
+  },
+  {
+    "id": "torment-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9070
+  },
+  {
+    "id": "torment-scarab-of-peculiarity",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9080
+  },
+  {
+    "id": "torment-scarab-of-possession",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9090
+  },
+  {
+    "id": "ambush-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9100
+  },
+  {
+    "id": "ambush-scarab-of-hidden-compartments",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9110
+  },
+  {
+    "id": "ambush-scarab-of-potency",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9120
+  },
+  {
+    "id": "ambush-scarab-of-containment",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9130
+  },
+  {
+    "id": "ambush-scarab-of-discernment",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9140
+  },
+  {
+    "id": "expedition-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9150
+  },
+  {
+    "id": "expedition-scarab-of-runefinding",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9160
+  },
+  {
+    "id": "expedition-scarab-of-verisium-powder",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9170
+  },
+  {
+    "id": "expedition-scarab-of-archaeology",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9180
+  },
+  {
+    "id": "expedition-scarab-of-infusion",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9190
+  },
+  {
+    "id": "legion-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9200
+  },
+  {
+    "id": "legion-scarab-of-officers",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9210
+  },
+  {
+    "id": "legion-scarab-of-treasures",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9220
+  },
+  {
+    "id": "legion-scarab-of-eternal-conflict",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9230
+  },
+  {
+    "id": "abyss-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9240
+  },
+  {
+    "id": "abyss-scarab-of-multitudes",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9250
+  },
+  {
+    "id": "abyss-scarab-of-crystals",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9260
+  },
+  {
+    "id": "abyss-scarab-of-descending",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9270
+  },
+  {
+    "id": "abyss-scarab-of-the-consort",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9280
+  },
+  {
+    "id": "anarchy-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9290
+  },
+  {
+    "id": "anarchy-scarab-of-gigantification",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9300
+  },
+  {
+    "id": "anarchy-scarab-of-partnership",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9310
+  },
+  {
+    "id": "anarchy-scarab-of-the-exceptional",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9320
+  },
+  {
+    "id": "essence-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9330
+  },
+  {
+    "id": "essence-scarab-of-ascent",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9340
+  },
+  {
+    "id": "essence-scarab-of-calcification",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9350
+  },
+  {
+    "id": "essence-scarab-of-stability",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9360
+  },
+  {
+    "id": "essence-scarab-of-adaptation",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9370
+  },
+  {
+    "id": "domination-scarab-of-apparitions",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9380
+  },
+  {
+    "id": "domination-scarab-of-evolution",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9390
+  },
+  {
+    "id": "domination-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9400
+  },
+  {
+    "id": "domination-scarab-of-terrors",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9410
+  },
+  {
+    "id": "ritual-scarab-of-selectiveness",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9420
+  },
+  {
+    "id": "ritual-scarab-of-wisps",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9430
+  },
+  {
+    "id": "ritual-scarab-of-abundance",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9440
+  },
+  {
+    "id": "ritual-scarab-of-corpses",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9450
+  },
+  {
+    "id": "harvest-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9460
+  },
+  {
+    "id": "harvest-scarab-of-cornucopia",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9470
+  },
+  {
+    "id": "harvest-scarab-of-doubling",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9480
+  },
+  {
+    "id": "incursion-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9490
+  },
+  {
+    "id": "incursion-scarab-of-invasion",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9500
+  },
+  {
+    "id": "incursion-scarab-of-timelines",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9510
+  },
+  {
+    "id": "incursion-scarab-of-champions",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9520
+  },
+  {
+    "id": "betrayal-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9530
+  },
+  {
+    "id": "betrayal-scarab-of-the-allflame",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9540
+  },
+  {
+    "id": "betrayal-scarab-of-unbreaking",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9550
+  },
+  {
+    "id": "betrayal-scarab-of-reinforcements",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9560
+  },
+  {
+    "id": "beyond-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9570
+  },
+  {
+    "id": "beyond-scarab-of-haemophilia",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9580
+  },
+  {
+    "id": "beyond-scarab-of-the-invasion",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9590
+  },
+  {
+    "id": "beyond-scarab-of-resurgence",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9600
+  },
+  {
+    "id": "ultimatum-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9610
+  },
+  {
+    "id": "ultimatum-scarab-of-bribing",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9620
+  },
+  {
+    "id": "ultimatum-scarab-of-dueling",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9630
+  },
+  {
+    "id": "ultimatum-scarab-of-catalysing",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9640
+  },
+  {
+    "id": "ultimatum-scarab-of-inscription",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9650
+  },
+  {
+    "id": "delirium-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9660
+  },
+  {
+    "id": "delirium-scarab-of-mania",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9670
+  },
+  {
+    "id": "delirium-scarab-of-paranoia",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9680
+  },
+  {
+    "id": "delirium-scarab-of-neuroses",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9690
+  },
+  {
+    "id": "delirium-scarab-of-delusions",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9700
+  },
+  {
+    "id": "blight-scarab",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9710
+  },
+  {
+    "id": "blight-scarab-of-the-blightheart",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9720
+  },
+  {
+    "id": "blight-scarab-of-blooming",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9730
+  },
+  {
+    "id": "blight-scarab-of-invigoration",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9740
+  },
+  {
+    "id": "scarab-of-monstrous-lineage",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9750
+  },
+  {
+    "id": "scarab-of-adversaries",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9760
+  },
+  {
+    "id": "scarab-of-divinity",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9770
+  },
+  {
+    "id": "scarab-of-hunted-traitors",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9780
+  },
+  {
+    "id": "scarab-of-stability",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9790
+  },
+  {
+    "id": "scarab-of-wisps",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9800
+  },
+  {
+    "id": "scarab-of-the-sinistral",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9810
+  },
+  {
+    "id": "scarab-of-the-dextral",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9820
+  },
+  {
+    "id": "scarab-of-radiant-storms",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9830
+  },
+  {
+    "id": "horned-scarab-of-bloodlines",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9840
+  },
+  {
+    "id": "horned-scarab-of-nemeses",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9850
+  },
+  {
+    "id": "horned-scarab-of-preservation",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9860
+  },
+  {
+    "id": "horned-scarab-of-awakening",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9870
+  },
+  {
+    "id": "horned-scarab-of-tradition",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9880
+  },
+  {
+    "id": "horned-scarab-of-glittering",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9890
+  },
+  {
+    "id": "horned-scarab-of-pandemonium",
+    "in_game_category": "scarabs",
+    "trade_list_order": 9900
+  },
+  {
+    "id": "tattoo-of-the-arohongui-moonwarden",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9910
+  },
+  {
+    "id": "tattoo-of-the-arohongui-scout",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9920
+  },
+  {
+    "id": "tattoo-of-the-arohongui-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9930
+  },
+  {
+    "id": "tattoo-of-the-ramako-scout",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9940
+  },
+  {
+    "id": "tattoo-of-the-ramako-archer",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9950
+  },
+  {
+    "id": "tattoo-of-the-ramako-sniper",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9960
+  },
+  {
+    "id": "tattoo-of-the-ramako-fleetfoot",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9970
+  },
+  {
+    "id": "tattoo-of-the-ramako-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9980
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-naturalist",
+    "in_game_category": "tattoos",
+    "trade_list_order": 9990
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-scout",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10000
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-herbalist",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10010
+  },
+  {
+    "id": "tattoo-of-the-tasalio-tideshifter",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10020
+  },
+  {
+    "id": "tattoo-of-the-tasalio-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10030
+  },
+  {
+    "id": "tattoo-of-the-tasalio-scout",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10040
+  },
+  {
+    "id": "tattoo-of-the-arohongui-warmonger",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10050
+  },
+  {
+    "id": "tattoo-of-the-arohongui-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10060
+  },
+  {
+    "id": "tattoo-of-the-hinekora-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10070
+  },
+  {
+    "id": "tattoo-of-the-hinekora-deathwarden",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10080
+  },
+  {
+    "id": "tattoo-of-the-hinekora-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10090
+  },
+  {
+    "id": "tattoo-of-the-hinekora-storyteller",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10100
+  },
+  {
+    "id": "tattoo-of-the-hinekora-warmonger",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10110
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10120
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10130
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-turtle",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10140
+  },
+  {
+    "id": "tattoo-of-the-tasalio-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10150
+  },
+  {
+    "id": "tattoo-of-the-kitava-heart-eater",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10160
+  },
+  {
+    "id": "tattoo-of-the-valako-stormrider",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10170
+  },
+  {
+    "id": "tattoo-of-the-valako-scout",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10180
+  },
+  {
+    "id": "tattoo-of-the-valako-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10190
+  },
+  {
+    "id": "tattoo-of-the-valako-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10200
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-firewalker",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10210
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10220
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10230
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-warmonger",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10240
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-woodcarver",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10250
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10260
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-brute",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10270
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-goliath",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10280
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-guard",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10290
+  },
+  {
+    "id": "tattoo-of-the-tasalio-bladedancer",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10300
+  },
+  {
+    "id": "tattoo-of-the-kitava-blood-drinker",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10310
+  },
+  {
+    "id": "tattoo-of-the-kitava-rebel",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10320
+  },
+  {
+    "id": "tattoo-of-the-kitava-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10330
+  },
+  {
+    "id": "tattoo-of-the-kitava-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10340
+  },
+  {
+    "id": "tattoo-of-the-tukohama-shaman",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10350
+  },
+  {
+    "id": "tattoo-of-the-tukohama-warrior",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10360
+  },
+  {
+    "id": "tattoo-of-the-tukohama-brawler",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10370
+  },
+  {
+    "id": "tattoo-of-the-tukohama-warmonger",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10380
+  },
+  {
+    "id": "tattoo-of-the-tukohama-warcaller",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10390
+  },
+  {
+    "id": "tattoo-of-the-valako-shieldbearer",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10400
+  },
+  {
+    "id": "journey-tattoo-of-the-body",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10410
+  },
+  {
+    "id": "journey-tattoo-of-the-mind",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10420
+  },
+  {
+    "id": "journey-tattoo-of-the-soul",
+    "in_game_category": "tattoos",
+    "trade_list_order": 10430
+  }
+]
