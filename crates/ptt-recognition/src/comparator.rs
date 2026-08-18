@@ -16,6 +16,57 @@ const MINIMUM_INK: usize = 10;
 /// How much further the mid third must extend than the outer thirds, px.
 const MINIMUM_APEX_MARGIN: i32 = 3;
 
+/// Ink inside a rectangle: how much, and how far it reaches.
+///
+/// One definition for both callers. They had a copy each and the copies had
+/// already drifted — one treated the right edge as exclusive, the other as
+/// inclusive — which is the kind of difference that stays invisible until a
+/// glyph sits exactly on the boundary.
+#[derive(Clone, Copy, Debug)]
+pub struct InkBounds {
+    pub count: usize,
+    /// Leftmost inked column, and one past the rightmost.
+    pub left: usize,
+    pub right: usize,
+    /// Topmost inked row, and one past the bottommost.
+    pub top: usize,
+    pub bottom: usize,
+}
+
+#[must_use]
+pub fn ink_bounds(
+    mask: &TextInkMask,
+    zone_x: usize,
+    zone_y: usize,
+    zone_width: usize,
+    zone_height: usize,
+) -> Option<InkBounds> {
+    let right_edge = (zone_x + zone_width).min(mask.width());
+    let bottom_edge = (zone_y + zone_height).min(mask.height());
+    let (mut left, mut right) = (usize::MAX, 0usize);
+    let (mut top, mut bottom) = (usize::MAX, 0usize);
+    let mut count = 0usize;
+    for y in zone_y..bottom_edge {
+        for x in zone_x..right_edge {
+            if mask.intensity_at(x, y).unwrap_or(0) == 0 {
+                continue;
+            }
+            count += 1;
+            left = left.min(x);
+            right = right.max(x + 1);
+            top = top.min(y);
+            bottom = bottom.max(y + 1);
+        }
+    }
+    (count > 0).then_some(InkBounds {
+        count,
+        left,
+        right,
+        top,
+        bottom,
+    })
+}
+
 /// Classifies the comparator glyph inside `zone` (mask coordinates).
 pub fn classify_comparator(
     mask: &TextInkMask,
@@ -30,24 +81,10 @@ pub fn classify_comparator(
         return None;
     }
 
-    // Tight bbox of ink inside the zone.
-    let mut min_x = usize::MAX;
-    let mut max_x = 0usize;
-    let mut min_y = usize::MAX;
-    let mut max_y = 0usize;
-    let mut ink = 0usize;
-    for y in zone_y..bottom {
-        for x in zone_x..right {
-            if mask.intensity_at(x, y).unwrap_or(0) == 0 {
-                continue;
-            }
-            ink += 1;
-            min_x = min_x.min(x);
-            max_x = max_x.max(x);
-            min_y = min_y.min(y);
-            max_y = max_y.max(y);
-        }
-    }
+    let bounds = ink_bounds(mask, zone_x, zone_y, zone_width, zone_height);
+    let (ink, min_x, max_x, min_y, max_y) = bounds.map_or((0, usize::MAX, 0, usize::MAX, 0), |b| {
+        (b.count, b.left, b.right - 1, b.top, b.bottom - 1)
+    });
     if std::env::var_os("PTT_DEBUG_COMPARATOR").is_some() {
         eprintln!(
             "comparator zone x={zone_x} y={zone_y} w={zone_width} h={zone_height}:              ink={ink} bbox=({min_x},{min_y})..({max_x},{max_y})"

@@ -717,7 +717,7 @@ mod radar_tests {
     /// engine rather than these four lines of formatting.
     #[test]
     fn a_found_opportunity_renders() {
-        let path: Vec<MarketAssetId> = ["divine-orb", "chaos-orb", "gold"]
+        let path: Vec<MarketAssetId> = ["divine-orb", "chaos-orb", "exalted-orb"]
             .into_iter()
             .map(asset)
             .collect();
@@ -733,7 +733,8 @@ mod radar_tests {
             category: RadarCategory::Executable,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
-            amount_out: AssetAmount::from_whole_units(asset("gold"), 4000, &units).expect("out"),
+            amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 4000, &units)
+                .expect("out"),
             value_basis_points: Some(30_012),
             reasons: vec![ptt_workflows::RadarReason::BetterThanDirect],
             risk_flags: Vec::new(),
@@ -746,7 +747,7 @@ mod radar_tests {
 ",
         );
         assert!(
-            joined.contains("divine-orb -> chaos-orb -> gold"),
+            joined.contains("divine-orb -> chaos-orb -> exalted-orb"),
             "the route is not shown: {joined}"
         );
         assert!(
@@ -758,7 +759,7 @@ mod radar_tests {
             "the execution category is missing: {joined}"
         );
         assert!(
-            joined.contains("out 4000 gold"),
+            joined.contains("out 4000 exalted-orb"),
             "the payout is missing: {joined}"
         );
         assert!(
@@ -770,7 +771,10 @@ mod radar_tests {
     /// An unpriced item must not print a bogus percentage.
     #[test]
     fn an_unpriced_item_says_unpriced() {
-        let path: Vec<MarketAssetId> = ["divine-orb", "gold"].into_iter().map(asset).collect();
+        let path: Vec<MarketAssetId> = ["divine-orb", "exalted-orb"]
+            .into_iter()
+            .map(asset)
+            .collect();
         let units = AssetUnitCatalog::try_new(
             path.iter()
                 .map(|id| (id.clone(), AssetUnit::whole()))
@@ -783,7 +787,8 @@ mod radar_tests {
             category: RadarCategory::ProbeRequired,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
-            amount_out: AssetAmount::from_whole_units(asset("gold"), 11, &units).expect("out"),
+            amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 11, &units)
+                .expect("out"),
             value_basis_points: None,
             reasons: Vec::new(),
             risk_flags: Vec::new(),

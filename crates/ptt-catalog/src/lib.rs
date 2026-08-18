@@ -14,11 +14,16 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 /// Embedded POE2 catalog: 660 currency-exchange assets transcribed from poe2db
-/// (Traditional Chinese primary, English secondary), carried over verbatim from
+/// (Traditional Chinese primary, English secondary), carried over from
 /// POE2-Trade-Tracker-Electron `data/currencies/currency_master.zh_tw.json`.
+///
+/// One field did not come with it. Every entry used to carry
+/// `currency_exchange_gold_cost`, which nothing deserialised — the gold cost
+/// was ruled out of the profit model because it never binds in practice, and
+/// data left lying next to a model is an invitation to wire it back in.
 pub const POE2_CATALOG_JSON: &str = include_str!("../data/poe2/currency_master.zh_tw.json");
 pub const POE2_CATALOG_SHA256: &str =
-    "d238ba276402eca7cb426f3384ab30b2fb69fd31d9a8aeb9c3ea92843b244b59";
+    "fc8e4f17411a991825a4af063e11208cd8a0fdd4a48a2a7bf97b7c1a47aa0cd8";
 pub const POE2_CATALOG_ENTRIES: usize = 660;
 
 /// POE1 catalog: 1,047 assets across 16 categories, transcribed from in-game

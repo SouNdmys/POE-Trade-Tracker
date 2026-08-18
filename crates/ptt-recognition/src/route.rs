@@ -290,24 +290,20 @@ mod windows_route {
                     if top >= bottom {
                         break;
                     }
-                    // Scan the slice once for how much ink it holds and where
-                    // that ink starts, which is what the comparator column
-                    // check downstream reads.
-                    let mut lit = 0_u32;
-                    let mut left = mask.width();
-                    let mut right = 0_usize;
-                    for y in top as usize..bottom as usize {
-                        for x in 0..mask.width() {
-                            if mask.intensity_at(x, y).is_some_and(|value| value > 0) {
-                                lit += 1;
-                                left = left.min(x);
-                                right = right.max(x + 1);
-                            }
-                        }
-                    }
-                    if lit < grid.min_lit_pixels {
+                    // How much ink the slice holds and where it starts, which
+                    // is what the aggregate-zone subtraction downstream reads.
+                    let bounds = crate::comparator::ink_bounds(
+                        mask,
+                        0,
+                        top as usize,
+                        mask.width(),
+                        (bottom - top) as usize,
+                    );
+                    let Some(bounds) = bounds else { continue };
+                    if bounds.count < grid.min_lit_pixels as usize {
                         continue;
                     }
+                    let (left, right) = (bounds.left, bounds.right);
                     match side {
                         Side::Available => available_rows += 1,
                         Side::Competing => competing_rows += 1,

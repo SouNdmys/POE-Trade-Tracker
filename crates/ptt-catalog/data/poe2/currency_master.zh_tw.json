@@ -19,7 +19,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 20,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -49,7 +48,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -79,7 +77,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -109,7 +106,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 50,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -139,7 +135,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 150,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -169,7 +164,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -199,7 +193,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -229,7 +222,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 360,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -259,7 +251,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -289,7 +280,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -319,7 +309,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 360,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -349,7 +338,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -379,7 +367,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 160,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -409,7 +396,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -439,7 +425,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -469,7 +454,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 160,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -499,7 +483,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -529,7 +512,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -559,7 +541,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -589,7 +570,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -620,7 +600,6 @@
       "socket_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -650,7 +629,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -681,7 +659,6 @@
       "currency_lock",
       "currency"
     ],
-    "currency_exchange_gold_cost": 6000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -712,7 +689,6 @@
       "currency_duplicate",
       "currency"
     ],
-    "currency_exchange_gold_cost": 25000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -742,7 +718,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 270,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -773,7 +748,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 421,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -804,7 +778,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 498,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -835,7 +808,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 576,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -866,7 +838,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 654,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -897,7 +868,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 746,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -928,7 +898,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 830,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -959,7 +928,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 915,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -990,7 +958,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1004,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1021,7 +988,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1243,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1052,7 +1018,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1353,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1083,7 +1048,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1524,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1114,7 +1078,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1654,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1145,7 +1108,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1873,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1176,7 +1138,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2317,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1207,7 +1168,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2579,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1238,7 +1198,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2922,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1269,7 +1228,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 3309,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1300,7 +1258,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 4010,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1331,7 +1288,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 16107,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1363,7 +1319,6 @@
       "socket_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1394,7 +1349,6 @@
       "socket_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 600,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1426,7 +1380,6 @@
       "rare_socket_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1457,7 +1410,6 @@
       "currency_shard",
       "currency"
     ],
-    "currency_exchange_gold_cost": 4,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1488,7 +1440,6 @@
       "currency_shard",
       "currency"
     ],
-    "currency_exchange_gold_cost": 12,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1519,7 +1470,6 @@
       "currency_shard",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1550,7 +1500,6 @@
       "currency_shard",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1581,7 +1530,6 @@
       "quality_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1612,7 +1560,6 @@
       "quality_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1643,7 +1590,6 @@
       "quality_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1674,7 +1620,6 @@
       "quality_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1705,7 +1650,6 @@
       "quality_currency",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1735,7 +1679,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1766,7 +1709,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 50,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1797,7 +1739,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 50,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1828,7 +1769,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 50,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1859,7 +1799,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 70,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1890,7 +1829,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1921,7 +1859,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1952,7 +1889,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -1983,7 +1919,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2014,7 +1949,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2045,7 +1979,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 60,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2076,7 +2009,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 90,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2107,7 +2039,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 90,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2138,7 +2069,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 80,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2169,7 +2099,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 80,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2200,7 +2129,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2231,7 +2159,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2262,7 +2189,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2293,7 +2219,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2324,7 +2249,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2355,7 +2279,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2386,7 +2309,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2417,7 +2339,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2448,7 +2369,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 140,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2479,7 +2399,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2510,7 +2429,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2541,7 +2459,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2572,7 +2489,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2603,7 +2519,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2634,7 +2549,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2665,7 +2579,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2696,7 +2609,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2727,7 +2639,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 160,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2758,7 +2669,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 160,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2789,7 +2699,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2820,7 +2729,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2851,7 +2759,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2882,7 +2789,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2913,7 +2819,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2944,7 +2849,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -2975,7 +2879,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3006,7 +2909,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3037,7 +2939,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 410,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3068,7 +2969,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 370,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3099,7 +2999,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 370,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3130,7 +3029,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 370,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3161,7 +3059,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 370,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3192,7 +3089,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 370,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3223,7 +3119,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 370,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3254,7 +3149,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3285,7 +3179,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3316,7 +3209,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3347,7 +3239,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3378,7 +3269,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3409,7 +3299,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3440,7 +3329,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 330,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3471,7 +3359,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3502,7 +3389,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3533,7 +3419,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3564,7 +3449,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3595,7 +3479,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3626,7 +3509,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3657,7 +3539,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3688,7 +3569,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3719,7 +3599,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3750,7 +3629,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3781,7 +3659,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3812,7 +3689,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3843,7 +3719,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3874,7 +3749,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3905,7 +3779,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3936,7 +3809,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3967,7 +3839,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -3998,7 +3869,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4029,7 +3899,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4060,7 +3929,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4091,7 +3959,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4122,7 +3989,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4153,7 +4019,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4184,7 +4049,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4215,7 +4079,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4246,7 +4109,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4277,7 +4139,6 @@
       "essence",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4308,7 +4169,6 @@
       "affliction_orb",
       "currency"
     ],
-    "currency_exchange_gold_cost": 3,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4338,7 +4198,6 @@
     "tags": [
       "affliction_splinter"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4370,7 +4229,6 @@
     "tags": [
       "quest_item"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4400,7 +4258,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4431,7 +4288,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4462,7 +4318,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 140,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4493,7 +4348,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4524,7 +4378,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 220,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4555,7 +4408,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4586,7 +4438,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 400,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4617,7 +4468,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 520,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4648,7 +4498,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 700,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4679,7 +4528,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 920,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4710,7 +4558,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4741,7 +4588,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4772,7 +4618,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 140,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4803,7 +4648,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4834,7 +4678,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 220,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4865,7 +4708,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4896,7 +4738,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 400,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4927,7 +4768,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 520,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4958,7 +4798,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 700,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -4989,7 +4828,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 920,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5020,7 +4858,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5051,7 +4888,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5082,7 +4918,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5113,7 +4948,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5144,7 +4978,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5175,7 +5008,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5206,7 +5038,6 @@
       "mushrune",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5237,7 +5068,6 @@
       "breachstone_splinter",
       "currency"
     ],
-    "currency_exchange_gold_cost": 3,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5270,7 +5100,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5304,7 +5133,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5338,7 +5166,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5372,7 +5199,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5406,7 +5232,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 160,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5440,7 +5265,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 260,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5474,7 +5298,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 260,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5508,7 +5331,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 260,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5542,7 +5364,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 360,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5576,7 +5397,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 560,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5610,7 +5430,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 560,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5644,7 +5463,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 960,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5678,7 +5496,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5712,7 +5529,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5746,7 +5562,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5780,7 +5595,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5814,7 +5628,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5848,7 +5661,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5882,7 +5694,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5916,7 +5727,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5950,7 +5760,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 1800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -5984,7 +5793,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 2800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6018,7 +5826,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 2800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6052,7 +5859,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 4800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6086,7 +5892,6 @@
       "catalyst",
       "currency"
     ],
-    "currency_exchange_gold_cost": 5000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6119,7 +5924,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6152,7 +5956,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6185,7 +5988,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 540,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6218,7 +6020,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6251,7 +6052,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6284,7 +6084,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 540,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6317,7 +6116,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6350,7 +6148,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 180,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6383,7 +6180,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 540,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6416,7 +6212,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6449,7 +6244,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 540,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6482,7 +6276,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 540,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6515,7 +6308,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6548,7 +6340,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6581,7 +6372,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6614,7 +6404,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6647,7 +6436,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6680,7 +6468,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6713,7 +6500,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6746,7 +6532,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6779,7 +6564,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6812,7 +6596,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6845,7 +6628,6 @@
     "tags": [
       "abyssal_eye"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6878,7 +6660,6 @@
     "tags": [
       "abyssal_eye"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6911,7 +6692,6 @@
     "tags": [
       "abyssal_eye"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6944,7 +6724,6 @@
     "tags": [
       "abyssal_eye"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -6977,7 +6756,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7010,7 +6788,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7045,7 +6822,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7078,7 +6854,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7111,7 +6886,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7144,7 +6918,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7177,7 +6950,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7210,7 +6982,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7243,7 +7014,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7276,7 +7046,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7311,7 +7080,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7345,7 +7113,6 @@
       "soul_core",
       "soul_core_vaal"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7379,7 +7146,6 @@
       "soul_core",
       "soul_core_vaal"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7413,7 +7179,6 @@
       "soul_core",
       "soul_core_vaal"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7447,7 +7212,6 @@
       "soul_core",
       "soul_core_vaal"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7482,7 +7246,6 @@
     "tags": [
       "not_for_sale"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7517,7 +7280,6 @@
     "tags": [
       "not_for_sale"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7552,7 +7314,6 @@
     "tags": [
       "not_for_sale"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7585,7 +7346,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7618,7 +7378,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7651,7 +7410,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7684,7 +7442,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7717,7 +7474,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7750,7 +7506,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7783,7 +7538,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7816,7 +7570,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7849,7 +7602,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7882,7 +7634,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7915,7 +7666,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7948,7 +7698,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -7981,7 +7730,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8014,7 +7762,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8047,7 +7794,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8080,7 +7826,6 @@
     "tags": [
       "fake_currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8114,7 +7859,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8148,7 +7892,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8182,7 +7925,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8216,7 +7958,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8250,7 +7991,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8284,7 +8024,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8318,7 +8057,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8352,7 +8090,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8386,7 +8123,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8420,7 +8156,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8454,7 +8189,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8488,7 +8222,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8522,7 +8255,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 125,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8556,7 +8288,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8590,7 +8321,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8624,7 +8354,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 125,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8658,7 +8387,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8692,7 +8420,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8726,7 +8453,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 125,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8760,7 +8486,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8794,7 +8519,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8828,7 +8552,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 150,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8862,7 +8585,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8896,7 +8618,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8930,7 +8651,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 150,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8964,7 +8684,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -8998,7 +8717,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9032,7 +8750,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 175,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9066,7 +8783,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9100,7 +8816,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9134,7 +8849,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 125,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9168,7 +8882,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9202,7 +8915,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9236,7 +8948,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 125,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9270,7 +8981,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9304,7 +9014,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9338,7 +9047,6 @@
       "rune",
       "rune_lesser"
     ],
-    "currency_exchange_gold_cost": 125,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9372,7 +9080,6 @@
       "rune",
       "rune_normal"
     ],
-    "currency_exchange_gold_cost": 350,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9406,7 +9113,6 @@
       "rune",
       "rune_greater"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9439,7 +9145,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9472,7 +9177,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9505,7 +9209,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9538,7 +9241,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9571,7 +9273,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9604,7 +9305,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9637,7 +9337,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 750,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9670,7 +9369,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9703,7 +9401,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9736,7 +9433,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9769,7 +9465,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9802,7 +9497,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9835,7 +9529,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9868,7 +9561,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9901,7 +9593,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9934,7 +9625,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -9967,7 +9657,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10000,7 +9689,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10033,7 +9721,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10066,7 +9753,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10099,7 +9785,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10132,7 +9817,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10165,7 +9849,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10198,7 +9881,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10231,7 +9913,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10264,7 +9945,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10297,7 +9977,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10330,7 +10009,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10363,7 +10041,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10396,7 +10073,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10429,7 +10105,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10462,7 +10137,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10495,7 +10169,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10528,7 +10201,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10561,7 +10233,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10594,7 +10265,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10627,7 +10297,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10660,7 +10329,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10693,7 +10361,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10726,7 +10393,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10759,7 +10425,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10792,7 +10457,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10825,7 +10489,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10858,7 +10521,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10891,7 +10553,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10924,7 +10585,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10957,7 +10617,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -10990,7 +10649,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11023,7 +10681,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11056,7 +10713,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11089,7 +10745,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11122,7 +10777,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11155,7 +10809,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11188,7 +10841,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11221,7 +10873,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11254,7 +10905,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11287,7 +10937,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11320,7 +10969,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11353,7 +11001,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11386,7 +11033,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11419,7 +11065,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11452,7 +11097,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11485,7 +11129,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11518,7 +11161,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11551,7 +11193,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11584,7 +11225,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11617,7 +11257,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11650,7 +11289,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11683,7 +11321,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11716,7 +11353,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11749,7 +11385,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11782,7 +11417,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11815,7 +11449,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11848,7 +11481,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11881,7 +11513,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11914,7 +11545,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11947,7 +11577,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -11980,7 +11609,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12013,7 +11641,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12046,7 +11673,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12079,7 +11705,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12112,7 +11737,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12145,7 +11769,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12178,7 +11801,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12211,7 +11833,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12244,7 +11865,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12277,7 +11897,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12310,7 +11929,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12343,7 +11961,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12376,7 +11993,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12409,7 +12025,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12442,7 +12057,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12475,7 +12089,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12508,7 +12121,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12541,7 +12153,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12574,7 +12185,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12607,7 +12217,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12640,7 +12249,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12673,7 +12281,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12706,7 +12313,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12739,7 +12345,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12772,7 +12377,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12805,7 +12409,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12838,7 +12441,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12871,7 +12473,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12904,7 +12505,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12937,7 +12537,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -12970,7 +12569,6 @@
     "tags": [
       "rune"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13003,7 +12601,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13036,7 +12633,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13069,7 +12665,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13102,7 +12697,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13135,7 +12729,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13168,7 +12761,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13201,7 +12793,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13234,7 +12825,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13267,7 +12857,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13300,7 +12889,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13333,7 +12921,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13366,7 +12953,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 600,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13399,7 +12985,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 600,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13432,7 +13017,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 920,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13465,7 +13049,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13500,7 +13083,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13535,7 +13117,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13568,7 +13149,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13601,7 +13181,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13634,7 +13213,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13667,7 +13245,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13700,7 +13277,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13733,7 +13309,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13766,7 +13341,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13799,7 +13373,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13832,7 +13405,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13865,7 +13437,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13898,7 +13469,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13931,7 +13501,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13964,7 +13533,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -13997,7 +13565,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14030,7 +13597,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 120,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14063,7 +13629,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14096,7 +13661,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14129,7 +13693,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14162,7 +13725,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14195,7 +13757,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14229,7 +13790,6 @@
       "soul_core",
       "soul_core_tier1"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14263,7 +13823,6 @@
       "soul_core",
       "soul_core_tier1"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14297,7 +13856,6 @@
       "soul_core",
       "soul_core_tier1"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14331,7 +13889,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14365,7 +13922,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14399,7 +13955,6 @@
       "soul_core",
       "soul_core_tier1"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14433,7 +13988,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14467,7 +14021,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14501,7 +14054,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14535,7 +14087,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14571,7 +14122,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14605,7 +14155,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14639,7 +14188,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14675,7 +14223,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14709,7 +14256,6 @@
       "soul_core",
       "soul_core_tier2"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14743,7 +14289,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14777,7 +14322,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14811,7 +14355,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14845,7 +14388,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14879,7 +14421,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14913,7 +14454,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14947,7 +14487,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -14981,7 +14520,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15015,7 +14553,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15049,7 +14586,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15083,7 +14619,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15117,7 +14652,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15151,7 +14685,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15185,7 +14718,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15219,7 +14751,6 @@
       "soul_core",
       "soul_core_tier3"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15253,7 +14784,6 @@
       "idol",
       "wild_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15287,7 +14817,6 @@
       "idol",
       "primal_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15321,7 +14850,6 @@
       "idol",
       "vivid_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15355,7 +14883,6 @@
       "idol",
       "wild_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15391,7 +14918,6 @@
       "idol",
       "primal_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15425,7 +14951,6 @@
       "idol",
       "vivid_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15459,7 +14984,6 @@
       "idol",
       "vivid_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15495,7 +15019,6 @@
       "idol",
       "primal_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15529,7 +15052,6 @@
       "idol",
       "wild_idol"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15563,7 +15085,6 @@
       "idol",
       "sacred_idol"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15597,7 +15118,6 @@
       "idol",
       "sacred_idol"
     ],
-    "currency_exchange_gold_cost": 850,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15631,7 +15151,6 @@
       "idol",
       "primal_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15665,7 +15184,6 @@
       "idol",
       "vivid_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15699,7 +15217,6 @@
       "idol",
       "primal_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15733,7 +15250,6 @@
       "idol",
       "vivid_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15767,7 +15283,6 @@
       "idol",
       "primal_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15801,7 +15316,6 @@
       "idol",
       "vivid_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15835,7 +15349,6 @@
       "idol",
       "wild_idol"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15868,7 +15381,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15901,7 +15413,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15934,7 +15445,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -15967,7 +15477,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16000,7 +15509,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16033,7 +15541,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16066,7 +15573,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16099,7 +15605,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16132,7 +15637,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16165,7 +15669,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16198,7 +15701,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16231,7 +15733,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16264,7 +15765,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16297,7 +15797,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16330,7 +15829,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16363,7 +15861,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16396,7 +15893,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16439,7 +15935,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SupportGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16481,7 +15976,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SupportGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16523,7 +16017,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SupportGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16565,7 +16058,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SupportGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16607,7 +16099,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SupportGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16649,7 +16140,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16691,7 +16181,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16733,7 +16222,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16775,7 +16263,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16817,7 +16304,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16859,7 +16345,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16901,7 +16386,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16943,7 +16427,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -16985,7 +16468,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17027,7 +16509,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17069,7 +16550,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17111,7 +16591,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17153,7 +16632,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17195,7 +16673,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17237,7 +16714,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17279,7 +16755,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17321,7 +16796,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/ReservationGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17363,7 +16837,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17405,7 +16878,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17447,7 +16919,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17489,7 +16960,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17531,7 +17001,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17573,7 +17042,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17615,7 +17083,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17657,7 +17124,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17699,7 +17165,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17741,7 +17206,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17783,7 +17247,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17825,7 +17288,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17867,7 +17329,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17909,7 +17370,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17951,7 +17411,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -17993,7 +17452,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18035,7 +17493,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18077,7 +17534,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18119,7 +17575,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18161,7 +17616,6 @@
     "class_name": "",
     "item_type": "Metadata/Items/Gems/SkillGemUncut",
     "tags": [],
-    "currency_exchange_gold_cost": null,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18191,7 +17645,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18223,7 +17676,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18255,7 +17707,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18287,7 +17738,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18319,7 +17769,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18351,7 +17800,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18383,7 +17831,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18415,7 +17862,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18447,7 +17893,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18481,7 +17926,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18513,7 +17957,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18545,7 +17988,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18577,7 +18019,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18609,7 +18050,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18641,7 +18081,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18673,7 +18112,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18705,7 +18143,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18737,7 +18174,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18769,7 +18205,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18801,7 +18236,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18835,7 +18269,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18867,7 +18300,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18899,7 +18331,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18931,7 +18362,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18963,7 +18393,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -18995,7 +18424,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19027,7 +18455,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19059,7 +18486,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19091,7 +18517,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19123,7 +18548,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19155,7 +18579,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19187,7 +18610,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19219,7 +18641,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19251,7 +18672,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19283,7 +18703,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19315,7 +18734,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19347,7 +18765,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19379,7 +18796,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19411,7 +18827,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19443,7 +18858,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19475,7 +18889,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19507,7 +18920,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19539,7 +18951,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19571,7 +18982,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19603,7 +19013,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19635,7 +19044,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19667,7 +19075,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19699,7 +19106,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19731,7 +19137,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19763,7 +19168,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19795,7 +19199,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19827,7 +19230,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19859,7 +19261,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19891,7 +19292,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19923,7 +19323,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19955,7 +19354,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -19987,7 +19385,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20019,7 +19416,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20051,7 +19447,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20083,7 +19478,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20115,7 +19509,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20147,7 +19540,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20179,7 +19571,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20211,7 +19602,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20243,7 +19633,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20275,7 +19664,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20307,7 +19695,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20339,7 +19726,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20371,7 +19757,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20403,7 +19788,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20435,7 +19819,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20467,7 +19850,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20499,7 +19881,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20531,7 +19912,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20563,7 +19943,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20595,7 +19974,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20627,7 +20005,6 @@
     "class_name": "輔助寶石",
     "item_type": "",
     "tags": [],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20661,7 +20038,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20694,7 +20070,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20727,7 +20102,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20760,7 +20134,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20793,7 +20166,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20826,7 +20198,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20859,7 +20230,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20892,7 +20262,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20925,7 +20294,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 10,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20958,7 +20326,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -20991,7 +20358,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 250,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21024,7 +20390,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21057,7 +20422,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21090,7 +20454,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21123,7 +20486,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 100,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21156,7 +20518,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 150,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21189,7 +20550,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 200,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21222,7 +20582,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 300,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21255,7 +20614,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 450,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21288,7 +20646,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 600,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21321,7 +20678,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 800,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21354,7 +20710,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21387,7 +20742,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21420,7 +20774,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21453,7 +20806,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21486,7 +20838,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21519,7 +20870,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21552,7 +20902,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21585,7 +20934,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21618,7 +20966,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21651,7 +20998,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 1500,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21684,7 +21030,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 5000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21717,7 +21062,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21750,7 +21094,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21783,7 +21126,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21816,7 +21158,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
@@ -21849,7 +21190,6 @@
     "tags": [
       "currency"
     ],
-    "currency_exchange_gold_cost": 2000,
     "source": "poe2db",
     "status": "confirmed",
     "is_tradeable": true,
