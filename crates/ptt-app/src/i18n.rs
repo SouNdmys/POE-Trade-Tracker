@@ -65,6 +65,7 @@ pub struct Text {
     pub panel_settings: &'static str,
     pub refresh: &'static str,
     pub calibrate: &'static str,
+    pub use_preset: &'static str,
 
     // -- calibration slots, as shown to the user --
     pub slot_need: &'static str,
@@ -110,6 +111,7 @@ pub static ENGLISH: Text = Text {
     panel_settings: "SETTINGS",
     refresh: "Refresh",
     calibrate: "Calibrate",
+    use_preset: "Preset 2560x1440",
 
     slot_need: "Need name",
     slot_have: "Have name",
@@ -152,6 +154,7 @@ pub static TRADITIONAL_CHINESE: Text = Text {
     panel_settings: "設定",
     refresh: "重新整理",
     calibrate: "校準",
+    use_preset: "套用預設 2560x1440",
 
     slot_need: "我需要的",
     slot_have: "我擁有的",
@@ -202,6 +205,7 @@ mod tests {
                 ("panel_settings", text.panel_settings),
                 ("refresh", text.refresh),
                 ("calibrate", text.calibrate),
+                ("use_preset", text.use_preset),
                 ("slot_need", text.slot_need),
                 ("slot_have", text.slot_have),
                 ("slot_tables", text.slot_tables),

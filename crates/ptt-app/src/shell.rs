@@ -582,6 +582,14 @@ impl AppShell {
                             ))
                         })),
                 )
+                .child(div().flex().items_center().gap_2().child(
+                    button("use-preset", LedgerButton::Quiet, text.use_preset, cx).on_click(
+                        cx.listener(|this, _, _, cx| {
+                            this.apply_preset_regions();
+                            cx.notify();
+                        }),
+                    ),
+                ))
                 .child(
                     mono(hotkey_line)
                         .text_size(fs(FS_10_5))
@@ -655,6 +663,30 @@ impl AppShell {
             "profile {profile} — {}",
             self.text().restart_watch_to_apply
         ));
+    }
+
+    /// Installs the profile's factory rectangles for 2560x1440.
+    ///
+    /// The panel's geometry is fixed for a given resolution, so the numbers
+    /// that the corpus was calibrated against are the right ones — drawing
+    /// them by hand can only be less accurate. A hand-drawn region that starts
+    /// above the tables puts the panel's title and market ratio inside it, and
+    /// the row grid then anchors on furniture and reads two rows of twelve.
+    ///
+    /// Only useful at 2560x1440; on any other desktop the user still has to
+    /// draw, which is why this sits beside the calibrate buttons rather than
+    /// replacing them.
+    #[cfg(windows)]
+    fn apply_preset_regions(&mut self) {
+        let profile = self.settings.active_profile;
+        let (layout, _) = ptt_runtime::pipeline::route_for(profile);
+        for (slot, (x, y, width, height)) in [
+            (RegionSlot::Need, layout.need_name),
+            (RegionSlot::Have, layout.have_name),
+            (RegionSlot::Tables, layout.tables),
+        ] {
+            self.apply_calibration(slot, x, y, width, height);
+        }
     }
 
     /// An asset id as the game writes it, in the client's own language.
@@ -1119,6 +1151,16 @@ impl Render for AppShell {
                                                 },
                                             )),
                                     )
+                                    // First in the column, not last. Everything
+                                    // below it is a list that grows with the
+                                    // market — the probe queue alone runs to
+                                    // six suggestions — and a fixed panel at
+                                    // the bottom of growing lists is a panel
+                                    // that scrolls out of reach. The calibrate
+                                    // buttons vanishing after a profile switch
+                                    // was exactly that: more missing pairs,
+                                    // longer queue, settings pushed off.
+                                    .child(self.settings_panel(cx))
                                     .child(panel().child(panel_header(text.panel_skips)).child(
                                         div().p_3().flex().flex_col().gap_1().children(
                                             if skip_lines.is_empty() {
@@ -1153,8 +1195,7 @@ impl Render for AppShell {
                                                         .collect()
                                                 },
                                             )),
-                                    )
-                                    .child(self.settings_panel(cx)),
+                                    ),
                             )
                     } else {
                         div()
