@@ -25,7 +25,17 @@ const LOG_CAPACITY: usize = 120;
 /// Top-left rather than centred: the currency panel occupies the middle of
 /// the screen, which is exactly what the card must not cover.
 const HUD_ORIGIN: (i32, i32) = (24, 24);
-const HUD_SIZE: (i32, i32) = (400, 200);
+
+/// Sized to the panel it mirrors, not to a round number.
+///
+/// The exchange shows at most twelve rows — six available, six competing — and
+/// the point of the card is to read them without alt-tabbing, so all twelve
+/// have to fit or it answers half the question. The painter stacks 17px lines
+/// from 30px down with a 4px foot, so sixteen lines need 306: twelve rows, the
+/// pair, a blank, and the recognition verdict, with one spare.
+const HUD_SIZE: (i32, i32) = (420, 310);
+/// Twelve rows plus pair, spacer and verdict.
+const HUD_BODY_LINES: usize = 16;
 
 /// How far back the pages read. Matches the analysis window the watch loop
 /// uses, so a page and the live line never describe different books.
@@ -109,6 +119,12 @@ pub struct AppShell {
     watching: bool,
     accepted: u64,
     skips: BTreeMap<String, u64>,
+    /// The most recent frame that was not used, and why.
+    ///
+    /// The tally answers "how often"; a HUD in front of a live panel has to
+    /// answer "did *that* one land", and a skip with no reason on screen is
+    /// indistinguishable from the watcher having stopped.
+    last_skip: Option<String>,
     last_header: Option<String>,
     last_rows: Vec<String>,
     last_analysis: Vec<String>,
@@ -221,6 +237,7 @@ impl AppShell {
             watching: false,
             accepted: 0,
             skips: BTreeMap::new(),
+            last_skip: None,
             last_header: None,
             last_rows: Vec::new(),
             last_analysis: Vec::new(),
@@ -306,9 +323,11 @@ impl AppShell {
                         self.last_analysis = analysis;
                         self.report_pair = Some((have_asset_id, need_asset_id));
                         self.report_stale = true;
+                        self.last_skip = None;
                     }
                     UiEvent::Skipped(reason) => {
-                        *self.skips.entry(reason).or_default() += 1;
+                        *self.skips.entry(reason.clone()).or_default() += 1;
+                        self.last_skip = Some(reason);
                     }
                     UiEvent::Fault(message) => {
                         self.fault = Some(message);
@@ -321,6 +340,12 @@ impl AppShell {
                     }
                 }
             }
+            // The card has to move when the panel does. Books and skips arrive
+            // here, not through the message pump above, so refreshing only
+            // there left the HUD showing whatever was true when it was opened
+            // — which is worse than showing nothing, because a stale card
+            // still looks like a live one.
+            self.refresh_hud();
             cx.notify();
         }
         #[cfg(not(windows))]
@@ -632,6 +657,30 @@ impl AppShell {
         ));
     }
 
+    /// An asset id as the game writes it, in the client's own language.
+    ///
+    /// The pipeline speaks ids, and `chaos-orb` is not what the panel says. On
+    /// a card read at a glance beside the game, the id costs a translation
+    /// step every time; the catalogue already holds the name, keyed by the
+    /// profile the watcher is running.
+    #[cfg(windows)]
+    fn display_name(&self, asset_id: &str) -> String {
+        let profile = self.settings.active_profile;
+        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
+        let Some(asset) = (layout.catalog)().by_id(asset_id) else {
+            return asset_id.to_owned();
+        };
+        let name = match language {
+            ptt_recognition::profiles::ProfileLanguage::TraditionalChinese => &asset.name_zh_tw,
+            ptt_recognition::profiles::ProfileLanguage::English => &asset.name_en,
+        };
+        if name.trim().is_empty() {
+            asset_id.to_owned()
+        } else {
+            name.clone()
+        }
+    }
+
     /// Switches the interface language and persists it.
     #[cfg(windows)]
     fn set_language(&mut self, language: ptt_settings::UiLanguage) {
@@ -718,20 +767,30 @@ impl AppShell {
         } else {
             "IDLE"
         };
+        // The card mirrors the panel the user is looking at: which pair, the
+        // rows read off it, and whether the last frame landed. Anything else
+        // belongs in the window, which they can alt-tab to; this is for the
+        // moment when they cannot.
         let pair = self.report_pair.as_ref().map_or_else(
-            || "no pair yet".to_owned(),
-            |(have, need)| format!("{have} -> {need}"),
+            || self.text().no_pair_yet.to_owned(),
+            |(have, need)| format!("{} -> {}", self.display_name(have), self.display_name(need)),
         );
-        // The card answers two questions and no others: what is this pair
-        // worth, and where should I go next.
-        let mut lines = vec![pair];
-        lines.extend(self.last_analysis.iter().take(3).cloned());
-        // Whole-market pages carry the lines worth glancing at while the game
-        // has focus: what to flip next, or what the radar found. Pair pages
-        // are already summarised by `last_analysis` above.
-        if !self.page.needs_a_pair() {
-            lines.extend(self.report_lines.iter().take(4).cloned());
-        }
+        // Stated either way — "nothing since the last book" and "the watcher
+        // died" look identical on a card that only reports success.
+        let verdict = match (&self.fault, &self.last_skip) {
+            (Some(fault), _) => format!("{}: {fault}", self.text().fault_prefix),
+            (None, Some(reason)) => format!("{} {reason}", self.text().skips_label),
+            (None, None) if self.accepted > 0 => {
+                format!("{} {}", self.text().accepted_label, self.accepted)
+            }
+            (None, None) => self.text().nothing_yet.to_owned(),
+        };
+        let lines = hud_lines(
+            &pair,
+            &self.last_rows,
+            self.text().waiting_for_book,
+            &verdict,
+        );
         let content = HudContent {
             monitoring: self.watching,
             status_text: status.to_owned(),
@@ -1139,5 +1198,82 @@ impl Render for AppShell {
                     })
                     .child(hairline_soft()),
             )
+    }
+}
+
+/// The HUD's body, composed.
+///
+/// Pulled out of `refresh_hud` so the shape can be tested: the twelve rows are
+/// the point of the card, and `truncate` drops from the end, so a budget too
+/// small eats the verdict first and then the last rows — quietly, and only on
+/// the frames where the panel is full, which are the ones that matter.
+fn hud_lines(pair: &str, rows: &[String], waiting: &str, verdict: &str) -> Vec<String> {
+    let mut lines = Vec::with_capacity(HUD_BODY_LINES);
+    lines.push(pair.to_owned());
+    if rows.is_empty() {
+        lines.push(waiting.to_owned());
+    } else {
+        lines.extend(rows.iter().cloned());
+    }
+    // Last, so it sits where the eye lands after reading the rows.
+    lines.push(String::new());
+    lines.push(verdict.to_owned());
+    lines.truncate(HUD_BODY_LINES);
+    lines
+}
+
+#[cfg(test)]
+mod hud_tests {
+    use super::{HUD_BODY_LINES, HUD_SIZE};
+
+    /// The card must hold a full panel.
+    ///
+    /// Twelve rows is not a target, it is the panel's maximum — six available
+    /// and six competing — and a card that fits eleven answers the question
+    /// wrongly rather than partially: the row it drops is the aggregate, which
+    /// is the one that says how much is behind the front. The painter stacks
+    /// `LINE_HEIGHT` rows from `BODY_TOP` and stops at `FOOT`, silently, so
+    /// this is checked here rather than discovered on screen.
+    #[test]
+    fn the_card_has_room_for_twelve_rows_and_what_frames_them() {
+        // Mirrors crates/ptt-platform-win/src/win32/hud.rs.
+        const BODY_TOP: i32 = 30;
+        const LINE_HEIGHT: i32 = 17;
+        const FOOT: i32 = 4;
+
+        let painted = (HUD_SIZE.1 - BODY_TOP - FOOT) / LINE_HEIGHT;
+        assert!(
+            painted >= HUD_BODY_LINES as i32,
+            "the card paints {painted} lines but is asked for {HUD_BODY_LINES}"
+        );
+    }
+
+    /// A full panel survives composition with its verdict.
+    #[test]
+    fn a_full_panel_keeps_every_row_and_the_verdict() {
+        let rows: Vec<String> = (0..6)
+            .map(|index| format!("available #{index} 1:100 stock 5"))
+            .chain((0..6).map(|index| format!("competing #{index} 1:101 stock 5")))
+            .collect();
+        let lines = super::hud_lines("A -> B", &rows, "waiting", "skips need-name");
+        for row in &rows {
+            assert!(lines.contains(row), "{row} was dropped from the card");
+        }
+        assert_eq!(
+            lines.last().map(String::as_str),
+            Some("skips need-name"),
+            "the verdict fell off the end: {lines:#?}"
+        );
+        assert!(lines.len() <= HUD_BODY_LINES);
+    }
+
+    /// With nothing captured the card says so rather than showing a bare pair.
+    #[test]
+    fn an_empty_book_says_it_is_waiting() {
+        let lines = super::hud_lines("A -> B", &[], "waiting for a book", "—");
+        assert!(
+            lines.iter().any(|line| line == "waiting for a book"),
+            "{lines:#?}"
+        );
     }
 }
