@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "profile": "poe1-zhtw-0818",
+  "note": "Second Traditional Chinese capture session (2026-08-18), thirteen frames across a wider spread of assets than the first: currency, fragments, allflame, divination cards and an astrolabe. Run with `book-probe --manifest tests/manifests/poe1-zhtw-0818-corpus.json --language zh-tw`. Three frames carry full ground truth read off the screenshots; the rest pin identity and row count. Every accepted row in the batch also passes an independent sort-order check -- available rates descend, competing ascend, and each full side ends in an aggregate that repeats the rate above it.",
+  "screenshot_dir": "test-screenshots/poe1/zh-tw/8.18",
+  "cases": [
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.52.58.48.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "valdo-s-puzzle-box",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.02.89.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "divine-orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.08.60.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "decaying-fragment",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.12.62.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "fracturing-orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.17.74.png",
+      "expect": "accept",
+      "need": "divine-orb",
+      "have": "fracturing-orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.44.86.png",
+      "expect": "accept",
+      "need": "divine-orb",
+      "have": "unrequited-love",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.53.75.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "ancient-orb",
+      "min_rows": 11,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "7.12:1",
+          "stock": 398
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "7:1",
+          "stock": 38500
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "6.50:1",
+          "stock": 18174
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "6:1",
+          "stock": 13800
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:1",
+          "stock": 96
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "7.12:1",
+          "stock": 208
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "7.20:1",
+          "stock": 130
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "7.21:1",
+          "stock": 68
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "7.24:1",
+          "stock": 29
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "7.33:1",
+          "stock": 96
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">7.33:1",
+          "stock": 4811
+        }
+      ],
+      "note": "Five available rows, so no aggregate on that side -- a table only grows one when it fills. The `1 : 1` fifth row is genuinely on screen, not a misread of the row above."
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.53.59.41.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "message-in-a-bottle",
+      "min_rows": 12,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "76:1",
+          "stock": 6764
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "75.50:1",
+          "stock": 15100
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "75:1",
+          "stock": 57750
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "74:1",
+          "stock": 96422
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "73:1",
+          "stock": 89936
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<73:1",
+          "stock": 42195
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "80:1",
+          "stock": 62
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "81:1",
+          "stock": 156
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "82:1",
+          "stock": 70
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "82.50:1",
+          "stock": 4
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "83:1",
+          "stock": 17
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">83:1",
+          "stock": 988
+        }
+      ],
+      "note": "All twelve verified against the frame, six of them four-plus-digit stocks with separators."
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.54.04.26.png",
+      "expect": "accept",
+      "need": "message-in-a-bottle",
+      "have": "divine-orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.54.12.11.png",
+      "expect": "accept",
+      "need": "chaos-orb",
+      "have": "voidborn-reliquary-key",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.54.17.87.png",
+      "expect": "accept",
+      "need": "divine-orb",
+      "have": "voidborn-reliquary-key",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.54.32.62.png",
+      "expect": "accept",
+      "need": "divine-orb",
+      "have": "templar-astrolabe",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.18 - 14.54.39.26.png",
+      "expect": "accept",
+      "need": "traumatic-fragment",
+      "have": "chaos-orb",
+      "min_rows": 11,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:22",
+          "stock": 2
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:25",
+          "stock": 4
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:29",
+          "stock": 93
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:30",
+          "stock": 100
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:37",
+          "stock": 7
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:37",
+          "stock": 31
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1:20",
+          "stock": 520
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:19",
+          "stock": 589
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:18.50",
+          "stock": 21497
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:18",
+          "stock": 13932
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:17.86",
+          "stock": 500
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "expect": "skip"
+        }
+      ],
+      "note": "The competing aggregate is caught mid-repaint: its `>` and stock are painted on one line with `1 : 17.86` on the next, so only `12,406` reaches the parser and the row is skipped."
+    }
+  ]
+}
