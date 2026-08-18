@@ -327,9 +327,8 @@ pub struct QuoteSelectionPolicyIdentity {
 #[serde(rename_all = "camelCase")]
 /// Which trading costs the active policy claims to have verified.
 ///
-/// Gold is deliberately absent: the exchange's gold cost never binds in
-/// practice, so it is outside this product's profit model and carries no
-/// verification state to report.
+/// The two below are the whole model. Profit is gross of anything the game
+/// charges outside the exchange rate itself.
 pub struct CostVerification {
     pub fee_verified: bool,
     pub minimum_lots_verified: bool,

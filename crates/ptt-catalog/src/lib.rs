@@ -17,13 +17,14 @@ use sha2::{Digest, Sha256};
 /// (Traditional Chinese primary, English secondary), carried over from
 /// POE2-Trade-Tracker-Electron `data/currencies/currency_master.zh_tw.json`.
 ///
-/// One field did not come with it. Every entry used to carry
-/// `currency_exchange_gold_cost`, which nothing deserialised — the gold cost
-/// was ruled out of the profit model because it never binds in practice, and
-/// data left lying next to a model is an invitation to wire it back in.
+/// Carried over is not the same as carried over whole: the file arrived with
+/// thirty fields per entry and [`CatalogAsset`] reads eleven. The other
+/// nineteen were dropped rather than embedded and ignored, because a field
+/// sitting in a data file is an invitation to wire it up, and because they are
+/// weight in every build.
 pub const POE2_CATALOG_JSON: &str = include_str!("../data/poe2/currency_master.zh_tw.json");
 pub const POE2_CATALOG_SHA256: &str =
-    "fc8e4f17411a991825a4af063e11208cd8a0fdd4a48a2a7bf97b7c1a47aa0cd8";
+    "119e479c7c56baba7b5cf3876c9ecdc747f46a8e42d4738b45053a0da258c993";
 pub const POE2_CATALOG_ENTRIES: usize = 660;
 
 /// POE1 catalog: 1,047 assets across 16 categories, transcribed from in-game
