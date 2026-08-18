@@ -97,24 +97,22 @@ pub fn default_database_path() -> PathBuf {
 /// POE1 rectangle under the POE2 prefix would apply one game's calibration to
 /// the other with nothing to indicate it.
 ///
-/// Returns the names of any stored regions that were rejected, so a caller
-/// can say so rather than silently watching the preset rectangles.
-pub fn apply_saved_calibration_for(layout: ptt_recognition::profiles::PanelLayout) -> Vec<String> {
+/// Installs a profile's saved regions, returning the names of any that were
+/// rejected so a caller can say so rather than silently watching the preset
+/// rectangles.
+fn apply_saved_calibration_for(profile_id: ptt_core::ProfileId) -> Vec<String> {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
     let store = ptt_settings::SettingsStore::release_default_from(Path::new(&local));
     let settings = store.load().settings;
-    // Regions are drawn against one game's panel. Applying them to another
-    // game's route would silently watch the wrong rectangles, so a profile
-    // for a different game is reported rather than installed.
-    if settings.active_profile.game != layout.game {
-        return vec![format!(
-            "saved calibration is for {:?}; this route reads {:?}",
-            settings.active_profile.game, layout.game
-        )];
-    }
-    let Some(profile) = settings.profile(settings.active_profile) else {
+    // Regions are drawn against one game's panel, so applying them to another
+    // game's route would silently watch the wrong rectangles. This used to be
+    // a runtime check that reported the mismatch; it is now impossible instead,
+    // because `route_for` derives the layout from this same profile. The
+    // invariant is held by `a_profile_selects_its_own_game_s_panel` below.
+    let Some(profile) = settings.profile(profile_id) else {
         return Vec::new();
     };
+    let layout = route_for(profile_id).0;
     let mut rejected = Vec::new();
     for (name, region) in [
         ("NEED", profile.need_name_region),
@@ -171,7 +169,7 @@ pub fn active_profile() -> ptt_core::ProfileId {
 
 /// The saved calibration for the profile the pipeline actually runs.
 pub fn apply_saved_calibration() -> Vec<String> {
-    apply_saved_calibration_for(route_for(active_profile()).0)
+    apply_saved_calibration_for(active_profile())
 }
 
 /// The live pipeline, opened once and driven by [`LivePipeline::run`].
@@ -342,9 +340,11 @@ mod profile_tests {
 
     /// Every profile must select the panel belonging to its own game.
     ///
-    /// A mismatch is not loud: `apply_saved_calibration_for` refuses the saved
-    /// regions and the watcher then reads the factory rectangles of the wrong
-    /// game, which looks like a recognition problem rather than a wiring one.
+    /// This is what makes the calibration lookup safe without a runtime
+    /// guard: the regions a profile stores are drawn against the panel this
+    /// function returns for it. Break the pairing and the watcher reads
+    /// another game's rectangles, which looks like a recognition problem
+    /// rather than a wiring one.
     #[test]
     fn a_profile_selects_its_own_game_s_panel() {
         for game in [Game::Poe1, Game::Poe2] {
