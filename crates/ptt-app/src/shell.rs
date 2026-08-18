@@ -133,7 +133,9 @@ impl AppShell {
                 ] {
                     if let Some(region) = region
                         && !ptt_recognition::route::set_region_override(
-                            ptt_recognition::profiles::poe2::LAYOUT.key_prefix,
+                            ptt_runtime::pipeline::route_for(settings.active_profile)
+                                .0
+                                .key_prefix,
                             name,
                             (region.x, region.y, region.width, region.height),
                         )
@@ -320,8 +322,11 @@ impl AppShell {
             RegionSlot::Have => entry.have_name_region = Some(region),
             RegionSlot::Tables => entry.tables_region = Some(region),
         }
+        // Keyed by the profile's own panel. Storing a POE1 rectangle under
+        // POE2's prefix leaves the route reading its factory preset while the
+        // interface shows the region as calibrated.
         ptt_recognition::route::set_region_override(
-            ptt_recognition::profiles::poe2::LAYOUT.key_prefix,
+            ptt_runtime::pipeline::route_for(profile).0.key_prefix,
             slot.override_name(),
             (x, y, width, height),
         );
@@ -774,12 +779,16 @@ impl AppShell {
     fn load_window(
         &self,
     ) -> Result<(String, Vec<ptt_trade_domain::MarketEdgeObservation>), String> {
-        use ptt_runtime::live::poe2_live_context;
+        use ptt_runtime::live::live_context;
         use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
 
         let store = ptt_storage::MarketStore::open(default_database_path())
             .map_err(|error| format!("storage: {error}"))?;
-        let context = poe2_live_context(LIVE_LEAGUE).map_err(|error| format!("{error:?}"))?;
+        // The profile is the pipeline's too, for the same reason the league
+        // is: the context key mixes in the game, so a reader on POE2 and a
+        // writer on POE1 agree on the league and still share nothing.
+        let context = live_context(self.settings.active_profile, LIVE_LEAGUE)
+            .map_err(|error| format!("{error:?}"))?;
         let context_key = context.stable_key();
         let observations = store
             .load_observations(

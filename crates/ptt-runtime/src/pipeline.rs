@@ -378,6 +378,59 @@ mod profile_tests {
         }
     }
 
+    /// The context key must separate games, and the reader must be able to
+    /// reproduce the writer's.
+    ///
+    /// The app's report pages rebuild the context from the same profile the
+    /// pipeline stored under. If those two ever disagree they do not error —
+    /// the reader simply finds nothing under its key and every page shows an
+    /// empty book, which reads as "the watcher captured nothing".
+    #[test]
+    fn a_profile_reproduces_its_own_context_key_and_no_other() {
+        let key = |game, language| {
+            crate::live::live_context(ProfileId::new(game, language), LIVE_LEAGUE)
+                .expect("context")
+                .stable_key()
+        };
+        let poe1 = key(Game::Poe1, ContentLanguage::TraditionalChinese);
+        let poe2 = key(Game::Poe2, ContentLanguage::TraditionalChinese);
+        assert_eq!(
+            poe1,
+            key(Game::Poe1, ContentLanguage::TraditionalChinese),
+            "the same profile must reproduce its key"
+        );
+        assert_ne!(poe1, poe2, "two games must not share a context key");
+        assert_ne!(
+            poe1,
+            key(Game::Poe1, ContentLanguage::English),
+            "two client languages must not share a context key"
+        );
+    }
+
+    /// Opening the store is cheap enough to do on the UI thread.
+    ///
+    /// The report pages reopen it per refresh. Measured rather than assumed,
+    /// because the fix for a slow open is a cached connection whose lifetime
+    /// then has to be reasoned about against the writer's.
+    #[test]
+    fn opening_the_store_is_cheap() {
+        let directory = std::env::temp_dir().join("ptt-open-cost");
+        std::fs::create_dir_all(&directory).expect("temp dir");
+        let path = directory.join("cost.sqlite");
+        let _ = std::fs::remove_file(&path);
+        ptt_storage::MarketStore::open(&path).expect("first open");
+        let started = std::time::Instant::now();
+        for _ in 0..20 {
+            ptt_storage::MarketStore::open(&path).expect("open");
+        }
+        let each = started.elapsed() / 20;
+        assert!(
+            each < std::time::Duration::from_millis(20),
+            "reopening the store costs {each:?}, too much for the UI thread"
+        );
+        println!("store open: {each:?} each");
+    }
+
     /// Provenance must carry the catalog the session actually matched against.
     #[test]
     fn the_context_pins_its_own_catalog() {
