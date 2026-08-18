@@ -36,20 +36,41 @@ const REPORT_WINDOW_HOURS: i64 = 2;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
     Monitor,
+    Opportunities,
     Convert,
     Watchlist,
     History,
 }
 
 impl Page {
-    const ALL: [Self; 4] = [Self::Monitor, Self::Convert, Self::Watchlist, Self::History];
+    const ALL: [Self; 5] = [
+        Self::Monitor,
+        Self::Opportunities,
+        Self::Convert,
+        Self::Watchlist,
+        Self::History,
+    ];
 
     fn label(self, text: &'static crate::i18n::Text) -> &'static str {
         match self {
             Self::Monitor => text.page_monitor,
+            Self::Opportunities => text.page_opportunities,
             Self::Convert => text.page_convert,
             Self::Watchlist => text.page_watchlist,
             Self::History => text.page_history,
+        }
+    }
+
+    /// Whether this page is about one currency pair.
+    ///
+    /// Monitor and the radar are about the whole market, so they must be
+    /// answered before the pair guard rather than after it. Getting that
+    /// wrong is quiet: the page just says "waiting for a book" forever, even
+    /// though it never needed one.
+    const fn needs_a_pair(self) -> bool {
+        match self {
+            Self::Monitor | Self::Opportunities => false,
+            Self::Convert | Self::Watchlist | Self::History => true,
         }
     }
 
@@ -60,6 +81,7 @@ impl Page {
     const fn element_id(self) -> &'static str {
         match self {
             Self::Monitor => "page-monitor",
+            Self::Opportunities => "page-opportunities",
             Self::Convert => "page-convert",
             Self::Watchlist => "page-watchlist",
             Self::History => "page-history",
@@ -704,7 +726,10 @@ impl AppShell {
         // worth, and where should I go next.
         let mut lines = vec![pair];
         lines.extend(self.last_analysis.iter().take(3).cloned());
-        if self.page == Page::Monitor {
+        // Whole-market pages carry the lines worth glancing at while the game
+        // has focus: what to flip next, or what the radar found. Pair pages
+        // are already summarised by `last_analysis` above.
+        if !self.page.needs_a_pair() {
             lines.extend(self.report_lines.iter().take(4).cloned());
         }
         let content = HudContent {
@@ -753,10 +778,10 @@ impl AppShell {
         // Monitor is the one page that needs no pair — the probe queue is
         // about what has *not* been captured — so it is answered before the
         // pair guard.
-        if self.page == Page::Monitor {
-            self.report_lines = match self.probe_queue_report() {
+        if !self.page.needs_a_pair() {
+            self.report_lines = match self.pairless_report() {
                 Ok(lines) => lines,
-                Err(reason) => vec![format!("probe queue unavailable: {reason}")],
+                Err(reason) => vec![format!("unavailable: {reason}")],
             };
             return;
         }
@@ -799,12 +824,22 @@ impl AppShell {
         Ok((context_key, observations))
     }
 
+    /// The pages that describe the whole market rather than one pair.
     #[cfg(windows)]
-    fn probe_queue_report(&self) -> Result<Vec<String>, String> {
+    fn pairless_report(&self) -> Result<Vec<String>, String> {
         use ptt_runtime::pipeline::LIVE_LEAGUE;
 
         let (context_key, observations) = self.load_window()?;
-        ptt_runtime::reports::probe_queue(&observations, &context_key, LIVE_LEAGUE)
+        match self.page {
+            Page::Monitor => {
+                ptt_runtime::reports::probe_queue(&observations, &context_key, LIVE_LEAGUE)
+            }
+            Page::Opportunities => {
+                ptt_runtime::reports::opportunities_report(&observations, &context_key, LIVE_LEAGUE)
+            }
+            // `needs_a_pair` sends the rest through `build_report`.
+            page => Err(format!("{page:?} is a pair page")),
+        }
     }
 
     #[cfg(windows)]
@@ -818,7 +853,7 @@ impl AppShell {
 
         match self.page {
             // Answered before this function is reached; see refresh_report.
-            Page::Monitor => Ok(Vec::new()),
+            Page::Monitor | Page::Opportunities => Ok(Vec::new()),
             Page::Convert => {
                 ptt_runtime::reports::convert_report(&observations, &context_key, &have, &need)
             }

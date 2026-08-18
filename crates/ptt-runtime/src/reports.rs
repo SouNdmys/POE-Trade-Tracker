@@ -24,11 +24,20 @@ use ptt_trade_engine::{
     MarketDepthIndex, SearchCancellation, find_best_conversion,
 };
 use ptt_workflows::{
-    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, derive_focus_probe_candidates,
+    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarCategory,
+    RadarRequest, derive_focus_probe_candidates, run_opportunity_radar,
 };
 
 /// The sizes the convert page prices, in whole orbs.
 const CONVERT_SIZES: [u64; 3] = [1, 10, 100];
+
+/// What the radar assumes you are willing to put in, in whole anchor units.
+///
+/// A radar has to stake something, because depth makes profit size-dependent:
+/// the best route for one orb is often not the best route for a hundred. This
+/// is the middle of the sizes the Convert page prices, so the two pages agree
+/// about the market they are describing.
+const RADAR_STAKE: u64 = 10;
 
 /// Everything the engine needs, assembled once from stored observations.
 struct Market {
@@ -279,6 +288,177 @@ pub fn watchlist_report(
     Ok(lines)
 }
 
+/// "Where is the money right now": the unified radar.
+///
+/// This is the page the whole loop points at. Everything else answers a
+/// question the user had to think of first — this one ranks what the book
+/// already knows, so the answer arrives before the question.
+///
+/// Anchored on the league's first core currency: a radar has to start
+/// somewhere, and the currency everything else is quoted in is the one holding
+/// that is not itself a position. Items keep their execution category, because
+/// "executable now" and "someone would have to take this listing" are
+/// different products and collapsing them is how a theoretical number gets
+/// traded.
+pub fn opportunities_report(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    league: &str,
+) -> Result<Vec<String>, String> {
+    let policy = MarketPolicy::default_for(league);
+    let Some(anchor) = policy.core_liquidity.first().cloned() else {
+        return Ok(vec![
+            "no core currency configured for this league".to_owned(),
+        ]);
+    };
+    // Counted before the book is built: an empty window has no assets, and
+    // `build_market` cannot make a unit catalogue out of none.
+    let mut seen: Vec<MarketAssetId> = observations
+        .iter()
+        .flat_map(|observation| {
+            [
+                observation.edge.from_asset_id.clone(),
+                observation.edge.to_asset_id.clone(),
+            ]
+        })
+        .collect();
+    seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+    seen.dedup();
+    if seen.len() < 2 {
+        return Ok(vec![
+            "not enough of the market captured yet — flip a few pairs first".to_owned(),
+        ]);
+    }
+    let market = build_market(observations, context_key)?;
+
+    let mut items: Vec<FocusGroupItem> = vec![FocusGroupItem {
+        asset_id: anchor.clone(),
+        role: FocusRole::Anchor,
+    }];
+    for asset_id in seen.iter().filter(|asset| **asset != anchor) {
+        items.push(FocusGroupItem {
+            asset_id: asset_id.clone(),
+            // Core liquidity is money, not a position to end up holding, so it
+            // routes through rather than being a destination — the same split
+            // the Watchlist uses.
+            role: if policy.is_core_liquidity(asset_id) {
+                FocusRole::Anchor
+            } else {
+                FocusRole::Target
+            },
+        });
+    }
+    let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
+        .map_err(|error| format!("scope: {error}"))?;
+
+    let Ok(amount_in) = AssetAmount::from_whole_units(anchor.clone(), RADAR_STAKE, &market.units)
+    else {
+        return Ok(vec![format!("cannot stake {RADAR_STAKE} {anchor}")]);
+    };
+    let request = RadarRequest {
+        context_key: context_key.to_owned(),
+        start_asset_id: anchor.clone(),
+        amount_in,
+        minimum_conversion_improvement_basis_points: 100,
+        minimum_triangle_profit_basis_points: 100,
+        max_hops: 3,
+        max_paths_per_target: 32,
+        max_expansions_per_target: 4_000,
+        budget: RadarBudget {
+            max_total_expansions: 60_000,
+            max_targets: 48,
+        },
+        max_triangle_evaluations: 4_000,
+        max_results: 12,
+        // Gross by product decision: no monetary fee is modelled.
+        fee_policy: FeePolicy::None,
+    };
+    let result = run_opportunity_radar(
+        &market.instant_selection,
+        &market.units,
+        &scope,
+        &request,
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .map_err(|error| format!("radar: {error:?}"))?;
+
+    let mut lines = vec![format!(
+        "staking {RADAR_STAKE} {anchor} across {} targets",
+        result.diagnostics.target_count
+    )];
+    // Said before the results, not after: a truncated search that looks like a
+    // complete one is how "there is nothing better" gets believed.
+    if result.diagnostics.budget_exhausted || result.diagnostics.results_truncated {
+        lines.push(format!(
+            "partial scan — {} targets skipped, {} expansions used{}",
+            result.diagnostics.skipped_target_count,
+            result.diagnostics.expansions_used,
+            if result.diagnostics.results_truncated {
+                ", results cut to the top few"
+            } else {
+                ""
+            }
+        ));
+    }
+    if result.items.is_empty() {
+        lines.push("nothing beats holding right now".to_owned());
+        if result.diagnostics.missing_conversion_count > 0 {
+            lines.push(format!(
+                "{} targets have no route yet — the Watchlist says which to flip",
+                result.diagnostics.missing_conversion_count
+            ));
+        }
+        return Ok(lines);
+    }
+
+    for item in &result.items {
+        lines.extend(radar_item_lines(item));
+    }
+    Ok(lines)
+}
+
+/// One radar item, as the page prints it.
+///
+/// Split out so it can be tested against a hand-built item. Reaching this code
+/// through the search needs a market that actually contains an arbitrage, and
+/// the captured corpus does not have one — leaving the only branch a user sees
+/// when the radar succeeds as the only branch never executed.
+fn radar_item_lines(item: &ptt_workflows::RadarItem) -> Vec<String> {
+    let route = item
+        .path_asset_ids
+        .iter()
+        .map(MarketAssetId::as_str)
+        .collect::<Vec<_>>()
+        .join(" -> ");
+    let edge = item.value_basis_points.map_or_else(
+        || "unpriced".to_owned(),
+        |points| format!("{}.{:02}%", points / 100, (points % 100).abs()),
+    );
+    let category = match item.category {
+        RadarCategory::Executable => "executable now",
+        RadarCategory::Theoretical => "needs a taker",
+        RadarCategory::ProbeRequired => "capture more first",
+    };
+    let mut lines = vec![
+        format!("{edge:>8}  {:?}  {route}", item.kind),
+        format!(
+            "          {category}   out {} {}",
+            item.amount_out.quanta,
+            item.path_asset_ids
+                .last()
+                .map_or("?", MarketAssetId::as_str),
+        ),
+    ];
+    if !item.risk_flags.is_empty() {
+        lines.push(format!("          risks {:?}", item.risk_flags));
+    }
+    if !item.reasons.is_empty() {
+        lines.push(format!("          {:?}", item.reasons));
+    }
+    lines
+}
+
 /// "What should I go look at next": the probe queue on its own.
 ///
 /// This is the loop the product is built around — a gap in the book becomes a
@@ -517,4 +697,111 @@ fn focus_gaps(
         ));
     }
     Ok(lines)
+}
+
+#[cfg(test)]
+mod radar_tests {
+    use super::*;
+
+    const CONTEXT: &str = "radar-test-context";
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// The line a user reads when the radar succeeds must actually render.
+    ///
+    /// Built by hand rather than searched for: the captured corpus contains no
+    /// arbitrage, so driving this branch through the search would need a
+    /// synthetic market whose depth index cooperates, and that tests the
+    /// engine rather than these four lines of formatting.
+    #[test]
+    fn a_found_opportunity_renders() {
+        let path: Vec<MarketAssetId> = ["divine-orb", "chaos-orb", "gold"]
+            .into_iter()
+            .map(asset)
+            .collect();
+        let units = AssetUnitCatalog::try_new(
+            path.iter()
+                .map(|id| (id.clone(), AssetUnit::whole()))
+                .collect::<BTreeMap<_, _>>(),
+        )
+        .expect("units");
+        let item = ptt_workflows::RadarItem {
+            item_id: "test-item".to_owned(),
+            kind: ptt_workflows::RadarItemKind::BestConversion,
+            category: RadarCategory::Executable,
+            path_asset_ids: path.clone(),
+            amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
+            amount_out: AssetAmount::from_whole_units(asset("gold"), 4000, &units).expect("out"),
+            value_basis_points: Some(30_012),
+            reasons: vec![ptt_workflows::RadarReason::BetterThanDirect],
+            risk_flags: Vec::new(),
+            conversion_path: None,
+            triangle: None,
+        };
+        let lines = radar_item_lines(&item);
+        let joined = lines.join(
+            "
+",
+        );
+        assert!(
+            joined.contains("divine-orb -> chaos-orb -> gold"),
+            "the route is not shown: {joined}"
+        );
+        assert!(
+            joined.contains("300.12%"),
+            "basis points are not rendered as a percentage: {joined}"
+        );
+        assert!(
+            joined.contains("executable now"),
+            "the execution category is missing: {joined}"
+        );
+        assert!(
+            joined.contains("out 4000 gold"),
+            "the payout is missing: {joined}"
+        );
+        assert!(
+            joined.contains("BetterThanDirect"),
+            "the reason is missing: {joined}"
+        );
+    }
+
+    /// An unpriced item must not print a bogus percentage.
+    #[test]
+    fn an_unpriced_item_says_unpriced() {
+        let path: Vec<MarketAssetId> = ["divine-orb", "gold"].into_iter().map(asset).collect();
+        let units = AssetUnitCatalog::try_new(
+            path.iter()
+                .map(|id| (id.clone(), AssetUnit::whole()))
+                .collect::<BTreeMap<_, _>>(),
+        )
+        .expect("units");
+        let item = ptt_workflows::RadarItem {
+            item_id: "unpriced".to_owned(),
+            kind: ptt_workflows::RadarItemKind::Triangle,
+            category: RadarCategory::ProbeRequired,
+            path_asset_ids: path.clone(),
+            amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
+            amount_out: AssetAmount::from_whole_units(asset("gold"), 11, &units).expect("out"),
+            value_basis_points: None,
+            reasons: Vec::new(),
+            risk_flags: Vec::new(),
+            conversion_path: None,
+            triangle: None,
+        };
+        let joined = radar_item_lines(&item).join(
+            "
+",
+        );
+        assert!(joined.contains("unpriced"), "{joined}");
+        assert!(joined.contains("capture more first"), "{joined}");
+    }
+
+    /// A book with nothing in it must say so rather than error.
+    #[test]
+    fn an_empty_book_says_so() {
+        let lines = opportunities_report(&[], CONTEXT, "test-league").expect("report");
+        assert!(!lines.is_empty(), "the radar must always say something");
+    }
 }

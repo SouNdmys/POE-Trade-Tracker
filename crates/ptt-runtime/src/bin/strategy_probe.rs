@@ -237,6 +237,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    // --- the radar, over the whole captured market
+    //
+    // Run here rather than as a synthetic unit test because the thing worth
+    // proving is that it survives a real book: the corpus has partial coverage
+    // and one-sided pairs, which is exactly what makes a search either return
+    // nothing or run away.
+    match ptt_runtime::reports::opportunities_report(&observations, &context_key, "corpus-league") {
+        Ok(lines) => {
+            if lines.is_empty() {
+                failures.push("radar was silent — it must always say something".to_owned());
+            }
+            println!("radar:");
+            for line in &lines {
+                println!("  {line}");
+            }
+        }
+        Err(reason) => failures.push(format!("radar failed: {reason}")),
+    }
+
     // --- the loop that sends the user back into the game
     let queue = ptt_runtime::reports::probe_queue(&observations, &context_key, "corpus-league")
         .map_err(|reason| format!("probe queue failed: {reason}"))?;

@@ -52,6 +52,7 @@ pub struct Text {
 
     // -- navigation --
     pub page_monitor: &'static str,
+    pub page_opportunities: &'static str,
     pub page_convert: &'static str,
     pub page_watchlist: &'static str,
     pub page_history: &'static str,
@@ -97,6 +98,7 @@ pub static ENGLISH: Text = Text {
     stop_watch: "Stop",
 
     page_monitor: "MONITOR",
+    page_opportunities: "RADAR",
     page_convert: "CONVERT",
     page_watchlist: "WATCHLIST",
     page_history: "HISTORY",
@@ -138,6 +140,7 @@ pub static TRADITIONAL_CHINESE: Text = Text {
     stop_watch: "停止",
 
     page_monitor: "監視器",
+    page_opportunities: "雷達",
     page_convert: "兌換",
     page_watchlist: "關注清單",
     page_history: "歷史",
@@ -188,6 +191,7 @@ mod tests {
                 ("start_watch", text.start_watch),
                 ("stop_watch", text.stop_watch),
                 ("page_monitor", text.page_monitor),
+                ("page_opportunities", text.page_opportunities),
                 ("page_convert", text.page_convert),
                 ("page_watchlist", text.page_watchlist),
                 ("page_history", text.page_history),
