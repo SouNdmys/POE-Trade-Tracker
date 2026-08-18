@@ -81,6 +81,9 @@ pub struct Text {
     pub hotkey_unavailable: &'static str,
     pub fault_prefix: &'static str,
     pub language_label: &'static str,
+    pub game_label: &'static str,
+    pub client_language_label: &'static str,
+    pub restart_watch_to_apply: &'static str,
 }
 
 pub static ENGLISH: Text = Text {
@@ -119,6 +122,9 @@ pub static ENGLISH: Text = Text {
     hotkey_unavailable: "hotkey unavailable (another app owns it)",
     fault_prefix: "fault",
     language_label: "Language",
+    game_label: "Game",
+    client_language_label: "Client",
+    restart_watch_to_apply: "restart the watch to apply",
 };
 
 pub static TRADITIONAL_CHINESE: Text = Text {
@@ -157,6 +163,9 @@ pub static TRADITIONAL_CHINESE: Text = Text {
     hotkey_unavailable: "熱鍵被其他程式佔用",
     fault_prefix: "故障",
     language_label: "介面語言",
+    game_label: "遊戲",
+    client_language_label: "遊戲語言",
+    restart_watch_to_apply: "重新開始監視後生效",
 };
 
 #[cfg(test)]
@@ -200,6 +209,9 @@ mod tests {
                 ("hotkey_unavailable", text.hotkey_unavailable),
                 ("fault_prefix", text.fault_prefix),
                 ("language_label", text.language_label),
+                ("game_label", text.game_label),
+                ("client_language_label", text.client_language_label),
+                ("restart_watch_to_apply", text.restart_watch_to_apply),
             ] {
                 assert!(
                     !value.trim().is_empty(),

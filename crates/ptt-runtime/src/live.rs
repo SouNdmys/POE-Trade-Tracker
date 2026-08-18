@@ -9,6 +9,7 @@
 //! evidence than any single OCR confidence.
 
 use chrono::{DateTime, Utc};
+use ptt_core::{ContentLanguage, Game as ProfileGame, ProfileId};
 use ptt_recognition::route::RecognizedBook;
 use ptt_recognition::{Comparator as FieldComparator, Side};
 use ptt_trade_domain::{
@@ -20,8 +21,43 @@ use ptt_trade_domain::{
 /// Confidence attributed to a double-read-confirmed row (ppm).
 pub const DOUBLE_READ_CONSENSUS_PPM: u32 = 950_000;
 
-/// Live POE2 zh-TW context with the real pinned asset identities.
-pub fn poe2_live_context(league: &str) -> Result<MarketContext, DomainError> {
+/// The live context for a profile, with the real pinned asset identities.
+///
+/// The catalog hash is part of the observation identity, so it must be the
+/// hash of the catalog this profile actually matches names against — feeding
+/// POE2's pin to a POE1 session would label the rows with provenance that
+/// does not describe them.
+pub fn live_context(profile: ProfileId, league: &str) -> Result<MarketContext, DomainError> {
+    // Two parallel `Game` enums exist, one in `ptt-core` for profile identity
+    // and one in `ptt-trade-domain` for provenance. Mapped explicitly here
+    // rather than papered over with a blanket `From`, so adding a third game
+    // has to visit this function.
+    let (catalog_sha, catalog_id, domain_game) = match profile.game {
+        ProfileGame::Poe1 => (
+            ptt_catalog::POE1_CATALOG_SHA256,
+            "poe1-catalog-1047",
+            Game::Poe1,
+        ),
+        ProfileGame::Poe2 => (
+            ptt_catalog::POE2_CATALOG_SHA256,
+            "poe2-catalog-660",
+            Game::Poe2,
+        ),
+    };
+    let client_language = match profile.language {
+        ContentLanguage::TraditionalChinese => ClientLanguage::TraditionalChinese,
+        ContentLanguage::English => ClientLanguage::English,
+    };
+    let (route_id, geometry): (&str, &str) = match (profile.game, profile.language) {
+        (ProfileGame::Poe1, ContentLanguage::English) => ("poe1-en-route-v1", "poe1-en-2560x1440"),
+        (ProfileGame::Poe1, ContentLanguage::TraditionalChinese) => {
+            ("poe1-zhtw-route-v1", "poe1-zhtw-2560x1440")
+        }
+        (ProfileGame::Poe2, ContentLanguage::English) => ("poe2-en-route-v1", "poe2-en-2560x1440"),
+        (ProfileGame::Poe2, ContentLanguage::TraditionalChinese) => {
+            ("poe2-zhtw-route-v1", "poe2-zhtw-2560x1440")
+        }
+    };
     let identity = ObservationIdentity::try_new(
         "ptt-winocr-ppocr5",
         env!("CARGO_PKG_VERSION"),
@@ -29,22 +65,30 @@ pub fn poe2_live_context(league: &str) -> Result<MarketContext, DomainError> {
         // No separate provider manifest exists; the dictionary pin plays that
         // role — it is verified at session start exactly like a manifest.
         ptt_ocr_onnx::EXPECTED_DICTIONARY_SHA256.to_lowercase(),
-        ptt_catalog::POE2_CATALOG_SHA256.to_owned(),
-        "poe2-catalog-660",
-        ptt_catalog::POE2_CATALOG_SHA256.to_owned(),
-        "poe2-zhtw-route-v1",
-        ptt_catalog::POE2_CATALOG_SHA256.to_owned(),
+        catalog_sha.to_owned(),
+        catalog_id,
+        catalog_sha.to_owned(),
+        route_id,
+        catalog_sha.to_owned(),
         "warm-mask-v1",
     )?;
     MarketContext::try_new_for(
-        Game::Poe2,
-        ClientLanguage::TraditionalChinese,
+        domain_game,
+        client_language,
         league,
         "live",
-        "poe2-zhtw-2560x1440",
+        geometry,
         1,
-        "poe2-zhtw-route-v1",
+        route_id,
         identity,
+    )
+}
+
+/// The POE2 Traditional Chinese context, which the probes and fixtures use.
+pub fn poe2_live_context(league: &str) -> Result<MarketContext, DomainError> {
+    live_context(
+        ProfileId::new(ProfileGame::Poe2, ContentLanguage::TraditionalChinese),
+        league,
     )
 }
 

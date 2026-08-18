@@ -451,6 +451,48 @@ impl AppShell {
                         )
                 }))
                 .child(
+                    self.profile_row(
+                        text.game_label,
+                        [
+                            ("profile-poe1", ptt_core::Game::Poe1, "PoE 1"),
+                            ("profile-poe2", ptt_core::Game::Poe2, "PoE 2"),
+                        ]
+                        .map(|(id, game, label)| {
+                            (
+                                id,
+                                game == profile.game,
+                                label,
+                                ptt_core::ProfileId::new(game, profile.language),
+                            )
+                        })
+                        .to_vec(),
+                        cx,
+                    ),
+                )
+                .child(
+                    self.profile_row(
+                        text.client_language_label,
+                        [
+                            ("client-en", ptt_core::ContentLanguage::English, "EN"),
+                            (
+                                "client-zh",
+                                ptt_core::ContentLanguage::TraditionalChinese,
+                                "繁中",
+                            ),
+                        ]
+                        .map(|(id, language, label)| {
+                            (
+                                id,
+                                language == profile.language,
+                                label,
+                                ptt_core::ProfileId::new(profile.game, language),
+                            )
+                        })
+                        .to_vec(),
+                        cx,
+                    ),
+                )
+                .child(
                     div()
                         .flex()
                         .items_center()
@@ -494,6 +536,73 @@ impl AppShell {
                         .text_color(c(TEXT_META)),
                 ),
         )
+    }
+
+    /// One row of mutually exclusive profile buttons.
+    ///
+    /// The profile decides which panel geometry the watcher reads and which
+    /// catalog language it matches names against, so it is a setting the user
+    /// has to be able to reach — POE1 recognition was otherwise only usable
+    /// from the probes.
+    #[cfg(windows)]
+    fn profile_row(
+        &self,
+        label: &'static str,
+        options: Vec<(&'static str, bool, &'static str, ptt_core::ProfileId)>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(
+                div()
+                    .w(px(90.0))
+                    .text_size(fs(FS_12))
+                    .text_color(c(TEXT_META))
+                    .child(label),
+            )
+            .children(
+                options
+                    .into_iter()
+                    .map(|(option_id, active, option_label, profile)| {
+                        button(
+                            option_id,
+                            if active {
+                                LedgerButton::Primary
+                            } else {
+                                LedgerButton::Quiet
+                            },
+                            option_label,
+                            cx,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.set_profile(profile);
+                            cx.notify();
+                        }))
+                    }),
+            )
+    }
+
+    /// Switches the watched profile and persists it.
+    ///
+    /// Takes effect on the next watch start rather than mid-session: the route
+    /// holds its layout and its OCR language from construction, and swapping
+    /// them under a running capture would mix two panels' rows into one book.
+    #[cfg(windows)]
+    fn set_profile(&mut self, profile: ptt_core::ProfileId) {
+        if self.settings.active_profile == profile {
+            return;
+        }
+        self.settings.active_profile = profile;
+        if let Err(error) = self.settings_store.save(&self.settings) {
+            self.push_log(format!("could not save profile: {error}"));
+            return;
+        }
+        self.push_log(format!(
+            "profile {profile} — {}",
+            self.text().restart_watch_to_apply
+        ));
     }
 
     /// Switches the interface language and persists it.

@@ -22,7 +22,7 @@ use ptt_storage::MarketStore;
 use ptt_trade_domain::MarketContext;
 
 use crate::analysis::pair_analysis_lines;
-use crate::live::{capture_from_book, domain_asset_id, poe2_live_context};
+use crate::live::{capture_from_book, domain_asset_id, live_context};
 
 /// The league every live component agrees on.
 ///
@@ -134,9 +134,44 @@ pub fn apply_saved_calibration_for(layout: ptt_recognition::profiles::PanelLayou
     rejected
 }
 
+/// The panel and OCR language a profile selects.
+///
+/// The geometry differs per game and the language only picks which catalog
+/// names the identity slots are matched against, which is why one route serves
+/// both — see `ptt_recognition::route`.
+#[must_use]
+pub fn route_for(
+    profile: ptt_core::ProfileId,
+) -> (
+    ptt_recognition::profiles::PanelLayout,
+    ptt_recognition::profiles::ProfileLanguage,
+) {
+    let layout = match profile.game {
+        ptt_core::Game::Poe1 => ptt_recognition::profiles::poe1::LAYOUT,
+        ptt_core::Game::Poe2 => ptt_recognition::profiles::poe2::LAYOUT,
+    };
+    let language = match profile.language {
+        ptt_core::ContentLanguage::English => ptt_recognition::profiles::ProfileLanguage::English,
+        ptt_core::ContentLanguage::TraditionalChinese => {
+            ptt_recognition::profiles::ProfileLanguage::TraditionalChinese
+        }
+    };
+    (layout, language)
+}
+
+/// The profile the user has selected, or the default if settings are unreadable.
+#[must_use]
+pub fn active_profile() -> ptt_core::ProfileId {
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    ptt_settings::SettingsStore::release_default_from(Path::new(&local))
+        .load()
+        .settings
+        .active_profile
+}
+
 /// The saved calibration for the profile the pipeline actually runs.
 pub fn apply_saved_calibration() -> Vec<String> {
-    apply_saved_calibration_for(ptt_recognition::profiles::poe2::LAYOUT)
+    apply_saved_calibration_for(route_for(active_profile()).0)
 }
 
 /// The live pipeline, opened once and driven by [`LivePipeline::run`].
@@ -152,15 +187,18 @@ impl LivePipeline {
     /// Opens the recognition route, the store, and the market context, with
     /// the user's calibration applied.
     pub fn open(league: &str, database_path: Option<&Path>) -> Result<Self, PipelineError> {
+        let profile = active_profile();
         apply_saved_calibration();
-        let route = Route::new().map_err(|reason| PipelineError::Route(format!("{reason:?}")))?;
+        let (layout, language) = route_for(profile);
+        let route = Route::new_with(layout, language)
+            .map_err(|reason| PipelineError::Route(format!("{reason:?}")))?;
         let path = database_path.map_or_else(default_database_path, Path::to_path_buf);
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
         let store =
             MarketStore::open(&path).map_err(|error| PipelineError::Storage(error.to_string()))?;
-        let context = poe2_live_context(league)
+        let context = live_context(profile, league)
             .map_err(|error| PipelineError::Context(format!("{error:?}")))?;
         let context_key = context.stable_key();
         Ok(Self {
@@ -295,4 +333,67 @@ fn analyse(
     let have = domain_asset_id(have_id).map_err(|error| format!("{error:?}"))?;
     pair_analysis_lines(&observations, context_key, &need, &have)
         .map_err(|error| format!("analysis: {error}"))
+}
+
+#[cfg(test)]
+mod profile_tests {
+    use super::*;
+    use ptt_core::{ContentLanguage, Game, ProfileId};
+
+    /// Every profile must select the panel belonging to its own game.
+    ///
+    /// A mismatch is not loud: `apply_saved_calibration_for` refuses the saved
+    /// regions and the watcher then reads the factory rectangles of the wrong
+    /// game, which looks like a recognition problem rather than a wiring one.
+    #[test]
+    fn a_profile_selects_its_own_game_s_panel() {
+        for game in [Game::Poe1, Game::Poe2] {
+            for language in [
+                ContentLanguage::English,
+                ContentLanguage::TraditionalChinese,
+            ] {
+                let (layout, _) = route_for(ProfileId::new(game, language));
+                assert_eq!(
+                    layout.game, game,
+                    "{game:?}/{language:?} reads another panel"
+                );
+            }
+        }
+    }
+
+    /// The client language must reach the route, or a Chinese client is read
+    /// against English names and every frame skips with nothing to explain it.
+    #[test]
+    fn the_client_language_reaches_the_route() {
+        use ptt_recognition::profiles::ProfileLanguage;
+        for game in [Game::Poe1, Game::Poe2] {
+            assert_eq!(
+                route_for(ProfileId::new(game, ContentLanguage::English)).1,
+                ProfileLanguage::English
+            );
+            assert_eq!(
+                route_for(ProfileId::new(game, ContentLanguage::TraditionalChinese)).1,
+                ProfileLanguage::TraditionalChinese
+            );
+        }
+    }
+
+    /// Provenance must carry the catalog the session actually matched against.
+    #[test]
+    fn the_context_pins_its_own_catalog() {
+        for (game, expected) in [
+            (Game::Poe1, ptt_catalog::POE1_CATALOG_SHA256),
+            (Game::Poe2, ptt_catalog::POE2_CATALOG_SHA256),
+        ] {
+            let context = crate::live::live_context(
+                ProfileId::new(game, ContentLanguage::TraditionalChinese),
+                "live-league",
+            )
+            .expect("context");
+            assert!(
+                format!("{context:?}").contains(expected),
+                "{game:?} context does not pin its own catalog"
+            );
+        }
+    }
 }
