@@ -136,8 +136,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let need_id = domain_asset_id(need)?;
 
         // --- route accounting over the real book
-        match ptt_runtime::reports::convert_report(&observations, &context_key, &have_id, &need_id)
-        {
+        match ptt_runtime::reports::convert_report(
+            &observations,
+            &context_key,
+            &have_id,
+            &need_id,
+            ptt_settings::UiLanguage::English,
+        ) {
             Ok(lines) => {
                 if lines.is_empty() {
                     failures.push(format!("{have} -> {need}: convert report was silent"));
@@ -147,9 +152,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // --- history over the real book
-        if let Err(reason) =
-            ptt_runtime::reports::history_report(&observations, &context_key, &have_id, &need_id)
-        {
+        if let Err(reason) = ptt_runtime::reports::history_report(
+            &observations,
+            &context_key,
+            &have_id,
+            &need_id,
+            ptt_settings::UiLanguage::English,
+        ) {
             failures.push(format!("{have} -> {need}: history failed: {reason}"));
         }
 
@@ -243,7 +252,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // proving is that it survives a real book: the corpus has partial coverage
     // and one-sided pairs, which is exactly what makes a search either return
     // nothing or run away.
-    match ptt_runtime::reports::opportunities_report(&observations, &context_key, "corpus-league") {
+    match ptt_runtime::reports::opportunities_report(
+        &observations,
+        &context_key,
+        "corpus-league",
+        ptt_settings::UiLanguage::English,
+    ) {
         Ok(lines) => {
             if lines.is_empty() {
                 failures.push("radar was silent — it must always say something".to_owned());
@@ -257,8 +271,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // --- the loop that sends the user back into the game
-    let queue = ptt_runtime::reports::probe_queue(&observations, &context_key, "corpus-league")
-        .map_err(|reason| format!("probe queue failed: {reason}"))?;
+    let queue = ptt_runtime::reports::probe_queue(
+        &observations,
+        &context_key,
+        "corpus-league",
+        ptt_settings::UiLanguage::English,
+    )
+    .map_err(|reason| format!("probe queue failed: {reason}"))?;
     println!("probe queue:");
     for line in &queue {
         println!("  {line}");

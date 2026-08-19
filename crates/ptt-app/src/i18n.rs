@@ -1,10 +1,18 @@
-//! Bilingual UI catalogue (English / Traditional Chinese).
+//! Bilingual UI catalogue (English / Simplified Chinese).
 //!
 //! Two values of one struct rather than a lookup map: a missing key is then a
 //! compile error instead of a blank label discovered by a user, and a test
 //! holds both catalogues to the same shape. `AppShell::text()` picks by the
 //! stored language and switching takes effect on the next frame without
 //! rebuilding anything.
+//!
+//! The interface's Chinese is Simplified while the clients this reads are
+//! English and Traditional. That is not an inconsistency: the client language
+//! says which lexicon the recogniser matches currency names against, and the
+//! interface language says what the person reading the interface prefers.
+//! Someone playing the Traditional Chinese client because that is the only
+//! Chinese client Path of Exile ships is not thereby a Traditional Chinese
+//! reader. The two settings sit in different places for that reason.
 //!
 //! Region slot names ("NEED", "HAVE", "TABLES") are deliberately absent: they
 //! are calibration override keys the recognition layer matches on, not
@@ -24,7 +32,7 @@ pub const LANGUAGES: [UiLanguage; 2] = [UiLanguage::English, UiLanguage::Chinese
 pub const fn text(language: UiLanguage) -> &'static Text {
     match language {
         UiLanguage::English => &ENGLISH,
-        UiLanguage::Chinese => &TRADITIONAL_CHINESE,
+        UiLanguage::Chinese => &SIMPLIFIED_CHINESE,
     }
 }
 
@@ -34,7 +42,7 @@ pub const fn text(language: UiLanguage) -> &'static Text {
 pub const fn native_label(language: UiLanguage) -> &'static str {
     match language {
         UiLanguage::English => "English",
-        UiLanguage::Chinese => "繁體中文",
+        UiLanguage::Chinese => "简体中文",
     }
 }
 
@@ -74,6 +82,15 @@ pub struct Text {
     pub apply_regions: &'static str,
     pub drag_to_draw: &'static str,
     pub no_screenshot: &'static str,
+    pub hud_accepted_count: &'static str,
+    pub skip_decode: &'static str,
+    pub skip_ocr: &'static str,
+    pub skip_need_name: &'static str,
+    pub skip_have_name: &'static str,
+    pub skip_empty_book: &'static str,
+    pub skip_rows: &'static str,
+    pub skip_confirmation: &'static str,
+    pub skip_duplicate: &'static str,
     pub preset_applied: &'static str,
     pub applied: &'static str,
     pub nothing_to_apply: &'static str,
@@ -101,6 +118,79 @@ pub struct Text {
     pub game_label: &'static str,
     pub client_language_label: &'static str,
     pub restart_watch_to_apply: &'static str,
+}
+
+impl Text {
+    /// Every field, paired with its name.
+    ///
+    /// Here rather than inside one test because two tests walk it, and a
+    /// list maintained twice is a list that ends up covering different
+    /// fields in each — with the newest ones, which are the ones most
+    /// likely to be wrong, missing from whichever copy was forgotten.
+    #[cfg(test)]
+    fn fields(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("app_title", self.app_title),
+            ("state_idle", self.state_idle),
+            ("state_watching", self.state_watching),
+            ("state_fault", self.state_fault),
+            ("accepted_label", self.accepted_label),
+            ("skips_label", self.skips_label),
+            ("start_watch", self.start_watch),
+            ("stop_watch", self.stop_watch),
+            ("page_monitor", self.page_monitor),
+            ("page_opportunities", self.page_opportunities),
+            ("page_convert", self.page_convert),
+            ("page_watchlist", self.page_watchlist),
+            ("page_history", self.page_history),
+            ("panel_last_book", self.panel_last_book),
+            ("panel_opportunities", self.panel_opportunities),
+            ("panel_skips", self.panel_skips),
+            ("panel_probe_queue", self.panel_probe_queue),
+            ("panel_settings", self.panel_settings),
+            ("refresh", self.refresh),
+            ("use_preset", self.use_preset),
+            ("page_calibrate", self.page_calibrate),
+            ("load_screenshot", self.load_screenshot),
+            ("zoom_in", self.zoom_in),
+            ("zoom_out", self.zoom_out),
+            ("fit_window", self.fit_window),
+            ("actual_size", self.actual_size),
+            ("apply_regions", self.apply_regions),
+            ("drag_to_draw", self.drag_to_draw),
+            ("no_screenshot", self.no_screenshot),
+            ("hud_accepted_count", self.hud_accepted_count),
+            ("skip_decode", self.skip_decode),
+            ("skip_ocr", self.skip_ocr),
+            ("skip_need_name", self.skip_need_name),
+            ("skip_have_name", self.skip_have_name),
+            ("skip_empty_book", self.skip_empty_book),
+            ("skip_rows", self.skip_rows),
+            ("skip_confirmation", self.skip_confirmation),
+            ("skip_duplicate", self.skip_duplicate),
+            ("preset_applied", self.preset_applied),
+            ("applied", self.applied),
+            ("nothing_to_apply", self.nothing_to_apply),
+            ("guide_hint", self.guide_hint),
+            ("hint_need", self.hint_need),
+            ("hint_have", self.hint_have),
+            ("hint_tables", self.hint_tables),
+            ("slot_need", self.slot_need),
+            ("slot_have", self.slot_have),
+            ("slot_tables", self.slot_tables),
+            ("waiting_for_book", self.waiting_for_book),
+            ("no_pair_yet", self.no_pair_yet),
+            ("pair_prefix", self.pair_prefix),
+            ("nothing_yet", self.nothing_yet),
+            ("hotkey_ready", self.hotkey_ready),
+            ("hotkey_unavailable", self.hotkey_unavailable),
+            ("fault_prefix", self.fault_prefix),
+            ("language_label", self.language_label),
+            ("game_label", self.game_label),
+            ("client_language_label", self.client_language_label),
+            ("restart_watch_to_apply", self.restart_watch_to_apply),
+        ]
+    }
 }
 
 pub static ENGLISH: Text = Text {
@@ -135,10 +225,19 @@ pub static ENGLISH: Text = Text {
     apply_regions: "Apply regions",
     drag_to_draw: "drag on the screenshot to draw the highlighted region",
     no_screenshot: "load a screenshot of the exchange panel to begin",
+    hud_accepted_count: "{} accepted",
+    skip_decode: "could not decode the frame",
+    skip_ocr: "OCR unavailable",
+    skip_need_name: "could not read the left currency",
+    skip_have_name: "could not read the right currency",
+    skip_empty_book: "the panel had no rows",
+    skip_rows: "could not slice the rows",
+    skip_confirmation: "two reads disagreed",
+    skip_duplicate: "same book as last time",
     preset_applied: "factory regions for 2560x1440 applied",
     applied: "regions written to settings:",
     nothing_to_apply: "already applied - nothing changed",
-    guide_hint: "dashed box = where this region usually sits",
+    guide_hint: "amber box = where this region usually sits",
     hint_need: "the currency name on the left, icon excluded",
     hint_have: "the currency name on the right, icon and star excluded",
     hint_tables: "from the Available Trades title bar down past the last competing row",
@@ -161,67 +260,106 @@ pub static ENGLISH: Text = Text {
     restart_watch_to_apply: "restart the watch to apply",
 };
 
-pub static TRADITIONAL_CHINESE: Text = Text {
-    app_title: "POE 交易追蹤器",
-    state_idle: "閒置",
-    state_watching: "監視中",
+pub static SIMPLIFIED_CHINESE: Text = Text {
+    app_title: "POE 交易追踪器",
+    state_idle: "空闲",
+    state_watching: "监视中",
     state_fault: "故障",
     accepted_label: "已接受",
-    skips_label: "已跳過",
-    start_watch: "開始監視",
+    skips_label: "已跳过",
+    start_watch: "开始监视",
     stop_watch: "停止",
 
-    page_monitor: "監視器",
-    page_opportunities: "雷達",
-    page_convert: "兌換",
-    page_watchlist: "關注清單",
-    page_history: "歷史",
+    page_monitor: "监视器",
+    page_opportunities: "雷达",
+    page_convert: "兑换",
+    page_watchlist: "关注列表",
+    page_history: "历史",
 
-    panel_last_book: "最近盤口",
-    panel_opportunities: "機會",
-    panel_skips: "跳過原因",
-    panel_probe_queue: "待採集佇列",
-    panel_settings: "設定",
-    refresh: "重新整理",
-    use_preset: "套用預設 2560x1440",
-    page_calibrate: "校準",
-    load_screenshot: "載入截圖",
+    panel_last_book: "最近盘口",
+    panel_opportunities: "机会",
+    panel_skips: "跳过原因",
+    panel_probe_queue: "待采集队列",
+    panel_settings: "设置",
+    refresh: "刷新",
+    use_preset: "套用预设 2560x1440",
+    page_calibrate: "校准",
+    load_screenshot: "载入截图",
     zoom_in: "放大",
-    zoom_out: "縮小",
-    fit_window: "適應視窗",
-    actual_size: "原圖 100%",
-    apply_regions: "套用區域",
-    drag_to_draw: "在截圖上拖曳以框出反白的區域",
-    no_screenshot: "先載入一張兌換面板的截圖",
-    preset_applied: "已套用 2560x1440 的預設區域",
-    applied: "已寫入設定的區域：",
-    nothing_to_apply: "與目前設定相同，沒有變更",
-    guide_hint: "虛線框 = 這個區域通常的位置",
-    hint_need: "左側的通貨名稱，不要框進圖示",
-    hint_have: "右側的通貨名稱，不要框進圖示與星號",
-    hint_tables: "從「可用交易」標題列開始，一路框到「競爭交易」最後一行下方",
+    zoom_out: "缩小",
+    fit_window: "适应窗口",
+    actual_size: "原图 100%",
+    apply_regions: "套用区域",
+    drag_to_draw: "在截图上拖动，框出高亮的那个区域",
+    no_screenshot: "先载入一张兑换面板的截图",
+    hud_accepted_count: "已接受 {}",
+    skip_decode: "画面解码失败",
+    skip_ocr: "OCR 不可用",
+    skip_need_name: "左侧通货名没读出来",
+    skip_have_name: "右侧通货名没读出来",
+    skip_empty_book: "面板里没有行",
+    skip_rows: "行切分失败",
+    skip_confirmation: "两次读取不一致",
+    skip_duplicate: "和上一帧是同一个盘口",
+    preset_applied: "已套用 2560x1440 的预设区域",
+    applied: "已写入设置的区域：",
+    nothing_to_apply: "与当前设置相同，没有变更",
+    guide_hint: "琥珀色框 = 这个区域通常的位置",
+    hint_need: "左侧的通货名称，不要框进图标",
+    hint_have: "右侧的通货名称，不要框进图标和星标",
+    hint_tables: "从「可用交易」标题栏开始，一直框到「竞争交易」最后一行下方",
 
     slot_need: "我需要的",
-    slot_have: "我擁有的",
+    slot_have: "我拥有的",
     slot_tables: "交易表格",
 
-    waiting_for_book: "尚未擷取到盤口 — 開始監視並在遊戲中開啟一組通貨",
-    no_pair_yet: "通貨對：尚未擷取",
-    pair_prefix: "通貨對",
+    waiting_for_book: "还没有抓到盘口 — 开始监视，并在游戏里打开一组通货",
+    no_pair_yet: "通货对：还没抓到",
+    pair_prefix: "通货对",
     nothing_yet: "—",
 
-    hotkey_ready: "熱鍵已註冊",
-    hotkey_unavailable: "熱鍵被其他程式佔用",
+    hotkey_ready: "热键已注册",
+    hotkey_unavailable: "热键被其他程序占用",
     fault_prefix: "故障",
-    language_label: "介面語言",
-    game_label: "遊戲",
-    client_language_label: "遊戲語言",
-    restart_watch_to_apply: "重新開始監視後生效",
+    language_label: "界面语言",
+    game_label: "游戏",
+    client_language_label: "游戏语言",
+    restart_watch_to_apply: "重新开始监视后生效",
 };
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The Chinese catalogue must actually be Simplified.
+    ///
+    /// It was written in Traditional first, to match the only Chinese client
+    /// the game ships, and converting it is exactly the kind of edit that gets
+    /// done nine tenths of the way. A missed character does not fail anywhere
+    /// — it renders, it is even readable — so nothing but a check like this
+    /// would notice.
+    ///
+    /// A spot-check, not a converter: these are the Traditional forms whose
+    /// Simplified counterparts differ *and* that belong to this catalogue's
+    /// own vocabulary, so a partial conversion trips at least one of them.
+    #[test]
+    fn the_chinese_catalogue_is_simplified() {
+        const TRADITIONAL_ONLY: [char; 70] = [
+            '訊', '設', '監', '視', '準', '載', '圖', '區', '應', '過', '閒', '開', '關', '註',
+            '鍵', '熱', '擷', '盤', '貨', '對', '為', '個', '這', '們', '時', '實', '點', '選',
+            '態', '樣', '進', '標', '語', '題', '錄', '檔', '稱', '顯', '讀', '數', '動', '現',
+            '種', '說', '歷', '機', '會', '場', '達', '業', '產', '務', '覽', '隨', '沒', '麼',
+            '變', '執', '錯', '誤', '頁', '單', '輸', '導', '換', '兌', '觀', '讓', '適', '復',
+        ];
+        for (field, value) in SIMPLIFIED_CHINESE.fields() {
+            for character in TRADITIONAL_ONLY {
+                assert!(
+                    !value.contains(character),
+                    "{field} still reads {value:?}, which holds the traditional {character}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn both_catalogues_are_fully_populated() {

@@ -1455,12 +1455,13 @@ impl AppShell {
         if !self.hud_visible {
             return;
         }
+        let text = self.text();
         let status = if self.fault.is_some() {
-            "FAULT"
+            text.state_fault
         } else if self.watching {
-            "WATCHING"
+            text.state_watching
         } else {
-            "IDLE"
+            text.state_idle
         };
         // The card mirrors the panel the user is looking at: which pair, the
         // rows read off it, and whether the last frame landed. Anything else
@@ -1474,7 +1475,11 @@ impl AppShell {
         // died" look identical on a card that only reports success.
         let verdict = match (&self.fault, &self.last_skip) {
             (Some(fault), _) => format!("{}: {fault}", self.text().fault_prefix),
-            (None, Some(reason)) => format!("{} {reason}", self.text().skips_label),
+            (None, Some(reason)) => format!(
+                "{} {}",
+                text.skips_label,
+                skip_label(reason, self.settings.ui_language)
+            ),
             (None, None) if self.accepted > 0 => {
                 format!("{} {}", self.text().accepted_label, self.accepted)
             }
@@ -1489,7 +1494,10 @@ impl AppShell {
         let content = HudContent {
             monitoring: self.watching,
             status_text: status.to_owned(),
-            elapsed: format!("{} ok", self.accepted),
+            elapsed: ptt_runtime::report_text::fill(
+                text.hud_accepted_count,
+                &[&self.accepted.to_string()],
+            ),
             lines,
         };
         if let Some(hud) = self.hud.as_mut()
@@ -1585,12 +1593,18 @@ impl AppShell {
 
         let (context_key, observations) = self.load_window()?;
         match self.page {
-            Page::Monitor => {
-                ptt_runtime::reports::probe_queue(&observations, &context_key, LIVE_LEAGUE)
-            }
-            Page::Opportunities => {
-                ptt_runtime::reports::opportunities_report(&observations, &context_key, LIVE_LEAGUE)
-            }
+            Page::Monitor => ptt_runtime::reports::probe_queue(
+                &observations,
+                &context_key,
+                LIVE_LEAGUE,
+                self.settings.ui_language,
+            ),
+            Page::Opportunities => ptt_runtime::reports::opportunities_report(
+                &observations,
+                &context_key,
+                LIVE_LEAGUE,
+                self.settings.ui_language,
+            ),
             // Draws rather than reports; `render_calibrate` reads its own state.
             Page::Calibrate => Ok(Vec::new()),
             // `needs_a_pair` sends the rest through `build_report`.
@@ -1610,15 +1624,26 @@ impl AppShell {
         match self.page {
             // Answered before this function is reached; see refresh_report.
             Page::Monitor | Page::Opportunities | Page::Calibrate => Ok(Vec::new()),
-            Page::Convert => {
-                ptt_runtime::reports::convert_report(&observations, &context_key, &have, &need)
-            }
-            Page::Watchlist => {
-                ptt_runtime::reports::watchlist_report(&observations, &context_key, LIVE_LEAGUE)
-            }
-            Page::History => {
-                ptt_runtime::reports::history_report(&observations, &context_key, &have, &need)
-            }
+            Page::Convert => ptt_runtime::reports::convert_report(
+                &observations,
+                &context_key,
+                &have,
+                &need,
+                self.settings.ui_language,
+            ),
+            Page::Watchlist => ptt_runtime::reports::watchlist_report(
+                &observations,
+                &context_key,
+                LIVE_LEAGUE,
+                self.settings.ui_language,
+            ),
+            Page::History => ptt_runtime::reports::history_report(
+                &observations,
+                &context_key,
+                &have,
+                &need,
+                self.settings.ui_language,
+            ),
         }
     }
 
@@ -1727,7 +1752,12 @@ impl Render for AppShell {
         ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
         let mut skip_lines: Vec<String> = ranked
             .into_iter()
-            .map(|(reason, count)| format!("{count:>5}  {reason}"))
+            .map(|(reason, count)| {
+                format!(
+                    "{count:>5}  {}",
+                    skip_label(reason, self.settings.ui_language)
+                )
+            })
             .collect();
         skip_lines.truncate(10);
 
@@ -1915,6 +1945,36 @@ impl Render for AppShell {
 /// the point of the card, and `truncate` drops from the end, so a budget too
 /// small eats the verdict first and then the last rows — quietly, and only on
 /// the frames where the panel is full, which are the ones that matter.
+/// A skip reason in the reader's language.
+///
+/// Keyed by the stable bucket name rather than by the typed reason, because
+/// that name is what the session tallies by and what the histogram groups on.
+/// Translating the key itself would split one bucket into two the moment the
+/// language changed mid-session.
+///
+/// An unrecognised key is shown as itself. A bucket name on screen is a poor
+/// label, but it is honest — far better than folding an unknown skip into some
+/// known one and reporting the wrong cause.
+fn skip_label(key: &str, language: ptt_settings::UiLanguage) -> String {
+    let text = crate::i18n::text(language);
+    // The row rejects carry their own typed detail after the colon, and that
+    // detail is worth keeping: `rows:NoBands` and `rows:ImplausibleBand` are
+    // different problems with different fixes.
+    if let Some(detail) = key.strip_prefix("rows:") {
+        return format!("{} ({detail})", text.skip_rows);
+    }
+    match key {
+        "decode" => text.skip_decode.to_owned(),
+        "ocr" => text.skip_ocr.to_owned(),
+        "need-name" => text.skip_need_name.to_owned(),
+        "have-name" => text.skip_have_name.to_owned(),
+        "empty-book" => text.skip_empty_book.to_owned(),
+        "confirmation-mismatch" => text.skip_confirmation.to_owned(),
+        "duplicate" => text.skip_duplicate.to_owned(),
+        other => other.to_owned(),
+    }
+}
+
 fn hud_lines(pair: &str, rows: &[String], waiting: &str, verdict: &str) -> Vec<String> {
     let mut lines = Vec::with_capacity(HUD_BODY_LINES);
     lines.push(pair.to_owned());

@@ -12,11 +12,11 @@ use ptt_market_book::{
     DataVisibility, EvaluatedQuoteEdge, QuoteSelectionPolicy, QuoteSelectionStrategy,
     build_coherent_current_book, select_quote_edges,
 };
+use ptt_settings::UiLanguage;
 use ptt_strategy::{
-    Actionability, BucketSize, MarkRateTable, MarketPolicy, ProfitTier, RiskThresholds,
-    RouteAccountingRequest, ValuationMode, ValuationRequest, ValuationStatus, anomalies, candles,
-    derive_route_accounting, price_points, recommend_liquidity_anchors, summarize,
-    value_against_anchor,
+    BucketSize, MarkRateTable, MarketPolicy, ProfitTier, RiskThresholds, RouteAccountingRequest,
+    ValuationMode, ValuationRequest, ValuationStatus, anomalies, candles, derive_route_accounting,
+    price_points, recommend_liquidity_anchors, summarize, value_against_anchor,
 };
 use ptt_trade_domain::{MarketAssetId, MarketEdgeObservation};
 use ptt_trade_engine::{
@@ -24,8 +24,8 @@ use ptt_trade_engine::{
     MarketDepthIndex, SearchCancellation, find_best_conversion,
 };
 use ptt_workflows::{
-    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarCategory,
-    RadarRequest, derive_focus_probe_candidates, run_opportunity_radar,
+    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarRequest,
+    derive_focus_probe_candidates, run_opportunity_radar,
 };
 
 /// The sizes the convert page prices, in whole orbs.
@@ -96,18 +96,22 @@ fn build_market(
     })
 }
 
-fn tier_line(label: &str, tier: &ProfitTier) -> String {
+fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
     let profit = match (tier.direction, &tier.delta, tier.basis_points) {
-        (Some(ComparisonDirection::Improved), Some(delta), Some(bps)) => {
-            format!("+{} ({bps}bp vs direct)", delta.quanta)
-        }
-        (Some(ComparisonDirection::Worse), Some(delta), Some(bps)) => {
-            format!("-{} ({bps}bp vs direct)", delta.quanta)
-        }
-        (Some(ComparisonDirection::Equal), _, _) => "level with direct".to_owned(),
+        (Some(ComparisonDirection::Improved), Some(delta), Some(bps)) => fill(
+            text.better_than_direct,
+            &[&delta.quanta.to_string(), &bps.to_string()],
+        ),
+        (Some(ComparisonDirection::Worse), Some(delta), Some(bps)) => fill(
+            text.worse_than_direct,
+            &[&delta.quanta.to_string(), &bps.to_string()],
+        ),
+        (Some(ComparisonDirection::Equal), _, _) => text.level_with_direct.to_owned(),
         // No direct route observed: showing the route is useful, calling it
         // an improvement over nothing is not.
-        _ => "no direct route to compare".to_owned(),
+        _ => text.no_direct_route.to_owned(),
     };
     format!(
         "{label:<12} {} in -> {} out   {profit}",
@@ -122,9 +126,12 @@ pub fn convert_report(
     context_key: &str,
     have: &MarketAssetId,
     need: &MarketAssetId,
+    language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     let market = build_market(observations, context_key)?;
     let mut lines = Vec::new();
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
 
     for size in CONVERT_SIZES {
         let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
@@ -168,46 +175,57 @@ pub fn convert_report(
             .collect::<Vec<_>>()
             .join(" -> ");
         lines.push(format!("{size:>4} {have}   via {route}"));
-        lines.push(format!("     {}", tier_line("closed", &accounting.closed)));
-        lines.push(format!(
-            "     {}",
-            tier_line("theoretical", &accounting.theoretical)
-        ));
-        lines.push(format!(
-            "     {}",
-            tier_line("mark-to-mkt", &accounting.mark_to_market)
-        ));
+        for (label, tier) in [
+            (text.tier_closed, &accounting.closed),
+            (text.tier_theoretical, &accounting.theoretical),
+            (text.tier_mark_to_market, &accounting.mark_to_market),
+        ] {
+            lines.push(format!("     {}", tier_line(label, tier, language)));
+        }
         if accounting.recommended_input.quanta < accounting.requested_input.quanta {
             lines.push(format!(
-                "     size down to {} {have}: past that, depth runs out",
-                accounting.recommended_input.quanta
+                "     {}",
+                fill(
+                    text.size_down_to,
+                    &[
+                        &accounting.recommended_input.quanta.to_string(),
+                        have.as_str(),
+                    ],
+                )
             ));
         }
         for residual in &accounting.residuals {
             let break_even = residual.break_even_unit_price.as_ref().map_or_else(
-                || "no cost basis".to_owned(),
-                |price| format!("break even at 1 : {price}", price = price.text),
+                || text.no_cost_basis.to_owned(),
+                |price| fill(text.break_even_at, &[&price.text]),
             );
             lines.push(format!(
-                "     stranded {} {}   {break_even}",
-                residual.amount.quanta,
-                residual.asset_id.as_str(),
+                "     {}",
+                fill(
+                    text.stranded,
+                    &[
+                        &residual.amount.quanta.to_string(),
+                        residual.asset_id.as_str(),
+                        &break_even,
+                    ],
+                )
             ));
         }
-        let verdict = match accounting.assessment.actionability {
-            Actionability::InstantExecutable => "executable now",
-            Actionability::MakerTheoretical => "needs someone to take a listing",
-            Actionability::ProbeRequired => "capture more before trusting",
-            Actionability::SuspiciousOutlier => "looks wrong, not good",
-        };
+        let verdict =
+            crate::report_text::actionability(language, accounting.assessment.actionability);
         lines.push(format!(
-            "     {verdict}   risks {:?}",
-            accounting.assessment.blocking()
+            "     {verdict}   {} {}",
+            risks_label(language),
+            crate::report_text::join(
+                language,
+                &accounting.assessment.blocking(),
+                crate::report_text::execution_risk
+            )
         ));
     }
 
     if lines.is_empty() {
-        lines.push("nothing to convert yet — capture a book first".to_owned());
+        lines.push(text.nothing_to_convert.to_owned());
     }
     Ok(lines)
 }
@@ -218,19 +236,22 @@ pub fn watchlist_report(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     league: &str,
+    language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     let market = build_market(observations, context_key)?;
     let policy = MarketPolicy::default_for(league);
     let mut lines = Vec::new();
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
 
-    lines.push(format!(
-        "core liquidity: {}",
-        policy
+    lines.push(fill(
+        text.core_liquidity,
+        &[&policy
             .core_liquidity
             .iter()
             .map(MarketAssetId::as_str)
             .collect::<Vec<_>>()
-            .join(", ")
+            .join(", ")],
     ));
 
     // Value everything seen against the first core currency.
@@ -262,22 +283,29 @@ pub fn watchlist_report(
                 format!("{} (both sides)", value.text)
             }
             (Some(value), _) => format!("{} (one side only)", value.text),
-            (None, _) => "no price — capture this pair".to_owned(),
+            (None, _) => text.no_price_capture.to_owned(),
         };
         lines.push(format!("{:<20} {value}", asset.as_str(),));
     }
 
     // Typed coverage gaps for the pairs this focus group cares about, and
     // the probes that would close them.
-    match focus_gaps(observations, context_key, &policy, &seen, Some(&market)) {
+    match focus_gaps(
+        observations,
+        context_key,
+        &policy,
+        &seen,
+        Some(&market),
+        language,
+    ) {
         Ok(gap_lines) => lines.extend(gap_lines),
-        Err(reason) => lines.push(format!("coverage unavailable: {reason}")),
+        Err(reason) => lines.push(fill(text.coverage_unavailable, &[&reason])),
     }
 
     for recommendation in recommend_liquidity_anchors(&market.selected, &policy) {
         lines.push(format!(
-            "{:?}: {} (score {}.{}, {} pairs, {} two-way)",
-            recommendation.action,
+            "{}: {} (score {}.{}, {} pairs, {} two-way)",
+            crate::report_text::anchor_action(language, recommendation.action),
             recommendation.asset_id.as_str(),
             recommendation.score_tenths / 10,
             recommendation.score_tenths % 10,
@@ -304,12 +332,13 @@ pub fn opportunities_report(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     league: &str,
+    language: UiLanguage,
 ) -> Result<Vec<String>, String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
     let policy = MarketPolicy::default_for(league);
     let Some(anchor) = policy.core_liquidity.first().cloned() else {
-        return Ok(vec![
-            "no core currency configured for this league".to_owned(),
-        ]);
+        return Ok(vec![text.no_core_currency.to_owned()]);
     };
     // Counted before the book is built: an empty window has no assets, and
     // `build_market` cannot make a unit catalogue out of none.
@@ -325,9 +354,7 @@ pub fn opportunities_report(
     seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
     seen.dedup();
     if seen.len() < 2 {
-        return Ok(vec![
-            "not enough of the market captured yet — flip a few pairs first".to_owned(),
-        ]);
+        return Ok(vec![text.not_enough_market.to_owned()]);
     }
     let market = build_market(observations, context_key)?;
 
@@ -353,7 +380,10 @@ pub fn opportunities_report(
 
     let Ok(amount_in) = AssetAmount::from_whole_units(anchor.clone(), RADAR_STAKE, &market.units)
     else {
-        return Ok(vec![format!("cannot stake {RADAR_STAKE} {anchor}")]);
+        return Ok(vec![fill(
+            text.cannot_stake,
+            &[&RADAR_STAKE.to_string(), anchor.as_str()],
+        )]);
     };
     let request = RadarRequest {
         context_key: context_key.to_owned(),
@@ -383,26 +413,32 @@ pub fn opportunities_report(
     )
     .map_err(|error| format!("radar: {error:?}"))?;
 
-    let mut lines = vec![format!(
-        "staking {RADAR_STAKE} {anchor} across {} targets",
-        result.diagnostics.target_count
+    let mut lines = vec![fill(
+        text.staking,
+        &[
+            &RADAR_STAKE.to_string(),
+            anchor.as_str(),
+            &result.diagnostics.target_count.to_string(),
+        ],
     )];
     // Said before the results, not after: a truncated search that looks like a
     // complete one is how "there is nothing better" gets believed.
     if result.diagnostics.budget_exhausted || result.diagnostics.results_truncated {
-        lines.push(format!(
-            "partial scan — {} targets skipped, {} expansions used{}",
-            result.diagnostics.skipped_target_count,
-            result.diagnostics.expansions_used,
-            if result.diagnostics.results_truncated {
-                ", results cut to the top few"
-            } else {
-                ""
-            }
+        lines.push(fill(
+            text.partial_scan,
+            &[
+                &result.diagnostics.skipped_target_count.to_string(),
+                &result.diagnostics.expansions_used.to_string(),
+                if result.diagnostics.results_truncated {
+                    text.results_cut
+                } else {
+                    ""
+                },
+            ],
         ));
     }
     if result.items.is_empty() {
-        lines.push("nothing beats holding right now".to_owned());
+        lines.push(text.nothing_beats_holding.to_owned());
         if result.diagnostics.missing_conversion_count > 0 {
             lines.push(format!(
                 "{} targets have no route yet — the Watchlist says which to flip",
@@ -413,7 +449,7 @@ pub fn opportunities_report(
     }
 
     for item in &result.items {
-        lines.extend(radar_item_lines(item));
+        lines.extend(radar_item_lines(item, language));
     }
     Ok(lines)
 }
@@ -424,7 +460,19 @@ pub fn opportunities_report(
 /// through the search needs a market that actually contains an arbitrage, and
 /// the captured corpus does not have one — leaving the only branch a user sees
 /// when the radar succeeds as the only branch never executed.
-fn radar_item_lines(item: &ptt_workflows::RadarItem) -> Vec<String> {
+/// The word introducing a list of risk flags.
+///
+/// Here rather than in `report_text` because it names nothing typed -- it is
+/// the one word of prose these two lines share, and the rest of the reports'
+/// prose has not moved yet.
+const fn risks_label(language: UiLanguage) -> &'static str {
+    match language {
+        UiLanguage::English => "risks",
+        UiLanguage::Chinese => "风险",
+    }
+}
+
+fn radar_item_lines(item: &ptt_workflows::RadarItem, language: UiLanguage) -> Vec<String> {
     let route = item
         .path_asset_ids
         .iter()
@@ -435,13 +483,12 @@ fn radar_item_lines(item: &ptt_workflows::RadarItem) -> Vec<String> {
         || "unpriced".to_owned(),
         |points| format!("{}.{:02}%", points / 100, (points % 100).abs()),
     );
-    let category = match item.category {
-        RadarCategory::Executable => "executable now",
-        RadarCategory::Theoretical => "needs a taker",
-        RadarCategory::ProbeRequired => "capture more first",
-    };
+    let category = crate::report_text::radar_category(language, item.category);
     let mut lines = vec![
-        format!("{edge:>8}  {:?}  {route}", item.kind),
+        format!(
+            "{edge:>8}  {}  {route}",
+            crate::report_text::radar_item_kind(language, item.kind)
+        ),
         format!(
             "          {category}   out {} {}",
             item.amount_out.quanta,
@@ -451,10 +498,21 @@ fn radar_item_lines(item: &ptt_workflows::RadarItem) -> Vec<String> {
         ),
     ];
     if !item.risk_flags.is_empty() {
-        lines.push(format!("          risks {:?}", item.risk_flags));
+        lines.push(format!(
+            "          {} {}",
+            risks_label(language),
+            crate::report_text::join(
+                language,
+                &item.risk_flags,
+                crate::report_text::execution_risk_flag
+            )
+        ));
     }
     if !item.reasons.is_empty() {
-        lines.push(format!("          {:?}", item.reasons));
+        lines.push(format!(
+            "          {}",
+            crate::report_text::join(language, &item.reasons, crate::report_text::radar_reason)
+        ));
     }
     lines
 }
@@ -469,7 +527,9 @@ pub fn probe_queue(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     league: &str,
+    language: UiLanguage,
 ) -> Result<Vec<String>, String> {
+    let text = crate::report_text::report(language);
     let policy = MarketPolicy::default_for(league);
     let mut seen: Vec<MarketAssetId> = observations
         .iter()
@@ -483,7 +543,7 @@ pub fn probe_queue(
     seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
     seen.dedup();
     if seen.is_empty() {
-        return Ok(vec!["no pairs captured yet".to_owned()]);
+        return Ok(vec![text.no_pairs_captured.to_owned()]);
     }
 
     let (coverage, candidates) = focus_coverage(observations, context_key, &policy, &seen, None)?;
@@ -497,16 +557,16 @@ pub fn probe_queue(
         coverage.len()
     )];
     if candidates.is_empty() {
-        lines.push("nothing to probe — the book is current".to_owned());
+        lines.push(text.nothing_to_probe.to_owned());
         return Ok(lines);
     }
     for candidate in candidates.iter().take(6) {
         lines.push(format!(
-            "{:?}  flip {} -> {}   ({:?})",
-            candidate.priority,
+            "{}  flip {} -> {}   ({})",
+            crate::report_text::probe_priority(language, candidate.priority),
             candidate.from_asset_id.as_str(),
             candidate.to_asset_id.as_str(),
-            candidate.reason,
+            crate::report_text::probe_reason(language, candidate.reason),
         ));
     }
     Ok(lines)
@@ -518,11 +578,17 @@ pub fn history_report(
     context_key: &str,
     have: &MarketAssetId,
     need: &MarketAssetId,
+    language: UiLanguage,
 ) -> Result<Vec<String>, String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
     let market = build_market(observations, context_key)?;
     let points = price_points(&market.selected, have, need);
     if points.is_empty() {
-        return Ok(vec![format!("no history yet for {have} -> {need}")]);
+        return Ok(vec![fill(
+            text.no_history_yet,
+            &[have.as_str(), need.as_str()],
+        )]);
     }
 
     let summary = summarize(&points, have, need);
@@ -545,10 +611,10 @@ pub fn history_report(
         ));
     }
     if let Some(spread) = summary.spread_basis_points {
-        lines.push(format!("maker over taker: {spread}bp"));
+        lines.push(fill(text.maker_over_taker, &[&spread.to_string()]));
     }
     if summary.historical_only {
-        lines.push("nothing current — this is history, not a price".to_owned());
+        lines.push(text.nothing_current.to_owned());
     }
 
     for candle in candles(&points, BucketSize::FiveMinutes)
@@ -574,9 +640,9 @@ pub fn history_report(
 
     for anomaly in anomalies(&summary, &points) {
         lines.push(format!(
-            "{:?} ({:?}){}",
-            anomaly.kind,
-            anomaly.severity,
+            "{} ({}){}",
+            crate::report_text::price_anomaly_kind(language, anomaly.kind),
+            crate::report_text::anomaly_severity(language, anomaly.severity),
             anomaly
                 .basis_points
                 .map_or_else(String::new, |bps| format!(" {bps}bp")),
@@ -667,6 +733,7 @@ fn focus_gaps(
     policy: &MarketPolicy,
     seen: &[MarketAssetId],
     prebuilt: Option<&Market>,
+    language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     let (coverage, candidates) = focus_coverage(observations, context_key, policy, seen, prebuilt)?;
     let mut lines = Vec::new();
@@ -681,19 +748,19 @@ fn focus_gaps(
     ));
     for entry in incomplete.iter().take(8) {
         lines.push(format!(
-            "  {} -> {}  {:?}",
+            "  {} -> {}  {}",
             entry.from_asset_id.as_str(),
             entry.to_asset_id.as_str(),
-            entry.status,
+            crate::report_text::focus_coverage_status(language, entry.status),
         ));
     }
     for candidate in candidates.iter().take(8) {
         lines.push(format!(
-            "  probe {:?}: {} -> {}  ({:?})",
-            candidate.priority,
+            "  probe {}: {} -> {}  ({})",
+            crate::report_text::probe_priority(language, candidate.priority),
             candidate.from_asset_id.as_str(),
             candidate.to_asset_id.as_str(),
-            candidate.reason,
+            crate::report_text::probe_reason(language, candidate.reason),
         ));
     }
     Ok(lines)
@@ -730,7 +797,7 @@ mod radar_tests {
         let item = ptt_workflows::RadarItem {
             item_id: "test-item".to_owned(),
             kind: ptt_workflows::RadarItemKind::BestConversion,
-            category: RadarCategory::Executable,
+            category: ptt_workflows::RadarCategory::Executable,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 4000, &units)
@@ -741,7 +808,7 @@ mod radar_tests {
             conversion_path: None,
             triangle: None,
         };
-        let lines = radar_item_lines(&item);
+        let lines = radar_item_lines(&item, UiLanguage::English);
         let joined = lines.join(
             "
 ",
@@ -763,8 +830,34 @@ mod radar_tests {
             "the payout is missing: {joined}"
         );
         assert!(
-            joined.contains("BetterThanDirect"),
+            joined.contains("better than direct"),
             "the reason is missing: {joined}"
+        );
+
+        // The same row for a Chinese reader. Nothing about a radar row is
+        // language-specific except its words, so a row that renders in one
+        // language and not the other means a value reached the screen as a
+        // bare Rust identifier -- which is what this whole path replaced.
+        let chinese = radar_item_lines(&item, UiLanguage::Chinese).join(
+            "
+",
+        );
+        assert!(
+            chinese.contains("divine-orb -> chaos-orb -> exalted-orb"),
+            "asset ids are the game's, not the interface's: {chinese}"
+        );
+        assert!(chinese.contains("300.12%"), "{chinese}");
+        assert!(
+            chinese.contains("现在就能成交"),
+            "the execution category is still English: {chinese}"
+        );
+        assert!(
+            chinese.contains("优于直兑"),
+            "the reason is still English: {chinese}"
+        );
+        assert!(
+            !chinese.contains("better than direct"),
+            "both languages came out at once: {chinese}"
         );
     }
 
@@ -784,7 +877,7 @@ mod radar_tests {
         let item = ptt_workflows::RadarItem {
             item_id: "unpriced".to_owned(),
             kind: ptt_workflows::RadarItemKind::Triangle,
-            category: RadarCategory::ProbeRequired,
+            category: ptt_workflows::RadarCategory::ProbeRequired,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 11, &units)
@@ -795,18 +888,24 @@ mod radar_tests {
             conversion_path: None,
             triangle: None,
         };
-        let joined = radar_item_lines(&item).join(
+        let joined = radar_item_lines(&item, UiLanguage::English).join(
             "
 ",
         );
         assert!(joined.contains("unpriced"), "{joined}");
         assert!(joined.contains("capture more first"), "{joined}");
+        let chinese = radar_item_lines(&item, UiLanguage::Chinese).join(
+            "
+",
+        );
+        assert!(chinese.contains("先多抓几次"), "{chinese}");
     }
 
     /// A book with nothing in it must say so rather than error.
     #[test]
     fn an_empty_book_says_so() {
-        let lines = opportunities_report(&[], CONTEXT, "test-league").expect("report");
+        let lines =
+            opportunities_report(&[], CONTEXT, "test-league", UiLanguage::English).expect("report");
         assert!(!lines.is_empty(), "the radar must always say something");
     }
 }
