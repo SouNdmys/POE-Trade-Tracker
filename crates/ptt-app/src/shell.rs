@@ -702,6 +702,14 @@ impl AppShell {
     fn render_calibrate(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         use crate::calibrate::{MAGNIFIER_ZOOM, Target};
 
+        // Fit here rather than only when the file loads. The canvas reports
+        // its bounds while painting, so a load that arrives before the first
+        // paint has nothing to fit against; deciding it on the frame that can
+        // answer removes the ordering question instead of racing it.
+        if self.calibration.view.is_none() {
+            self.fit_calibration();
+        }
+
         let text = self.text();
         let view = self.calibration.view();
         let size = self.calibration.image_size;
@@ -807,10 +815,20 @@ impl AppShell {
             .bg(c(WELL))
             .border_1()
             .border_color(c(HAIRLINE))
-            .child(gpui::canvas(
-                move |bounds, _, _| bounds_slot.set(Some(bounds)),
-                |_, (), _, _| {},
-            ))
+            .child(
+                // Sized to fill, or it measures itself — which is nothing.
+                // This element exists only to report where the canvas landed,
+                // and a zero-sized probe reports a zero-sized canvas: the fit
+                // then clamped to the minimum zoom, and every mouse position
+                // fell outside the bounds and was discarded. Nothing on the
+                // screen worked, and all of it was this.
+                gpui::canvas(
+                    move |bounds, _, _| bounds_slot.set(Some(bounds)),
+                    |_, (), _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
             .children(image.clone().map(|path| {
                 let (width, height) = size.unwrap_or((0, 0));
                 gpui::img(path)
@@ -821,6 +839,26 @@ impl AppShell {
                     .w(px(width as f32 * view.zoom))
                     .h(px(height as f32 * view.zoom))
             }))
+            .children(
+                // The rectangle as it is being dragged. Needed to draw at all
+                // — a selection you cannot see until you release is a guess —
+                // and it doubles as the answer to whether the press registered.
+                self.calibration
+                    .drag_from
+                    .zip(self.calibration.cursor)
+                    .map(|(from, to)| {
+                        let start = view.to_canvas(from.0, from.1);
+                        let end = view.to_canvas(to.0, to.1);
+                        div()
+                            .absolute()
+                            .left(px(start.0.min(end.0)))
+                            .top(px(start.1.min(end.1)))
+                            .w(px((end.0 - start.0).abs()))
+                            .h(px((end.1 - start.1).abs()))
+                            .border_2()
+                            .border_color(c(ACCENT))
+                    }),
+            )
             .children(drawn.into_iter().map(|(active, left, top, w, h)| {
                 div()
                     .absolute()
@@ -940,7 +978,24 @@ impl AppShell {
                     .cursor
                     .map(|(x, y)| format!("  {}, {}", x.round(), y.round()))
                     .unwrap_or_default();
-                format!("{}{cursor}", text.drag_to_draw)
+                // The canvas size and zoom ride along. Everything on this
+                // screen is that transform, and when it is wrong the picture
+                // still looks plausible — so the numbers that would say so are
+                // on screen rather than reachable only from a debugger.
+                let canvas = self.canvas_bounds.get().map_or_else(
+                    || "canvas ?".to_owned(),
+                    |bounds| {
+                        format!(
+                            "canvas {}x{}",
+                            f32::from(bounds.size.width).round(),
+                            f32::from(bounds.size.height).round()
+                        )
+                    },
+                );
+                format!(
+                    "{}{cursor}   {canvas}  zoom {:.2}",
+                    text.drag_to_draw, view.zoom
+                )
             }
         });
 
@@ -1101,7 +1156,9 @@ impl AppShell {
                 self.calibration.image = Some(path);
                 self.calibration.image_size = Some(size);
                 self.calibration.message = None;
-                self.fit_calibration();
+                // Cleared so the next paint fits the new picture; fitting here
+                // would use whatever bounds the last paint happened to leave.
+                self.calibration.view = None;
             }
             None => {
                 // Refused rather than shown at a guessed size: every rectangle
