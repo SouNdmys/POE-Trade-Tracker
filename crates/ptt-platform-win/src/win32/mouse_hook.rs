@@ -292,6 +292,21 @@ impl NativePendingMouseGuard {
             }
         }
     }
+
+    /// Blocks until the hook thread has exited.
+    ///
+    /// [`Self::reap_thread`] deliberately does not wait -- it runs from `Drop`,
+    /// where blocking on an unresponsive thread is the thing being avoided --
+    /// so a test that needs the thread genuinely gone has to say so. Waiting
+    /// for the event beats polling for it on a deadline: a deadline turns
+    /// "the machine was busy" into a failure, which is what this test used to
+    /// do about one run in eight.
+    #[cfg(test)]
+    fn join_thread(&mut self) {
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 impl Drop for NativePendingMouseGuard {
@@ -999,7 +1014,7 @@ mod tests {
 
         let active_started = Instant::now();
         guard.arm().expect("active generation should arm");
-        let active_deadline = active_started + Duration::from_millis(1_250);
+        let active_deadline = active_started + Duration::from_secs(5);
         while guard.snapshot().mode != GuardMode::Released && Instant::now() < active_deadline {
             thread::sleep(Duration::from_millis(2));
         }
@@ -1016,8 +1031,12 @@ mod tests {
             active_elapsed >= PendingMouseInputGuard::FAIL_OPEN_TIMEOUT,
             "active generation failed open before 750 ms: {active_elapsed:?}"
         );
+        // Only has to catch a hang, like the draining bound below. A tight
+        // upper bound here asks a Win32 timer to be prompt while the rest of
+        // the suite runs in the same process, which is a question about the
+        // scheduler rather than about the guard.
         assert!(
-            active_elapsed < Duration::from_millis(1_250),
+            active_elapsed < Duration::from_secs(5),
             "active generation did not fail open promptly: {active_elapsed:?}"
         );
         stop_and_reap(&mut guard);
@@ -1031,10 +1050,18 @@ mod tests {
                 .process(MouseInput::ButtonDown(MouseButton::Left))
                 .suppress
         );
+        // Started before the release, because the release is what starts the
+        // timeout being measured. Taken afterwards -- with a snapshot assertion
+        // in between -- the clock begins a few milliseconds late, and the lower
+        // bound below then reads 749ms for a wait that really was 755. That is
+        // the whole flake: not a timer that fired early, a stopwatch started
+        // late. Any error this way can only make the reading longer, which the
+        // lower bound is allowed to tolerate and the upper bound is generous
+        // enough to absorb.
+        let drain_started = Instant::now();
         guard.release();
         assert_eq!(guard.snapshot().mode, GuardMode::Draining);
 
-        let drain_started = Instant::now();
         // Generous on purpose. The bound that matters is the lower one — the
         // guard must not fail open early, or it stops suppressing input while
         // a button is still down. The upper bound only has to catch a hang;
@@ -1068,6 +1095,10 @@ mod tests {
 
     #[test]
     fn terminal_stop_is_fail_open_when_wake_fails_and_hook_thread_stalls() {
+        /// Long enough that no scheduler hiccup reaches it, short enough that
+        /// a genuine hang still ends the test rather than the suite.
+        const HANG_BOUND: Duration = Duration::from_secs(30);
+
         let _gate = NATIVE_GUARD_TEST_GATE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -1090,8 +1121,14 @@ mod tests {
 
         let stop_started = Instant::now();
         guard.force_release_and_stop();
+        // Generous on purpose. The failure this guards against is not a slow
+        // return but an unbounded one: the hook thread cannot leave its stall
+        // until this test clears the flag further down, so a stop that waited
+        // for it would wait for ever. Any finite bound separates those two
+        // outcomes equally well, and a tight one additionally asks whether the
+        // scheduler was prompt -- a question about the machine, not the guard.
         assert!(
-            stop_started.elapsed() < Duration::from_secs(1),
+            stop_started.elapsed() < HANG_BOUND,
             "terminal stop waited for an unresponsive hook thread"
         );
         assert_eq!(guard.snapshot().mode, GuardMode::Released);
@@ -1125,7 +1162,7 @@ mod tests {
             })
         ));
         assert!(
-            second_started.elapsed() < Duration::from_secs(1),
+            second_started.elapsed() < HANG_BOUND,
             "a stalled hook owner made second-owner rejection block"
         );
 
@@ -1133,15 +1170,14 @@ mod tests {
         // clean for the remainder of the test binary.
         TEST_FAIL_STOP_WAKE.store(false, Ordering::Release);
         TEST_STALL_HOOK_THREAD.store(false, Ordering::Release);
-        let cleanup_deadline = Instant::now() + Duration::from_secs(1);
-        while shared().owner.load(Ordering::Acquire) == guard.token
-            && Instant::now() < cleanup_deadline
-        {
-            thread::sleep(Duration::from_millis(1));
-        }
-        assert_eq!(shared().owner.load(Ordering::Acquire), 0);
-        guard.reap_thread();
+        // Joined, not polled for. The thread releases ownership on its way
+        // out, so waiting for it to exit is waiting for exactly the fact the
+        // assertion below states -- where a one-second deadline was really
+        // asking whether the scheduler got round to it in time, and about one
+        // run in eight it had not.
+        guard.join_thread();
         assert!(guard.thread.is_none());
+        assert_eq!(shared().owner.load(Ordering::Acquire), 0);
     }
 
     #[test]
