@@ -29,6 +29,12 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     need_name: NEED_NAME_REGION,
     have_name: HAVE_NAME_REGION,
     tables: TABLES_REGION,
+    // Zero, and unmeasured rather than measured as zero: this
+    // region was calibrated on the Traditional Chinese client and
+    // there are no English POE2 screenshots to compare it against.
+    // POE2 detects its rows from the mask instead of slicing a
+    // grid, so it absorbs a shift of this size anyway.
+    tables_zh_tw_offset: 0,
     rows: default_row_layout,
     row_source: super::RowSource::DetectedBands,
     catalog: ptt_catalog::poe2,

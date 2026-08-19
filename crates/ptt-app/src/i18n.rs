@@ -141,7 +141,7 @@ pub static ENGLISH: Text = Text {
     guide_hint: "dashed box = where this region usually sits",
     hint_need: "the currency name on the left, icon excluded",
     hint_have: "the currency name on the right, icon and star excluded",
-    hint_tables: "both order tables: ratio and stock, top row to bottom",
+    hint_tables: "from the Available Trades title bar down past the last competing row",
 
     slot_need: "Need name",
     slot_have: "Have name",
@@ -199,7 +199,7 @@ pub static TRADITIONAL_CHINESE: Text = Text {
     guide_hint: "虛線框 = 這個區域通常的位置",
     hint_need: "左側的通貨名稱，不要框進圖示",
     hint_have: "右側的通貨名稱，不要框進圖示與星號",
-    hint_tables: "兩張交易表：比率與庫存，從第一行到最後一行",
+    hint_tables: "從「可用交易」標題列開始，一路框到「競爭交易」最後一行下方",
 
     slot_need: "我需要的",
     slot_have: "我擁有的",

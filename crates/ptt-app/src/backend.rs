@@ -4,8 +4,7 @@
 
 #[cfg(windows)]
 pub use windows_backend::{
-    Backend, HotkeyRegistration, RegionSlot, ShellMsg, UiEvent, spawn_calibration,
-    spawn_hotkey_thread,
+    Backend, HotkeyRegistration, RegionSlot, ShellMsg, UiEvent, spawn_hotkey_thread,
 };
 
 #[cfg(windows)]
@@ -44,20 +43,11 @@ mod windows_backend {
         }
     }
 
-    /// Shell-level messages from the hotkey thread and calibration runs.
+    /// Shell-level messages from the hotkey thread and the file picker.
     #[derive(Debug)]
     pub enum ShellMsg {
         HotkeyToggle,
         HotkeyHud,
-        Calibrated {
-            slot: RegionSlot,
-            x: i32,
-            y: i32,
-            width: u32,
-            height: u32,
-        },
-        CalibrationCancelled(RegionSlot),
-        CalibrationFailed(RegionSlot, String),
         /// A screenshot chosen for the calibration screen, or `None` if the
         /// picker was dismissed.
         ScreenshotPicked(Option<std::path::PathBuf>),
@@ -138,36 +128,6 @@ mod windows_backend {
             watch: false,
             hud: false,
         })
-    }
-
-    /// Runs the fullscreen region-selection overlay on its own thread and
-    /// reports the outcome back to the shell.
-    pub fn spawn_calibration(sender: std::sync::mpsc::Sender<ShellMsg>, slot: RegionSlot) {
-        std::thread::Builder::new()
-            .name("ptt-calibrate".to_owned())
-            .spawn(move || {
-                use ptt_platform_win::{RegionSelectionOverlay, SelectionOverlayConfig};
-                let message = match RegionSelectionOverlay::select(SelectionOverlayConfig::default())
-                {
-                    Ok(Some(rect)) => match (u32::try_from(rect.width), u32::try_from(rect.height))
-                    {
-                        (Ok(width), Ok(height)) if width > 0 && height > 0 => {
-                            ShellMsg::Calibrated {
-                                slot,
-                                x: rect.x,
-                                y: rect.y,
-                                width,
-                                height,
-                            }
-                        }
-                        _ => ShellMsg::CalibrationFailed(slot, "degenerate region".to_owned()),
-                    },
-                    Ok(None) => ShellMsg::CalibrationCancelled(slot),
-                    Err(error) => ShellMsg::CalibrationFailed(slot, error.to_string()),
-                };
-                let _ = sender.send(message);
-            })
-            .expect("spawn calibration thread");
     }
 
     #[derive(Debug)]

@@ -284,6 +284,14 @@ mod windows_route {
                     continue;
                 };
                 let table_top = first_ink.saturating_sub(grid.anchor_lead_in);
+                if std::env::var_os("PTT_DEBUG_GRID").is_some() {
+                    eprintln!(
+                        "grid {side:?}: nominal={nominal_top} window={} first_ink={first_ink} top={table_top} mask={}x{}",
+                        grid.anchor_window,
+                        mask.width(),
+                        mask.height()
+                    );
+                }
                 for index in 0..grid.rows_per_side {
                     let top = table_top + u32::from(index) * grid.pitch;
                     let bottom = (top + grid.row_height).min(mask.height() as u32);
@@ -643,7 +651,7 @@ mod windows_route {
             (
                 self.region("NEED", self.layout.need_name),
                 self.region("HAVE", self.layout.have_name),
-                self.region("TABLES", self.layout.tables),
+                self.region("TABLES", self.layout.tables_for(self.language)),
             )
         }
 

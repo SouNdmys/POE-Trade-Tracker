@@ -164,20 +164,53 @@ fn profile_route(
 
 #[cfg(windows)]
 fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if run_manifest_counting(path, 0, true)? > 0 {
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+/// Runs a manifest with the tables frame nudged `nudge` pixels down, and
+/// returns how many cases failed.
+///
+/// The nudge is what makes the frame's tolerance measurable instead of
+/// asserted. Every other region is left alone: the tables are the only frame
+/// whose top edge has no visible landmark, and so the only one a person has
+/// to place by eye.
+#[cfg(windows)]
+fn run_manifest_counting(
+    path: &str,
+    nudge: i32,
+    verbose: bool,
+) -> Result<usize, Box<dyn std::error::Error>> {
     use ptt_recognition::route::Route;
 
     let manifest: Manifest = serde_json::from_str(&std::fs::read_to_string(path)?)?;
     assert_eq!(manifest.version, 1, "unsupported manifest version");
-    println!(
-        "manifest: {} profile {} ({} cases)",
-        path,
-        manifest.profile,
-        manifest.cases.len()
-    );
+    if verbose {
+        println!(
+            "manifest: {} profile {} ({} cases)",
+            path,
+            manifest.profile,
+            manifest.cases.len()
+        );
+    }
     // The manifest names its profile, so the corpus drives both the panel and
     // the lexicon with no flags to keep in sync with the file.
     let (layout, language) = profile_route(&manifest.profile)?;
-    println!("profile resolves to {language:?} on {}", layout.key_prefix);
+    if verbose {
+        println!("profile resolves to {language:?} on {}", layout.key_prefix);
+    }
+    if nudge != 0 {
+        // Through the same override the calibration screen writes, so the
+        // sweep exercises the path a hand-drawn frame actually takes.
+        let (x, y, width, height) = layout.tables_for(language);
+        ptt_recognition::route::set_region_override(
+            layout.key_prefix,
+            "TABLES",
+            (x, y + nudge, width, height),
+        );
+    }
     let route = Route::new_with(layout, language)
         .map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut failures = 0usize;
@@ -191,11 +224,13 @@ fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         // negative case green while proving nothing at all.
         if !file.is_file() {
             failures += 1;
-            println!(
-                "FAIL {} — screenshot missing at {}",
-                case.file,
-                file.display()
-            );
+            if verbose {
+                println!(
+                    "FAIL {} — screenshot missing at {}",
+                    case.file,
+                    file.display()
+                );
+            }
             durations.push(0.0);
             continue;
         }
@@ -248,26 +283,95 @@ fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
             (other, _) => Err(format!("unknown expectation {other:?}")),
         };
         match verdict {
-            Ok(summary) => println!("PASS {} ({summary})", case.file),
+            Ok(summary) => {
+                if verbose {
+                    println!("PASS {} ({summary})", case.file);
+                }
+            }
             Err(problem) => {
                 failures += 1;
-                println!("FAIL {} — {problem}", case.file);
+                if verbose {
+                    println!("FAIL {} — {problem}", case.file);
+                }
             }
         }
     }
     durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let p50 = durations[durations.len() / 2];
     let p95 = durations[(durations.len() * 95 / 100).min(durations.len() - 1)];
-    println!(
-        "
+    if verbose {
+        println!(
+            "
 {} cases, {failures} failures, wall {:.1}s, per-frame p50 {p50:.1}ms p95 {p95:.1}ms",
-        manifest.cases.len(),
-        started.elapsed().as_secs_f64(),
-    );
-    if failures > 0 {
+            manifest.cases.len(),
+            started.elapsed().as_secs_f64(),
+        );
+    }
+    Ok(failures)
+}
+
+/// How far the tables frame may be misplaced and still read every corpus
+/// frame correctly, in pixels, as `(highest, lowest)`.
+///
+/// Measured, then held here so it cannot quietly shrink. The band is
+/// deliberately lopsided. A frame drawn too high fails safe: the row anchor
+/// runs out of window, finds nothing, and the frame is skipped. A frame drawn
+/// too low fails dangerously: it slices into the rows, and just past the
+/// bottom of this band a torn repaint frame that the corpus expects to be
+/// *rejected* starts being accepted instead. So the slack is spent upward,
+/// which is also the direction a person errs when aiming at the panel's outer
+/// border rather than at its title bar.
+///
+/// The two ends are not independent, which is why the anchor windows sit
+/// where they do rather than as high as they can go: moving them up buys room
+/// at the top and gives it straight back at the bottom, because on a torn
+/// frame the anchor lands somewhere different depending on where its search
+/// began. Measured at 31/292 the band is -11..+3; a pixel is held back at
+/// each end so a frame added to the corpus does not flip the gate.
+#[cfg(windows)]
+const TABLES_TOLERANCE: (i32, i32) = (-10, 2);
+
+/// Sweeps the tables frame past its tolerance and checks the band holds.
+///
+/// Without this the tolerance is a claim in a comment. It is the property the
+/// calibration screen depends on -- it is what "draw it roughly here" means --
+/// and it is invisible to every other gate, because they all run the frame at
+/// exactly the preset.
+#[cfg(windows)]
+fn run_tolerance(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let (highest, lowest) = TABLES_TOLERANCE;
+    let mut broken = Vec::new();
+    for path in paths {
+        print!("{path}: ");
+        for nudge in (highest - 3)..=(lowest + 3) {
+            let failures = run_manifest_counting(path, nudge, false)?;
+            let inside = (highest..=lowest).contains(&nudge);
+            let mark = match (inside, failures) {
+                (true, 0) => '.',
+                (true, _) => {
+                    broken.push(format!("{path} fails at {nudge:+} inside the band"));
+                    'X'
+                }
+                (false, 0) => 'o',
+                (false, _) => ' ',
+            };
+            print!("{mark}");
+        }
+        println!(
+            "   [{}..{}] . inside  o still passing",
+            highest - 3,
+            lowest + 3
+        );
+    }
+    if broken.is_empty() {
+        println!("tables tolerance holds: {highest:+}..{lowest:+} px");
+        Ok(())
+    } else {
+        for problem in &broken {
+            println!("BROKEN {problem}");
+        }
         std::process::exit(1);
     }
-    Ok(())
 }
 
 #[cfg(windows)]
@@ -311,6 +415,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         && flag == "--manifest"
     {
         return run_manifest(manifest);
+    }
+    if let [flag, rest @ ..] = arguments.as_slice()
+        && flag == "--tolerance"
+        && !rest.is_empty()
+    {
+        return run_tolerance(rest);
     }
     let paths: Vec<std::path::PathBuf> = match arguments.as_slice() {
         [single] if !single.starts_with("--") => vec![single.into()],

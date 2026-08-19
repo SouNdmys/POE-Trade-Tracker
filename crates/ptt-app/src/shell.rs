@@ -17,8 +17,7 @@ use crate::ui::{
 
 #[cfg(windows)]
 use crate::backend::{
-    Backend, HotkeyRegistration, RegionSlot, ShellMsg, UiEvent, spawn_calibration,
-    spawn_hotkey_thread,
+    Backend, HotkeyRegistration, RegionSlot, ShellMsg, UiEvent, spawn_hotkey_thread,
 };
 
 const LOG_CAPACITY: usize = 120;
@@ -299,26 +298,7 @@ impl AppShell {
                 match message {
                     ShellMsg::HotkeyToggle => self.toggle_watch(cx),
                     ShellMsg::HotkeyHud => self.toggle_hud(),
-                    ShellMsg::Calibrated {
-                        slot,
-                        x,
-                        y,
-                        width,
-                        height,
-                    } => self.apply_calibration(slot, x, y, width, height),
-                    ShellMsg::CalibrationCancelled(slot) => {
-                        self.push_log(format!(
-                            "calibration cancelled: {}",
-                            slot.label(self.text())
-                        ));
-                    }
                     ShellMsg::ScreenshotPicked(path) => self.screenshot_picked(path),
-                    ShellMsg::CalibrationFailed(slot, error) => {
-                        self.push_log(format!(
-                            "calibration failed: {} — {error}",
-                            slot.label(self.text())
-                        ));
-                    }
                 }
             }
             if self.report_stale {
@@ -426,13 +406,22 @@ impl AppShell {
         }
     }
 
+    /// Opens the calibration page on one region.
+    ///
+    /// It used to launch a full-screen drag over the live game, which was a
+    /// second way to write the same three settings, on a different page, with
+    /// no indication which of the two the watcher would use. There is now one
+    /// place these numbers are changed. Dragging over the game also asked a
+    /// person to find an invisible edge on a moving screen; the same drag on a
+    /// still screenshot can be zoomed into.
     #[cfg(windows)]
     fn start_calibration(&mut self, slot: RegionSlot) {
-        self.push_log(format!(
-            "drag the {} region on screen (Esc cancels)",
-            slot.label(self.text())
-        ));
-        spawn_calibration(self.shell_tx.clone(), slot);
+        self.calibration.target = Some(match slot {
+            RegionSlot::Need => crate::calibrate::Target::Need,
+            RegionSlot::Have => crate::calibrate::Target::Have,
+            RegionSlot::Tables => crate::calibrate::Target::Tables,
+        });
+        self.page = Page::Calibrate;
     }
 
     fn toggle_watch(&mut self, cx: &mut Context<Self>) {
@@ -727,17 +716,24 @@ impl AppShell {
         // question a blank screenshot raises — which part of the panel am I
         // supposed to be framing — without asserting the answer: the guide is
         // a hint to aim at, and the drawn rectangle is still what gets used.
-        let (layout, _) = ptt_runtime::pipeline::route_for(profile);
+        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
         let guide = match active_target {
             Target::Need => layout.need_name,
             Target::Have => layout.have_name,
-            Target::Tables => layout.tables,
+            Target::Tables => layout.tables_for(language),
         };
         let hint = match active_target {
             Target::Need => text.hint_need,
             Target::Have => text.hint_have,
             Target::Tables => text.hint_tables,
         };
+        // Only while this slot still holds the factory rectangle. Once a
+        // region has been drawn the guide is a second box sitting beside the
+        // real one, which reads as a stale leftover rather than as advice.
+        let show_guide = self
+            .calibration
+            .rect(active_target)
+            .is_none_or(|rect| (rect.x, rect.y, rect.width, rect.height) == guide);
 
         let toolbar = div()
             .flex_none()
@@ -952,7 +948,7 @@ impl AppShell {
                     .w(px(width as f32 * view.zoom))
                     .h(px(height as f32 * view.zoom))
             }))
-            .children(image.as_ref().map(|_| {
+            .children(image.as_ref().filter(|_| show_guide).map(|_| {
                 let (left, top) = view.to_canvas(guide.0 as f32, guide.1 as f32);
                 div()
                     .absolute()
@@ -1365,11 +1361,15 @@ impl AppShell {
     #[cfg(windows)]
     fn apply_preset_regions(&mut self) {
         let profile = self.settings.active_profile;
-        let (layout, _) = ptt_runtime::pipeline::route_for(profile);
+        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
         for (slot, (x, y, width, height)) in [
             (RegionSlot::Need, layout.need_name),
             (RegionSlot::Have, layout.have_name),
-            (RegionSlot::Tables, layout.tables),
+            // Through `tables_for`, because the Traditional Chinese client
+            // draws taller table headings and sits the tables lower. Reading
+            // the raw constant here would hand a zh-TW profile the English
+            // rectangle and call it a preset.
+            (RegionSlot::Tables, layout.tables_for(language)),
         ] {
             self.apply_calibration(slot, x, y, width, height);
         }

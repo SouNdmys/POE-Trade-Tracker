@@ -21,6 +21,22 @@ pub struct PanelLayout {
     pub need_name: (i32, i32, u32, u32),
     pub have_name: (i32, i32, u32, u32),
     pub tables: (i32, i32, u32, u32),
+    /// How much lower [`PanelLayout::tables`] sits in the Traditional Chinese
+    /// client, in pixels.
+    ///
+    /// The panel itself does not move -- the two name slots are identical in
+    /// both clients -- but the headings *inside* it are taller, which pushes
+    /// both tables down together. Correcting that here rather than by widening
+    /// the row anchor's search window is what buys a person room to draw the
+    /// frame by hand: the window has to stay under one row pitch or an empty
+    /// first row anchors to the second, so every pixel of that budget the
+    /// language spends is a pixel the hand cannot. Folded in, both clients
+    /// present the same offsets from the frame to the first row, and the whole
+    /// window is left over for aim.
+    ///
+    /// Applies to the factory preset only. A region the user calibrated was
+    /// drawn on their own client and is already where it belongs.
+    pub tables_zh_tw_offset: i32,
     /// Function rather than value because `RowLayout` is not const.
     pub rows: fn() -> RowLayout,
     pub row_source: RowSource,
@@ -35,6 +51,23 @@ pub struct PanelLayout {
     /// *brighter* than that chevron; the comparator cell's own background is
     /// dark, so a lower threshold is safe there and only there.
     pub comparator_mask: Option<ptt_vision::WarmMaskSettings>,
+}
+
+impl PanelLayout {
+    /// The tables preset for one client language.
+    ///
+    /// One definition, shared by the route that captures the frame, the app
+    /// that offers the preset, and the probe that measures its tolerance.
+    /// Three copies of a `+ 14` would be three chances to disagree about
+    /// where the tables are.
+    #[must_use]
+    pub const fn tables_for(&self, language: ProfileLanguage) -> (i32, i32, u32, u32) {
+        let (x, y, width, height) = self.tables;
+        match language {
+            ProfileLanguage::TraditionalChinese => (x, y + self.tables_zh_tw_offset, width, height),
+            ProfileLanguage::English => (x, y, width, height),
+        }
+    }
 }
 
 /// How a panel's rows are located.
