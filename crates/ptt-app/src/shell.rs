@@ -415,15 +415,6 @@ impl AppShell {
     /// person to find an invisible edge on a moving screen; the same drag on a
     /// still screenshot can be zoomed into.
     #[cfg(windows)]
-    fn start_calibration(&mut self, slot: RegionSlot) {
-        self.calibration.target = Some(match slot {
-            RegionSlot::Need => crate::calibrate::Target::Need,
-            RegionSlot::Have => crate::calibrate::Target::Have,
-            RegionSlot::Tables => crate::calibrate::Target::Tables,
-        });
-        self.page = Page::Calibrate;
-    }
-
     fn toggle_watch(&mut self, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {
@@ -460,25 +451,15 @@ impl AppShell {
     }
 
     #[cfg(windows)]
-    fn region_text(region: Option<ptt_settings::Region>) -> String {
-        match region {
-            Some(region) => format!(
-                "{},{}  {}x{}",
-                region.x, region.y, region.width, region.height
-            ),
-            None => "preset (2560x1440)".to_owned(),
-        }
-    }
-
     #[cfg(windows)]
     fn settings_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+        // No region rows here. They reported the stored numbers, which do not
+        // change until a drawn rectangle is applied, so a person who had just
+        // drawn one saw the old values and reasonably concluded that drawing
+        // did nothing. The calibration page shows stored and drawn together,
+        // which is the only place the two can be compared; a second read-only
+        // copy on another page can only disagree with it.
         let profile = self.settings.active_profile;
-        let entry = self.settings.profile(profile).cloned().unwrap_or_default();
-        let rows: [(RegionSlot, &'static str, Option<ptt_settings::Region>); 3] = [
-            (RegionSlot::Need, "cal-need", entry.need_name_region),
-            (RegionSlot::Have, "cal-have", entry.have_name_region),
-            (RegionSlot::Tables, "cal-tables", entry.tables_region),
-        ];
         let text = self.text();
         let hotkey_line = if self.hotkey_ok.watch {
             format!(
@@ -497,32 +478,6 @@ impl AppShell {
                 .flex()
                 .flex_col()
                 .gap_2()
-                .children(rows.into_iter().map(|(slot, id, region)| {
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            div()
-                                .w(px(90.0))
-                                .text_size(fs(FS_12))
-                                .text_color(c(TEXT_META))
-                                .child(slot.label(text)),
-                        )
-                        .child(
-                            mono(Self::region_text(region))
-                                .text_size(fs(FS_12))
-                                .flex_grow(),
-                        )
-                        .child(
-                            button(id, LedgerButton::Quiet, text.calibrate, cx).on_click(
-                                cx.listener(move |this, _, _, cx| {
-                                    this.start_calibration(slot);
-                                    cx.notify();
-                                }),
-                            ),
-                        )
-                }))
                 .child(
                     self.profile_row(
                         text.game_label,
@@ -603,14 +558,6 @@ impl AppShell {
                             ))
                         })),
                 )
-                .child(div().flex().items_center().gap_2().child(
-                    button("use-preset", LedgerButton::Quiet, text.use_preset, cx).on_click(
-                        cx.listener(|this, _, _, cx| {
-                            this.apply_preset_regions();
-                            cx.notify();
-                        }),
-                    ),
-                ))
                 .child(
                     mono(hotkey_line)
                         .text_size(fs(FS_10_5))
@@ -806,6 +753,17 @@ impl AppShell {
                 button("cal-apply", LedgerButton::Primary, text.apply_regions, cx).on_click(
                     cx.listener(|this, _, _, cx| {
                         this.apply_drawn_regions();
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                // Beside the drawing tools, because it is one of them: at this
+                // resolution it is the accurate way to set these rectangles,
+                // and drawing by hand is the fallback for every other one.
+                button("cal-preset", LedgerButton::Quiet, text.use_preset, cx).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        this.apply_preset_regions();
                         cx.notify();
                     }),
                 ),
@@ -1372,7 +1330,26 @@ impl AppShell {
             (RegionSlot::Tables, layout.tables_for(language)),
         ] {
             self.apply_calibration(slot, x, y, width, height);
+            // Onto the canvas as well, so the preset is something you can look
+            // at and check against the panel rather than three numbers you
+            // have to trust. It is also what keeps the page honest: it would
+            // otherwise go on showing whatever was drawn before.
+            let target = match slot {
+                RegionSlot::Need => crate::calibrate::Target::Need,
+                RegionSlot::Have => crate::calibrate::Target::Have,
+                RegionSlot::Tables => crate::calibrate::Target::Tables,
+            };
+            self.calibration.set_rect(
+                target,
+                crate::calibrate::SourceRect {
+                    x,
+                    y,
+                    width,
+                    height,
+                },
+            );
         }
+        self.calibration.message = Some(self.text().preset_applied.to_owned());
     }
 
     /// An asset id as the game writes it, in the client's own language.

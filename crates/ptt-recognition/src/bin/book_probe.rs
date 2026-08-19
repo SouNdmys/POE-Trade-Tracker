@@ -326,8 +326,8 @@ fn run_manifest_counting(
 /// where they do rather than as high as they can go: moving them up buys room
 /// at the top and gives it straight back at the bottom, because on a torn
 /// frame the anchor lands somewhere different depending on where its search
-/// began. Measured at 31/292 the band is -11..+3; a pixel is held back at
-/// each end so a frame added to the corpus does not flip the gate.
+/// began. A pixel is held back at each end of the measured band so a frame
+/// added to the corpus does not flip the gate.
 #[cfg(windows)]
 const TABLES_TOLERANCE: (i32, i32) = (-10, 2);
 
