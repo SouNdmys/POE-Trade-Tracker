@@ -302,6 +302,7 @@ impl AppShell {
                             slot.label(self.text())
                         ));
                     }
+                    ShellMsg::ScreenshotPicked(path) => self.screenshot_picked(path),
                     ShellMsg::CalibrationFailed(slot, error) => {
                         self.push_log(format!(
                             "calibration failed: {} — {error}",
@@ -989,10 +990,24 @@ impl AppShell {
         ));
     }
 
-    /// Opens the system picker and measures whatever came back.
+    /// Starts the system picker on its own thread.
+    ///
+    /// Not called inline: the dialog pumps messages while it is open, and from
+    /// inside an event handler that re-enters the framework while this view is
+    /// already mutably borrowed. The process does not hang, it dies — which is
+    /// what clicking this button used to do.
     #[cfg(windows)]
     fn load_screenshot(&mut self) {
-        let Some(path) = ptt_platform_win::pick_image() else {
+        let sender = self.shell_tx.clone();
+        ptt_platform_win::spawn_pick_image(move |path| {
+            let _ = sender.send(ShellMsg::ScreenshotPicked(path));
+        });
+    }
+
+    /// Measures whatever the picker returned.
+    #[cfg(windows)]
+    fn screenshot_picked(&mut self, path: Option<std::path::PathBuf>) {
+        let Some(path) = path else {
             return;
         };
         let size = std::fs::read(&path)

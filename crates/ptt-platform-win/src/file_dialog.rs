@@ -10,6 +10,7 @@
 mod windows_impl {
     use std::path::PathBuf;
 
+    use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
     use windows::Win32::UI::Controls::Dialogs::{
         GetOpenFileNameW, OFN_FILEMUSTEXIST, OFN_NOCHANGEDIR, OFN_PATHMUSTEXIST, OPENFILENAMEW,
     };
@@ -17,11 +18,21 @@ mod windows_impl {
 
     /// Asks the user for an image, returning `None` if they cancelled.
     ///
-    /// Blocks on the calling thread, which must therefore not be the UI
-    /// thread: the dialog runs its own modal loop and would freeze rendering
-    /// for as long as it is open.
+    /// Must not run on the UI thread, and not merely because it blocks. The
+    /// dialog pumps messages while it is open, which re-enters the interface
+    /// framework's event handling — from inside an event handler, where the
+    /// view is already mutably borrowed. The process does not hang, it dies.
+    /// [`spawn_pick_image`] is the safe way in; this stays public for callers
+    /// that already own a worker thread.
     #[must_use]
     pub fn pick_image() -> Option<PathBuf> {
+        // The common dialog reaches into the shell, which wants an apartment.
+        // Failure here is not fatal — the thread may already be initialised,
+        // and the dialog still opens — so the result is deliberately ignored.
+        // SAFETY: paired with no uninitialise; the thread ends after the call.
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        }
         // Wide, NUL-separated, double-NUL-terminated — the Win32 filter shape.
         let mut filter: Vec<u16> = Vec::new();
         for part in ["Screenshots (*.png;*.jpg;*.jpeg)", "*.png;*.jpg;*.jpeg"] {
@@ -70,4 +81,21 @@ pub use windows_impl::pick_image;
 #[must_use]
 pub fn pick_image() -> Option<std::path::PathBuf> {
     None
+}
+
+/// Runs the picker on its own thread and hands the result to `deliver`.
+///
+/// The callback runs on that thread, so it must do nothing but pass the path
+/// along — a channel send, typically.
+#[cfg(windows)]
+pub fn spawn_pick_image(deliver: impl FnOnce(Option<std::path::PathBuf>) + Send + 'static) {
+    std::thread::Builder::new()
+        .name("ptt-file-dialog".to_owned())
+        .spawn(move || deliver(pick_image()))
+        .expect("spawn file dialog thread");
+}
+
+#[cfg(not(windows))]
+pub fn spawn_pick_image(deliver: impl FnOnce(Option<std::path::PathBuf>) + Send + 'static) {
+    deliver(None);
 }

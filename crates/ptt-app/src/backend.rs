@@ -58,6 +58,9 @@ mod windows_backend {
         },
         CalibrationCancelled(RegionSlot),
         CalibrationFailed(RegionSlot, String),
+        /// A screenshot chosen for the calibration screen, or `None` if the
+        /// picker was dismissed.
+        ScreenshotPicked(Option<std::path::PathBuf>),
     }
 
     /// Which global shortcuts came up.

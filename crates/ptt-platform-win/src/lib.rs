@@ -22,7 +22,7 @@ mod wave;
 mod win32;
 
 pub use error::PlatformError;
-pub use file_dialog::pick_image;
+pub use file_dialog::{pick_image, spawn_pick_image};
 pub use geometry::{PointI, RectI, SizeI};
 pub use handle::NativeWindowHandle;
 pub use hotkeys::{
