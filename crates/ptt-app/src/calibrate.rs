@@ -164,6 +164,12 @@ pub struct Calibration {
     pub target: Option<Target>,
     /// Where the current drag began, in source pixels.
     pub drag_from: Option<(f32, f32)>,
+    /// Where a pan began, in canvas pixels.
+    ///
+    /// Canvas rather than source, because panning changes the very transform
+    /// that would convert them — measuring the drag in source pixels would
+    /// have the picture chase the cursor.
+    pub pan_from: Option<(f32, f32)>,
     /// Where the cursor is, in source pixels, for the magnifier.
     pub cursor: Option<(f32, f32)>,
     pub need: Option<SourceRect>,

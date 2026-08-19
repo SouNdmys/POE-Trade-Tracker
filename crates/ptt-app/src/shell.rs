@@ -133,6 +133,14 @@ pub struct AppShell {
     /// carries it across because both ends run on the UI thread.
     #[cfg(windows)]
     canvas_bounds: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<gpui::Pixels>>>>,
+    /// Holds the decoded screenshot across frames.
+    ///
+    /// Without it every frame decodes the file again, and a 2560x1440 PNG
+    /// takes long enough that a zoom click landed seconds later. The
+    /// calibration screen shows one image at a time, so retaining all of them
+    /// retains one.
+    #[cfg(windows)]
+    image_cache: gpui::Entity<gpui::RetainAllImageCache>,
     watching: bool,
     accepted: u64,
     skips: BTreeMap<String, u64>,
@@ -255,6 +263,8 @@ impl AppShell {
             calibration: crate::calibrate::Calibration::default(),
             #[cfg(windows)]
             canvas_bounds: std::rc::Rc::new(std::cell::Cell::new(None)),
+            #[cfg(windows)]
+            image_cache: gpui::RetainAllImageCache::new(cx),
             watching: false,
             accepted: 0,
             skips: BTreeMap::new(),
@@ -804,6 +814,7 @@ impl AppShell {
             .children(image.clone().map(|path| {
                 let (width, height) = size.unwrap_or((0, 0));
                 gpui::img(path)
+                    .image_cache(&self.image_cache)
                     .absolute()
                     .left(px(view.pan_x))
                     .top(px(view.pan_y))
@@ -829,11 +840,38 @@ impl AppShell {
                     }
                 }),
             )
+            .on_mouse_down(
+                gpui::MouseButton::Right,
+                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                    this.calibration.pan_from = this.raw_canvas_point(event.position);
+                    cx.notify();
+                }),
+            )
+            .on_mouse_up(
+                gpui::MouseButton::Right,
+                cx.listener(|this, _: &gpui::MouseUpEvent, _, cx| {
+                    this.calibration.pan_from = None;
+                    cx.notify();
+                }),
+            )
             .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {
+                // Panning first: while it is happening the transform is
+                // moving, so a source-pixel reading taken now would describe
+                // the previous frame.
+                if let (Some(from), Some(to)) = (
+                    this.calibration.pan_from,
+                    this.raw_canvas_point(event.position),
+                ) {
+                    let mut view = this.calibration.view();
+                    view.pan_x += to.0 - from.0;
+                    view.pan_y += to.1 - from.1;
+                    this.calibration.view = Some(view);
+                    this.calibration.pan_from = Some(to);
+                }
                 if let Some(point) = this.canvas_point(event.position) {
                     this.calibration.cursor = Some(point);
-                    cx.notify();
                 }
+                cx.notify();
             }))
             .on_mouse_up(
                 gpui::MouseButton::Left,
@@ -863,6 +901,7 @@ impl AppShell {
                 .bg(c(WELL))
                 .child(
                     gpui::img(path)
+                        .image_cache(&self.image_cache)
                         .absolute()
                         .left(px(BOX / 2.0 - point.0 * zoom))
                         .top(px(BOX / 2.0 - point.1 * zoom))
@@ -870,6 +909,27 @@ impl AppShell {
                         .h(px(height as f32 * zoom)),
                 )
         });
+
+        // What each target currently holds, so the page says whether a click
+        // did anything. Without it the only feedback was the drawn rectangle,
+        // and with nothing rendering there was none at all.
+        let saved: Vec<String> = Target::ALL
+            .into_iter()
+            .map(|target| {
+                let label = match target {
+                    Target::Need => text.slot_need,
+                    Target::Have => text.slot_have,
+                    Target::Tables => text.slot_tables,
+                };
+                match self.calibration.rect(target) {
+                    Some(rect) => format!(
+                        "{label} {},{} {}x{}",
+                        rect.x, rect.y, rect.width, rect.height
+                    ),
+                    None => format!("{label} {}", text.nothing_yet),
+                }
+            })
+            .collect();
 
         let status = self.calibration.message.clone().unwrap_or_else(|| {
             if self.calibration.image.is_none() {
@@ -890,10 +950,19 @@ impl AppShell {
             .flex_col()
             .child(toolbar)
             .child(
+                // A flex column, not a bare block. `canvas_area` grows into
+                // this, and growth in a non-flex parent is no growth at all:
+                // the box collapsed to zero height, so the screenshot was
+                // being drawn correctly into nothing. The magnifier, being
+                // absolutely positioned, kept rendering — which is why the
+                // loupe showed a picture the canvas did not.
                 div()
                     .flex_grow()
+                    .flex()
+                    .flex_col()
                     .relative()
                     .px_3()
+                    .pb_2()
                     .child(canvas_area)
                     .children(magnifier),
             )
@@ -902,23 +971,37 @@ impl AppShell {
                     .flex_none()
                     .px_3()
                     .py_2()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div().flex().gap_4().children(
+                            saved.into_iter().map(|line| {
+                                mono(line).text_size(fs(FS_12)).text_color(c(TEXT_DATA))
+                            }),
+                        ),
+                    )
                     .child(mono(status).text_size(fs(FS_12)).text_color(c(TEXT_META))),
             )
+    }
+
+    /// Window position to a position inside the canvas, or `None` outside it.
+    #[cfg(windows)]
+    fn raw_canvas_point(&self, position: gpui::Point<gpui::Pixels>) -> Option<(f32, f32)> {
+        let bounds = self.canvas_bounds.get()?;
+        let x = f32::from(position.x - bounds.origin.x);
+        let y = f32::from(position.y - bounds.origin.y);
+        (x >= 0.0
+            && y >= 0.0
+            && x <= f32::from(bounds.size.width)
+            && y <= f32::from(bounds.size.height))
+        .then_some((x, y))
     }
 
     /// Window position to a point in the screenshot, or `None` off-canvas.
     #[cfg(windows)]
     fn canvas_point(&self, position: gpui::Point<gpui::Pixels>) -> Option<(f32, f32)> {
-        let bounds = self.canvas_bounds.get()?;
-        let x = f32::from(position.x - bounds.origin.x);
-        let y = f32::from(position.y - bounds.origin.y);
-        if x < 0.0
-            || y < 0.0
-            || x > f32::from(bounds.size.width)
-            || y > f32::from(bounds.size.height)
-        {
-            return None;
-        }
+        let (x, y) = self.raw_canvas_point(position)?;
         let (source_x, source_y) = self.calibration.view().to_source(x, y);
         let (width, height) = self.calibration.image_size?;
         // Clamped rather than rejected: a drag that runs past the edge should
