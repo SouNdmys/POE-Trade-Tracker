@@ -27,7 +27,13 @@ pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (856, 294, 238, 61);
 pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1522, 294, 238, 61);
 
 /// Both tables in one region: from the panel's outer top edge, above the
-/// "Available Trades" title bar, down past the last competing row.
+/// "Available Trades" title bar, down to just under the last competing row.
+///
+/// These are the numbers a person drew by hand on a screenshot of their own
+/// client, kept because they hug the panel — which is what makes a preset
+/// checkable by looking at it. The earlier constants read every corpus frame
+/// too, but sat 11px narrower and 24px lower than the panel, so the box on
+/// screen did not obviously correspond to the thing it was framing.
 ///
 /// The top is the panel's border, not the first data row. The first row's ink
 /// has no visible edge to aim at, so asking for it was asking for a landmark
@@ -35,34 +41,34 @@ pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1522, 294, 238, 61);
 /// scanline -- while the border is exactly where a hand lands when the eye is
 /// told to frame the two tables.
 ///
-/// The mask is what makes this safe: the title bar, the "Rate / Stock" column
+/// The mask is what makes that safe: the title bar, the "Rate / Stock" column
 /// headings and the panel's own ornament are all drawn too dim to survive the
 /// warm threshold, so nothing between the frame's top edge and the first row
-/// can be mistaken for it. Sixty pixels of furniture sit inside this frame and
-/// the anchor still lands on the first row.
-///
-/// The height stops a little below the panel, not far below it. The last row
-/// ends 517px in, and a frame drawn at the top of its tolerance pushes that to
-/// 527 — a frame that ends any earlier clips the last row's final scanlines,
-/// which does not fail loudly: Windows OCR simply returns nothing for it and
-/// the table reads one row short. The rest is margin, and both clients are
-/// blank from there to y=860, so it sweeps in nothing.
-pub const TABLES_REGION: (i32, i32, u32, u32) = (1145, 281, 259, 540);
+/// can be mistaken for it. Seventy pixels of furniture sit inside this frame
+/// and the anchor still lands on the first row.
+pub const TABLES_REGION: (i32, i32, u32, u32) = (1146, 281, 270, 520);
 
 /// How far the Traditional Chinese client pushes the tables down.
 ///
-/// Measured, not assumed. Below the title bar the two clients render the same
-/// panel: the luminance profile of the rows under it matches scanline for
-/// scanline, English at y=282 against Traditional Chinese at y=295. The row
-/// ink follows by the same amount, and the name slots move not at all -- the
-/// panel does not shift, its table headings are simply taller.
-pub const TABLES_ZH_TW_OFFSET: i32 = 13;
+/// Measured, not assumed, and not a rounding of someone's hand: with this set
+/// to zero — one rectangle for both clients, which is what the panel looks
+/// like it should need — the two Traditional Chinese corpora fail 23 frames
+/// out of 24 while English still passes all ten. The client draws taller table
+/// headings inside a panel that has not moved; the name slots are identical in
+/// both, which is the same fact seen from the other side.
+///
+/// Fourteen is the row ink's own offset (English first row at y=358 against
+/// 372), which is a pixel more than the panel furniture above it moves. The
+/// rows are what the grid has to find, so the rows are what this tracks: at 14
+/// both clients anchor at the same +75..+77, and at 13 the Traditional Chinese
+/// one drifts a pixel low.
+pub const TABLES_ZH_TW_OFFSET: i32 = 14;
 
 /// Where each table's first row is looked for, relative to [`TABLES_REGION`].
 ///
 /// Search origins, not assertions, placed half a window above where the row
 /// actually sits so the slack is symmetric. Against the factory preset all
-/// three corpora anchor at +75..+78 and +336..+339 -- the same numbers in
+/// three corpora anchor at +75..+77 and +336..+338 -- the same numbers in
 /// either client, because [`TABLES_ZH_TW_OFFSET`] has already taken the
 /// language difference out of them. Centring a 30px window on those leaves
 /// about 13px for a hand-drawn frame either way, which is the whole budget:
@@ -142,29 +148,42 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
 mod tests {
     use super::*;
 
-    /// The frame must be tall enough for the lowest row it can be asked to
-    /// hold — the last competing row of a frame drawn at the top of its
-    /// tolerance, not of one drawn exactly on the preset.
+    /// Where the route reports each table's first ink against the preset,
+    /// across all three corpora (`PTT_DEBUG_GRID=1`). Identical in both
+    /// clients, because [`TABLES_ZH_TW_OFFSET`] has already taken the language
+    /// difference out.
+    const OBSERVED_AVAILABLE: std::ops::RangeInclusive<u32> = 75..=77;
+    const OBSERVED_COMPETING: std::ops::RangeInclusive<u32> = 336..=338;
+    /// The lowest the competing table has been seen to start.
+    const LOWEST_COMPETING_ANCHOR: u32 = *OBSERVED_COMPETING.end();
+
+    /// The frame must hold the whole of its last row at the preset.
     ///
-    /// A frame that ends earlier does not fail loudly. The last slice loses
-    /// its final scanlines, Windows OCR returns nothing for a crop that short,
-    /// and the table simply reads one row fewer than it has. That is how the
-    /// zh-TW client's extra height was found the first time.
+    /// At the preset, not at the far end of the anchor's travel: an anchor
+    /// pushed to the bottom of its window is a *top* edge drawn too high, and
+    /// a hand that misjudges the panel's top border does not raise its bottom
+    /// border to match. How much of the last slice may be cut off after that
+    /// is not something arithmetic can answer -- the slice is 28px but its ink
+    /// is 15 to 19, so some of the loss is padding -- so the corpus answers it
+    /// instead, in `book-probe --tolerance`.
+    ///
+    /// Cutting it short does not fail loudly. Windows OCR returns nothing for
+    /// a crop that short and the table reads one row fewer than it has, which
+    /// is how the zh-TW client's extra height was found the first time.
     #[test]
-    fn the_frame_is_tall_enough_for_the_lowest_row_it_can_hold() {
+    fn the_frame_holds_its_last_row() {
         let crate::profiles::RowSource::FixedGrid(grid) = LAYOUT.row_source else {
             panic!("POE1 slices a fixed grid");
         };
         let (_, _, _, region_height) = TABLES_REGION;
         // The grid's own pitch, not `RowLayout`'s: that one describes the band
         // detector, which this panel does not use.
-        let latest_anchor = COMPETING_TABLE_TOP + ANCHOR_WINDOW - 2;
-        let last_row_bottom = latest_anchor - grid.anchor_lead_in
+        let last_row_bottom = LOWEST_COMPETING_ANCHOR - grid.anchor_lead_in
             + u32::from(grid.rows_per_side - 1) * grid.pitch
             + grid.row_height;
         assert!(
             last_row_bottom <= region_height,
-            "the last row can end at {last_row_bottom}, past the {region_height}px frame"
+            "the last row ends at {last_row_bottom}, past the {region_height}px frame"
         );
     }
 
@@ -181,8 +200,6 @@ mod tests {
     /// [`TABLES_ZH_TW_OFFSET`] has already removed the language difference.
     #[test]
     fn each_table_sits_within_its_own_search_window() {
-        const OBSERVED_AVAILABLE: std::ops::RangeInclusive<u32> = 75..=78;
-        const OBSERVED_COMPETING: std::ops::RangeInclusive<u32> = 336..=339;
         for (label, nominal, observed) in [
             ("available", AVAILABLE_TABLE_TOP, OBSERVED_AVAILABLE),
             ("competing", COMPETING_TABLE_TOP, OBSERVED_COMPETING),

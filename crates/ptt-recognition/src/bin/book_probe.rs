@@ -164,22 +164,23 @@ fn profile_route(
 
 #[cfg(windows)]
 fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if run_manifest_counting(path, 0, true)? > 0 {
+    if run_manifest_counting(path, "top", 0, true)? > 0 {
         std::process::exit(1);
     }
     Ok(())
 }
 
-/// Runs a manifest with the tables frame nudged `nudge` pixels down, and
-/// returns how many cases failed.
+/// Runs a manifest with one edge of the tables frame nudged `nudge` pixels
+/// down, and returns how many cases failed.
 ///
-/// The nudge is what makes the frame's tolerance measurable instead of
-/// asserted. Every other region is left alone: the tables are the only frame
-/// whose top edge has no visible landmark, and so the only one a person has
-/// to place by eye.
+/// One edge at a time, because that is how a frame is drawn wrong: an eye that
+/// misjudges the panel's top border has no reason to misjudge its bottom one
+/// by the same amount and in the same direction. Every other region is left
+/// alone — the tables are the only frame a person has to place by eye.
 #[cfg(windows)]
 fn run_manifest_counting(
     path: &str,
+    edge: &str,
     nudge: i32,
     verbose: bool,
 ) -> Result<usize, Box<dyn std::error::Error>> {
@@ -201,15 +202,18 @@ fn run_manifest_counting(
     if verbose {
         println!("profile resolves to {language:?} on {}", layout.key_prefix);
     }
-    if nudge != 0 {
+    {
         // Through the same override the calibration screen writes, so the
-        // sweep exercises the path a hand-drawn frame actually takes.
+        // sweep exercises the path a hand-drawn frame actually takes. Set on
+        // every run, including the unnudged one: the override is process-wide,
+        // so skipping it would leave the previous sweep step's frame in place.
         let (x, y, width, height) = layout.tables_for(language);
-        ptt_recognition::route::set_region_override(
-            layout.key_prefix,
-            "TABLES",
-            (x, y + nudge, width, height),
-        );
+        let moved = match edge {
+            "top" => (x, y + nudge, width, height.saturating_add_signed(-nudge)),
+            "bottom" => (x, y, width, height.saturating_add_signed(nudge)),
+            other => return Err(format!("unknown edge {other:?}").into()),
+        };
+        ptt_recognition::route::set_region_override(layout.key_prefix, "TABLES", moved);
     }
     let route = Route::new_with(layout, language)
         .map_err(|reason| format!("route init failed: {reason:?}"))?;
@@ -310,61 +314,69 @@ fn run_manifest_counting(
     Ok(failures)
 }
 
-/// How far the tables frame may be misplaced and still read every corpus
-/// frame correctly, in pixels, as `(highest, lowest)`.
+/// How far each edge of the tables frame may be misplaced and still read
+/// every corpus frame correctly, in pixels, as `(up, down)`.
 ///
-/// Measured, then held here so it cannot quietly shrink. The band is
-/// deliberately lopsided. A frame drawn too high fails safe: the row anchor
-/// runs out of window, finds nothing, and the frame is skipped. A frame drawn
-/// too low fails dangerously: it slices into the rows, and just past the
-/// bottom of this band a torn repaint frame that the corpus expects to be
-/// *rejected* starts being accepted instead. So the slack is spent upward,
-/// which is also the direction a person errs when aiming at the panel's outer
-/// border rather than at its title bar.
+/// Two independent budgets, because a person draws two edges, not one
+/// rectangle: sliding a whole frame of fixed height — which is what this
+/// measured before — charges a top-edge error to the bottom edge as well, and
+/// so reports a tolerance narrower than the one that exists.
 ///
-/// The two ends are not independent, which is why the anchor windows sit
-/// where they do rather than as high as they can go: moving them up buys room
-/// at the top and gives it straight back at the bottom, because on a torn
-/// frame the anchor lands somewhere different depending on where its search
-/// began. A pixel is held back at each end of the measured band so a frame
-/// added to the corpus does not flip the gate.
+/// The top's band is lopsided, and the two directions fail differently. Drawn
+/// too high it fails safe: the row anchor runs out of window, finds nothing,
+/// and the frame is skipped. Drawn too low it fails dangerously: it slices
+/// into the rows, and just past this band a torn repaint frame that the corpus
+/// expects to be *rejected* starts being accepted instead.
 #[cfg(windows)]
-const TABLES_TOLERANCE: (i32, i32) = (-10, 2);
+const TOP_TOLERANCE: (i32, i32) = (-10, 2);
 
-/// Sweeps the tables frame past its tolerance and checks the band holds.
+/// The bottom edge's budget, as `(up, down)`.
+///
+/// Downward is unbounded in practice — both clients are blank below the panel
+/// — so only the upward limit is worth holding. Cross it and the last row's
+/// slice loses its final scanlines, which does not fail loudly: Windows OCR
+/// returns nothing for a crop that short and the table simply reads one row
+/// fewer than it has.
+#[cfg(windows)]
+const BOTTOM_TOLERANCE: (i32, i32) = (-8, 20);
+
+/// Sweeps each edge of the tables frame past its tolerance.
 ///
 /// Without this the tolerance is a claim in a comment. It is the property the
-/// calibration screen depends on -- it is what "draw it roughly here" means --
+/// calibration screen depends on — it is what "draw it roughly here" means —
 /// and it is invisible to every other gate, because they all run the frame at
 /// exactly the preset.
 #[cfg(windows)]
 fn run_tolerance(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let (highest, lowest) = TABLES_TOLERANCE;
     let mut broken = Vec::new();
-    for path in paths {
-        print!("{path}: ");
-        for nudge in (highest - 3)..=(lowest + 3) {
-            let failures = run_manifest_counting(path, nudge, false)?;
-            let inside = (highest..=lowest).contains(&nudge);
-            let mark = match (inside, failures) {
-                (true, 0) => '.',
-                (true, _) => {
-                    broken.push(format!("{path} fails at {nudge:+} inside the band"));
-                    'X'
-                }
-                (false, 0) => 'o',
-                (false, _) => ' ',
-            };
-            print!("{mark}");
+    for (edge, (up, down)) in [("top", TOP_TOLERANCE), ("bottom", BOTTOM_TOLERANCE)] {
+        for path in paths {
+            print!("{edge:6} {:44} ", short_name(path));
+            for nudge in (up - 3)..=(down + 3) {
+                let failures = run_manifest_counting(path, edge, nudge, false)?;
+                let inside = (up..=down).contains(&nudge);
+                print!(
+                    "{}",
+                    match (inside, failures) {
+                        (true, 0) => '.',
+                        (true, _) => {
+                            broken.push(format!("{path} {edge} fails at {nudge:+}"));
+                            'X'
+                        }
+                        (false, 0) => 'o',
+                        (false, _) => ' ',
+                    }
+                );
+            }
+            println!("  {up:+}..{down:+}");
         }
-        println!(
-            "   [{}..{}] . inside  o still passing",
-            highest - 3,
-            lowest + 3
-        );
     }
     if broken.is_empty() {
-        println!("tables tolerance holds: {highest:+}..{lowest:+} px");
+        let (top_up, top_down) = TOP_TOLERANCE;
+        let (bottom_up, bottom_down) = BOTTOM_TOLERANCE;
+        println!(
+            "tolerance holds: top {top_up:+}..{top_down:+}, bottom {bottom_up:+}..{bottom_down:+}"
+        );
         Ok(())
     } else {
         for problem in &broken {
@@ -372,6 +384,13 @@ fn run_tolerance(paths: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
         std::process::exit(1);
     }
+}
+
+#[cfg(windows)]
+fn short_name(path: &str) -> &str {
+    path.rsplit(['/', std::path::MAIN_SEPARATOR])
+        .next()
+        .unwrap_or(path)
 }
 
 #[cfg(windows)]
