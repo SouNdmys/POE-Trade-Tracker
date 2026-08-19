@@ -885,8 +885,14 @@ mod windows_route {
                                     let adjacent = side == row_band.side
                                         && u32::from(index) + 1 == u32::from(first_row_index);
                                     let same_rate = num == ratio.left && den == ratio.right;
+                                    // `then`, not `then_some`: the latter
+                                    // evaluates its argument before testing
+                                    // the condition, so `left - here` ran even
+                                    // when the guard beside it said not to --
+                                    // a debug-build panic, and in release a
+                                    // wrapped width computed and discarded.
                                     (last_slot && adjacent && same_rate && left > here)
-                                        .then_some((here, left - here))
+                                        .then(|| (here, left - here))
                                 })
                             }
                             crate::profiles::RowSource::DetectedBands => {

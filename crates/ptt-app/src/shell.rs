@@ -700,7 +700,7 @@ impl AppShell {
     /// The calibration screen: a screenshot, and three rectangles drawn on it.
     #[cfg(windows)]
     fn render_calibrate(&mut self, cx: &mut Context<Self>) -> gpui::Div {
-        use crate::calibrate::{MAGNIFIER_ZOOM, Target};
+        use crate::calibrate::{MAGNIFIER_ZOOM, Target, loupe_origin};
 
         // Fit here rather than only when the file loads. The canvas reports
         // its bounds while painting, so a load that arrives before the first
@@ -709,6 +709,13 @@ impl AppShell {
         if self.calibration.view.is_none() {
             self.fit_calibration();
         }
+        // Open on the regions that are actually in effect. Drawn rectangles
+        // and saved regions used to be two unrelated sets of numbers with no
+        // visible link, so applying looked like it did nothing at all.
+        let profile = self.settings.active_profile;
+        if self.calibration.seeded_for != Some(profile) {
+            self.seed_calibration(profile);
+        }
 
         let text = self.text();
         let view = self.calibration.view();
@@ -716,6 +723,21 @@ impl AppShell {
         let image = self.calibration.image.clone();
         let bounds_slot = self.canvas_bounds.clone();
         let active_target = self.calibration.target();
+        // Where this region normally sits, drawn as a guide. Answers the only
+        // question a blank screenshot raises — which part of the panel am I
+        // supposed to be framing — without asserting the answer: the guide is
+        // a hint to aim at, and the drawn rectangle is still what gets used.
+        let (layout, _) = ptt_runtime::pipeline::route_for(profile);
+        let guide = match active_target {
+            Target::Need => layout.need_name,
+            Target::Have => layout.have_name,
+            Target::Tables => layout.tables,
+        };
+        let hint = match active_target {
+            Target::Need => text.hint_need,
+            Target::Have => text.hint_have,
+            Target::Tables => text.hint_tables,
+        };
 
         let toolbar = div()
             .flex_none()
@@ -793,6 +815,24 @@ impl AppShell {
                 ),
             );
 
+        let hint_row = div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap_2()
+            .px_3()
+            .pb_2()
+            .child(
+                mono(hint.to_owned())
+                    .text_size(fs(FS_12))
+                    .text_color(c(TEXT_SECONDARY)),
+            )
+            .child(
+                mono(text.guide_hint.to_owned())
+                    .text_size(fs(FS_12))
+                    .text_color(c(WARN_TEXT)),
+            );
+
         let drawn: Vec<(bool, f32, f32, f32, f32)> = Target::ALL
             .into_iter()
             .filter_map(|target| {
@@ -807,6 +847,79 @@ impl AppShell {
                 ))
             })
             .collect();
+
+        // The loupe: the same picture scaled up, shifted so the pixel under
+        // the cursor sits under the crosshair. Sampling a decoded image would
+        // mean decoding it here; letting the renderer scale it costs nothing
+        // and shows exactly the pixels that will be captured.
+        //
+        // It rides with the cursor rather than parking in a corner. A fixed
+        // loupe makes you look away from the thing you are aiming at, which is
+        // the one moment aim matters, and it flips to the opposite side near
+        // an edge so it never covers the pixel it exists to show.
+        let magnifier = self
+            .calibration
+            .cursor
+            .zip(image.clone())
+            .map(|(point, path)| {
+                let (image_width, image_height) = size.unwrap_or((0, 0));
+                let zoom = MAGNIFIER_ZOOM;
+                const BOX: f32 = 176.0;
+                const GAP: f32 = 20.0;
+                let (canvas_w, canvas_h) = self.canvas_bounds.get().map_or((0.0, 0.0), |bounds| {
+                    (f32::from(bounds.size.width), f32::from(bounds.size.height))
+                });
+                let at = view.to_canvas(point.0, point.1);
+                let (left, top) = loupe_origin(at, (canvas_w, canvas_h), BOX, GAP);
+                // A hairline through the exact source pixel, in both axes. Without
+                // it the loupe shows a magnified patch with no indication of which
+                // pixel of it the cursor is on, which is the one thing it is for.
+                let crosshair = |vertical: bool| {
+                    let line = div().absolute().bg(c(DANGER));
+                    if vertical {
+                        line.left(px(BOX / 2.0)).top_0().w(px(1.0)).h(px(BOX))
+                    } else {
+                        line.top(px(BOX / 2.0)).left_0().h(px(1.0)).w(px(BOX))
+                    }
+                };
+                div()
+                    .absolute()
+                    .left(px(left))
+                    .top(px(top))
+                    .w(px(BOX))
+                    .h(px(BOX))
+                    .overflow_hidden()
+                    .border_2()
+                    .border_color(c(ACCENT))
+                    .bg(c(WELL))
+                    .child(
+                        gpui::img(path)
+                            .image_cache(&self.image_cache)
+                            .absolute()
+                            .left(px(BOX / 2.0 - point.0 * zoom))
+                            .top(px(BOX / 2.0 - point.1 * zoom))
+                            .w(px(image_width as f32 * zoom))
+                            .h(px(image_height as f32 * zoom)),
+                    )
+                    .child(crosshair(false))
+                    .child(crosshair(true))
+                    .child(
+                        // The coordinate under the crosshair, on the loupe rather
+                        // than in the status bar: at the moment of aiming, the eye
+                        // is here.
+                        div()
+                            .absolute()
+                            .bottom_0()
+                            .left_0()
+                            .w(px(BOX))
+                            .bg(c(WELL))
+                            .child(
+                                mono(format!("{}, {}", point.0.round(), point.1.round()))
+                                    .text_size(fs(FS_12))
+                                    .text_color(c(TEXT_DATA)),
+                            ),
+                    )
+            });
 
         let canvas_area = div()
             .relative()
@@ -839,6 +952,17 @@ impl AppShell {
                     .w(px(width as f32 * view.zoom))
                     .h(px(height as f32 * view.zoom))
             }))
+            .children(image.as_ref().map(|_| {
+                let (left, top) = view.to_canvas(guide.0 as f32, guide.1 as f32);
+                div()
+                    .absolute()
+                    .left(px(left))
+                    .top(px(top))
+                    .w(px(guide.2 as f32 * view.zoom))
+                    .h(px(guide.3 as f32 * view.zoom))
+                    .border_1()
+                    .border_color(c(WARN_BAR))
+            }))
             .children(
                 // The rectangle as it is being dragged. Needed to draw at all
                 // — a selection you cannot see until you release is a guess —
@@ -869,6 +993,7 @@ impl AppShell {
                     .border_2()
                     .border_color(c(if active { ACCENT } else { HAIRLINE_STRONG }))
             }))
+            .children(magnifier)
             .on_mouse_down(
                 gpui::MouseButton::Left,
                 cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
@@ -919,39 +1044,14 @@ impl AppShell {
                 }),
             );
 
-        // The magnifier: the same picture, scaled up and shifted so the pixel
-        // under the cursor sits at the centre of a small window. Sampling a
-        // decoded image would mean decoding it here; letting the renderer
-        // scale it costs nothing and shows exactly what will be captured.
-        let magnifier = self.calibration.cursor.zip(image).map(|(point, path)| {
-            let (width, height) = size.unwrap_or((0, 0));
-            let zoom = MAGNIFIER_ZOOM;
-            const BOX: f32 = 160.0;
-            div()
-                .absolute()
-                .right(px(12.0))
-                .top(px(12.0))
-                .w(px(BOX))
-                .h(px(BOX))
-                .overflow_hidden()
-                .border_2()
-                .border_color(c(ACCENT))
-                .bg(c(WELL))
-                .child(
-                    gpui::img(path)
-                        .image_cache(&self.image_cache)
-                        .absolute()
-                        .left(px(BOX / 2.0 - point.0 * zoom))
-                        .top(px(BOX / 2.0 - point.1 * zoom))
-                        .w(px(width as f32 * zoom))
-                        .h(px(height as f32 * zoom)),
-                )
-        });
-
         // What each target currently holds, so the page says whether a click
         // did anything. Without it the only feedback was the drawn rectangle,
         // and with nothing rendering there was none at all.
-        let saved: Vec<String> = Target::ALL
+        // Saved, and - when they differ - what applying would change it to.
+        // The two used to be reported on different pages with no way to tell
+        // whether a click had connected them, which made a working feature
+        // indistinguishable from a broken one.
+        let saved: Vec<(String, bool)> = Target::ALL
             .into_iter()
             .map(|target| {
                 let label = match target {
@@ -959,12 +1059,24 @@ impl AppShell {
                     Target::Have => text.slot_have,
                     Target::Tables => text.slot_tables,
                 };
-                match self.calibration.rect(target) {
-                    Some(rect) => format!(
-                        "{label} {},{} {}x{}",
-                        rect.x, rect.y, rect.width, rect.height
+                let show = |rect: crate::calibrate::SourceRect| {
+                    format!("{},{} {}x{}", rect.x, rect.y, rect.width, rect.height)
+                };
+                let stored = self.saved_rect(profile, target);
+                let drawn = self.calibration.rect(target);
+                match (stored, drawn) {
+                    (stored, Some(rect)) if self.calibration.differs(target, stored) => (
+                        format!(
+                            "{label} {} \u{2192} {}",
+                            stored.map_or_else(|| text.nothing_yet.to_owned(), show),
+                            show(rect)
+                        ),
+                        true,
                     ),
-                    None => format!("{label} {}", text.nothing_yet),
+                    (Some(rect), _) => (format!("{label} {}", show(rect)), false),
+                    // `(None, Some(_))` is already taken by the guard above;
+                    // the compiler cannot see that, hence the wildcard.
+                    (None, _) => (format!("{label} {}", text.nothing_yet), false),
                 }
             })
             .collect();
@@ -1004,6 +1116,7 @@ impl AppShell {
             .flex()
             .flex_col()
             .child(toolbar)
+            .child(hint_row)
             .child(
                 // A flex column, not a bare block. `canvas_area` grows into
                 // this, and growth in a non-flex parent is no growth at all:
@@ -1018,8 +1131,7 @@ impl AppShell {
                     .relative()
                     .px_3()
                     .pb_2()
-                    .child(canvas_area)
-                    .children(magnifier),
+                    .child(canvas_area),
             )
             .child(
                 div()
@@ -1029,15 +1141,53 @@ impl AppShell {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(
-                        div().flex().gap_4().children(
-                            saved.into_iter().map(|line| {
-                                mono(line).text_size(fs(FS_12)).text_color(c(TEXT_DATA))
-                            }),
-                        ),
-                    )
+                    .child(div().flex().gap_4().children(saved.into_iter().map(
+                        |(line, pending)| {
+                            mono(line).text_size(fs(FS_12)).text_color(c(if pending {
+                                WARN_TEXT
+                            } else {
+                                TEXT_DATA
+                            }))
+                        },
+                    )))
                     .child(mono(status).text_size(fs(FS_12)).text_color(c(TEXT_META))),
             )
+    }
+
+    /// The profile's stored rectangle for one target, if it has one.
+    #[cfg(windows)]
+    fn saved_rect(
+        &self,
+        profile: ptt_core::ProfileId,
+        target: crate::calibrate::Target,
+    ) -> Option<crate::calibrate::SourceRect> {
+        let entry = self.settings.profile(profile)?;
+        let region = match target {
+            crate::calibrate::Target::Need => entry.need_name_region,
+            crate::calibrate::Target::Have => entry.have_name_region,
+            crate::calibrate::Target::Tables => entry.tables_region,
+        }?;
+        Some(crate::calibrate::SourceRect {
+            x: region.x,
+            y: region.y,
+            width: region.width,
+            height: region.height,
+        })
+    }
+
+    /// Loads a profile's stored rectangles onto the drawing surface.
+    ///
+    /// Without this the page starts blank and every region has to be redrawn
+    /// from nothing to change one of them, and - worse - there is no way to
+    /// see that applying worked, because the numbers it wrote were only ever
+    /// shown on another page.
+    #[cfg(windows)]
+    fn seed_calibration(&mut self, profile: ptt_core::ProfileId) {
+        use crate::calibrate::Target;
+        self.calibration.need = self.saved_rect(profile, Target::Need);
+        self.calibration.have = self.saved_rect(profile, Target::Have);
+        self.calibration.tables = self.saved_rect(profile, Target::Tables);
+        self.calibration.seeded_for = Some(profile);
     }
 
     /// Window position to a position inside the canvas, or `None` outside it.
@@ -1172,12 +1322,25 @@ impl AppShell {
     /// Writes the drawn rectangles into the active profile.
     #[cfg(windows)]
     fn apply_drawn_regions(&mut self) {
-        let drawn = self.calibration.completed();
-        if drawn.is_empty() {
+        let profile = self.settings.active_profile;
+        // Only what actually differs. Since the page now opens on the stored
+        // rectangles, applying would otherwise rewrite all three every time --
+        // three log lines and three watcher restarts to change one region.
+        let changed: Vec<_> = self
+            .calibration
+            .completed()
+            .into_iter()
+            .filter(|(target, _)| {
+                self.calibration
+                    .differs(*target, self.saved_rect(profile, *target))
+            })
+            .collect();
+        if changed.is_empty() {
+            self.calibration.message = Some(self.text().nothing_to_apply.to_owned());
             return;
         }
-        let count = drawn.len();
-        for (target, rect) in drawn {
+        let count = changed.len();
+        for (target, rect) in changed {
             let slot = match target {
                 crate::calibrate::Target::Need => RegionSlot::Need,
                 crate::calibrate::Target::Have => RegionSlot::Have,
@@ -1185,7 +1348,7 @@ impl AppShell {
             };
             self.apply_calibration(slot, rect.x, rect.y, rect.width, rect.height);
         }
-        self.calibration.message = Some(format!("{count} applied"));
+        self.calibration.message = Some(format!("{} {count}", self.text().applied));
     }
 
     /// Installs the profile's factory rectangles for 2560x1440.

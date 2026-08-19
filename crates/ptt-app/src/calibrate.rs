@@ -154,6 +154,27 @@ impl View {
     }
 }
 
+/// Where to put the loupe so it never covers the pixel it is showing.
+///
+/// It rides with the cursor: a loupe parked in a corner makes you look away
+/// from the thing you are aiming at, at the one moment aim matters. That means
+/// it has to get out of its own way near an edge, which is what the flip is —
+/// it swaps to the opposite side rather than sliding along the edge, because
+/// sliding leaves it overlapping the cursor.
+///
+/// All arguments and the result are canvas pixels.
+#[must_use]
+pub fn loupe_origin(at: (f32, f32), canvas: (f32, f32), box_size: f32, gap: f32) -> (f32, f32) {
+    let place = |position: f32, extent: f32| {
+        if position + gap + box_size <= extent {
+            position + gap
+        } else {
+            (position - gap - box_size).max(0.0)
+        }
+    };
+    (place(at.0, canvas.0), place(at.1, canvas.1))
+}
+
 /// The calibration screen's whole state.
 #[derive(Debug, Default)]
 pub struct Calibration {
@@ -176,6 +197,13 @@ pub struct Calibration {
     pub have: Option<SourceRect>,
     pub tables: Option<SourceRect>,
     pub message: Option<String>,
+    /// Which profile's saved regions are currently loaded here.
+    ///
+    /// The page draws the regions that are actually in effect, so applying
+    /// has something visible to change. Keyed by profile because switching
+    /// game must reload: POE1's rectangles shown while POE2 is active is the
+    /// same wrong-panel confusion the storage prefix already guards against.
+    pub seeded_for: Option<ptt_core::ProfileId>,
 }
 
 impl Calibration {
@@ -206,6 +234,18 @@ impl Calibration {
         }
     }
 
+    /// Whether this target's drawn rectangle would change what is stored.
+    ///
+    /// One definition, used both to decide what applying writes and to mark
+    /// what the page reports as unapplied. Two comparisons would be two
+    /// chances to disagree, and a disagreement here is precisely the failure
+    /// that made the page look inert: the numbers said one thing while the
+    /// button did another, with no way to tell which was lying.
+    #[must_use]
+    pub fn differs(&self, target: Target, stored: Option<SourceRect>) -> bool {
+        matches!(self.rect(target), Some(rect) if stored != Some(rect))
+    }
+
     /// Every region drawn, in the order they are applied.
     #[must_use]
     pub fn completed(&self) -> Vec<(Target, SourceRect)> {
@@ -219,6 +259,55 @@ impl Calibration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_region_differs_only_when_it_would_change_what_is_stored() {
+        let stored = SourceRect {
+            x: 1145,
+            y: 349,
+            width: 259,
+            height: 470,
+        };
+        let mut calibration = Calibration::default();
+        // Nothing drawn cannot change anything, even against nothing stored:
+        // applying an empty page must not clear a calibrated profile.
+        assert!(!calibration.differs(Target::Tables, Some(stored)));
+        assert!(!calibration.differs(Target::Tables, None));
+
+        calibration.set_rect(Target::Tables, stored);
+        assert!(!calibration.differs(Target::Tables, Some(stored)));
+        assert!(calibration.differs(Target::Tables, None));
+
+        let moved = SourceRect { y: 350, ..stored };
+        assert!(calibration.differs(Target::Tables, Some(moved)));
+    }
+
+    #[test]
+    fn the_loupe_flips_rather_than_covering_the_cursor() {
+        let canvas = (800.0, 600.0);
+        let (box_size, gap) = (176.0, 20.0);
+        // Room below and to the right: sits there.
+        assert_eq!(
+            loupe_origin((100.0, 100.0), canvas, box_size, gap),
+            (120.0, 120.0)
+        );
+        // Against the far corner it flips to the near side, and in both axes
+        // independently — a cursor at the right edge but the vertical middle
+        // must only flip horizontally.
+        let (x, y) = loupe_origin((790.0, 300.0), canvas, box_size, gap);
+        assert_eq!((x, y), (790.0 - gap - box_size, 320.0));
+        let (x, y) = loupe_origin((790.0, 590.0), canvas, box_size, gap);
+        assert!(x + box_size <= 790.0 && y + box_size <= 590.0);
+    }
+
+    #[test]
+    fn a_loupe_larger_than_its_canvas_stays_on_screen() {
+        // Degenerate but reachable: a narrow window, or a cursor near the
+        // origin with nowhere to flip to. Clamped to zero beats negative,
+        // which would render it off the top-left and show nothing.
+        let (x, y) = loupe_origin((10.0, 10.0), (120.0, 120.0), 176.0, 20.0);
+        assert_eq!((x, y), (0.0, 0.0));
+    }
 
     #[test]
     fn a_rectangle_is_the_same_whichever_corner_started_it() {

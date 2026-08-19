@@ -123,11 +123,47 @@ fn check_rows(
     problems
 }
 
+/// The panel and the lexicon a manifest's profile name asks for.
+///
+/// Both, not just the panel. The layout was already derived here while the
+/// language stayed on a command-line flag defaulting to Traditional Chinese,
+/// so the English corpus only passed when the operator remembered to add
+/// `--language en` -- and forgetting it failed all ten frames at once, which
+/// is the loud direction. The quiet direction is worse: a Traditional Chinese
+/// corpus run with `--language en` still checks every ratio and stock value,
+/// so a wrong-lexicon run can look like a pass. A manifest that names its
+/// profile should need no flags at all.
 #[cfg(windows)]
-fn run_manifest(
-    path: &str,
-    language: ptt_recognition::profiles::ProfileLanguage,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn profile_route(
+    profile: &str,
+) -> Result<
+    (
+        ptt_recognition::profiles::PanelLayout,
+        ptt_recognition::profiles::ProfileLanguage,
+    ),
+    String,
+> {
+    use ptt_recognition::profiles::ProfileLanguage;
+    let name = profile.to_ascii_lowercase();
+    let layout = if name.starts_with("poe1-") {
+        ptt_recognition::profiles::poe1::LAYOUT
+    } else if name.starts_with("poe2-") {
+        ptt_recognition::profiles::poe2::LAYOUT
+    } else {
+        return Err(format!("manifest profile {profile:?} names no game"));
+    };
+    // Rejected rather than defaulted. A default is what let the language drift
+    // away from the corpus in the first place.
+    let language = match name.split_once('-').map(|(_, rest)| rest) {
+        Some(rest) if rest.starts_with("en") => ProfileLanguage::English,
+        Some(rest) if rest.starts_with("zh") => ProfileLanguage::TraditionalChinese,
+        _ => return Err(format!("manifest profile {profile:?} names no language")),
+    };
+    Ok((layout, language))
+}
+
+#[cfg(windows)]
+fn run_manifest(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     use ptt_recognition::route::Route;
 
     let manifest: Manifest = serde_json::from_str(&std::fs::read_to_string(path)?)?;
@@ -138,13 +174,10 @@ fn run_manifest(
         manifest.profile,
         manifest.cases.len()
     );
-    // The manifest names its profile, so a POE1 corpus drives the POE1 panel
-    // without a second flag to keep in sync with the file.
-    let layout = if manifest.profile.starts_with("poe1") {
-        ptt_recognition::profiles::poe1::LAYOUT
-    } else {
-        ptt_recognition::profiles::poe2::LAYOUT
-    };
+    // The manifest names its profile, so the corpus drives both the panel and
+    // the lexicon with no flags to keep in sync with the file.
+    let (layout, language) = profile_route(&manifest.profile)?;
+    println!("profile resolves to {language:?} on {}", layout.key_prefix);
     let route = Route::new_with(layout, language)
         .map_err(|reason| format!("route init failed: {reason:?}"))?;
     let mut failures = 0usize;
@@ -277,7 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let [flag, manifest] = arguments.as_slice()
         && flag == "--manifest"
     {
-        return run_manifest(manifest, language);
+        return run_manifest(manifest);
     }
     let paths: Vec<std::path::PathBuf> = match arguments.as_slice() {
         [single] if !single.starts_with("--") => vec![single.into()],
@@ -346,4 +379,71 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(not(windows))]
 fn main() {
     eprintln!("book-probe requires Windows");
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::profile_route;
+    use ptt_recognition::profiles::ProfileLanguage;
+
+    #[test]
+    fn a_profile_name_decides_both_the_panel_and_the_lexicon() {
+        let (layout, language) = profile_route("poe1-en").unwrap();
+        assert_eq!(layout.game, ptt_core::Game::Poe1);
+        assert_eq!(language, ProfileLanguage::English);
+
+        // Suffixed variants are the same profile: the corpus date in
+        // `poe1-zhtw-0818` names the batch, not a different client.
+        for name in ["poe1-zhtw", "poe1-zhtw-0818", "POE1-ZhTw"] {
+            let (layout, language) = profile_route(name).unwrap();
+            assert_eq!(layout.game, ptt_core::Game::Poe1, "{name}");
+            assert_eq!(language, ProfileLanguage::TraditionalChinese, "{name}");
+        }
+
+        let (layout, language) = profile_route("poe2-zh-TW").unwrap();
+        assert_eq!(layout.game, ptt_core::Game::Poe2);
+        assert_eq!(language, ProfileLanguage::TraditionalChinese);
+    }
+
+    /// A name that says nothing is an error, never a default.
+    ///
+    /// Defaulting is what let the lexicon drift away from the corpus: the
+    /// English manifest was silently read against Traditional Chinese names
+    /// unless a flag said otherwise.
+    #[test]
+    fn a_profile_that_names_no_game_or_language_is_refused() {
+        for name in ["poe1", "poe3-en", "en", "poe2-fr", ""] {
+            assert!(profile_route(name).is_err(), "{name:?} should be refused");
+        }
+    }
+
+    /// Every manifest in the tree resolves without a flag.
+    ///
+    /// The gate that matters: adding a corpus with a profile name this cannot
+    /// read should fail here, at the moment it is added, rather than at
+    /// whatever hour someone next runs the probe.
+    #[test]
+    fn every_shipped_manifest_names_a_profile_that_resolves() {
+        let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/manifests")
+            .canonicalize()
+            .expect("manifest directory");
+        let mut seen = 0usize;
+        for entry in std::fs::read_dir(&directory).expect("read manifests") {
+            let path = entry.expect("entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("read manifest");
+            let manifest: serde_json::Value = serde_json::from_str(&text).expect("parse manifest");
+            let profile = manifest["profile"].as_str().unwrap_or_default();
+            assert!(
+                profile_route(profile).is_ok(),
+                "{} names profile {profile:?}, which resolves to nothing",
+                path.display()
+            );
+            seen += 1;
+        }
+        assert!(seen >= 4, "expected the four corpora, found {seen}");
+    }
 }
