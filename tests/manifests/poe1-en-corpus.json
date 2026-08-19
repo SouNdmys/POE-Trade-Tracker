@@ -218,10 +218,10 @@
     },
     {
       "file": "poe1-real-20260729-m01-000001.png",
-      "expect": "accept",
+      "expect": "skip",
       "need": "chaos-orb",
       "have": "scarab-of-adversaries",
-      "min_rows": 11
+      "note": "the panel shows 1 : 1.33 and both OCR paths return 133 -- Windows OCR as a bare \"133\", the ONNX retry as \"1:133\". The decimal point is lost at this size, and the row-order invariant is what catches it. The read is the defect; the skip is the correct response to it."
     }
   ]
 }

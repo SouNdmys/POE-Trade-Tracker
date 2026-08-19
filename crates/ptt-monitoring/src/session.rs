@@ -77,6 +77,7 @@ pub fn skip_key(reason: &SkipReason) -> String {
             .trim_end_matches('{')
             .to_string(),
         SkipReason::EmptyBook => "empty-book".into(),
+        SkipReason::RowsOutOfOrder(_) => "rows-out-of-order".into(),
     }
 }
 

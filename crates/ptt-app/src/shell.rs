@@ -1969,6 +1969,7 @@ fn skip_label(key: &str, language: ptt_settings::UiLanguage) -> String {
         "need-name" => text.skip_need_name.to_owned(),
         "have-name" => text.skip_have_name.to_owned(),
         "empty-book" => text.skip_empty_book.to_owned(),
+        "rows-out-of-order" => text.skip_out_of_order.to_owned(),
         "confirmation-mismatch" => text.skip_confirmation.to_owned(),
         "duplicate" => text.skip_duplicate.to_owned(),
         other => other.to_owned(),

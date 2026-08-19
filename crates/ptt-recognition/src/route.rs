@@ -29,6 +29,9 @@ pub enum SkipReason {
     Rows(RowsReject),
     /// Identity and structure were fine but not a single row parsed.
     EmptyBook,
+    /// A row was priced better than the row above it, which the panel does
+    /// not do. See [`crate::book::out_of_order`].
+    RowsOutOfOrder(crate::book::OutOfOrder),
 }
 
 /// A row that failed inside an otherwise-accepted frame.
@@ -1001,6 +1004,12 @@ mod windows_route {
 
             if rows.is_empty() {
                 return Err(SkipReason::EmptyBook);
+            }
+            // Checked before the book is built rather than after: a book that
+            // contradicts itself should not exist long enough to be signed and
+            // deduplicated, or a misread gets remembered as a distinct frame.
+            if let Some(broken) = crate::book::out_of_order(&rows) {
+                return Err(SkipReason::RowsOutOfOrder(broken));
             }
             let observation = BookObservation::assemble(
                 BookIdentity {

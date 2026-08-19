@@ -21,6 +21,15 @@ struct Manifest {
 struct ManifestCase {
     file: String,
     expect: String,
+    /// Why this frame is expected to do what it does.
+    ///
+    /// Required in spirit for `expect: "skip"`. A negative case with no stated
+    /// reason is indistinguishable from a capability that was quietly given
+    /// up on: it goes green either way, and whoever reads the manifest next
+    /// cannot tell whether the frame is unreadable, uninteresting, or a bug
+    /// someone stopped chasing.
+    #[serde(default)]
+    note: Option<String>,
     #[serde(default)]
     need: Option<String>,
     #[serde(default)]
@@ -221,6 +230,17 @@ fn run_manifest_counting(
     let started = std::time::Instant::now();
     let mut durations = Vec::new();
     for case in &manifest.cases {
+        if case.expect == "skip" && case.note.is_none() {
+            failures += 1;
+            if verbose {
+                println!(
+                    "FAIL {} — a negative case must say why it is one",
+                    case.file
+                );
+            }
+            durations.push(0.0);
+            continue;
+        }
         let file = std::path::Path::new(&manifest.screenshot_dir).join(&case.file);
         // Checked before recognition rather than left to it. A missing file
         // fails to decode, decoding failure is a skip, and a negative case
@@ -278,7 +298,10 @@ fn run_manifest_counting(
                     Err(problems.join("; "))
                 }
             }
-            ("skip", Err(reason)) => Ok(format!("skip {reason:?}")),
+            ("skip", Err(reason)) => Ok(match &case.note {
+                Some(note) => format!("skip {reason:?} -- {note}"),
+                None => format!("skip {reason:?}"),
+            }),
             ("accept", Err(reason)) => Err(format!("expected accept, skipped: {reason:?}")),
             ("skip", Ok(book)) => Err(format!(
                 "expected skip, accepted {} -> {}",
