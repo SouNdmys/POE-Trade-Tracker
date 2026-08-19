@@ -7,6 +7,7 @@
 #![forbid(unsafe_op_in_unsafe_fn)]
 
 mod error;
+mod file_dialog;
 mod geometry;
 mod handle;
 mod hotkeys;
@@ -21,6 +22,7 @@ mod wave;
 mod win32;
 
 pub use error::PlatformError;
+pub use file_dialog::pick_image;
 pub use geometry::{PointI, RectI, SizeI};
 pub use handle::NativeWindowHandle;
 pub use hotkeys::{

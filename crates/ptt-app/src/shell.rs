@@ -5,7 +5,10 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use gpui::{Context, FocusHandle, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use gpui::{
+    Context, FocusHandle, InteractiveElement as _, IntoElement, ParentElement, Render, Styled,
+    Window, div, px,
+};
 
 use crate::theme::*;
 use crate::ui::{
@@ -46,6 +49,7 @@ const REPORT_WINDOW_HOURS: i64 = 2;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
     Monitor,
+    Calibrate,
     Opportunities,
     Convert,
     Watchlist,
@@ -53,8 +57,9 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::Monitor,
+        Self::Calibrate,
         Self::Opportunities,
         Self::Convert,
         Self::Watchlist,
@@ -64,6 +69,7 @@ impl Page {
     fn label(self, text: &'static crate::i18n::Text) -> &'static str {
         match self {
             Self::Monitor => text.page_monitor,
+            Self::Calibrate => text.page_calibrate,
             Self::Opportunities => text.page_opportunities,
             Self::Convert => text.page_convert,
             Self::Watchlist => text.page_watchlist,
@@ -79,7 +85,7 @@ impl Page {
     /// though it never needed one.
     const fn needs_a_pair(self) -> bool {
         match self {
-            Self::Monitor | Self::Opportunities => false,
+            Self::Monitor | Self::Opportunities | Self::Calibrate => false,
             Self::Convert | Self::Watchlist | Self::History => true,
         }
     }
@@ -91,6 +97,7 @@ impl Page {
     const fn element_id(self) -> &'static str {
         match self {
             Self::Monitor => "page-monitor",
+            Self::Calibrate => "page-calibrate",
             Self::Opportunities => "page-opportunities",
             Self::Convert => "page-convert",
             Self::Watchlist => "page-watchlist",
@@ -116,6 +123,16 @@ pub struct AppShell {
     #[cfg(windows)]
     hud: Option<ptt_platform_win::HudWindow>,
     hud_visible: bool,
+    #[cfg(windows)]
+    calibration: crate::calibrate::Calibration,
+    /// Where the calibration canvas landed, written by its paint pass.
+    ///
+    /// Mouse events arrive in window coordinates and the rectangles are in the
+    /// screenshot's, so the element's own origin is the missing term. GPUI
+    /// hands it to a `canvas` callback rather than to the event, and a `Cell`
+    /// carries it across because both ends run on the UI thread.
+    #[cfg(windows)]
+    canvas_bounds: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<gpui::Pixels>>>>,
     watching: bool,
     accepted: u64,
     skips: BTreeMap<String, u64>,
@@ -234,6 +251,10 @@ impl AppShell {
             #[cfg(windows)]
             hud: None,
             hud_visible: false,
+            #[cfg(windows)]
+            calibration: crate::calibrate::Calibration::default(),
+            #[cfg(windows)]
+            canvas_bounds: std::rc::Rc::new(std::cell::Cell::new(None)),
             watching: false,
             accepted: 0,
             skips: BTreeMap::new(),
@@ -665,6 +686,353 @@ impl AppShell {
         ));
     }
 
+    /// The calibration screen: a screenshot, and three rectangles drawn on it.
+    #[cfg(windows)]
+    fn render_calibrate(&mut self, cx: &mut Context<Self>) -> gpui::Div {
+        use crate::calibrate::{MAGNIFIER_ZOOM, Target};
+
+        let text = self.text();
+        let view = self.calibration.view();
+        let size = self.calibration.image_size;
+        let image = self.calibration.image.clone();
+        let bounds_slot = self.canvas_bounds.clone();
+        let active_target = self.calibration.target();
+
+        let toolbar = div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap_2()
+            .p_3()
+            .child(
+                button("cal-load", LedgerButton::Primary, text.load_screenshot, cx).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        this.load_screenshot();
+                        cx.notify();
+                    }),
+                ),
+            )
+            .children(Target::ALL.into_iter().map(|target| {
+                let active = target == active_target;
+                button(
+                    target.element_id(),
+                    if active {
+                        LedgerButton::Primary
+                    } else {
+                        LedgerButton::Quiet
+                    },
+                    match target {
+                        Target::Need => text.slot_need,
+                        Target::Have => text.slot_have,
+                        Target::Tables => text.slot_tables,
+                    },
+                    cx,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.calibration.target = Some(target);
+                    cx.notify();
+                }))
+            }))
+            .child(
+                button("cal-zoom-in", LedgerButton::Quiet, text.zoom_in, cx).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.zoom_calibration(1.25);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                button("cal-zoom-out", LedgerButton::Quiet, text.zoom_out, cx).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        this.zoom_calibration(0.8);
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                button("cal-fit", LedgerButton::Quiet, text.fit_window, cx).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.fit_calibration();
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                button("cal-actual", LedgerButton::Quiet, text.actual_size, cx).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        this.zoom_calibration_to(1.0);
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                button("cal-apply", LedgerButton::Primary, text.apply_regions, cx).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        this.apply_drawn_regions();
+                        cx.notify();
+                    }),
+                ),
+            );
+
+        let drawn: Vec<(bool, f32, f32, f32, f32)> = Target::ALL
+            .into_iter()
+            .filter_map(|target| {
+                let rect = self.calibration.rect(target)?;
+                let (left, top) = view.to_canvas(rect.x as f32, rect.y as f32);
+                Some((
+                    target == active_target,
+                    left,
+                    top,
+                    rect.width as f32 * view.zoom,
+                    rect.height as f32 * view.zoom,
+                ))
+            })
+            .collect();
+
+        let canvas_area = div()
+            .relative()
+            .flex_grow()
+            .overflow_hidden()
+            .bg(c(WELL))
+            .border_1()
+            .border_color(c(HAIRLINE))
+            .child(gpui::canvas(
+                move |bounds, _, _| bounds_slot.set(Some(bounds)),
+                |_, (), _, _| {},
+            ))
+            .children(image.clone().map(|path| {
+                let (width, height) = size.unwrap_or((0, 0));
+                gpui::img(path)
+                    .absolute()
+                    .left(px(view.pan_x))
+                    .top(px(view.pan_y))
+                    .w(px(width as f32 * view.zoom))
+                    .h(px(height as f32 * view.zoom))
+            }))
+            .children(drawn.into_iter().map(|(active, left, top, w, h)| {
+                div()
+                    .absolute()
+                    .left(px(left))
+                    .top(px(top))
+                    .w(px(w))
+                    .h(px(h))
+                    .border_2()
+                    .border_color(c(if active { ACCENT } else { HAIRLINE_STRONG }))
+            }))
+            .on_mouse_down(
+                gpui::MouseButton::Left,
+                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                    if let Some(point) = this.canvas_point(event.position) {
+                        this.calibration.drag_from = Some(point);
+                        cx.notify();
+                    }
+                }),
+            )
+            .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {
+                if let Some(point) = this.canvas_point(event.position) {
+                    this.calibration.cursor = Some(point);
+                    cx.notify();
+                }
+            }))
+            .on_mouse_up(
+                gpui::MouseButton::Left,
+                cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                    this.finish_drag(event.position);
+                    cx.notify();
+                }),
+            );
+
+        // The magnifier: the same picture, scaled up and shifted so the pixel
+        // under the cursor sits at the centre of a small window. Sampling a
+        // decoded image would mean decoding it here; letting the renderer
+        // scale it costs nothing and shows exactly what will be captured.
+        let magnifier = self.calibration.cursor.zip(image).map(|(point, path)| {
+            let (width, height) = size.unwrap_or((0, 0));
+            let zoom = MAGNIFIER_ZOOM;
+            const BOX: f32 = 160.0;
+            div()
+                .absolute()
+                .right(px(12.0))
+                .top(px(12.0))
+                .w(px(BOX))
+                .h(px(BOX))
+                .overflow_hidden()
+                .border_2()
+                .border_color(c(ACCENT))
+                .bg(c(WELL))
+                .child(
+                    gpui::img(path)
+                        .absolute()
+                        .left(px(BOX / 2.0 - point.0 * zoom))
+                        .top(px(BOX / 2.0 - point.1 * zoom))
+                        .w(px(width as f32 * zoom))
+                        .h(px(height as f32 * zoom)),
+                )
+        });
+
+        let status = self.calibration.message.clone().unwrap_or_else(|| {
+            if self.calibration.image.is_none() {
+                text.no_screenshot.to_owned()
+            } else {
+                let cursor = self
+                    .calibration
+                    .cursor
+                    .map(|(x, y)| format!("  {}, {}", x.round(), y.round()))
+                    .unwrap_or_default();
+                format!("{}{cursor}", text.drag_to_draw)
+            }
+        });
+
+        div()
+            .flex_grow()
+            .flex()
+            .flex_col()
+            .child(toolbar)
+            .child(
+                div()
+                    .flex_grow()
+                    .relative()
+                    .px_3()
+                    .child(canvas_area)
+                    .children(magnifier),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .px_3()
+                    .py_2()
+                    .child(mono(status).text_size(fs(FS_12)).text_color(c(TEXT_META))),
+            )
+    }
+
+    /// Window position to a point in the screenshot, or `None` off-canvas.
+    #[cfg(windows)]
+    fn canvas_point(&self, position: gpui::Point<gpui::Pixels>) -> Option<(f32, f32)> {
+        let bounds = self.canvas_bounds.get()?;
+        let x = f32::from(position.x - bounds.origin.x);
+        let y = f32::from(position.y - bounds.origin.y);
+        if x < 0.0
+            || y < 0.0
+            || x > f32::from(bounds.size.width)
+            || y > f32::from(bounds.size.height)
+        {
+            return None;
+        }
+        let (source_x, source_y) = self.calibration.view().to_source(x, y);
+        let (width, height) = self.calibration.image_size?;
+        // Clamped rather than rejected: a drag that runs past the edge should
+        // stop at the edge, not discard the whole rectangle.
+        Some((
+            source_x.clamp(0.0, width as f32),
+            source_y.clamp(0.0, height as f32),
+        ))
+    }
+
+    #[cfg(windows)]
+    fn finish_drag(&mut self, position: gpui::Point<gpui::Pixels>) {
+        let Some(from) = self.calibration.drag_from.take() else {
+            return;
+        };
+        let Some(to) = self.canvas_point(position) else {
+            return;
+        };
+        let target = self.calibration.target();
+        let label = match target {
+            crate::calibrate::Target::Need => self.text().slot_need,
+            crate::calibrate::Target::Have => self.text().slot_have,
+            crate::calibrate::Target::Tables => self.text().slot_tables,
+        };
+        match crate::calibrate::SourceRect::from_corners(from, to) {
+            Some(rect) => {
+                self.calibration.set_rect(target, rect);
+                self.calibration.message = Some(format!(
+                    "{label}  {},{}  {}x{}",
+                    rect.x, rect.y, rect.width, rect.height
+                ));
+            }
+            None => self.calibration.message = None,
+        }
+    }
+
+    #[cfg(windows)]
+    fn zoom_calibration(&mut self, factor: f32) {
+        let (anchor_x, anchor_y) = self.canvas_bounds.get().map_or((0.0, 0.0), |bounds| {
+            (
+                f32::from(bounds.size.width) / 2.0,
+                f32::from(bounds.size.height) / 2.0,
+            )
+        });
+        let view = self
+            .calibration
+            .view()
+            .zoomed_about(factor, anchor_x, anchor_y);
+        self.calibration.view = Some(view);
+    }
+
+    #[cfg(windows)]
+    fn zoom_calibration_to(&mut self, zoom: f32) {
+        let current = self.calibration.view().zoom;
+        if current > 0.0 {
+            self.zoom_calibration(zoom / current);
+        }
+    }
+
+    #[cfg(windows)]
+    fn fit_calibration(&mut self) {
+        let (Some(size), Some(bounds)) = (self.calibration.image_size, self.canvas_bounds.get())
+        else {
+            return;
+        };
+        self.calibration.view = Some(crate::calibrate::View::fitted(
+            size,
+            (f32::from(bounds.size.width), f32::from(bounds.size.height)),
+        ));
+    }
+
+    /// Opens the system picker and measures whatever came back.
+    #[cfg(windows)]
+    fn load_screenshot(&mut self) {
+        let Some(path) = ptt_platform_win::pick_image() else {
+            return;
+        };
+        let size = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| crate::calibrate::image_size(&bytes));
+        match size {
+            Some(size) => {
+                self.calibration.image = Some(path);
+                self.calibration.image_size = Some(size);
+                self.calibration.message = None;
+                self.fit_calibration();
+            }
+            None => {
+                // Refused rather than shown at a guessed size: every rectangle
+                // drawn on a wrongly scaled picture lands somewhere else.
+                self.calibration.message =
+                    Some(format!("unreadable image header: {}", path.display()));
+            }
+        }
+    }
+
+    /// Writes the drawn rectangles into the active profile.
+    #[cfg(windows)]
+    fn apply_drawn_regions(&mut self) {
+        let drawn = self.calibration.completed();
+        if drawn.is_empty() {
+            return;
+        }
+        let count = drawn.len();
+        for (target, rect) in drawn {
+            let slot = match target {
+                crate::calibrate::Target::Need => RegionSlot::Need,
+                crate::calibrate::Target::Have => RegionSlot::Have,
+                crate::calibrate::Target::Tables => RegionSlot::Tables,
+            };
+            self.apply_calibration(slot, rect.x, rect.y, rect.width, rect.height);
+        }
+        self.calibration.message = Some(format!("{count} applied"));
+    }
+
     /// Installs the profile's factory rectangles for 2560x1440.
     ///
     /// The panel's geometry is fixed for a given resolution, so the numbers
@@ -928,6 +1296,8 @@ impl AppShell {
             Page::Opportunities => {
                 ptt_runtime::reports::opportunities_report(&observations, &context_key, LIVE_LEAGUE)
             }
+            // Draws rather than reports; `render_calibrate` reads its own state.
+            Page::Calibrate => Ok(Vec::new()),
             // `needs_a_pair` sends the rest through `build_report`.
             page => Err(format!("{page:?} is a pair page")),
         }
@@ -944,7 +1314,7 @@ impl AppShell {
 
         match self.page {
             // Answered before this function is reached; see refresh_report.
-            Page::Monitor | Page::Opportunities => Ok(Vec::new()),
+            Page::Monitor | Page::Opportunities | Page::Calibrate => Ok(Vec::new()),
             Page::Convert => {
                 ptt_runtime::reports::convert_report(&observations, &context_key, &have, &need)
             }
@@ -1197,6 +1567,8 @@ impl Render for AppShell {
                                             )),
                                     ),
                             )
+                    } else if self.page == Page::Calibrate {
+                        self.render_calibrate(cx)
                     } else {
                         div()
                             .flex_grow()
