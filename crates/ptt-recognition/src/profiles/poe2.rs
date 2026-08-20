@@ -19,7 +19,12 @@ use crate::rows::RowLayout;
 /// on both axes.
 pub const TABLES_REGION: (i32, i32, u32, u32) = (1163, 217, 269, 523);
 /// "I need" name text, icon excluded.
-pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (855, 296, 240, 52);
+///
+/// Tall enough for a name that wraps to two lines. The first frame was sized
+/// to the one-line case, which is most of them, and clipped the second line
+/// of every gem — the name then resolved to whatever the first line alone
+/// happened to look like.
+pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (858, 288, 240, 66);
 /// "I have" name text, icon excluded — but the favourite star kept.
 ///
 /// The star sits at the slot's right edge and lights up for a favourited
