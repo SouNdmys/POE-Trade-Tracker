@@ -8,7 +8,81 @@
       "expect": "accept",
       "need": "omen_of_sinistral_annulment",
       "have": "chaos_orb",
-      "min_rows": 11
+      "min_rows": 11,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:131",
+          "stock": 33
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:158",
+          "stock": 1
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:159",
+          "stock": 1
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:160",
+          "stock": 1
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:164",
+          "stock": 1
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:164",
+          "stock": 24
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "expect": "skip",
+          "note": "1 : 130.33 wraps onto two lines and the decimal point does not reach the warm mask, so the join is refused rather than guessed"
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:130",
+          "stock": 9490
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:129",
+          "stock": 9159
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:110",
+          "stock": 880
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:61",
+          "stock": 793
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">1:61",
+          "stock": 488
+        }
+      ]
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.20 - 18.56.15.99.png",

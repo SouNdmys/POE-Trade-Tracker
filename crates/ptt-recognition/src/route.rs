@@ -668,6 +668,115 @@ mod windows_route {
             }
         }
 
+        /// The text lines with ink inside one slot's slice, as absolute
+        /// inclusive row ranges.
+        fn slice_lines(
+            mask: &ptt_vision::TextInkMask,
+            grid: crate::profiles::FixedGrid,
+            slice_top: usize,
+        ) -> Vec<(usize, usize)> {
+            let ink = |x: usize, y: usize| mask.intensity_at(x, y).unwrap_or(0) != 0;
+            let slice_bottom = (slice_top + grid.row_height as usize).min(mask.height());
+            let span_top = slice_top.saturating_sub(grid.pitch as usize / 2);
+            let span_bottom = (slice_bottom + grid.pitch as usize / 2).min(mask.height());
+            if span_bottom <= span_top {
+                return Vec::new();
+            }
+            // Bands come from the wider span so a line straddling the slice
+            // edge is seen once as a whole line, not twice as clipped pieces.
+            mask_line_bands(mask.width(), span_bottom - span_top, 0, |x, y| {
+                ink(x, span_top + y)
+            })
+            .into_iter()
+            .map(|(top, bottom)| (span_top + top, span_top + bottom))
+            .filter(|band| band.0 < slice_bottom && band.1 >= slice_top)
+            .collect()
+        }
+
+        /// Re-reads a slot from its own text line, after the engine ladder
+        /// has already failed it.
+        ///
+        /// The grid slices arithmetically, so when the row above wraps, its
+        /// second line hangs down into this slot's rectangle and both
+        /// engines read the intruder together with this row's own text:
+        /// `122 : 1` comes back as `122: ±` from Windows and `122:t` from
+        /// PP-OCRv5, the stray `1` above fusing with the real one. Nothing
+        /// is wrong with the row — only with the rectangle.
+        ///
+        /// So the crop follows the slot's own line band instead. Ownership
+        /// is by overlap with the slice, which is not a close call: the
+        /// row's own line lies wholly inside it (17 of 17 rows on the corpus
+        /// frame) while an intruding tail shows only its bottom few (7).
+        /// A band taller than the grid's own row height is two lines fused
+        /// and is refused — that is the wrapped shape, and it has its own
+        /// reader.
+        fn own_band_retry(
+            &self,
+            frame: &ptt_vision::CapturedFrame,
+            mask: &ptt_vision::TextInkMask,
+            grid: crate::profiles::FixedGrid,
+            slice_top: usize,
+        ) -> Option<(crate::fields::RatioField, u64)> {
+            let slice_bottom = (slice_top + grid.row_height as usize).min(mask.height());
+            let overlap = |band: &(usize, usize)| {
+                band.1
+                    .min(slice_bottom.saturating_sub(1))
+                    .saturating_sub(band.0.max(slice_top))
+                    + 1
+            };
+            let own = Self::slice_lines(mask, grid, slice_top)
+                .into_iter()
+                .max_by_key(overlap)?;
+            // A band taller than the grid's own row height is two lines with
+            // the blank row between them missing, and this reader has no way
+            // to say where one ends: splitting it by the stock column's ink
+            // was tried and put the boundary one scanline out, which left a
+            // neighbour's leading digit inside and turned `167 : 1` into
+            // `1167 : 1`. Refused instead — see the known-defect note.
+            if own.1 - own.0 + 1 > grid.row_height as usize {
+                return None;
+            }
+
+            let bounds =
+                crate::comparator::ink_bounds(mask, 0, own.0, mask.width(), own.1 - own.0 + 1)?;
+            let margin = 2usize;
+            let left = bounds.left.saturating_sub(margin);
+            let rect = ptt_vision::PixelRect::new(
+                left,
+                own.0.saturating_sub(margin),
+                (bounds.right + margin).min(frame.width()) - left,
+                (own.1 + 1 + margin).min(frame.height()) - own.0.saturating_sub(margin),
+            )
+            .ok()?;
+
+            // Both engines again, on the corrected rectangle, judged by the
+            // same grammars as every other row. Windows OCR splits the two
+            // columns into its own lines; PP-OCRv5 gets the gap splitter.
+            let windows = self
+                .worker
+                .recognize(
+                    OcrLanguagePreference::English,
+                    Self::upscaled_frame_rect_2x(frame, rect).ok()?,
+                )
+                .ok()
+                .map(|recognition| Self::split_row_fields(recognition.lines.as_slice()))
+                .unwrap_or((None, None));
+            let paddle = self
+                .paddle_row_line(frame, mask, rect)
+                .map_or((None, None), |line| Self::split_row_text(&line));
+            if std::env::var_os("PTT_DEBUG_OCR").is_some() {
+                eprintln!(
+                    "debug own-band: band={own:?} rect={rect:?} windows={:?} paddle={:?}",
+                    (windows.0.is_some(), windows.1),
+                    (paddle.0.is_some(), paddle.1)
+                );
+            }
+            match (windows.0.or(paddle.0), windows.1.or(paddle.1)) {
+                (Some(ratio), Some(stock)) => Some((ratio, stock)),
+                _ => None,
+            }
+        }
+
         /// Reads a slot whose rate wrapped onto a second line, after the
         /// engine ladder has already failed it. Fixed-grid panels only — the
         /// zone arithmetic is the grid's.
@@ -1287,17 +1396,32 @@ mod windows_route {
                         (windows.0.or(retry.0), windows.1.or(retry.1))
                     }
                 };
+                // A slot holding more than one text line was not read, it was
+                // read across. The grid slices arithmetically, so a wrapped
+                // neighbour's second line hangs into this rectangle and both
+                // engines splice it onto this row's own text: `135 : 1` with
+                // the top of `152.75 :` beneath it came back as `1535 : 1`,
+                // which parses, and which the row-order invariant cannot see
+                // because it stays in order. That was an accepted wrong value.
+                //
+                // So when the slice is contaminated the arithmetic read is
+                // discarded outright, however confident it looks, and the row
+                // is read from its own line band instead. One band in the
+                // slice is the overwhelming majority and takes the path above
+                // untouched.
                 let parsed = match parsed {
                     (Some(ratio), Some(stock)) => Ok((ratio, stock)),
-                    // Incomplete through both engines. The one shape that
-                    // defeats them both together is a wrapped rate, which the
-                    // column rescue reads by the panel's own geometry; `None`
-                    // from it means the slot really is unreadable, and
-                    // skipping is the design.
+                    // Incomplete through both engines, or read across two
+                    // lines. Each shape has its own reader; a `None` from both
+                    // means the slot really is unreadable, and skipping is the
+                    // design.
                     _ => match self.layout.row_source {
-                        crate::profiles::RowSource::FixedGrid(grid) => self
-                            .wrapped_row_rescue(frame, &mask, grid, row_crops[band_index].source.y)
-                            .ok_or(FieldReject::Malformed),
+                        crate::profiles::RowSource::FixedGrid(grid) => {
+                            let slice_top = row_crops[band_index].source.y;
+                            self.own_band_retry(frame, &mask, grid, slice_top)
+                                .or_else(|| self.wrapped_row_rescue(frame, &mask, grid, slice_top))
+                                .ok_or(FieldReject::Malformed)
+                        }
                         crate::profiles::RowSource::DetectedBands => Err(FieldReject::Malformed),
                     },
                 };
@@ -1528,13 +1652,17 @@ mod windows_route {
     /// is at least 13 rows tall with no blank row inside it, and stray marks
     /// (panel border residue, descender specks) are at most 3 rows tall — a
     /// run shorter than 8 rows is discarded as noise. A row joins a line
-    /// only with at least 3 lit pixels, the same floor the table anchor
-    /// uses: one antialiasing pixel in an otherwise blank row must not glue
-    /// two lines together. How many blank rows may sit inside one line is
-    /// the caller's, because it is a property of the region: a name slot's
-    /// lines are 13 blank rows apart, so bridging 2 for antialiasing is
-    /// safe, while a table row's neighbours come as close as 2 blank rows
-    /// and must not be bridged at all.
+    /// only with at least 2 lit pixels: 1-pixel rows are antialiasing (the
+    /// panel border leaves them above every table), while 2 is the width of
+    /// the narrowest stroke the font draws — the digit `1`, measured at 2px
+    /// across its middle rows. That glyph is exactly what a wrapped rate
+    /// leaves alone on its second line, so a 3-pixel floor silently drops
+    /// the tail and the whole row with it.
+    ///
+    /// How many blank rows may sit inside one line is the caller's, because
+    /// it is a property of the region: a name slot's lines are 13 blank rows
+    /// apart, so bridging 2 for antialiasing is safe, while a table row's
+    /// neighbours come as close as 2 blank rows and must not be bridged.
     fn mask_line_bands(
         width: usize,
         height: usize,
@@ -1542,7 +1670,7 @@ mod windows_route {
         ink_at: impl Fn(usize, usize) -> bool,
     ) -> Vec<(usize, usize)> {
         const MINIMUM_LINE_HEIGHT: usize = 8;
-        const MINIMUM_LIT_PIXELS: usize = 3;
+        const MINIMUM_LIT_PIXELS: usize = 2;
         let mut bands: Vec<(usize, usize)> = Vec::new();
         for row in 0..height {
             let lit = (0..width)
@@ -1680,21 +1808,32 @@ mod windows_route {
     /// which would otherwise concatenate into a well-formed wrong value
     /// (`102.50` + `1:103` → `102.501:103`). The join proposes; the rate
     /// grammar still judges the result.
+    ///
+    /// The result must carry a decimal point, because that is why the row
+    /// wrapped at all: a rate is drawn on two lines when it is too wide for
+    /// its column, and what makes it too wide is the two fraction digits.
+    /// Every wrapped rate on the corpus has one — 130.33, 102.50, 100.33,
+    /// 122.33, 129.33, 152.75, 168.33 — and the one join that produced a
+    /// point-free rate was a misread: `1 : 130.33` came back as `1 : 13033`,
+    /// a hundredfold error that the grammar accepts and the row-order
+    /// invariant cannot see, because dropping a point keeps the ordering.
+    /// The point is not always recoverable — on that frame it does not reach
+    /// the warm mask at all — so the row is refused rather than repaired.
     fn join_wrapped_rate(head: &str, tail: &str) -> Option<String> {
         let whole_right_side = tail.chars().any(|c| c.is_ascii_digit())
             && tail
                 .chars()
                 .all(|c| c.is_ascii_digit() || c == ',' || c == '.');
-        if head.ends_with(':') && whole_right_side {
-            return Some(format!("{head}{tail}"));
-        }
         let decimal_tail = tail.strip_prefix('.').is_some_and(|digits| {
             !digits.is_empty() && digits.len() <= 2 && digits.chars().all(|c| c.is_ascii_digit())
         });
-        if decimal_tail && !head.ends_with(':') {
-            return Some(format!("{head}{tail}"));
+        let breaks_at_the_separator = head.ends_with(':') && whole_right_side;
+        let breaks_inside_the_decimal = decimal_tail && !head.ends_with(':');
+        if !breaks_at_the_separator && !breaks_inside_the_decimal {
+            return None;
         }
-        None
+        let joined = format!("{head}{tail}");
+        joined.contains('.').then_some(joined)
     }
 
     /// The catalog index of the single strongly supported target, or nothing.
@@ -1827,6 +1966,42 @@ mod windows_route {
             assert_eq!(join_wrapped_rate("1:", "10a"), None);
             assert_eq!(join_wrapped_rate("1:332", ".461"), None);
             assert_eq!(join_wrapped_rate("1:", ""), None);
+        }
+
+        /// A wrap without a decimal point is a lost decimal point, not a
+        /// wide integer: the fraction digits are why the rate did not fit.
+        #[test]
+        fn a_point_free_join_is_refused() {
+            assert_eq!(
+                join_wrapped_rate("1:", "13033"),
+                None,
+                "1 : 130.33 misread as 1 : 13033 is a hundredfold error the \
+                 grammar accepts and row order cannot see"
+            );
+            assert_eq!(join_wrapped_rate("129:", "1"), None);
+            assert_eq!(
+                join_wrapped_rate("129.33:", "1").as_deref(),
+                Some("129.33:1"),
+                "the same shape with its point intact still joins"
+            );
+        }
+
+        /// The wrapped tail is the narrowest glyph the panel draws, so the
+        /// per-row floor decides whether the row survives at all.
+        #[test]
+        fn a_two_pixel_stroke_is_a_text_line() {
+            // A digit `1`: 2 lit pixels per row, 12 rows tall, the way it
+            // measures on the corpus frame.
+            let tail = |x: usize, y: usize| (85..97).contains(&y) && (101..103).contains(&x);
+            assert_eq!(
+                mask_line_bands(136, 120, 0, tail),
+                vec![(85, 96)],
+                "a 2px stroke is the wrapped tail, not noise"
+            );
+            // One lit pixel is antialiasing and must not become a line, nor
+            // bridge across to one.
+            let speck = |x: usize, y: usize| y == 60 && x == 50;
+            assert!(mask_line_bands(136, 120, 0, speck).is_empty());
         }
 
         /// The corpus geometry in miniature: a 3-row border speck separated

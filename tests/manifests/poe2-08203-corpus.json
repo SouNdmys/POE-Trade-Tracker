@@ -50,7 +50,7 @@
       "expect": "accept",
       "need": "chaos_orb",
       "have": "omen_of_dextral_erasure",
-      "min_rows": 9
+      "min_rows": 12
     }
   ]
 }
