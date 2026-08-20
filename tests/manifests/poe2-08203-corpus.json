@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "profile": "poe2-zh-TW",
+  "screenshot_dir": "test-screenshots/poe2/8.20.3",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.40.44.72.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "chaos_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.41.35.77.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "omen_of_whittling",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.42.18.16.png",
+      "expect": "accept",
+      "need": "orb_of_annulment",
+      "have": "exalted_orb",
+      "min_rows": 9
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.43.09.98.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "preserved_skull",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.44.20.36.png",
+      "expect": "accept",
+      "need": "omen_of_abyssal_echoes",
+      "have": "chaos_orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.44.46.84.png",
+      "expect": "accept",
+      "need": "greater_chaos_orb",
+      "have": "chaos_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.46.03.26.png",
+      "expect": "skip",
+      "note": "the available table opens with a rate the panel wrapped -- 101.33 : on one line and its 1 on the next -- which pushes the bands below it off the pitch until two claim the same slot. Refused rather than guessed at, the same way as the 65px blob in the 8.20 batch."
+    }
+  ]
+}

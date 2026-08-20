@@ -224,12 +224,6 @@ pub fn classify_rows(bands: &[BandGeometry], layout: &RowLayout) -> Result<RowPl
         // table cannot reject the whole frame.
         let minimum_rows = if *rows > 1 { *rows - 1 } else { *rows };
         *counter += minimum_rows;
-        if *counter > layout.max_rows_per_side {
-            return Err(RowsReject::TooManyRows {
-                side,
-                rows: *counter,
-            });
-        }
         // The index this band would have if its table began at `origin` and
         // every row were one pitch apart -- which is how the panel draws them.
         // Rounded, because a band's top carries the detector's own margin.
@@ -250,6 +244,21 @@ pub fn classify_rows(bands: &[BandGeometry], layout: &RowLayout) -> Result<RowPl
         // rather than bands.
         *counter = *counter - minimum_rows + rows;
     }
+    // A row past the last slot the panel has. Counted by position rather than
+    // by adding up bands: a rate the panel wrapped leaves a stub between two
+    // rows, and counting bands charges that stub as a row, so a full table
+    // with one wrap came to seven and the frame was refused for holding more
+    // rows than it has. No real row moved -- there were still six, with
+    // something in between them.
+    for row in &plan.bands {
+        if row.row_index >= layout.max_rows_per_side {
+            return Err(RowsReject::TooManyRows {
+                side: row.side,
+                rows: row.row_index + 1,
+            });
+        }
+    }
+
     // Two bands cannot occupy one slot. When they do, the arithmetic that
     // produced the indices did not describe this frame -- a merged blob of two
     // rows shifts everything after it off the pitch -- and a silent collision

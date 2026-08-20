@@ -447,6 +447,71 @@ mod windows_route {
         /// luminance crop and splits ratio|stock on the spatial gap between
         /// emission time steps. The same strict grammar re-validates the
         /// result, so this recovers rows without loosening any gate.
+        /// One row's two fields, each parsed on its own.
+        ///
+        /// Separately, because they fail separately -- see the ladder at the
+        /// call site. A `None` here means only that this engine did not read
+        /// that field; another one still might.
+        fn split_row_fields(
+            lines: &[ptt_ocr_win::RecognizedLine],
+        ) -> (Option<crate::fields::RatioField>, Option<u64>) {
+            match lines {
+                // One line holding both, split on the gap between them.
+                [single] => Self::split_row_text(&single.text),
+                [first, second] => {
+                    let (ratio_line, stock_line) = if first.left <= second.left {
+                        (first, second)
+                    } else {
+                        (second, first)
+                    };
+                    // A lone ratio line cannot glue with a wrapped fragment
+                    // (those arrive as merged bands), so whitespace inside it
+                    // is safe to drop here.
+                    let ratio_text: String = ratio_line
+                        .text
+                        .chars()
+                        .filter(|c| !c.is_whitespace())
+                        .collect();
+                    (
+                        parse_ratio(&ratio_text).ok(),
+                        parse_stock(&stock_line.text).ok(),
+                    )
+                }
+                // A row with only one line read is not malformed, it is
+                // half-read: whichever field is there is still worth keeping,
+                // and the other engine is asked for the rest.
+                [] => (None, None),
+                _ => (None, None),
+            }
+        }
+
+        /// The same, from a single text line the engine did not split.
+        fn split_row_text(text: &str) -> (Option<crate::fields::RatioField>, Option<u64>) {
+            match split_row_line(text) {
+                Ok((ratio_text, stock_text)) => {
+                    (parse_ratio(&ratio_text).ok(), parse_stock(&stock_text).ok())
+                }
+                // No gap to split on, so the line holds at most one field.
+                // Which one is decided by the grammars, not guessed: exactly
+                // one of them must accept it. A line both would take is
+                // ambiguous and yields nothing, and a line neither takes was
+                // never a field.
+                //
+                // This is what keeps a row whose rate Windows OCR dropped
+                // entirely -- `89,176` for a row reading `8 : 1   89,176`.
+                // The stock is right there and strictly parsed; only the rate
+                // has to come from somewhere else.
+                Err(_) => {
+                    let compact: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+                    match (parse_ratio(&compact).ok(), parse_stock(text).ok()) {
+                        (Some(ratio), None) => (Some(ratio), None),
+                        (None, Some(stock)) => (None, Some(stock)),
+                        _ => (None, None),
+                    }
+                }
+            }
+        }
+
         fn paddle_row_line(
             &self,
             frame: &ptt_vision::CapturedFrame,
@@ -821,46 +886,50 @@ mod windows_route {
                 // Windows OCR may return the row as one line ("<1:9.87 23,902")
                 // or split ratio and stock into two lines by their horizontal
                 // gap. Both are valid shapes; anything else is skipped.
-                let parsed = match recognition.lines.as_slice() {
-                    [single] => {
-                        split_row_line(&single.text).and_then(|(ratio_text, stock_text)| {
-                            Ok((parse_ratio(&ratio_text)?, parse_stock(&stock_text)?))
-                        })
-                    }
-                    [first, second] => {
-                        let (ratio_line, stock_line) = if first.left <= second.left {
-                            (first, second)
-                        } else {
-                            (second, first)
-                        };
-                        // A lone ratio line cannot glue with a wrapped
-                        // fragment (those arrive as merged bands), so
-                        // whitespace inside it is safe to drop here.
-                        let ratio_text: String = ratio_line
-                            .text
-                            .chars()
-                            .filter(|c| !c.is_whitespace())
-                            .collect();
-                        parse_ratio(&ratio_text)
-                            .and_then(|ratio| Ok((ratio, parse_stock(&stock_line.text)?)))
-                    }
-                    _ => Err(FieldReject::Malformed),
-                };
-                // Grammar-failed Windows reads get one PP-OCRv5 retry; the
-                // same strict grammar re-validates, so nothing loosens.
-                let parsed = parsed.or_else(|windows_reject| {
+                let windows = Self::split_row_fields(recognition.lines.as_slice());
+                // Field by field, not row by row. The two engines fail at
+                // different things: Windows OCR drops a short `1 : 3` on the
+                // floor while reading `6,634` perfectly, and PP-OCRv5 reads
+                // the ratio but turns the thousands comma into a decimal
+                // point. Taking one engine's whole row therefore throws away a
+                // field the other read exactly right -- every row skipped as
+                // `raw: "6,634"` was a row the two of them had between them.
+                //
+                // Nothing loosens: each field still faces the same strict
+                // grammar, and a field neither engine could read is still a
+                // skipped row. The retry is only asked for when something is
+                // actually missing.
+                let parsed = if windows.0.is_some() && windows.1.is_some() {
+                    windows
+                } else {
+                    // A complete read from one engine beats two halves from
+                    // two, because halves can disagree about where the fields
+                    // are. Windows OCR returned `1 : 22` for a row reading
+                    // `1 : 22   2` -- the whole ratio and no stock -- and the
+                    // split, having only spaces to go on, offered `22` as the
+                    // stock. Pairing that with the retry's ratio produced a
+                    // row where the stock was half of its own rate. The retry
+                    // had read both fields correctly; it just was not asked.
+                    //
                     // The tight content rect avoids the padded crop's bleed
                     // from neighbouring rows (partial digits read as junk).
-                    self.paddle_row_line(frame, row_crops[band_index].content)
-                        .and_then(|line| {
-                            split_row_line(&line)
-                                .and_then(|(ratio_text, stock_text)| {
-                                    Ok((parse_ratio(&ratio_text)?, parse_stock(&stock_text)?))
-                                })
-                                .ok()
-                        })
-                        .ok_or(windows_reject)
-                });
+                    // Mixing is still what saves the row neither engine read
+                    // whole, which is the common case: Windows drops a short
+                    // `1 : 3` and reads `6,634`, PP-OCRv5 reads the rate and
+                    // writes the thousands comma as a decimal point.
+                    let retry = self
+                        .paddle_row_line(frame, row_crops[band_index].content)
+                        .map_or((None, None), |line| Self::split_row_text(&line));
+                    if retry.0.is_some() && retry.1.is_some() {
+                        retry
+                    } else {
+                        (windows.0.or(retry.0), windows.1.or(retry.1))
+                    }
+                };
+                let parsed = match parsed {
+                    (Some(ratio), Some(stock)) => Ok((ratio, stock)),
+                    _ => Err(FieldReject::Malformed),
+                };
                 match parsed {
                     Ok((mut ratio, stock)) => {
                         // Where the chevron is, measured off this frame.
