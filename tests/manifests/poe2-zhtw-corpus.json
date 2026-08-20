@@ -26,8 +26,10 @@
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.08.21.png",
-      "expect": "skip",
-      "note": "caught mid-scroll: the available table shows seven rows, which the panel never does at rest, so the grid has nothing consistent to slice."
+      "expect": "accept",
+      "need": "omen_of_whittling",
+      "have": "divine_orb",
+      "min_rows": 3
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.09.23.png",

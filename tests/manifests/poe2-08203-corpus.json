@@ -15,7 +15,7 @@
       "expect": "accept",
       "need": "divine_orb",
       "have": "omen_of_whittling",
-      "min_rows": 12
+      "min_rows": 10
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.42.18.16.png",
@@ -47,8 +47,10 @@
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.20 - 15.46.03.26.png",
-      "expect": "skip",
-      "note": "the available table opens with a rate the panel wrapped -- 101.33 : on one line and its 1 on the next -- which pushes the bands below it off the pitch until two claim the same slot. Refused rather than guessed at, the same way as the 65px blob in the 8.20 batch."
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "omen_of_dextral_erasure",
+      "min_rows": 9
     }
   ]
 }

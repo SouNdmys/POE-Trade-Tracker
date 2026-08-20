@@ -35,6 +35,38 @@ pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (858, 288, 240, 66);
 /// difference to what the name resolves to.
 pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1518, 286, 246, 74);
 
+/// The panel's rows are drawn at fixed offsets, so they are sliced rather
+/// than detected.
+///
+/// This used to detect bands from the mask and infer the table split from the
+/// gap, on the belief that POE2's two tables float relative to each other.
+/// They do not. Across thirty field frames the band tops read 63, 94, 124,
+/// 155, 186, 216 and 324, 355, 385, 416, 447, 477 — a constant pitch and a
+/// constant 108px gap between the tables. Every departure from that was a
+/// detection artefact: a row the panel wrapped reported its band 17px high,
+/// a torn repaint split one row into two, and in each case the *inference*
+/// moved, never the rows.
+///
+/// Detection made all twelve rows share a fate. One band the detector could
+/// not classify took the whole frame with it, because the split, the row
+/// count and every row's rank were all read off the same band list. Slicing a
+/// known grid makes each row independent: a wrapped rate costs its own slice
+/// and the other eleven are untouched, which is what the panel's own geometry
+/// was always offering.
+pub const ROW_PITCH: u32 = 31;
+/// Of each pitch step, how much holds glyphs. The rest is padding.
+///
+/// Measured, not tuned. A row lays down 18px of ink and the next starts 31px
+/// on: `77-94`, `108-125`, `138-155`, `169-186`, `200-217`. From five pixels
+/// above the ink, 28 covers all of it and still stops eight clear of the row
+/// below. The same numbers POE1 arrived at, on the same panel geometry.
+pub const ROW_HEIGHT: u32 = 28;
+/// Where each table's first row is looked for, relative to the frame.
+pub const AVAILABLE_TABLE_TOP: u32 = 62;
+pub const COMPETING_TABLE_TOP: u32 = 323;
+/// Held under one pitch, so an empty first row cannot anchor to the second.
+pub const ANCHOR_WINDOW: u32 = 30;
+
 pub fn default_row_layout() -> RowLayout {
     RowLayout::default()
 }
@@ -53,7 +85,16 @@ pub const LAYOUT: super::PanelLayout = super::PanelLayout {
     // grid, so it absorbs a shift of this size anyway.
     tables_zh_tw_offset: 0,
     rows: default_row_layout,
-    row_source: super::RowSource::DetectedBands,
+    row_source: super::RowSource::FixedGrid(super::FixedGrid {
+        available_top: AVAILABLE_TABLE_TOP,
+        competing_top: COMPETING_TABLE_TOP,
+        anchor_window: ANCHOR_WINDOW,
+        anchor_lead_in: 5,
+        pitch: ROW_PITCH,
+        row_height: ROW_HEIGHT,
+        rows_per_side: 6,
+        min_lit_pixels: 40,
+    }),
     catalog: ptt_catalog::poe2,
     comparator_mask: None,
 };
