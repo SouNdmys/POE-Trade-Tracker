@@ -38,6 +38,14 @@ pub struct RowBand {
     pub band: BandGeometry,
     /// 1 for a normal band; 2+ when wrapped text merged neighbouring rows.
     pub estimated_rows: u8,
+    /// Where this band sits in its table, counted from the top.
+    ///
+    /// Derived from the band's position, not from counting the bands before
+    /// it. Counting only works while every band is present, and the whole
+    /// point of dropping an unreadable one is that it is not — a counted
+    /// index would silently move every row below it up by one, which the
+    /// aggregate-row and row-order checks then read as a different panel.
+    pub row_index: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +73,12 @@ pub enum RowsReject {
         gaps: usize,
     },
     /// More logical rows than the game can display on one side.
+    /// Two bands landed on the same slot, so the pitch did not describe this
+    /// frame. See [`classify_rows`].
+    AmbiguousRowIndex {
+        side: Side,
+        row_index: u8,
+    },
     TooManyRows {
         side: Side,
         rows: u8,
@@ -129,8 +143,18 @@ impl RowLayout {
 }
 
 /// Classifies bands (sorted by top, as the detector emits them) into the
-/// available/competing tables. Every band must classify; any stray shape
-/// rejects the frame — skipping is free, guessing is not.
+/// available/competing tables.
+///
+/// A band whose height matches no row count is dropped, not fatal. It used to
+/// reject the frame, on the reasoning that skipping is free and guessing is
+/// not — which is right about guessing and wrong about the cost: a wrapped row
+/// leaves a stub of about 34px, well under a row's 38, and one stub was taking
+/// eleven good rows down with it. Dropping the stub keeps the choice between
+/// skipping and guessing exactly where it was, at the level of a row rather
+/// than a frame.
+///
+/// What makes that safe is that positions, not sequence, decide row indices,
+/// so removing a band cannot renumber the ones below it.
 pub fn classify_rows(bands: &[BandGeometry], layout: &RowLayout) -> Result<RowPlan, RowsReject> {
     if bands.is_empty() {
         return Err(RowsReject::NoBands);
@@ -138,13 +162,15 @@ pub fn classify_rows(bands: &[BandGeometry], layout: &RowLayout) -> Result<RowPl
 
     let mut estimated = Vec::with_capacity(bands.len());
     for band in bands {
-        let rows = layout
-            .estimated_rows(band.height)
-            .ok_or(RowsReject::ImplausibleBand {
-                top: band.top,
-                height: band.height,
-            })?;
-        estimated.push((band, rows));
+        // `None` means no whole number of rows fits this height. That is a
+        // fragment -- most often the tail of a rate the panel wrapped -- and
+        // it is dropped rather than interpreted.
+        if let Some(rows) = layout.estimated_rows(band.height) {
+            estimated.push((band, rows));
+        }
+    }
+    if estimated.is_empty() {
+        return Err(RowsReject::NoBands);
     }
 
     let first_top = estimated[0].0.top;
@@ -191,13 +217,43 @@ pub fn classify_rows(bands: &[BandGeometry], layout: &RowLayout) -> Result<RowPl
                 rows: *counter,
             });
         }
+        // The index this band would have if its table began at `origin` and
+        // every row were one pitch apart -- which is how the panel draws them.
+        // Rounded, because a band's top carries the detector's own margin.
+        let origin = match side {
+            Side::Available => estimated[0].0.top,
+            Side::Competing => estimated[split.min(estimated.len() - 1)].0.top,
+        };
+        let offset = band.top - origin;
+        let pitch = i32::try_from(layout.row_pitch).unwrap_or(1).max(1);
+        let row_index = u8::try_from((offset + pitch / 2).max(0) / pitch).unwrap_or(u8::MAX);
         plan.bands.push(RowBand {
             side,
             band: **band,
             estimated_rows: *rows,
+            row_index,
         });
-        // Restore the nominal count so downstream row indices stay stable.
+        // Restore the nominal count so the capacity check keeps counting rows
+        // rather than bands.
         *counter = *counter - minimum_rows + rows;
+    }
+    // Two bands cannot occupy one slot. When they do, the arithmetic that
+    // produced the indices did not describe this frame -- a merged blob of two
+    // rows shifts everything after it off the pitch -- and a silent collision
+    // would have one band overwrite the other's rank. Rejecting is the same
+    // choice the rest of this function makes, applied to the one failure the
+    // positional scheme can have.
+    for side in [Side::Available, Side::Competing] {
+        let mut taken = Vec::new();
+        for row in plan.bands.iter().filter(|row| row.side == side) {
+            if taken.contains(&row.row_index) {
+                return Err(RowsReject::AmbiguousRowIndex {
+                    side,
+                    row_index: row.row_index,
+                });
+            }
+            taken.push(row.row_index);
+        }
     }
     Ok(plan)
 }
@@ -223,6 +279,84 @@ mod tests {
             .chain([321, 352, 382, 413, 444, 474])
             .map(|top| band(top, 45))
             .collect()
+    }
+
+    /// A wrapped rate leaves a stub, and the stub costs one row, not twelve.
+    ///
+    /// The panel splits a long rate across two lines; the tail lands as a band
+    /// far under a row's height. That used to reject the frame outright, which
+    /// is how one unreadable row took eleven good ones with it.
+    #[test]
+    fn a_fragment_costs_its_own_row_and_no_others() {
+        let mut bands = normal_frame();
+        // A 34px stub between the third and fourth available rows, which is
+        // what the detector reported on a real frame.
+        bands.push(band(140, 34));
+        bands.sort_by_key(|band| band.top);
+
+        let plan = classify_rows(&bands, &RowLayout::default()).expect("the frame survives");
+        assert_eq!(plan.available_rows, 6, "{plan:#?}");
+        assert_eq!(plan.competing_rows, 6, "{plan:#?}");
+        assert!(
+            plan.bands.iter().all(|row| row.band.height != 34),
+            "the stub was kept: {plan:#?}"
+        );
+    }
+
+    /// Dropping a band must not renumber the rows below it.
+    #[test]
+    fn row_indices_come_from_position_not_from_counting() {
+        let full = classify_rows(&normal_frame(), &RowLayout::default()).expect("plan");
+        let indices: Vec<(Side, u8)> = full
+            .bands
+            .iter()
+            .map(|row| (row.side, row.row_index))
+            .collect();
+        assert_eq!(
+            indices,
+            [
+                (Side::Available, 0),
+                (Side::Available, 1),
+                (Side::Available, 2),
+                (Side::Available, 3),
+                (Side::Available, 4),
+                (Side::Available, 5),
+                (Side::Competing, 0),
+                (Side::Competing, 1),
+                (Side::Competing, 2),
+                (Side::Competing, 3),
+                (Side::Competing, 4),
+                (Side::Competing, 5),
+            ]
+        );
+
+        // The same frame with a stub spliced in: every real row keeps its rank.
+        let mut with_stub = normal_frame();
+        with_stub.push(band(140, 34));
+        with_stub.sort_by_key(|band| band.top);
+        let patched = classify_rows(&with_stub, &RowLayout::default()).expect("plan");
+        let patched_indices: Vec<(Side, u8)> = patched
+            .bands
+            .iter()
+            .map(|row| (row.side, row.row_index))
+            .collect();
+        assert_eq!(patched_indices, indices);
+    }
+
+    /// Two bands on one slot means the pitch did not describe the frame.
+    #[test]
+    fn colliding_row_indices_reject_the_frame() {
+        // Six available rows where two sit barely a third of a pitch apart:
+        // whatever this frame is, it is not six evenly spaced rows.
+        let bands: Vec<BandGeometry> = [60, 91, 121, 131, 183, 213]
+            .into_iter()
+            .chain([321, 352, 382, 413, 444, 474])
+            .map(|top| band(top, 45))
+            .collect();
+        assert!(matches!(
+            classify_rows(&bands, &RowLayout::default()),
+            Err(RowsReject::AmbiguousRowIndex { .. })
+        ));
     }
 
     #[test]
@@ -257,20 +391,31 @@ mod tests {
         assert_eq!(plan.bands[5].estimated_rows, 2);
     }
 
+    /// Junk is dropped; a frame that is only junk is still refused.
+    ///
+    /// This used to assert that any junk band rejected the frame. That was the
+    /// old contract and it was too expensive: the shapes this drops are mostly
+    /// wrap stubs sitting between perfectly readable rows. What has to survive
+    /// is the other half of it — junk must never be read *as* a row, and a
+    /// frame with nothing else in it must not come back empty-handed but
+    /// successful.
     #[test]
-    fn junk_shapes_reject_the_frame() {
+    fn junk_shapes_are_dropped_rather_than_read() {
         let mut bands = normal_frame();
         bands.push(band(560, 20));
-        assert!(matches!(
-            classify_rows(&bands, &RowLayout::default()),
-            Err(RowsReject::ImplausibleBand { height: 20, .. })
-        ));
+        let plan = classify_rows(&bands, &RowLayout::default()).expect("the real rows survive");
+        assert_eq!(plan.available_rows, 6);
+        assert_eq!(plan.competing_rows, 6);
+        assert!(
+            plan.bands.iter().all(|row| row.band.height != 20),
+            "junk was read as a row: {plan:#?}"
+        );
 
-        let negative = vec![band(303, 34), band(354, 40)];
-        // 34 is below single_min → implausible.
+        // Nothing but junk: 34 and 20 are both under a row's height, so there
+        // is no frame left once they are dropped.
         assert!(matches!(
-            classify_rows(&negative, &RowLayout::default()),
-            Err(RowsReject::ImplausibleBand { .. })
+            classify_rows(&[band(303, 34), band(354, 20)], &RowLayout::default()),
+            Err(RowsReject::NoBands)
         ));
     }
 

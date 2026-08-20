@@ -335,6 +335,8 @@ mod windows_route {
                     crops.push(RowCrops { source, content });
                     bands.push(RowBand {
                         side,
+                        // The grid slices by index, so this is the index.
+                        row_index: index,
                         band: BandGeometry {
                             top: slice_top,
                             height: bottom - top,
@@ -754,8 +756,6 @@ mod windows_route {
 
             let mut rows = Vec::new();
             let mut skipped = Vec::new();
-            let mut available_index: u8 = 0;
-            let mut competing_index: u8 = 0;
             // The row directly above, per table: where its ink starts and what
             // rate it quoted. Both are what locates the aggregate row's
             // chevron; see `aggregate_chevron_zone`.
@@ -767,12 +767,11 @@ mod windows_route {
                 ptt_core::Decimal,
             )> = None;
             for (band_index, row_band) in plan.bands.iter().enumerate() {
-                let index = match row_band.side {
-                    Side::Available => &mut available_index,
-                    Side::Competing => &mut competing_index,
-                };
-                let first_row_index = *index;
-                *index += row_band.estimated_rows;
+                // The plan's own index, not a running total. A dropped band --
+                // the stub a wrapped rate leaves behind -- would otherwise
+                // shift every row under it up by one, and rows filed under the
+                // wrong rank are wrong in a way nothing downstream can see.
+                let first_row_index = row_band.row_index;
 
                 // Raw luminance beats the thresholded mask for OCR input:
                 // Windows OCR's own binarization keeps the tiny ratio colon

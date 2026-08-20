@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "profile": "poe2-zh-TW",
+  "screenshot_dir": "test-screenshots/poe2/8.20",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 13.38.02.71.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "omen_of_sinistral_annulment",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.13.23.26.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "omen_of_sinistral_annulment",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.15.14.02.png",
+      "expect": "accept",
+      "need": "omen_of_sinistral_annulment",
+      "have": "chaos_orb",
+      "min_rows": 6
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.15.19.09.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "omen_of_sinistral_annulment",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.19.20.07.png",
+      "expect": "accept",
+      "need": "greater_exalted_orb",
+      "have": "chaos_orb",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.14.20.02.png",
+      "expect": "skip",
+      "note": "the available table opens with a single 65px blob where two rows should be, so the pitch no longer describes the frame and two later bands claim one slot. Refused rather than guessed at: the blob could be rows 0 and 1, and it could be one tall row. Every other frame in this batch was rejected for a wrap stub and is now read."
+    }
+  ]
+}
