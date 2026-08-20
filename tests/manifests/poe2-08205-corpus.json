@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "profile": "poe2-zh-TW",
+  "screenshot_dir": "test-screenshots/poe2/8.20.5",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 18.53.06.64.png",
+      "expect": "accept",
+      "need": "omen_of_sinistral_annulment",
+      "have": "chaos_orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 18.56.15.99.png",
+      "expect": "accept",
+      "need": "omen_of_chaotic_monsters",
+      "have": "chaos_orb",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 18.56.55.74.png",
+      "expect": "accept",
+      "need": "simulacrum",
+      "have": "chaos_orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 19.16.15.17.png",
+      "expect": "skip",
+      "note": "Windows OCR reads the name as 瓦奮護甲鍛造師的灌注器 -- one character wrong, 奮 for 爾 -- and an exact match against a closed lexicon has nowhere to go from there. The same currency in the right-hand slot reads correctly, so this is the recogniser and not the frame. The ONNX rescoring that exists for precisely this case does not rescue it; see the task."
+    }
+  ]
+}

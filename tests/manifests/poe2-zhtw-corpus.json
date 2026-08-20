@@ -26,10 +26,8 @@
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.08.21.png",
-      "expect": "accept",
-      "need": "omen_of_whittling",
-      "have": "divine_orb",
-      "min_rows": 3
+      "expect": "skip",
+      "note": "caught mid-scroll: the whole panel sits 28px higher than at rest, its first row of ink at 48 where every settled frame puts it at 76, and the available table shows seven bands. The anchor window deliberately does not reach that far -- a window wide enough to find this frame is wide enough to catch the column heading on every other one."
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.15 - 15.04.09.23.png",

@@ -62,8 +62,17 @@ pub const ROW_PITCH: u32 = 31;
 /// below. The same numbers POE1 arrived at, on the same panel geometry.
 pub const ROW_HEIGHT: u32 = 28;
 /// Where each table's first row is looked for, relative to the frame.
-pub const AVAILABLE_TABLE_TOP: u32 = 62;
-pub const COMPETING_TABLE_TOP: u32 = 323;
+///
+/// Below the column headings, not level with them. Each table lays out a title
+/// bar, then a `Ratio / Stock` heading, then its rows: 55-73 and 76 on the
+/// available side, 304-333 and 337 on the competing one. Searching from 62 and
+/// 323 started the window *inside* those headings, and it found the rows
+/// anyway only because the headings are usually drawn too dim to reach the
+/// warm mask. On a frame where one was not, the anchor caught the heading and
+/// every slice under it landed in the gaps between rows -- four empty crops in
+/// a row. A window that cannot see the heading cannot latch onto it.
+pub const AVAILABLE_TABLE_TOP: u32 = 74;
+pub const COMPETING_TABLE_TOP: u32 = 334;
 /// Held under one pitch, so an empty first row cannot anchor to the second.
 pub const ANCHOR_WINDOW: u32 = 30;
 
