@@ -16,7 +16,7 @@ pub struct BandGeometry {
     pub content_fingerprint: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Side {
     Available,
     Competing,

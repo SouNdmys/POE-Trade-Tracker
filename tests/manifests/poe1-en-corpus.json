@@ -218,10 +218,77 @@
     },
     {
       "file": "poe1-real-20260729-m01-000001.png",
-      "expect": "skip",
+      "expect": "accept",
       "need": "chaos-orb",
       "have": "scarab-of-adversaries",
-      "note": "the panel shows 1 : 1.33 and both OCR paths return 133 -- Windows OCR as a bare \"133\", the ONNX retry as \"1:133\". The decimal point is lost at this size, and the row-order invariant is what catches it. The read is the defect; the skip is the correct response to it."
+      "min_rows": 10,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "expect": "skip"
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:1.50",
+          "stock": 10
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:1.60",
+          "stock": 30
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:1.80",
+          "stock": 15
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:1.90",
+          "stock": 530
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:1.90",
+          "stock": 2684
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1.91:1",
+          "stock": 22
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "2:1",
+          "stock": 104
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "2.67:1",
+          "stock": 39
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "7:1",
+          "stock": 3
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "9:1",
+          "stock": 2
+        }
+      ]
     }
   ]
 }

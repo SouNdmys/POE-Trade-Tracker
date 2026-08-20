@@ -29,9 +29,6 @@ pub enum SkipReason {
     Rows(RowsReject),
     /// Identity and structure were fine but not a single row parsed.
     EmptyBook,
-    /// A row was priced better than the row above it, which the panel does
-    /// not do. See [`crate::book::out_of_order`].
-    RowsOutOfOrder(crate::book::OutOfOrder),
 }
 
 /// A row that failed inside an otherwise-accepted frame.
@@ -48,6 +45,13 @@ pub enum RowSkip {
         side: Side,
         row_index: u8,
         raw: String,
+    },
+    /// The rate contradicts the rows around it, so it did not come from this
+    /// panel. See [`crate::book::out_of_order_rows`].
+    OutOfOrder {
+        side: Side,
+        row_index: u8,
+        ratio: String,
     },
     /// Band geometry demands a comparator but OCR read none (or vice
     /// versa); skipped until the template classifier lands.
@@ -1107,8 +1111,27 @@ mod windows_route {
             // Checked before the book is built rather than after: a book that
             // contradicts itself should not exist long enough to be signed and
             // deduplicated, or a misread gets remembered as a distinct frame.
-            if let Some(broken) = crate::book::out_of_order(&rows) {
-                return Err(SkipReason::RowsOutOfOrder(broken));
+            //
+            // The offending rows go, not the book. Eleven rows read correctly
+            // are eleven rows the panel really shows, and throwing them away
+            // over a twelfth is the same mistake as throwing away a frame over
+            // one unreadable band.
+            let contradictory = crate::book::out_of_order_rows(&rows);
+            if !contradictory.is_empty() {
+                rows.retain(|row| {
+                    let keep = !contradictory.contains(&(row.side, row.row_index));
+                    if !keep {
+                        skipped.push(RowSkip::OutOfOrder {
+                            side: row.side,
+                            row_index: row.row_index,
+                            ratio: row.ratio.normalized.clone(),
+                        });
+                    }
+                    keep
+                });
+                if rows.is_empty() {
+                    return Err(SkipReason::EmptyBook);
+                }
             }
             let observation = BookObservation::assemble(
                 BookIdentity {
