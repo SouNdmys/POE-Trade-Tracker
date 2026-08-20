@@ -1083,7 +1083,13 @@ mod tests {
         );
         assert!(
             drain_elapsed >= PendingMouseInputGuard::FAIL_OPEN_TIMEOUT,
-            "draining generation failed open before 750 ms: {drain_elapsed:?}"
+            "draining generation failed open before 750 ms: {drain_elapsed:?}              (timers set={}, fired={}, last WM_TIMER={:#x}, owner={}, token={}, generation={})",
+            TEST_FAIL_OPEN_TIMER_SET.load(Ordering::Relaxed),
+            TEST_FAIL_OPEN_TIMER_FIRED.load(Ordering::Relaxed),
+            TEST_LAST_TIMER_MESSAGE.load(Ordering::Relaxed),
+            shared().owner.load(Ordering::Acquire),
+            guard.token,
+            shared().generation.load(Ordering::Acquire),
         );
         assert!(
             drain_elapsed < Duration::from_secs(5),
