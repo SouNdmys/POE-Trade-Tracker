@@ -83,6 +83,24 @@ pub struct CatalogAsset {
 }
 
 /// Immutable, indexed catalog for one game.
+/// A Traditional Chinese name with every space removed.
+///
+/// Applied to the index and to the query, which is the entire point: the two
+/// used to disagree. Lookups stripped whitespace — Windows OCR returns these
+/// names spaced glyph by glyph, so they have to — while the index stored the
+/// catalogue's own spelling verbatim. Any catalogue name holding a space was
+/// therefore unreachable, which was 42 of POE2's 660 entries: every uncut gem,
+/// whose names all read `（等級 20）`. POE1 hid the bug entirely, its
+/// Traditional Chinese names having no spaces at all.
+///
+/// Written Chinese does not use spaces between words, so removing them cannot
+/// merge two distinct names — a duplicate key here would mean two entries that
+/// differ only in spacing, which the constructor still rejects.
+#[must_use]
+pub fn compact_zh(name: &str) -> String {
+    name.chars().filter(|c| !c.is_whitespace()).collect()
+}
+
 #[derive(Debug)]
 pub struct Catalog {
     game: Game,
@@ -133,7 +151,7 @@ impl Catalog {
             // arbitrary currency.
             if !asset.name_zh_tw.trim().is_empty()
                 && by_name_zh_tw
-                    .insert(asset.name_zh_tw.clone(), index)
+                    .insert(compact_zh(&asset.name_zh_tw), index)
                     .is_some()
             {
                 return Err(CatalogError::DuplicateName(asset.name_zh_tw.clone()));
@@ -148,7 +166,7 @@ impl Catalog {
         }
         for (index, asset) in assets.iter().enumerate() {
             for alias in &asset.aliases {
-                by_name_zh_tw.entry(alias.clone()).or_insert(index);
+                by_name_zh_tw.entry(compact_zh(alias)).or_insert(index);
                 by_name_en_lower
                     .entry(alias.to_lowercase())
                     .or_insert(index);
@@ -187,7 +205,7 @@ impl Catalog {
     /// Exact Traditional Chinese name (or alias) lookup.
     pub fn by_name_zh_tw(&self, name: &str) -> Option<&CatalogAsset> {
         self.by_name_zh_tw
-            .get(name)
+            .get(&compact_zh(name))
             .map(|&index| &self.assets[index])
     }
 

@@ -1402,9 +1402,59 @@ impl AppShell {
     /// back as part of the panel it is describing, and one that takes clicks
     /// would steal them from the game.
     #[cfg(windows)]
+    /// Whether the card should hide itself from Windows capture.
+    ///
+    /// It hides only where it would otherwise be read as part of the panel —
+    /// that is, where it actually covers one of the calibrated regions. The
+    /// flag used to be permanent, which solved that problem and created
+    /// another: `WDA_EXCLUDEFROMCAPTURE` hides the window from *every* capture
+    /// API, so the person running this could not screenshot their own HUD to
+    /// show anyone what it said.
+    ///
+    /// Deciding it from geometry means neither goal has to be traded for the
+    /// other, and neither has to be a setting: a card parked away from the
+    /// panel is photographable, and a card dragged over the tables protects
+    /// the read without being asked.
+    #[cfg(windows)]
+    fn hud_capture_affinity(
+        &self,
+        bounds: ptt_platform_win::RectI,
+    ) -> ptt_platform_win::CaptureAffinity {
+        use crate::calibrate::Target;
+
+        let profile = self.settings.active_profile;
+        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
+        let covers = Target::ALL.into_iter().any(|target| {
+            let (x, y, width, height) = match target {
+                Target::Need => layout.need_name,
+                Target::Have => layout.have_name,
+                Target::Tables => layout.tables_for(language),
+            };
+            // The saved rectangle wins where there is one: that is what the
+            // watcher will actually capture.
+            let (x, y, width, height) = self
+                .saved_rect(profile, target)
+                .map_or((x, y, width, height), |rect| {
+                    (rect.x, rect.y, rect.width, rect.height)
+                });
+            ptt_platform_win::RectI::new(
+                x,
+                y,
+                i32::try_from(width).unwrap_or(i32::MAX),
+                i32::try_from(height).unwrap_or(i32::MAX),
+            )
+            .is_some_and(|region| region.intersects(bounds))
+        });
+        if covers {
+            ptt_platform_win::CaptureAffinity::Exclude
+        } else {
+            ptt_platform_win::CaptureAffinity::Include
+        }
+    }
+
     fn toggle_hud(&mut self) {
         use ptt_platform_win::{
-            CaptureAffinity, HudInteractionMode, HudWindow, HudWindowConfig, HudWindowPolicy, RectI,
+            HudInteractionMode, HudWindow, HudWindowConfig, HudWindowPolicy, RectI,
         };
 
         if self.hud.is_none() {
@@ -1417,7 +1467,7 @@ impl AppShell {
                 bounds,
                 policy: HudWindowPolicy {
                     interaction: HudInteractionMode::Passive,
-                    capture_affinity: CaptureAffinity::Exclude,
+                    capture_affinity: self.hud_capture_affinity(bounds),
                 },
                 visible: false,
             };

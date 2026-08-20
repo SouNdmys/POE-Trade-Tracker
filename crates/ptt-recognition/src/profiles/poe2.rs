@@ -12,11 +12,23 @@ use crate::rows::RowLayout;
 
 /// (x, y, width, height) desktop-pixel presets for 2560×1440 windowed
 /// fullscreen with the exchange panel in its centered default position.
-pub const TABLES_REGION: (i32, i32, u32, u32) = (1150, 220, 320, 560);
+///
+/// Drawn by hand on a live client and kept as measured. The first set was
+/// taken from the corpus screenshots and missed twice over: the tables frame
+/// started above the market-ratio strip, and the "I have" frame was cut short
+/// on both axes.
+pub const TABLES_REGION: (i32, i32, u32, u32) = (1163, 217, 269, 523);
 /// "I need" name text, icon excluded.
 pub const NEED_NAME_REGION: (i32, i32, u32, u32) = (855, 296, 240, 52);
-/// "I have" name text, icon and the right-edge favorite star excluded.
-pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1520, 296, 210, 52);
+/// "I have" name text, icon excluded — but the favourite star kept.
+///
+/// The star sits at the slot's right edge and lights up for a favourited
+/// currency, so excluding it looked like the careful choice. It is not: the
+/// slot is taller than the "I need" one and the old frame clipped the name
+/// itself, which is a real loss against a decoration that measurably costs
+/// nothing. Tested both ways on a live client, lit and unlit, with no
+/// difference to what the name resolves to.
+pub const HAVE_NAME_REGION: (i32, i32, u32, u32) = (1518, 286, 246, 74);
 
 pub fn default_row_layout() -> RowLayout {
     RowLayout::default()

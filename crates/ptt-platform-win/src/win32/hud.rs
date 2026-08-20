@@ -16,16 +16,17 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_HREDRAW, CS_VREDRAW, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE,
-    GetWindowLongPtrW, HTCAPTION, HTTRANSPARENT, HWND_TOPMOST, IsWindow, MA_NOACTIVATE,
+    GetWindowLongPtrW, HTCAPTION, HTTRANSPARENT, HWND_TOPMOST, IsWindow, LWA_ALPHA, MA_NOACTIVATE,
     RegisterClassExW, SET_WINDOW_POS_FLAGS, SW_HIDE, SWP_FRAMECHANGED, SWP_HIDEWINDOW,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SetWindowDisplayAffinity,
-    SetWindowLongPtrW, SetWindowPos, ShowWindow, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WINDOW_EX_STYLE,
-    WM_EXITSIZEMOVE, WM_MOUSEACTIVATE, WM_NCHITTEST, WM_PAINT, WNDCLASSEXW, WS_POPUP,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
+    SetLayeredWindowAttributes, SetWindowDisplayAffinity, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WINDOW_EX_STYLE, WM_EXITSIZEMOVE,
+    WM_MOUSEACTIVATE, WM_NCHITTEST, WM_PAINT, WNDCLASSEXW, WS_POPUP,
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, GetWindowRect};
 use windows::core::{PCWSTR, w};
 
-use crate::hud::{CaptureAffinity, HudContent, HudWindowConfig, HudWindowPolicy};
+use crate::hud::{CaptureAffinity, HUD_ALPHA, HudContent, HudWindowConfig, HudWindowPolicy};
 use crate::{NativeWindowHandle, PlatformError, RectI};
 
 use super::error_from_windows;
@@ -249,6 +250,16 @@ impl NativeHudWindow {
             hwnd,
             _thread_bound: PhantomData,
         };
+        // Uniformly translucent, set once. `LWA_ALPHA` is what a card wants:
+        // per-pixel alpha would mean painting through `UpdateLayeredWindow`
+        // and giving up the ordinary `WM_PAINT` path this window uses.
+        // SAFETY: `hwnd` is this owner's live layered top-level window.
+        if let Err(error) =
+            unsafe { SetLayeredWindowAttributes(hwnd, COLORREF(0), HUD_ALPHA, LWA_ALPHA) }
+        {
+            drop(window);
+            return Err(error_from_windows("SetLayeredWindowAttributes", error));
+        }
         if let Err(error) = window.set_capture_affinity(config.policy.capture_affinity) {
             drop(window);
             return Err(error);

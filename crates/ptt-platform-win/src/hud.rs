@@ -1,6 +1,7 @@
 use crate::{NativeWindowHandle, PlatformError, PointI, RectI, SizeI};
 
 const WS_EX_TOPMOST: u32 = 0x0000_0008;
+const WS_EX_LAYERED: u32 = 0x0008_0000;
 const WS_EX_TRANSPARENT: u32 = 0x0000_0020;
 const WS_EX_TOOLWINDOW: u32 = 0x0000_0080;
 const WS_EX_NOACTIVATE: u32 = 0x0800_0000;
@@ -14,6 +15,14 @@ pub enum HudInteractionMode {
     Passive,
     Placement,
 }
+
+/// How opaque the card is painted, 0 (invisible) to 255 (solid).
+///
+/// Not fully opaque: the card sits over a game someone is reading, and the
+/// point of a card that floats is to be glanced at, not to punch a hole in
+/// what is underneath. Not faint either — these are prices being read at a
+/// glance, and the panel behind is busy.
+pub const HUD_ALPHA: u8 = 216;
 
 /// Whether Windows capture APIs should include the HUD.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -53,7 +62,10 @@ impl HudWindowPolicy {
     /// Applies only the HUD-owned extended-style bits, preserving all others.
     #[must_use]
     pub const fn compose_extended_style(self, existing: u32) -> u32 {
-        let common = existing | WS_EX_TOPMOST | WS_EX_TOOLWINDOW;
+        // Layered unconditionally: the alpha is set separately, but the style
+        // bit has to be present from creation. Toggling it later on a visible
+        // window makes it flicker.
+        let common = existing | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED;
         match self.interaction {
             HudInteractionMode::Passive => common | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE,
             HudInteractionMode::Placement => common & !WS_EX_TRANSPARENT & !WS_EX_NOACTIVATE,
