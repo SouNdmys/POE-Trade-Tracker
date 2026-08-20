@@ -413,6 +413,14 @@ mod windows_route {
         /// One inference over the name region's warm mask, re-scored against
         /// every catalog name. Accepted only when exactly one target is
         /// strongly supported — two plausible neighbours mean skip.
+        ///
+        /// A wrapped name is read line by line first: the recognizer is a
+        /// single-line model, and a two-line region squashed whole into its
+        /// input loses glyphs (the corpus frame reads 9 of the name's 11, so
+        /// no target can shape-match). The joined per-line text must hit the
+        /// closed catalog exactly — the same gate the Windows OCR ladder
+        /// passes through, so nothing is loosened — and a miss falls through
+        /// to the whole-region read below unchanged.
         fn paddle_name_fallback<'catalog>(
             &self,
             frame: &ptt_vision::CapturedFrame,
@@ -427,21 +435,59 @@ mod windows_route {
                 mask.intensities(),
             )
             .ok()?;
-            let batch = paddle
-                .lock()
-                .expect("paddle session lock")
-                .recognize_batch(view, &self.name_matchers)
-                .ok()?;
-            let mut winners = batch
-                .target_supports
-                .iter()
-                .enumerate()
-                .filter(|(_, support)| support.support.strongly_supported)
-                .map(|(index, _)| index);
-            let winner = winners.next()?;
-            if winners.next().is_some() {
-                return None;
+            let mut session = paddle.lock().expect("paddle session lock");
+
+            let bands = mask_line_bands(mask.width(), mask.height(), 2, |x, y| {
+                mask.intensity_at(x, y).unwrap_or(0) != 0
+            });
+            if bands.len() >= 2 {
+                let mut joined = String::new();
+                for &(top, bottom) in &bands {
+                    let Ok(line) = view.with_logical_content(top, bottom) else {
+                        break;
+                    };
+                    let Ok(recognition) = session.recognize(line) else {
+                        break;
+                    };
+                    if !joined.is_empty() {
+                        joined.push(' ');
+                    }
+                    joined.push_str(&recognition.text);
+                }
+                if std::env::var_os("PTT_DEBUG_OCR").is_some() {
+                    eprintln!("debug paddle lines: bands={bands:?} joined={joined:?}");
+                }
+                if let Some(asset) = crate::identity::resolve_name(&joined, catalog, self.language)
+                {
+                    return Some((asset, joined));
+                }
             }
+
+            let batch = session.recognize_batch(view, &self.name_matchers).ok()?;
+            if std::env::var_os("PTT_DEBUG_OCR").is_some() {
+                eprintln!(
+                    "debug paddle greedy: text={:?} targets={} strong={}",
+                    batch.recognition.text,
+                    batch.target_supports.len(),
+                    batch
+                        .target_supports
+                        .iter()
+                        .filter(|entry| entry.support.strongly_supported)
+                        .count(),
+                );
+                let mut reasons = std::collections::HashMap::new();
+                for entry in &batch.target_supports {
+                    *reasons
+                        .entry(format!("{}", entry.support.reason))
+                        .or_insert(0usize) += 1;
+                }
+                let mut reasons: Vec<_> = reasons.into_iter().collect();
+                reasons.sort_by(|a, b| b.1.cmp(&a.1));
+                for (reason, count) in reasons.iter().take(5) {
+                    eprintln!("debug paddle reject: {count} x {reason}");
+                }
+            }
+            let winner = unique_winner_asset(&batch.target_supports, &self.name_matchers)?;
             Some((&catalog.assets()[winner], batch.recognition.text))
         }
 
@@ -516,11 +562,12 @@ mod windows_route {
             }
         }
 
-        fn paddle_row_line(
+        /// Greedy PP-OCRv5 text over a frame rectangle's raw luminance.
+        fn paddle_recognize_rect(
             &self,
             frame: &ptt_vision::CapturedFrame,
             rect: ptt_vision::PixelRect,
-        ) -> Option<String> {
+        ) -> Option<ptt_ocr_onnx::CtcRecognition> {
             let paddle = self.paddle.as_ref()?;
             rect.validate_within(frame.width(), frame.height()).ok()?;
             let source = frame.bgra_pixels();
@@ -537,11 +584,20 @@ mod windows_route {
             }
             let view =
                 ptt_ocr_onnx::ImageView::gray8(rect.width, rect.height, rect.width, &gray).ok()?;
-            let recognition = paddle
+            paddle
                 .lock()
                 .expect("paddle session lock")
                 .recognize(view)
-                .ok()?;
+                .ok()
+        }
+
+        fn paddle_row_line(
+            &self,
+            frame: &ptt_vision::CapturedFrame,
+            mask: &ptt_vision::TextInkMask,
+            rect: ptt_vision::PixelRect,
+        ) -> Option<String> {
+            let recognition = self.paddle_recognize_rect(frame, rect)?;
 
             // The tensor is height-normalized, so absolute step distances
             // scale with the crop: use 3x the median inter-glyph delta as the
@@ -579,13 +635,314 @@ mod windows_route {
                 let comparator = tokens.remove(0);
                 tokens[0] = format!("{comparator}{}", tokens[0]);
             }
-            // Exactly ratio + stock, nothing else: a stray token (e.g. a
-            // neighbouring row's partial digit) must never be mistaken for a
-            // stock value, so anything but two columns is rejected.
-            if tokens.len() != 2 {
+            match tokens.as_slice() {
+                // Exactly ratio + stock: the two columns the row holds.
+                [_, _] => Some(tokens.join(" ")),
+                // One token, but with a space the model itself emitted: the
+                // column gap was read as a glyph instead of as silence, which
+                // halves the time-step deltas around it and defeats the gap
+                // splitter above — `> 1 : 11.42   607,760` came back as the
+                // single token "1：11.42 607,760". The literal space is the
+                // same boundary evidence a time gap is, and the caller's
+                // grammars judge the halves either way — but only after the
+                // mask attests that the crop's two sides share one text
+                // line. A repaint tear offsets the rate and stock columns by
+                // half a row, the squashed single-line model erases exactly
+                // that vertical structure, and a rate paired with the stock
+                // drawn beside-but-below it is a wrong value, not a hard
+                // row. (The corpus keeps such a tear as a permanent
+                // negative; this branch is the one reader that accepted it.)
+                //
+                // A token with no whitespace stays rejected: one column
+                // really did fill the crop, and a stray partial digit must
+                // never be mistaken for a stock value.
+                [single]
+                    if single.chars().any(char::is_whitespace)
+                        && crop_sides_share_one_line(rect.width, rect.height, |x, y| {
+                            mask.intensity_at(rect.x + x, rect.y + y).unwrap_or(0) != 0
+                        }) =>
+                {
+                    Some(single.clone())
+                }
+                _ => None,
+            }
+        }
+
+        /// Reads a slot whose rate wrapped onto a second line, after the
+        /// engine ladder has already failed it. Fixed-grid panels only — the
+        /// zone arithmetic is the grid's.
+        ///
+        /// A rate too wide for its column wraps inside its slot: `1 :` on
+        /// one line, the decimal on a second, and the stock sits vertically
+        /// between them — so both engines fail it the way the wrapped names
+        /// failed, two stacked lines squashed into single-line readers. The
+        /// panel's own columns undo the stack: everything left of the widest
+        /// blank column run is the rate, read line band by line band;
+        /// everything right of it is the stock, which never wraps.
+        ///
+        /// The zone's edges come from the panel, not from tuning. A wrapped
+        /// block centers in its slot and overflows both ends (measured 8
+        /// rows up, against a real 2-row blank gap to the row above), so the
+        /// top follows the ink upward, bounded by half a slot. The bottom
+        /// cannot follow ink — the block's descender tail and the next row's
+        /// ascenders touch with no blank row between them — so it stops
+        /// where the next slot's own text begins, which the grid knows
+        /// exactly: one pitch plus the anchor's lead-in below the slice.
+        fn wrapped_row_rescue(
+            &self,
+            frame: &ptt_vision::CapturedFrame,
+            mask: &ptt_vision::TextInkMask,
+            grid: crate::profiles::FixedGrid,
+            slice_top: usize,
+        ) -> Option<(crate::fields::RatioField, u64)> {
+            let ink = |x: usize, y: usize| mask.intensity_at(x, y).unwrap_or(0) != 0;
+
+            // Which of the reach's line bands this slot owns. The reach
+            // extends half a slot above the slice (a centered block cannot
+            // overflow further without belonging to the row above) and down
+            // to where the next slot's own text begins. Ownership is by
+            // where a band ends: a band that ends above the slice top lies
+            // wholly in the row above and is discarded, which is what keeps
+            // the row above's glyphs out of the column projection below.
+            let span_top = slice_top.saturating_sub(grid.pitch as usize / 2);
+            let bottom =
+                (slice_top + (grid.pitch + grid.anchor_lead_in) as usize).min(mask.height());
+            if bottom <= span_top {
                 return None;
             }
-            Some(tokens.join(" "))
+            let owned: Vec<(usize, usize)> =
+                mask_line_bands(mask.width(), bottom - span_top, 0, |x, y| {
+                    ink(x, span_top + y)
+                })
+                .into_iter()
+                .map(|(band_top, band_bottom)| (span_top + band_top, span_top + band_bottom))
+                .filter(|&(_, band_bottom)| band_bottom >= slice_top)
+                .collect();
+            let owned_ink = |x: usize, y: usize| {
+                owned
+                    .iter()
+                    .any(|&(band_top, band_bottom)| (band_top..=band_bottom).contains(&y))
+                    && ink(x, y)
+            };
+
+            // The rate/stock boundary is the widest blank column run between
+            // the outermost owned ink. Measured 40..85px between the columns
+            // against at most 8 inside a number; a zone without a gap that
+            // wide has no second column to find.
+            let mut ink_columns = vec![false; mask.width()];
+            for &(band_top, band_bottom) in &owned {
+                for y in band_top..=band_bottom {
+                    for (x, seen) in ink_columns.iter_mut().enumerate() {
+                        *seen = *seen || ink(x, y);
+                    }
+                }
+            }
+            let first = ink_columns.iter().position(|&seen| seen)?;
+            let last = ink_columns.iter().rposition(|&seen| seen)?;
+            let mut widest = (0_usize, 0_usize);
+            let mut run_start = None;
+            for (x, &lit) in ink_columns.iter().enumerate().take(last + 1).skip(first) {
+                match (lit, run_start) {
+                    (false, None) => run_start = Some(x),
+                    (true, Some(start)) => {
+                        if x - start > widest.1 {
+                            widest = (start, x - start);
+                        }
+                        run_start = None;
+                    }
+                    _ => {}
+                }
+            }
+            if widest.1 < 20 {
+                return None;
+            }
+            let split = widest.0 + widest.1 / 2;
+
+            // Exactly two rate lines and one stock line: the wrap shape and
+            // nothing else. One left band is an ordinary row, which the
+            // ladder already judged; three mean a neighbour's ink leaked in.
+            let height = bottom - span_top;
+            let left_bands = mask_line_bands(split, height, 0, |x, y| owned_ink(x, span_top + y));
+            let right_bands = mask_line_bands(mask.width() - split, height, 0, |x, y| {
+                owned_ink(split + x, span_top + y)
+            });
+            let debug = std::env::var_os("PTT_DEBUG_OCR").is_some();
+            if debug {
+                eprintln!(
+                    "debug wrap-rescue: span={span_top}..{bottom} owned={owned:?} \
+                     split={split} left={left_bands:?} right={right_bands:?}"
+                );
+            }
+            let [head_band, tail_band] = left_bands.as_slice() else {
+                return None;
+            };
+            let [stock_band] = right_bands.as_slice() else {
+                return None;
+            };
+
+            // A band's ink box plus breathing room — the same lesson as the
+            // retry's tight content rect: the recognizer keys its scale off
+            // the crop, and `1 :` — three small glyphs — reads as nothing
+            // from a crop that is mostly empty panel.
+            let band_rect = |x0: usize, band: (usize, usize), x1: usize| {
+                let bounds = crate::comparator::ink_bounds(
+                    mask,
+                    x0,
+                    span_top + band.0,
+                    x1 - x0,
+                    band.1 - band.0 + 1,
+                )?;
+                let margin = 2usize;
+                let left = bounds.left.saturating_sub(margin);
+                let right = (bounds.right + margin).min(frame.width());
+                let rect_top = (span_top + band.0).saturating_sub(margin);
+                let rect_bottom = (span_top + band.1 + 1 + margin).min(frame.height());
+                ptt_vision::PixelRect::new(left, rect_top, right - left, rect_bottom - rect_top)
+                    .ok()
+            };
+            let compact = |text: &str| -> String {
+                text.chars()
+                    .filter(|c| !c.is_whitespace())
+                    .map(|c| if c == '：' { ':' } else { c })
+                    .collect()
+            };
+            // Both engines offer readings and the grammars arbitrate,
+            // exactly like the row ladder. PP-OCRv5 reads each line from
+            // its tight ink box — it reads the wrapped decimal that Windows
+            // drops — while Windows OCR reads the whole rate column at
+            // magnification and splits the two lines itself: the tiny `1 :`
+            // head defeats PP-OCRv5 (three small glyphs come back as "19"
+            // or "1°" from the tight crop) but reads cleanly for Windows
+            // with the second line beneath it as context. A candidate pair
+            // survives only if the join shapes allow it and the rate
+            // grammar parses the result.
+            let paddle_read = |rect: ptt_vision::PixelRect| -> Option<String> {
+                let text = compact(&self.paddle_recognize_rect(frame, rect)?.text);
+                (!text.is_empty()).then_some(text)
+            };
+            // The head's separator needs no OCR at all — which is well,
+            // because both engines misread it (`°`, `9`, or dropped): a
+            // colon is two short dot runs, answered by the mask pixels the
+            // way the comparator chevron is. The head's digits, which OCR
+            // does read, are whatever precedes its last glyph group.
+            let glyph_head = || -> Option<String> {
+                let head_top = span_top + head_band.0;
+                let head_height = head_band.1 - head_band.0 + 1;
+                let mut columns = vec![false; split];
+                for y in head_top..head_top + head_height {
+                    for (x, seen) in columns.iter_mut().enumerate() {
+                        *seen = *seen || ink(x, y);
+                    }
+                }
+                // Glyph groups split on gaps of 3+ blank columns: digits
+                // inside a number sit 1-2 apart, the colon 8-11 from the
+                // last digit.
+                let mut groups: Vec<(usize, usize)> = Vec::new();
+                for (x, &seen) in columns.iter().enumerate() {
+                    if !seen {
+                        continue;
+                    }
+                    match groups.last_mut() {
+                        Some(group) if x - group.1 <= 3 => group.1 = x,
+                        _ => groups.push((x, x)),
+                    }
+                }
+                let (&(colon_left, colon_right), digit_groups) = groups.split_last()?;
+                let (first_digits, last_digits) = (digit_groups.first()?, digit_groups.last()?);
+                if !glyph_box_is_colon(colon_right - colon_left + 1, head_height, |x, y| {
+                    ink(colon_left + x, head_top + y)
+                }) {
+                    return None;
+                }
+                let margin = 2usize;
+                let left = first_digits.0.saturating_sub(margin);
+                let rect = ptt_vision::PixelRect::new(
+                    left,
+                    head_top.saturating_sub(margin),
+                    (last_digits.1 + 1 + margin).min(frame.width()) - left,
+                    (head_top + head_height + margin).min(frame.height())
+                        - head_top.saturating_sub(margin),
+                )
+                .ok()?;
+                let digits = paddle_read(rect).or_else(|| {
+                    let image = Self::upscaled_frame_rect(frame, rect, 4).ok()?;
+                    let text = compact(
+                        &self
+                            .worker
+                            .recognize(OcrLanguagePreference::English, image)
+                            .ok()?
+                            .text(),
+                    );
+                    (!text.is_empty()).then_some(text)
+                })?;
+                digits
+                    .chars()
+                    .all(|c| c.is_ascii_digit())
+                    .then(|| format!("{digits}:"))
+            };
+            let mut pairs: Vec<(String, String)> = Vec::new();
+            let tail = band_rect(0, *tail_band, split).and_then(paddle_read);
+            if let (Some(head), Some(tail)) = (
+                band_rect(0, *head_band, split).and_then(paddle_read),
+                tail.clone(),
+            ) {
+                pairs.push((head, tail));
+            }
+            if let (Some(head), Some(tail)) = (glyph_head(), tail) {
+                let pair = (head, tail);
+                if !pairs.contains(&pair) {
+                    pairs.push(pair);
+                }
+            }
+            if let Some(rect) = band_rect(0, (head_band.0, tail_band.1), split) {
+                for factor in [2_usize, 4] {
+                    let Ok(image) = Self::upscaled_frame_rect(frame, rect, factor) else {
+                        continue;
+                    };
+                    let Ok(recognition) =
+                        self.worker.recognize(OcrLanguagePreference::English, image)
+                    else {
+                        continue;
+                    };
+                    let mut lines: Vec<_> = recognition.lines.iter().collect();
+                    lines.sort_by(|a, b| a.top.total_cmp(&b.top));
+                    if debug {
+                        let texts: Vec<&str> =
+                            lines.iter().map(|line| line.text.as_str()).collect();
+                        eprintln!("debug wrap-rescue: windows x{factor} lines={texts:?}");
+                    }
+                    if let [head, tail] = lines.as_slice() {
+                        let pair = (compact(&head.text), compact(&tail.text));
+                        if !pair.0.is_empty() && !pair.1.is_empty() && !pairs.contains(&pair) {
+                            pairs.push(pair);
+                        }
+                    }
+                }
+            }
+            if debug {
+                eprintln!("debug wrap-rescue: rate pairs={pairs:?}");
+            }
+            let ratio = pairs.iter().find_map(|(head, tail)| {
+                let joined = join_wrapped_rate(head, tail)?;
+                crate::fields::parse_ratio(&joined).ok()
+            })?;
+            // The stock is one line; PP-OCRv5 first, then Windows at 2x.
+            let stock_rect = band_rect(split, *stock_band, mask.width())?;
+            let stock = [
+                paddle_read(stock_rect),
+                Self::upscaled_frame_rect(frame, stock_rect, 2)
+                    .ok()
+                    .and_then(|image| {
+                        self.worker
+                            .recognize(OcrLanguagePreference::English, image)
+                            .ok()
+                    })
+                    .map(|recognition| compact(&recognition.text())),
+            ]
+            .into_iter()
+            .flatten()
+            .find_map(|text| crate::fields::parse_stock(&text).ok())?;
+            Some((ratio, stock))
         }
 
         /// Preset region, with two override layers: a runtime override set by
@@ -922,7 +1279,7 @@ mod windows_route {
                     // `1 : 3` and reads `6,634`, PP-OCRv5 reads the rate and
                     // writes the thousands comma as a decimal point.
                     let retry = self
-                        .paddle_row_line(frame, row_crops[band_index].content)
+                        .paddle_row_line(frame, &mask, row_crops[band_index].content)
                         .map_or((None, None), |line| Self::split_row_text(&line));
                     if retry.0.is_some() && retry.1.is_some() {
                         retry
@@ -932,7 +1289,17 @@ mod windows_route {
                 };
                 let parsed = match parsed {
                     (Some(ratio), Some(stock)) => Ok((ratio, stock)),
-                    _ => Err(FieldReject::Malformed),
+                    // Incomplete through both engines. The one shape that
+                    // defeats them both together is a wrapped rate, which the
+                    // column rescue reads by the panel's own geometry; `None`
+                    // from it means the slot really is unreadable, and
+                    // skipping is the design.
+                    _ => match self.layout.row_source {
+                        crate::profiles::RowSource::FixedGrid(grid) => self
+                            .wrapped_row_rescue(frame, &mask, grid, row_crops[band_index].source.y)
+                            .ok_or(FieldReject::Malformed),
+                        crate::profiles::RowSource::DetectedBands => Err(FieldReject::Malformed),
+                    },
                 };
                 match parsed {
                     Ok((mut ratio, stock)) => {
@@ -1150,6 +1517,437 @@ mod windows_route {
                 need_text,
                 have_text,
             })
+        }
+    }
+
+    /// Contiguous ink-row runs, top to bottom, as inclusive row ranges. One
+    /// run per rendered text line.
+    ///
+    /// The quantities involved sit an order of magnitude apart on the corpus
+    /// frames, so these are regime boundaries, not tuning knobs: a text line
+    /// is at least 13 rows tall with no blank row inside it, and stray marks
+    /// (panel border residue, descender specks) are at most 3 rows tall — a
+    /// run shorter than 8 rows is discarded as noise. A row joins a line
+    /// only with at least 3 lit pixels, the same floor the table anchor
+    /// uses: one antialiasing pixel in an otherwise blank row must not glue
+    /// two lines together. How many blank rows may sit inside one line is
+    /// the caller's, because it is a property of the region: a name slot's
+    /// lines are 13 blank rows apart, so bridging 2 for antialiasing is
+    /// safe, while a table row's neighbours come as close as 2 blank rows
+    /// and must not be bridged at all.
+    fn mask_line_bands(
+        width: usize,
+        height: usize,
+        bridged_blank_rows: usize,
+        ink_at: impl Fn(usize, usize) -> bool,
+    ) -> Vec<(usize, usize)> {
+        const MINIMUM_LINE_HEIGHT: usize = 8;
+        const MINIMUM_LIT_PIXELS: usize = 3;
+        let mut bands: Vec<(usize, usize)> = Vec::new();
+        for row in 0..height {
+            let lit = (0..width)
+                .filter(|&column| ink_at(column, row))
+                .take(MINIMUM_LIT_PIXELS)
+                .count();
+            if lit < MINIMUM_LIT_PIXELS {
+                continue;
+            }
+            match bands.last_mut() {
+                Some(band) if row - band.1 <= bridged_blank_rows + 1 => band.1 = row,
+                _ => bands.push((row, row)),
+            }
+        }
+        bands.retain(|&(top, bottom)| bottom - top + 1 >= MINIMUM_LINE_HEIGHT);
+        bands
+    }
+
+    /// Whether the crop's mask ink attests two columns on one text line.
+    ///
+    /// Two independent conditions, and the repaint tear this guards against
+    /// fails each for its own reason. First, the ink must form two column
+    /// groups around a real gap (at least 12 blank columns — the rate/stock
+    /// gap measures 40..85 against at most 8 inside a field): during a
+    /// repaint one column is drawn too dim to reach the mask at all, so a
+    /// crop whose mask holds only one column cannot vouch for a two-field
+    /// read, no matter what the recognizer saw in the raw pixels. Second,
+    /// the two groups' mean ink rows must agree within 6: healthy glyphs
+    /// share a baseline (centers vary by at most ~4 rows), while the tear
+    /// offsets the columns by half a row — 15.
+    fn crop_sides_share_one_line(
+        width: usize,
+        height: usize,
+        ink_at: impl Fn(usize, usize) -> bool,
+    ) -> bool {
+        let mut ink_columns = vec![false; width];
+        for (x, seen) in ink_columns.iter_mut().enumerate() {
+            *seen = (0..height).any(|y| ink_at(x, y));
+        }
+        let Some(first) = ink_columns.iter().position(|&seen| seen) else {
+            return false;
+        };
+        let Some(last) = ink_columns.iter().rposition(|&seen| seen) else {
+            return false;
+        };
+        let mut widest = (0_usize, 0_usize);
+        let mut run_start = None;
+        for (x, &lit) in ink_columns.iter().enumerate().take(last + 1).skip(first) {
+            match (lit, run_start) {
+                (false, None) => run_start = Some(x),
+                (true, Some(start)) => {
+                    if x - start > widest.1 {
+                        widest = (start, x - start);
+                    }
+                    run_start = None;
+                }
+                _ => {}
+            }
+        }
+        if widest.1 < 12 {
+            return false;
+        }
+        let split = widest.0 + widest.1 / 2;
+        // One contiguous ink-row run per side (a single blank row inside is
+        // antialiasing), centered together. Runs, not just means: the tear
+        // leaves the rate column as two half-clipped fragments — the row
+        // above's tail and the row below's head — whose *mean* lands right
+        // back at the stock's center. Two fragments are two runs, and no
+        // number of aligned means makes them one text line.
+        let side_run = |x0: usize, x1: usize| -> Option<(usize, usize)> {
+            let mut run: Option<(usize, usize)> = None;
+            for y in 0..height {
+                if !(x0..x1).any(|x| ink_at(x, y)) {
+                    continue;
+                }
+                match &mut run {
+                    Some((_, bottom)) if y <= *bottom + 2 => *bottom = y,
+                    Some(_) => return None,
+                    None => run = Some((y, y)),
+                }
+            }
+            run
+        };
+        let Some((left_top, left_bottom)) = side_run(0, split) else {
+            return false;
+        };
+        let Some((right_top, right_bottom)) = side_run(split, width) else {
+            return false;
+        };
+        let left_center = (left_top + left_bottom) / 2;
+        let right_center = (right_top + right_bottom) / 2;
+        left_center.abs_diff(right_center) <= 6
+    }
+
+    /// Whether a glyph box holds a colon, read from the mask itself: exactly
+    /// two short ink runs of similar height with blank rows between them, in
+    /// a box no wider than a dot. Measured on the corpus wrap heads: dots 3
+    /// rows tall, 4 blank rows apart, in a 4-column box.
+    fn glyph_box_is_colon(
+        width: usize,
+        height: usize,
+        ink_at: impl Fn(usize, usize) -> bool,
+    ) -> bool {
+        if width > 8 {
+            return false;
+        }
+        let mut runs: Vec<(usize, usize)> = Vec::new();
+        for y in 0..height {
+            if !(0..width).any(|x| ink_at(x, y)) {
+                continue;
+            }
+            match runs.last_mut() {
+                Some(run) if y == run.1 + 1 => run.1 = y,
+                _ => runs.push((y, y)),
+            }
+        }
+        matches!(
+            runs.as_slice(),
+            [(a0, a1), (b0, b1)]
+                if (2..=6).contains(&(a1 - a0 + 1))
+                    && (2..=6).contains(&(b1 - b0 + 1))
+                    && b0 - a1 >= 3
+        )
+    }
+
+    /// Joins a wrapped rate's two lines, or refuses.
+    ///
+    /// Only the two shapes a wrap can actually take are joined, both taken
+    /// from corpus frames: the renderer breaks at a space, leaving a head
+    /// that ends with the separator and a tail that is the whole right side
+    /// (`1 :` + `102.50`), or it breaks a long decimal, leaving a bare
+    /// decimal tail (`1 : 332` + `.46`). Everything else is refused — in
+    /// particular a complete rate followed by another complete rate, which
+    /// is what the zone holds when a neighbouring row's ink leaked in, and
+    /// which would otherwise concatenate into a well-formed wrong value
+    /// (`102.50` + `1:103` → `102.501:103`). The join proposes; the rate
+    /// grammar still judges the result.
+    fn join_wrapped_rate(head: &str, tail: &str) -> Option<String> {
+        let whole_right_side = tail.chars().any(|c| c.is_ascii_digit())
+            && tail
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == ',' || c == '.');
+        if head.ends_with(':') && whole_right_side {
+            return Some(format!("{head}{tail}"));
+        }
+        let decimal_tail = tail.strip_prefix('.').is_some_and(|digits| {
+            !digits.is_empty() && digits.len() <= 2 && digits.chars().all(|c| c.is_ascii_digit())
+        });
+        if decimal_tail && !head.ends_with(':') {
+            return Some(format!("{head}{tail}"));
+        }
+        None
+    }
+
+    /// The catalog index of the single strongly supported target, or nothing.
+    ///
+    /// `target_supports` is deduplicated by canonical text, so positions in
+    /// it do not line up with the catalog: 58 of the 660 POE2 names collapse
+    /// into earlier entries (every per-level 「等級N」 family shares one
+    /// canonical form, because numbers canonicalize away), and indexing the
+    /// catalog with a support position handed back an asset up to 58 entries
+    /// early — a confidently wrong identity. The winner is matched back to
+    /// the catalog by its canonical text instead, and a canonical form
+    /// shared by several assets is refused as ambiguous: the evidence that
+    /// crowned it cannot tell those assets apart either.
+    fn unique_winner_asset(
+        supports: &[ptt_ocr_onnx::CtcTargetEvaluation],
+        matchers: &[ptt_core::FullLineAffixMatcher],
+    ) -> Option<usize> {
+        let mut winners = supports
+            .iter()
+            .filter(|entry| entry.support.strongly_supported);
+        let winner = winners.next()?;
+        if winners.next().is_some() {
+            return None;
+        }
+        let mut assets = matchers
+            .iter()
+            .enumerate()
+            .filter(|(_, matcher)| matcher.template().text == winner.canonical_target)
+            .map(|(index, _)| index);
+        let index = assets.next()?;
+        if assets.next().is_some() {
+            return None;
+        }
+        Some(index)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{
+            crop_sides_share_one_line, glyph_box_is_colon, join_wrapped_rate, mask_line_bands,
+            unique_winner_asset,
+        };
+        use ptt_ocr_onnx::{CtcTargetEvaluation, CtcTargetSupport, CtcTargetSupportReason};
+
+        /// A healthy row's two columns share a baseline; the corpus tear
+        /// offsets them by half a row (15px) and must be refused.
+        #[test]
+        fn torn_half_row_columns_are_not_one_line() {
+            let healthy = |x: usize, y: usize| (5..23).contains(&y) && !(60..120).contains(&x);
+            assert!(crop_sides_share_one_line(180, 28, healthy));
+            let torn = |x: usize, y: usize| {
+                if x < 60 {
+                    y < 13 // rate column drawn half a row high
+                } else if x >= 120 {
+                    (10..28).contains(&y)
+                } else {
+                    false
+                }
+            };
+            assert!(!crop_sides_share_one_line(180, 28, torn));
+            let empty_side = |x: usize, y: usize| x < 60 && (5..23).contains(&y);
+            assert!(
+                !crop_sides_share_one_line(180, 28, empty_side),
+                "one column of mask ink cannot vouch for a two-field read"
+            );
+            let no_gap = |x: usize, y: usize| (5..23).contains(&y) && x < 170;
+            assert!(
+                !crop_sides_share_one_line(180, 28, no_gap),
+                "without a column gap there is nothing to split"
+            );
+            // The corpus tear's exact shape: the rate column shows the row
+            // above's tail and the row below's head, whose mean lands back
+            // at the stock's center.
+            let bimodal = |x: usize, y: usize| {
+                if x < 60 {
+                    !(8..21).contains(&y)
+                } else if x >= 120 {
+                    (5..23).contains(&y)
+                } else {
+                    false
+                }
+            };
+            assert!(
+                !crop_sides_share_one_line(180, 28, bimodal),
+                "two rate fragments are not one text line however their mean falls"
+            );
+        }
+
+        /// The corpus colon (two 3-row dots, 4 blank rows apart, 4 columns
+        /// wide) classifies; a period, a bar, and anything wide do not.
+        #[test]
+        fn a_colon_is_two_dot_runs_and_nothing_else_is() {
+            let colon = |_x: usize, y: usize| (3..6).contains(&y) || (10..13).contains(&y);
+            assert!(glyph_box_is_colon(4, 15, colon));
+            let period = |_x: usize, y: usize| (10..13).contains(&y);
+            assert!(!glyph_box_is_colon(4, 15, period));
+            let bar = |_x: usize, y: usize| (2..13).contains(&y);
+            assert!(!glyph_box_is_colon(4, 15, bar));
+            let touching = |_x: usize, y: usize| (3..8).contains(&y) || (9..13).contains(&y);
+            assert!(
+                !glyph_box_is_colon(4, 15, touching),
+                "one blank row is antialiasing, not a gap"
+            );
+            assert!(
+                !glyph_box_is_colon(12, 15, colon),
+                "a colon is never this wide"
+            );
+        }
+
+        /// The two corpus wrap shapes join; every neighbour-contamination
+        /// shape refuses — most importantly two complete rates, which would
+        /// concatenate into a well-formed wrong value.
+        #[test]
+        fn wrapped_rates_join_only_in_the_two_wrap_shapes() {
+            assert_eq!(
+                join_wrapped_rate("1:", "102.50").as_deref(),
+                Some("1:102.50")
+            );
+            assert_eq!(
+                join_wrapped_rate("1:332", ".46").as_deref(),
+                Some("1:332.46")
+            );
+            assert_eq!(
+                join_wrapped_rate("102.50", "1:103"),
+                None,
+                "a neighbour's complete rate must never be absorbed"
+            );
+            assert_eq!(join_wrapped_rate("1:102", "103"), None);
+            assert_eq!(join_wrapped_rate("1:", ".."), None);
+            assert_eq!(join_wrapped_rate("1:", "10a"), None);
+            assert_eq!(join_wrapped_rate("1:332", ".461"), None);
+            assert_eq!(join_wrapped_rate("1:", ""), None);
+        }
+
+        /// The corpus geometry in miniature: a 3-row border speck separated
+        /// by a blank row, two 20-row lines 13 rows apart, and a 1-row gap
+        /// inside the second line that must not split it.
+        #[test]
+        fn line_bands_split_on_gaps_and_drop_border_specks() {
+            let inky_rows: Vec<usize> = (5..8).chain(9..29).chain(42..50).chain(51..62).collect();
+            let bands = mask_line_bands(240, 66, 2, |_, row| inky_rows.contains(&row));
+            assert_eq!(bands, vec![(5, 28), (42, 61)]);
+        }
+
+        #[test]
+        fn a_single_line_is_a_single_band() {
+            let bands = mask_line_bands(240, 66, 2, |_, row| (24..=45).contains(&row));
+            assert_eq!(bands, vec![(24, 45)]);
+        }
+
+        fn support(strongly_supported: bool) -> CtcTargetSupport {
+            CtcTargetSupport {
+                shape_compatible: strongly_supported,
+                strongly_supported,
+                mismatches: Vec::new(),
+                reason: CtcTargetSupportReason::CanonicalTextMatches,
+            }
+        }
+
+        /// Builds the deduplicated support list exactly the way
+        /// `analyze_set` does, so the test exercises the real misalignment.
+        fn deduplicated_supports(
+            matchers: &[ptt_core::FullLineAffixMatcher],
+        ) -> Vec<CtcTargetEvaluation> {
+            let mut seen = std::collections::HashSet::new();
+            let mut supports = Vec::new();
+            for matcher in matchers {
+                let canonical = matcher.template().text.clone();
+                if !seen.insert(canonical.clone()) {
+                    continue;
+                }
+                supports.push(CtcTargetEvaluation {
+                    source_template: matcher.source_template().to_owned(),
+                    canonical_target: canonical,
+                    support: support(false),
+                });
+            }
+            supports
+        }
+
+        fn poe2_matchers() -> Vec<ptt_core::FullLineAffixMatcher> {
+            ptt_catalog::poe2()
+                .assets()
+                .iter()
+                .map(|asset| {
+                    ptt_core::FullLineAffixMatcher::new(&asset.name_zh_tw)
+                        .expect("catalog names build matchers")
+                })
+                .collect()
+        }
+
+        #[test]
+        fn winner_is_resolved_by_canonical_text_not_by_position() {
+            let catalog = ptt_catalog::poe2();
+            let matchers = poe2_matchers();
+            let mut supports = deduplicated_supports(&matchers);
+            assert!(
+                supports.len() < matchers.len(),
+                "the dedup this mapping guards against must actually occur"
+            );
+            let asset_index = catalog
+                .assets()
+                .iter()
+                .position(|asset| asset.name_zh_tw == "瓦爾護甲鍛造師的灌注器")
+                .expect("the corpus currency exists");
+            let canonical = matchers[asset_index].template().text.clone();
+            let position = supports
+                .iter()
+                .position(|entry| entry.canonical_target == canonical)
+                .expect("a unique name survives dedup");
+            assert_ne!(
+                position, asset_index,
+                "positions must disagree for this test to prove anything"
+            );
+            supports[position].support = support(true);
+            assert_eq!(
+                unique_winner_asset(&supports, &matchers),
+                Some(asset_index),
+                "the winner must map back to its own asset, not the one at its position"
+            );
+        }
+
+        #[test]
+        fn winner_shared_by_a_per_level_family_is_refused() {
+            let matchers = poe2_matchers();
+            let mut supports = deduplicated_supports(&matchers);
+            let position = supports
+                .iter()
+                .position(|entry| entry.source_template.starts_with("奇術溶劑"))
+                .expect("the per-level family exists");
+            supports[position].support = support(true);
+            assert_eq!(
+                unique_winner_asset(&supports, &matchers),
+                None,
+                "evidence that cannot tell family members apart must not pick one"
+            );
+        }
+
+        #[test]
+        fn two_strong_winners_are_refused() {
+            let matchers = poe2_matchers();
+            let mut supports = deduplicated_supports(&matchers);
+            let unique: Vec<usize> = supports
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| !entry.source_template.contains('（'))
+                .map(|(index, _)| index)
+                .take(2)
+                .collect();
+            for &index in &unique {
+                supports[index].support = support(true);
+            }
+            assert_eq!(unique_winner_asset(&supports, &matchers), None);
         }
     }
 }

@@ -26,8 +26,84 @@
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.20 - 19.16.15.17.png",
-      "expect": "skip",
-      "note": "Windows OCR reads the name as 瓦奮護甲鍛造師的灌注器 -- one character wrong, 奮 for 爾 -- and an exact match against a closed lexicon has nowhere to go from there. The same currency in the right-hand slot reads correctly, so this is the recogniser and not the frame. The ONNX rescoring that exists for precisely this case does not rescue it; see the task."
+      "expect": "accept",
+      "need": "vaal_armourers_infuser",
+      "have": "chaos_orb",
+      "min_rows": 12,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:7.80",
+          "stock": 80
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:7.86",
+          "stock": 7
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:7.89",
+          "stock": 9
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:7.90",
+          "stock": 240
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:8",
+          "stock": 157
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:8",
+          "stock": 13
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1:6.25",
+          "stock": 50
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:6",
+          "stock": 528
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:5.40",
+          "stock": 88
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:5.32",
+          "stock": 213
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:5.30",
+          "stock": 159
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">1:5.30",
+          "stock": 1516
+        }
+      ]
     }
   ]
 }

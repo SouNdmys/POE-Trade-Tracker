@@ -350,8 +350,17 @@ fn run_manifest_counting(
 /// and the frame is skipped. Drawn too low it fails dangerously: it slices
 /// into the rows, and just past this band a torn repaint frame that the corpus
 /// expects to be *rejected* starts being accepted instead.
+///
+/// Narrower than the (-10, 2) it once was, and honestly so: that band was
+/// measured before the corpus held wrapped rows, English frames, or per-row
+/// ground truth. A wrapped row at the margin is the first casualty of a
+/// misplaced edge — it fails safe, by skipping, but a skip is still a lost
+/// row and the sweep counts it. What actually holds across all ten corpora
+/// today is this band; the preset exists and both clients' panels sit at
+/// fixed coordinates, so a calibration within two pixels is the normal case,
+/// not a tall order.
 #[cfg(windows)]
-const TOP_TOLERANCE: (i32, i32) = (-10, 2);
+const TOP_TOLERANCE: (i32, i32) = (-2, 1);
 
 /// The bottom edge's budget, as `(up, down)`.
 ///

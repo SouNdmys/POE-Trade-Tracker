@@ -8,14 +8,162 @@
       "expect": "accept",
       "need": "divine_orb",
       "have": "chaos_orb",
-      "min_rows": 11
+      "min_rows": 12,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:11.57",
+          "stock": 28
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:11.59",
+          "stock": 100
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:11.60",
+          "stock": 1440
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:11.64",
+          "stock": 880
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:11.67",
+          "stock": 1821
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:11.67",
+          "stock": 13951
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1:11.50",
+          "stock": 69
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:11.44",
+          "stock": 549
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:11.42",
+          "stock": 217
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:11.42",
+          "stock": 7408
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:11.42",
+          "stock": 628
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">1:11.42",
+          "stock": 607760
+        }
+      ]
     },
     {
       "file": "Path of Exile 2 Screenshot 2026.08.20 - 19.00.36.94.png",
       "expect": "accept",
       "need": "omen_of_whittling",
       "have": "chaos_orb",
-      "min_rows": 10
+      "min_rows": 12,
+      "rows": [
+        {
+          "side": "available",
+          "index": 0,
+          "ratio": "1:101",
+          "stock": 167
+        },
+        {
+          "side": "available",
+          "index": 1,
+          "ratio": "1:102",
+          "stock": 10
+        },
+        {
+          "side": "available",
+          "index": 2,
+          "ratio": "1:102.50",
+          "stock": 16
+        },
+        {
+          "side": "available",
+          "index": 3,
+          "ratio": "1:103",
+          "stock": 21
+        },
+        {
+          "side": "available",
+          "index": 4,
+          "ratio": "1:104",
+          "stock": 6
+        },
+        {
+          "side": "available",
+          "index": 5,
+          "ratio": "<1:104",
+          "stock": 209
+        },
+        {
+          "side": "competing",
+          "index": 0,
+          "ratio": "1:100.33",
+          "stock": 301
+        },
+        {
+          "side": "competing",
+          "index": 1,
+          "ratio": "1:100",
+          "stock": 20000
+        },
+        {
+          "side": "competing",
+          "index": 2,
+          "ratio": "1:98",
+          "stock": 5390
+        },
+        {
+          "side": "competing",
+          "index": 3,
+          "ratio": "1:94",
+          "stock": 470
+        },
+        {
+          "side": "competing",
+          "index": 4,
+          "ratio": "1:85",
+          "stock": 85
+        },
+        {
+          "side": "competing",
+          "index": 5,
+          "ratio": ">1:85",
+          "stock": 96335
+        }
+      ]
     }
   ]
 }
