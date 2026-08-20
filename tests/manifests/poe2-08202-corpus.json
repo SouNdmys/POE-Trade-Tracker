@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "profile": "poe2-zh-TW",
+  "screenshot_dir": "test-screenshots/poe2/8.20.2",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.53.11.73.png",
+      "expect": "accept",
+      "need": "orb_of_annulment",
+      "have": "exalted_orb",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.54.48.37.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "vaal_catalysing_infuser",
+      "min_rows": 8
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.55.45.83.png",
+      "expect": "accept",
+      "need": "divine_orb",
+      "have": "mirror_of_kalandra",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.56.20.03.png",
+      "expect": "accept",
+      "need": "hinekoras_lock",
+      "have": "mirror_of_kalandra",
+      "min_rows": 12
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.56.58.24.png",
+      "expect": "accept",
+      "need": "omen_of_dextral_erasure",
+      "have": "divine_orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.57.26.08.png",
+      "expect": "accept",
+      "need": "uncut_skill_gem_level_20",
+      "have": "divine_orb",
+      "min_rows": 11
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.20 - 14.57.56.08.png",
+      "expect": "accept",
+      "need": "perfect_chaos_orb",
+      "have": "divine_orb",
+      "min_rows": 12
+    }
+  ]
+}

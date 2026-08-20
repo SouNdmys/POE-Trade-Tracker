@@ -721,38 +721,53 @@ mod windows_route {
             // a rectangle belonging to a different row.
             let (plan, row_crops) = match self.layout.row_source {
                 crate::profiles::RowSource::DetectedBands => {
-                    let plan = classify_rows(&geometry, &(self.layout.rows)())
-                        .map_err(SkipReason::Rows)?;
-                    let crops = detection
-                        .bands
+                    // Filtered together, before classifying, so the two lists
+                    // stay index-aligned. Dropping fragments inside
+                    // `classify_rows` alone left the crops holding every band
+                    // and the plan holding only some, which is the mismatch
+                    // the comment above warns about -- rows then OCR a
+                    // rectangle belonging to a different row, and come back
+                    // holding one column of it.
+                    let layout = (self.layout.rows)();
+                    let (kept, crops): (Vec<BandGeometry>, Vec<RowCrops>) = geometry
                         .iter()
-                        .map(|band| RowCrops {
-                            source: band.crop.source_rect,
-                            content: band.crop.content_rect,
+                        .zip(detection.bands.iter())
+                        .filter(|(band, _)| crate::rows::classifiable(band, &layout))
+                        .map(|(band, detected)| {
+                            // Full table width for the OCR crop, as the fixed
+                            // grid already does. The detector's rectangle is
+                            // drawn around ink, and a row's two columns are
+                            // separated by a wide gap -- so a rate whose
+                            // digits are faint leaves a box holding only the
+                            // stock, and OCR dutifully returns `3,636` for a
+                            // row that reads `36 : 1   3,636`. The row then
+                            // fails the grammar and is thrown away for having
+                            // been cropped in half.
+                            let source = ptt_vision::PixelRect::new(
+                                0,
+                                detected.crop.source_rect.y,
+                                mask.width(),
+                                detected.crop.source_rect.height,
+                            )
+                            .unwrap_or(detected.crop.source_rect);
+                            (
+                                *band,
+                                RowCrops {
+                                    source,
+                                    // Ink-derived still, because this one is
+                                    // used to place the chevron.
+                                    content: detected.crop.content_rect,
+                                },
+                            )
                         })
-                        .collect::<Vec<_>>();
+                        .unzip();
+                    let plan = classify_rows(&kept, &layout).map_err(SkipReason::Rows)?;
                     (plan, crops)
                 }
                 crate::profiles::RowSource::FixedGrid(grid) => {
                     Self::plan_fixed_grid(&mask, grid).map_err(SkipReason::Rows)?
                 }
             };
-
-            // Boundary rows (the `<`/`>` comparator rows) start further left
-            // than the column norm. Until a template classifier lands, a row
-            // whose geometry demands a comparator but whose OCR read none is
-            // skipped — accepting it would silently drop the boundary flag.
-            let mut single_lefts: Vec<i32> = plan
-                .bands
-                .iter()
-                .filter(|band| band.estimated_rows == 1)
-                .map(|band| band.band.left)
-                .collect();
-            single_lefts.sort_unstable();
-            let median_left = single_lefts
-                .get(single_lefts.len() / 2)
-                .copied()
-                .unwrap_or(i32::MIN);
 
             let mut rows = Vec::new();
             let mut skipped = Vec::new();
@@ -906,13 +921,29 @@ mod windows_route {
                                 })
                             }
                             crate::profiles::RowSource::DetectedBands => {
-                                let rect = row_crops[band_index].source;
-                                (row_band.band.left + 6 < median_left).then(|| {
-                                    (
-                                        rect.x,
-                                        usize::try_from(median_left - row_band.band.left + 8)
-                                            .unwrap_or(0),
-                                    )
+                                // The same subtraction, minus the slot test:
+                                // POE2's tables are not a fixed six rows, so
+                                // where the aggregate sits is not known in
+                                // advance -- but what it does is. It repeats
+                                // the rate above it and stays right-aligned,
+                                // and that is enough to place the chevron.
+                                //
+                                // This used to compare each row's ink against
+                                // the median row's, and a row six pixels left
+                                // of it was presumed to carry a comparator.
+                                // Ink starts further left because the number
+                                // is wider: `33.50 : 1` against `36 : 1` trips
+                                // it, finds no chevron where it expected one,
+                                // and the row -- read perfectly -- is thrown
+                                // away. Four of the seven field frames lost
+                                // rows exactly that way.
+                                previous_row.and_then(|(side, index, left, num, den)| {
+                                    let adjacent = side == row_band.side
+                                        && u32::from(index) + 1 == u32::from(first_row_index);
+                                    let same_rate = num == ratio.left && den == ratio.right;
+                                    let here = row_crops[band_index].content.x;
+                                    (adjacent && same_rate && left > here)
+                                        .then(|| (here, left - here))
                                 })
                             }
                         };

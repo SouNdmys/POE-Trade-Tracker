@@ -142,6 +142,19 @@ impl RowLayout {
     }
 }
 
+/// Whether a band's height matches some whole number of rows.
+///
+/// The predicate `classify_rows` drops on, exposed so a caller carrying a
+/// parallel array — the detector's crops — can drop the same elements before
+/// classifying rather than after. Filtering both lists through one call keeps
+/// them index-aligned by construction, which is not a property worth trusting
+/// to two separate filters: crops read out of a misaligned array OCR one row's
+/// rectangle as another row's text.
+#[must_use]
+pub fn classifiable(band: &BandGeometry, layout: &RowLayout) -> bool {
+    layout.estimated_rows(band.height).is_some()
+}
+
 /// Classifies bands (sorted by top, as the detector emits them) into the
 /// available/competing tables.
 ///
