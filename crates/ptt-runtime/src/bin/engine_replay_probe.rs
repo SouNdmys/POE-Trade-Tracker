@@ -291,6 +291,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         selected_pairs,
         selection.selections.len()
     );
+    // Identity print for differential runs: which edge won each direction.
+    for selected in &selection.selections {
+        if let Some(edge) = &selected.selected_edge {
+            println!(
+                "selected {} = {} @ {}",
+                selected.pair_key, edge.observation.edge.edge_id, edge.observation.edge.rate.text
+            );
+        }
+    }
 
     // Whole units for every asset seen (POE2 trades whole units — F2).
     let mut unit_entries: BTreeMap<MarketAssetId, AssetUnit> = BTreeMap::new();
