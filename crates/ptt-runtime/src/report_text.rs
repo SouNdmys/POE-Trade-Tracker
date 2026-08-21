@@ -262,6 +262,12 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
+        ("stranded", REPORT_ENGLISH.stranded, REPORT_CHINESE.stranded),
+        ("staking", REPORT_ENGLISH.staking, REPORT_CHINESE.staking),
+        ("unpriced", REPORT_ENGLISH.unpriced, REPORT_CHINESE.unpriced),
+        ("risks", REPORT_ENGLISH.risks, REPORT_CHINESE.risks),
+        ("probe", REPORT_ENGLISH.probe, REPORT_CHINESE.probe),
+        ("flip", REPORT_ENGLISH.flip, REPORT_CHINESE.flip),
         (
             "no_route_for_pair",
             REPORT_ENGLISH.no_route_for_pair,
