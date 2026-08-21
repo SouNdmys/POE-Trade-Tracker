@@ -31,6 +31,171 @@ use ptt_workflows::{
 /// The sizes the convert page prices, in whole orbs.
 const CONVERT_SIZES: [u64; 3] = [1, 10, 100];
 
+// ---------------------------------------------------------------------------
+// Page models
+//
+// Every page is computed once into one of these and rendered twice: as the
+// text lines below, and as the real interface in `ptt-app`. The split exists
+// because the lines were the only form the answers had, so anything the
+// renderer wanted that a line did not already say -- a per-leg breakdown, the
+// seconds behind a freshness light, the rows a queue excluded -- had to be
+// recomputed or parsed back out of prose.
+//
+// The models therefore hold the typed values, and the flattening functions
+// hold every formatting decision. A page that needs a new number adds it here;
+// it never re-derives one from a rendered string.
+// ---------------------------------------------------------------------------
+
+/// Prose the pages print before anything else: a configuration that could not
+/// be used degrades loudly, never silently. Rendered at build time because
+/// these are sentences, not values.
+type Notes = Vec<String>;
+
+/// "I hold X and want Y", answered at one or more sizes.
+#[derive(Clone, Debug)]
+pub struct ConvertModel {
+    pub notes: Notes,
+    pub have: MarketAssetId,
+    pub need: MarketAssetId,
+    /// One entry per size that could be priced at all. A size the unit
+    /// catalogue cannot express is absent rather than present-and-empty.
+    pub sizes: Vec<SizeRoute>,
+    /// The listing advice for the middle size, when there was a book to give
+    /// it. Advisory: its absence never invalidates the routes above.
+    pub maker: Option<MakerModel>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SizeRoute {
+    pub size: u64,
+    /// `None` when the search found no path at this size.
+    pub accounting: Option<Box<ptt_strategy::RouteAccounting>>,
+}
+
+/// The trader's three ways to act on a pair as a maker, priced against taking
+/// the instant fill now.
+#[derive(Clone, Debug)]
+pub struct MakerModel {
+    pub size: u64,
+    pub strategy: ptt_strategy::MakerStrategy,
+    /// The same Opportunity mode priced at the front instead of below it — a
+    /// second evaluation, so the trade-off stays visible without a third mode
+    /// existing anywhere.
+    pub match_front: Option<ptt_strategy::MakerRecommendation>,
+}
+
+/// "Is what I am watching healthy": coverage, valuations, and what to promote.
+#[derive(Clone, Debug)]
+pub struct WatchlistModel {
+    pub notes: Notes,
+    pub core_liquidity: Vec<MarketAssetId>,
+    pub valuations: Vec<AssetValuation>,
+    pub coverage: CoverageOutcome,
+    pub suggestions: Vec<FocusSuggestion>,
+    pub anchors: Vec<ptt_strategy::AnchorRecommendation>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AssetValuation {
+    pub asset_id: MarketAssetId,
+    pub valuation: ptt_strategy::Valuation,
+}
+
+/// A currency the user keeps capturing that is not in the focus list.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FocusSuggestion {
+    pub asset_id: MarketAssetId,
+    pub snapshot_count: usize,
+}
+
+/// Coverage is a third view of the book and can fail on its own; the page
+/// still has valuations to show when it does.
+#[derive(Clone, Debug)]
+pub enum CoverageOutcome {
+    /// No anchor currency, so there was nothing to measure coverage against.
+    NotComputed,
+    Failed(String),
+    Ready(CoverageModel),
+}
+
+#[derive(Clone, Debug)]
+pub struct CoverageModel {
+    pub entries: Vec<ptt_workflows::FocusCoverage>,
+    pub candidates: Vec<ptt_workflows::ProbeCandidate>,
+}
+
+/// "Where is the money right now": the unified radar.
+#[derive(Clone, Debug)]
+pub struct OpportunitiesModel {
+    pub notes: Notes,
+    pub scan: RadarScan,
+}
+
+#[derive(Clone, Debug)]
+pub enum RadarScan {
+    /// The radar could not run, and why. Distinct from running and finding
+    /// nothing: one is a gap in the data, the other is an answer.
+    Unavailable(RadarUnavailable),
+    Ran(Box<RadarScanResult>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RadarUnavailable {
+    /// No settlement currency, so there is nowhere to start or return to.
+    NoCoreCurrency,
+    NotEnoughMarket,
+    /// Every settlement currency is missing a unit, so no stake can be built.
+    CannotStake {
+        stake: u64,
+        anchor: Option<MarketAssetId>,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub struct RadarScanResult {
+    pub stake: u64,
+    pub starts: Vec<MarketAssetId>,
+    pub items: Vec<OpportunityRow>,
+    pub probe_candidates: Vec<ptt_workflows::ProbeCandidate>,
+    pub diagnostics: ptt_workflows::RadarDiagnostics,
+}
+
+#[derive(Clone, Debug)]
+pub struct OpportunityRow {
+    pub item: ptt_workflows::RadarItem,
+    /// Read from the oldest leg: a route is only as current as the capture it
+    /// leans on hardest.
+    pub light: Option<FreshnessStatus>,
+}
+
+/// "What should I go look at next": the probe queue on its own.
+#[derive(Clone, Debug)]
+pub struct ProbeQueueModel {
+    /// Nothing seen in the window at all, which is a different message from
+    /// having nothing left to probe.
+    pub nothing_captured: bool,
+    pub complete_pairs: usize,
+    pub total_pairs: usize,
+    pub candidates: Vec<ptt_workflows::ProbeCandidate>,
+}
+
+/// "What has this pair been doing": candles, a summary, and what looks off.
+#[derive(Clone, Debug)]
+pub struct HistoryModel {
+    pub notes: Notes,
+    pub have: MarketAssetId,
+    pub need: MarketAssetId,
+    /// `None` when this direction has no priced points yet.
+    pub summary: Option<ptt_strategy::PriceSummary>,
+    /// Reads the newest capture of this direction: older points are history,
+    /// but the light describes what acting now would lean on.
+    pub light: Option<FreshnessStatus>,
+    /// Every candle, oldest first. The text below shows the last few; a chart
+    /// wants all of them.
+    pub candles: Vec<ptt_strategy::PriceCandle>,
+    pub anomalies: Vec<ptt_strategy::PriceAnomaly>,
+}
+
 /// Everything the engine needs, assembled once from stored observations.
 struct Market {
     index: MarketDepthIndex,
@@ -161,15 +326,25 @@ pub fn convert_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let market = build_market(observations, context_key, tuning, language)?;
-    let mut lines = market.notes.clone();
-    use crate::report_text::fill;
-    let text = crate::report_text::report(language);
+    let model = convert_model(
+        observations,
+        context_key,
+        have,
+        need,
+        holdings,
+        tuning,
+        language,
+    )?;
+    Ok(render_convert(&model, language))
+}
 
-    // A stated holding prices exactly that size — "I have 100 divine" is a
-    // question about 100, not about a ladder. Otherwise the configured
-    // ladder, with the shipped one behind an empty or zeroed setting.
-    let sizes: Vec<u64> = match holdings {
+/// The sizes the page prices.
+///
+/// A stated holding prices exactly that size — "I have 100 divine" is a
+/// question about 100, not about a ladder. Otherwise the configured ladder,
+/// with the shipped one behind an empty or zeroed setting.
+fn convert_sizes(holdings: Option<u64>, tuning: &MarketTuning) -> Vec<u64> {
+    match holdings {
         Some(count) => vec![count.max(1)],
         None => {
             let configured: Vec<u64> = tuning
@@ -185,8 +360,24 @@ pub fn convert_report(
                 configured
             }
         }
-    };
+    }
+}
+
+/// Everything the Convert page knows, before anything decides how to draw it.
+pub fn convert_model(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    have: &MarketAssetId,
+    need: &MarketAssetId,
+    holdings: Option<u64>,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<ConvertModel, String> {
+    let market = build_market(observations, context_key, tuning, language)?;
+    let sizes = convert_sizes(holdings, tuning);
     let max_hops = u8::try_from(tuning.convert.max_hops.clamp(1, 4)).unwrap_or(3);
+
+    let mut routes: Vec<SizeRoute> = Vec::new();
     for size in sizes.iter().copied() {
         let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
             continue;
@@ -210,7 +401,10 @@ pub fn convert_report(
         .map_err(|error| format!("convert: {error:?}"))?;
 
         let Some(best) = &conversion.best_path else {
-            lines.push(format!("{size:>4} {have} -> {need}: no route yet"));
+            routes.push(SizeRoute {
+                size,
+                accounting: None,
+            });
             continue;
         };
         let accounting = derive_route_accounting(RouteAccountingRequest {
@@ -221,7 +415,42 @@ pub fn convert_report(
             needs_probe: false,
         })
         .map_err(|error| format!("accounting: {error}"))?;
+        routes.push(SizeRoute {
+            size,
+            accounting: Some(Box::new(accounting)),
+        });
+    }
 
+    // Listing advice belongs under a page that said something. When there is
+    // neither a note nor a priced size, the page reads "nothing to convert",
+    // and maker advice under that heading would be advice about a pair the
+    // page just said it could not price.
+    let maker = (!market.notes.is_empty() || !routes.is_empty())
+        .then(|| maker_model(&market, have, need, sizes[sizes.len() / 2]))
+        .flatten();
+
+    Ok(ConvertModel {
+        notes: market.notes,
+        have: have.clone(),
+        need: need.clone(),
+        sizes: routes,
+        maker,
+    })
+}
+
+/// The Convert page as display lines.
+fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
+    let mut lines = model.notes.clone();
+    let (have, need) = (&model.have, &model.need);
+
+    for route in &model.sizes {
+        let size = route.size;
+        let Some(accounting) = &route.accounting else {
+            lines.push(format!("{size:>4} {have} -> {need}: no route yet"));
+            continue;
+        };
         let route = accounting
             .route_asset_ids
             .iter()
@@ -280,16 +509,12 @@ pub fn convert_report(
 
     if lines.is_empty() {
         lines.push(text.nothing_to_convert.to_owned());
-        return Ok(lines);
+        return lines;
     }
-    lines.extend(maker_section(
-        &market,
-        have,
-        need,
-        sizes[sizes.len() / 2],
-        language,
-    ));
-    Ok(lines)
+    if let Some(maker) = &model.maker {
+        lines.extend(render_maker(maker, have, need, language));
+    }
+    lines
 }
 
 /// The listing-strategy section of the Convert page: the trader's three ways
@@ -298,20 +523,15 @@ pub fn convert_report(
 ///
 /// Returns nothing rather than erroring: the section is advisory, and a pair
 /// with no maker picture still has a working convert report above it.
-fn maker_section(
+fn maker_model(
     market: &Market,
     have: &MarketAssetId,
     need: &MarketAssetId,
     size: u64,
-    language: UiLanguage,
-) -> Vec<String> {
-    use crate::report_text::fill;
-    use ptt_strategy::{MakerMode, MakerRecommendation, MakerRequest, calculate_maker_strategy};
+) -> Option<MakerModel> {
+    use ptt_strategy::{MakerMode, MakerRequest, calculate_maker_strategy};
 
-    let text = crate::report_text::report(language);
-    let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
-        return Vec::new();
-    };
+    let amount_in = AssetAmount::from_whole_units(have.clone(), size, &market.units).ok()?;
     let instant = market
         .index
         .fill_pair(&amount_in, need, FeePolicy::None)
@@ -327,9 +547,46 @@ fn maker_section(
         match_front: false,
         thresholds: ptt_strategy::RiskThresholds::default(),
     };
-    let Ok(strategy) = calculate_maker_strategy(base) else {
-        return Vec::new();
+    let strategy = calculate_maker_strategy(base).ok()?;
+    // The match-front variant is the same Opportunity mode priced at the
+    // front instead of below it; a second evaluation keeps that trade-off
+    // visible without a third mode existing anywhere. Skipped with no queue,
+    // where there is no front to match.
+    let match_front = if strategy.queue.is_empty() {
+        None
+    } else {
+        calculate_maker_strategy(MakerRequest {
+            match_front: true,
+            ..base
+        })
+        .ok()
+        .and_then(|matched| {
+            matched
+                .recommendations
+                .into_iter()
+                .find(|item| item.mode == MakerMode::Opportunity)
+        })
     };
+    Some(MakerModel {
+        size,
+        strategy,
+        match_front,
+    })
+}
+
+/// The listing-strategy section as display lines.
+fn render_maker(
+    model: &MakerModel,
+    have: &MarketAssetId,
+    need: &MarketAssetId,
+    language: UiLanguage,
+) -> Vec<String> {
+    use crate::report_text::fill;
+    use ptt_strategy::{MakerMode, MakerRecommendation};
+
+    let text = crate::report_text::report(language);
+    let strategy = &model.strategy;
+    let size = model.size;
 
     let mut lines = vec![fill(
         text.maker_header,
@@ -388,17 +645,7 @@ fn maker_section(
     if let Some(recommendation) = undercut {
         lines.extend(mode_line(text.maker_undercut, recommendation));
     }
-    // The match-front variant is the same Opportunity mode priced at the
-    // front instead of below it; a second call keeps that trade-off visible
-    // without a third mode existing anywhere.
-    if let Ok(matched) = calculate_maker_strategy(MakerRequest {
-        match_front: true,
-        ..base
-    }) && let Some(recommendation) = matched
-        .recommendations
-        .iter()
-        .find(|item| item.mode == MakerMode::Opportunity)
-    {
+    if let Some(recommendation) = &model.match_front {
         lines.extend(mode_line(text.maker_match, recommendation));
     }
     if let Some(recommendation) = strategy
@@ -588,28 +835,34 @@ pub fn watchlist_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
+    let model = watchlist_model(observations, context_key, league, tuning, language)?;
+    Ok(render_watchlist(&model, language))
+}
+
+/// Everything the Watchlist page knows, before anything decides how to draw
+/// it.
+pub fn watchlist_model(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    league: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<WatchlistModel, String> {
     let market = build_market(observations, context_key, tuning, language)?;
     let (policy, policy_warning) = market_policy_from(tuning, league, language);
-    let mut lines = market.notes.clone();
-    use crate::report_text::fill;
-    let text = crate::report_text::report(language);
-
-    if let Some(warning) = policy_warning {
-        lines.push(warning);
-    }
-    lines.push(fill(
-        text.core_liquidity,
-        &[&policy
-            .core_liquidity
-            .iter()
-            .map(MarketAssetId::as_str)
-            .collect::<Vec<_>>()
-            .join(", ")],
-    ));
+    let mut notes = market.notes.clone();
+    notes.extend(policy_warning);
 
     // Value everything seen against the first core currency.
-    let Some(anchor) = policy.core_liquidity.first() else {
-        return Ok(lines);
+    let Some(anchor) = policy.core_liquidity.first().cloned() else {
+        return Ok(WatchlistModel {
+            notes,
+            core_liquidity: policy.core_liquidity,
+            valuations: Vec::new(),
+            coverage: CoverageOutcome::NotComputed,
+            suggestions: Vec::new(),
+            anchors: Vec::new(),
+        });
     };
     let mut seen: Vec<MarketAssetId> = observations
         .iter()
@@ -623,47 +876,103 @@ pub fn watchlist_report(
     seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
     seen.dedup();
 
-    for asset in seen.iter().filter(|asset| *asset != anchor) {
-        let valuation = value_against_anchor(ValuationRequest {
-            asset_id: asset,
-            anchor_asset_id: anchor,
-            mode: ValuationMode::Midpoint,
-            edges: &market.selected,
-            include_historical: false,
-        });
-        let value = match (&valuation.value, valuation.status) {
-            (Some(value), ValuationStatus::TwoSided) => {
-                format!("{} (both sides)", value.text)
-            }
-            (Some(value), _) => format!("{} (one side only)", value.text),
-            (None, _) => text.no_price_capture.to_owned(),
-        };
-        lines.push(format!("{:<20} {value}", asset.as_str(),));
-    }
+    let valuations = seen
+        .iter()
+        .filter(|asset| **asset != anchor)
+        .map(|asset| AssetValuation {
+            asset_id: asset.clone(),
+            valuation: value_against_anchor(ValuationRequest {
+                asset_id: asset,
+                anchor_asset_id: &anchor,
+                mode: ValuationMode::Midpoint,
+                edges: &market.selected,
+                include_historical: false,
+            }),
+        })
+        .collect();
 
     // Typed coverage gaps for the pairs this focus group cares about, and
     // the probes that would close them.
-    match focus_gaps(
+    let coverage = match focus_coverage(
         observations,
         context_key,
         &policy,
         tuning,
         &seen,
         Some(&market),
-        language,
     ) {
-        Ok(gap_lines) => lines.extend(gap_lines),
-        Err(reason) => lines.push(fill(text.coverage_unavailable, &[&reason])),
+        Ok((entries, candidates)) => CoverageOutcome::Ready(CoverageModel {
+            entries,
+            candidates,
+        }),
+        Err(reason) => CoverageOutcome::Failed(reason),
+    };
+
+    let suggestions = focus_suggestions(observations, &policy, tuning)
+        .into_iter()
+        .map(|(asset_id, snapshot_count)| FocusSuggestion {
+            asset_id,
+            snapshot_count,
+        })
+        .collect();
+    let anchors = recommend_liquidity_anchors(&market.selected, &policy);
+
+    Ok(WatchlistModel {
+        notes,
+        core_liquidity: policy.core_liquidity,
+        valuations,
+        coverage,
+        suggestions,
+        anchors,
+    })
+}
+
+/// The Watchlist page as display lines.
+fn render_watchlist(model: &WatchlistModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
+    let mut lines = model.notes.clone();
+
+    lines.push(fill(
+        text.core_liquidity,
+        &[&model
+            .core_liquidity
+            .iter()
+            .map(MarketAssetId::as_str)
+            .collect::<Vec<_>>()
+            .join(", ")],
+    ));
+
+    for entry in &model.valuations {
+        let value = match (&entry.valuation.value, entry.valuation.status) {
+            (Some(value), ValuationStatus::TwoSided) => {
+                format!("{} (both sides)", value.text)
+            }
+            (Some(value), _) => format!("{} (one side only)", value.text),
+            (None, _) => text.no_price_capture.to_owned(),
+        };
+        lines.push(format!("{:<20} {value}", entry.asset_id.as_str(),));
     }
 
-    for (asset, count) in focus_suggestions(observations, &policy, tuning) {
+    match &model.coverage {
+        CoverageOutcome::NotComputed => return lines,
+        CoverageOutcome::Failed(reason) => {
+            lines.push(fill(text.coverage_unavailable, &[reason]));
+        }
+        CoverageOutcome::Ready(coverage) => lines.extend(render_coverage(coverage, language)),
+    }
+
+    for suggestion in &model.suggestions {
         lines.push(fill(
             text.focus_suggestion,
-            &[asset.as_str(), &count.to_string()],
+            &[
+                suggestion.asset_id.as_str(),
+                &suggestion.snapshot_count.to_string(),
+            ],
         ));
     }
 
-    for recommendation in recommend_liquidity_anchors(&market.selected, &policy) {
+    for recommendation in &model.anchors {
         lines.push(format!(
             "{}: {} (score {}.{}, {} pairs, {} two-way)",
             crate::report_text::anchor_action(language, recommendation.action),
@@ -674,7 +983,7 @@ pub fn watchlist_report(
             recommendation.bidirectional_pair_count,
         ));
     }
-    Ok(lines)
+    lines
 }
 
 /// "Where is the money right now": the unified radar.
@@ -696,11 +1005,28 @@ pub fn opportunities_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    use crate::report_text::fill;
-    let text = crate::report_text::report(language);
+    let model = opportunities_model(observations, context_key, league, tuning, language)?;
+    Ok(render_opportunities(&model, language))
+}
+
+/// Everything the Opportunities page knows, before anything decides how to
+/// draw it.
+pub fn opportunities_model(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    league: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<OpportunitiesModel, String> {
     let (policy, policy_warning) = market_policy_from(tuning, league, language);
+    // The unavailable answers carry no notes: each is a single sentence about
+    // why there is no page, and a degradation notice above it would be
+    // commentary on a scan that never ran.
     if policy.core_liquidity.is_empty() {
-        return Ok(vec![text.no_core_currency.to_owned()]);
+        return Ok(OpportunitiesModel {
+            notes: Vec::new(),
+            scan: RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency),
+        });
     }
     // Counted before the book is built: an empty window has no assets, and
     // `build_market` cannot make a unit catalogue out of none.
@@ -716,7 +1042,10 @@ pub fn opportunities_report(
     seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
     seen.dedup();
     if seen.len() < 2 {
-        return Ok(vec![text.not_enough_market.to_owned()]);
+        return Ok(OpportunitiesModel {
+            notes: Vec::new(),
+            scan: RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket),
+        });
     }
     let market = build_market(observations, context_key, tuning, language)?;
 
@@ -738,20 +1067,18 @@ pub fn opportunities_report(
         }
     }
     if starts.is_empty() {
-        let anchor_name = policy
-            .core_liquidity
-            .first()
-            .map_or("?", MarketAssetId::as_str);
-        return Ok(vec![fill(
-            text.cannot_stake,
-            &[&stake.to_string(), anchor_name],
-        )]);
+        return Ok(OpportunitiesModel {
+            notes: Vec::new(),
+            scan: RadarScan::Unavailable(RadarUnavailable::CannotStake {
+                stake,
+                anchor: policy.core_liquidity.first().cloned(),
+            }),
+        });
     }
-    let start_names = starts
+    let start_names: Vec<MarketAssetId> = starts
         .iter()
-        .map(|start| start.start_asset_id.as_str())
-        .collect::<Vec<_>>()
-        .join(", ");
+        .map(|start| start.start_asset_id.clone())
+        .collect();
     // Settings values pass through the engine's own validation bounds; a
     // hand-edited extreme is clamped to the largest honest value rather than
     // failing the page.
@@ -790,27 +1117,94 @@ pub fn opportunities_report(
     )
     .map_err(|error| format!("radar: {error:?}"))?;
 
-    let mut lines = market.notes.clone();
-    if let Some(warning) = policy_warning {
-        lines.push(warning);
-    }
+    let mut notes = market.notes.clone();
+    notes.extend(policy_warning);
+
+    let freshness = market.instant_selection.policy.freshness;
+    let now = Utc::now();
+    let items = result
+        .items
+        .into_iter()
+        .map(|item| {
+            // The light reads the oldest leg: a route is only as current as
+            // the capture it leans on hardest.
+            let light = item
+                .conversion_path
+                .as_ref()
+                .and_then(|path| path.capture_time_evidence.as_ref())
+                .or_else(|| {
+                    item.triangle
+                        .as_ref()
+                        .and_then(|triangle| triangle.capture_time_evidence.as_ref())
+                })
+                .map(|evidence| {
+                    freshness
+                        .classify(evidence.earliest_captured_at, now)
+                        .status
+                });
+            OpportunityRow { item, light }
+        })
+        .collect();
+
+    Ok(OpportunitiesModel {
+        notes,
+        scan: RadarScan::Ran(Box::new(RadarScanResult {
+            stake,
+            starts: start_names,
+            items,
+            probe_candidates: result.probe_candidates,
+            diagnostics: result.diagnostics,
+        })),
+    })
+}
+
+/// The Opportunities page as display lines.
+fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
+
+    let scan = match &model.scan {
+        RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency) => {
+            return vec![text.no_core_currency.to_owned()];
+        }
+        RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket) => {
+            return vec![text.not_enough_market.to_owned()];
+        }
+        RadarScan::Unavailable(RadarUnavailable::CannotStake { stake, anchor }) => {
+            return vec![fill(
+                text.cannot_stake,
+                &[
+                    &stake.to_string(),
+                    anchor.as_ref().map_or("?", MarketAssetId::as_str),
+                ],
+            )];
+        }
+        RadarScan::Ran(scan) => scan,
+    };
+
+    let mut lines = model.notes.clone();
     lines.push(fill(
         text.staking,
         &[
-            &stake.to_string(),
-            &start_names,
-            &result.diagnostics.target_count.to_string(),
+            &scan.stake.to_string(),
+            &scan
+                .starts
+                .iter()
+                .map(MarketAssetId::as_str)
+                .collect::<Vec<_>>()
+                .join(", "),
+            &scan.diagnostics.target_count.to_string(),
         ],
     ));
     // Said before the results, not after: a truncated search that looks like a
     // complete one is how "there is nothing better" gets believed.
-    if result.diagnostics.budget_exhausted || result.diagnostics.results_truncated {
+    if scan.diagnostics.budget_exhausted || scan.diagnostics.results_truncated {
         lines.push(fill(
             text.partial_scan,
             &[
-                &result.diagnostics.skipped_target_count.to_string(),
-                &result.diagnostics.expansions_used.to_string(),
-                if result.diagnostics.results_truncated {
+                &scan.diagnostics.skipped_target_count.to_string(),
+                &scan.diagnostics.expansions_used.to_string(),
+                if scan.diagnostics.results_truncated {
                     text.results_cut
                 } else {
                     ""
@@ -819,13 +1213,13 @@ pub fn opportunities_report(
         ));
     }
     // The radar's own probe suggestions — the pairs whose absence or
-    // staleness limited what it could claim. Computed since P4, rendered
-    // never until now; shown whether or not any item survived, because an
-    // empty page is exactly when "go flip X" matters most.
+    // staleness limited what it could claim. Shown whether or not any item
+    // survived, because an empty page is exactly when "go flip X" matters
+    // most.
     let mut probe_lines = Vec::new();
-    if !result.probe_candidates.is_empty() {
+    if !scan.probe_candidates.is_empty() {
         probe_lines.push(text.radar_probe_header.to_owned());
-        for candidate in result.probe_candidates.iter().take(4) {
+        for candidate in scan.probe_candidates.iter().take(4) {
             probe_lines.push(format!(
                 "  {}  {} {} -> {}   ({})",
                 crate::report_text::probe_priority(language, candidate.priority),
@@ -836,41 +1230,23 @@ pub fn opportunities_report(
             ));
         }
     }
-    if result.items.is_empty() {
+    if scan.items.is_empty() {
         lines.push(text.nothing_beats_holding.to_owned());
-        if result.diagnostics.missing_conversion_count > 0 {
+        if scan.diagnostics.missing_conversion_count > 0 {
             lines.push(format!(
                 "{} targets have no route yet — the Watchlist says which to flip",
-                result.diagnostics.missing_conversion_count
+                scan.diagnostics.missing_conversion_count
             ));
         }
         lines.extend(probe_lines);
-        return Ok(lines);
+        return lines;
     }
 
-    let freshness = market.instant_selection.policy.freshness;
-    let now = Utc::now();
-    for item in &result.items {
-        // The light reads the oldest leg: a route is only as current as the
-        // capture it leans on hardest.
-        let light = item
-            .conversion_path
-            .as_ref()
-            .and_then(|path| path.capture_time_evidence.as_ref())
-            .or_else(|| {
-                item.triangle
-                    .as_ref()
-                    .and_then(|triangle| triangle.capture_time_evidence.as_ref())
-            })
-            .map(|evidence| {
-                freshness
-                    .classify(evidence.earliest_captured_at, now)
-                    .status
-            });
-        lines.extend(radar_item_lines(item, light, language));
+    for row in &scan.items {
+        lines.extend(radar_item_lines(&row.item, row.light, language));
     }
     lines.extend(probe_lines);
-    Ok(lines)
+    lines
 }
 
 /// One radar item, as the page prints it.
@@ -959,7 +1335,18 @@ pub fn probe_queue(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let text = crate::report_text::report(language);
+    let model = probe_queue_model(observations, context_key, league, tuning, language)?;
+    Ok(render_probe_queue(&model, language))
+}
+
+/// The probe queue, before anything decides how to draw it.
+pub fn probe_queue_model(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    league: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<ProbeQueueModel, String> {
     let (policy, _policy_warning) = market_policy_from(tuning, league, language);
     let mut seen: Vec<MarketAssetId> = observations
         .iter()
@@ -973,7 +1360,12 @@ pub fn probe_queue(
     seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
     seen.dedup();
     if seen.is_empty() {
-        return Ok(vec![text.no_pairs_captured.to_owned()]);
+        return Ok(ProbeQueueModel {
+            nothing_captured: true,
+            complete_pairs: 0,
+            total_pairs: 0,
+            candidates: Vec::new(),
+        });
     }
 
     let (coverage, candidates) =
@@ -982,16 +1374,29 @@ pub fn probe_queue(
         .iter()
         .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
         .count();
+    Ok(ProbeQueueModel {
+        nothing_captured: false,
+        complete_pairs: coverage.len() - missing,
+        total_pairs: coverage.len(),
+        candidates,
+    })
+}
+
+/// The probe queue as display lines.
+fn render_probe_queue(model: &ProbeQueueModel, language: UiLanguage) -> Vec<String> {
+    let text = crate::report_text::report(language);
+    if model.nothing_captured {
+        return vec![text.no_pairs_captured.to_owned()];
+    }
     let mut lines = vec![format!(
         "{} of {} pairs complete",
-        coverage.len() - missing,
-        coverage.len()
+        model.complete_pairs, model.total_pairs
     )];
-    if candidates.is_empty() {
+    if model.candidates.is_empty() {
         lines.push(text.nothing_to_probe.to_owned());
-        return Ok(lines);
+        return lines;
     }
-    for candidate in candidates.iter().take(6) {
+    for candidate in model.candidates.iter().take(6) {
         lines.push(format!(
             "{}  flip {} -> {}   ({})",
             crate::report_text::probe_priority(language, candidate.priority),
@@ -1000,7 +1405,7 @@ pub fn probe_queue(
             crate::report_text::probe_reason(language, candidate.reason),
         ));
     }
-    Ok(lines)
+    lines
 }
 
 /// "What has this pair been doing": candles, a summary, and what looks off.
@@ -1012,39 +1417,80 @@ pub fn history_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    use crate::report_text::fill;
-    let text = crate::report_text::report(language);
+    let model = history_model(observations, context_key, have, need, tuning, language)?;
+    Ok(render_history(&model, language))
+}
+
+/// Everything the History page knows, before anything decides how to draw it.
+pub fn history_model(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    have: &MarketAssetId,
+    need: &MarketAssetId,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<HistoryModel, String> {
     let market = build_market(observations, context_key, tuning, language)?;
     let points = price_points(&market.selected, have, need);
     if points.is_empty() {
-        let mut lines = market.notes.clone();
-        lines.push(fill(text.no_history_yet, &[have.as_str(), need.as_str()]));
-        return Ok(lines);
+        return Ok(HistoryModel {
+            notes: market.notes,
+            have: have.clone(),
+            need: need.clone(),
+            summary: None,
+            light: None,
+            candles: Vec::new(),
+            anomalies: Vec::new(),
+        });
     }
 
     let summary = summarize(&points, have, need);
-    let mut lines = market.notes.clone();
-    lines.push(format!(
-        "{have} -> {need}: {} points over {} snapshots",
-        summary.point_count, summary.snapshot_count
-    ));
     // The pair's traffic light reads the newest capture of this direction:
     // older points are history, but the light describes what acting now
     // would lean on.
-    if let Some(newest) = observations
+    let light = observations
         .iter()
         .filter(|observation| {
             observation.edge.from_asset_id == *have && observation.edge.to_asset_id == *need
         })
         .map(|observation| observation.edge.captured_at)
         .max()
-    {
-        let status = market
-            .instant_selection
-            .policy
-            .freshness
-            .classify(newest, Utc::now())
-            .status;
+        .map(|newest| {
+            market
+                .instant_selection
+                .policy
+                .freshness
+                .classify(newest, Utc::now())
+                .status
+        });
+    let anomalies = anomalies(&summary, &points);
+    Ok(HistoryModel {
+        notes: market.notes,
+        have: have.clone(),
+        need: need.clone(),
+        candles: candles(&points, BucketSize::FiveMinutes),
+        summary: Some(summary),
+        light,
+        anomalies,
+    })
+}
+
+/// The History page as display lines.
+fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
+    let (have, need) = (&model.have, &model.need);
+    let mut lines = model.notes.clone();
+
+    let Some(summary) = &model.summary else {
+        lines.push(fill(text.no_history_yet, &[have.as_str(), need.as_str()]));
+        return lines;
+    };
+    lines.push(format!(
+        "{have} -> {need}: {} points over {} snapshots",
+        summary.point_count, summary.snapshot_count
+    ));
+    if let Some(status) = model.light {
         lines.push(fill(
             text.freshness_light_line,
             &[crate::report_text::freshness_light(language, status)],
@@ -1071,11 +1517,9 @@ pub fn history_report(
         lines.push(text.nothing_current.to_owned());
     }
 
-    for candle in candles(&points, BucketSize::FiveMinutes)
-        .iter()
-        .rev()
-        .take(8)
-    {
+    // Newest first, and only the most recent few: the model keeps every
+    // candle so a chart can draw the whole window.
+    for candle in model.candles.iter().rev().take(8) {
         lines.push(format!(
             "{}  o {} h {} l {} c {}  n={}{}",
             candle.bucket_start.format("%H:%M"),
@@ -1092,7 +1536,7 @@ pub fn history_report(
         ));
     }
 
-    for anomaly in anomalies(&summary, &points) {
+    for anomaly in &model.anomalies {
         lines.push(format!(
             "{} ({}){}",
             crate::report_text::price_anomaly_kind(language, anomaly.kind),
@@ -1102,7 +1546,7 @@ pub fn history_report(
                 .map_or_else(String::new, |bps| format!(" {bps}bp")),
         ));
     }
-    Ok(lines)
+    lines
 }
 
 /// Coverage and probe queue for the current focus group.
@@ -1166,26 +1610,17 @@ fn focus_coverage(
 }
 
 /// The same coverage, rendered for the watchlist page.
-fn focus_gaps(
-    observations: &[MarketEdgeObservation],
-    context_key: &str,
-    policy: &MarketPolicy,
-    tuning: &MarketTuning,
-    seen: &[MarketAssetId],
-    prebuilt: Option<&Market>,
-    language: UiLanguage,
-) -> Result<Vec<String>, String> {
-    let (coverage, candidates) =
-        focus_coverage(observations, context_key, policy, tuning, seen, prebuilt)?;
+fn render_coverage(coverage: &CoverageModel, language: UiLanguage) -> Vec<String> {
     let mut lines = Vec::new();
     let incomplete: Vec<_> = coverage
+        .entries
         .iter()
         .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
         .collect();
     lines.push(format!(
         "coverage: {} of {} pairs complete",
-        coverage.len() - incomplete.len(),
-        coverage.len()
+        coverage.entries.len() - incomplete.len(),
+        coverage.entries.len()
     ));
     for entry in incomplete.iter().take(8) {
         lines.push(format!(
@@ -1195,7 +1630,7 @@ fn focus_gaps(
             crate::report_text::focus_coverage_status(language, entry.status),
         ));
     }
-    for candidate in candidates.iter().take(8) {
+    for candidate in coverage.candidates.iter().take(8) {
         lines.push(format!(
             "  probe {}: {} -> {}  ({})",
             crate::report_text::probe_priority(language, candidate.priority),
@@ -1204,7 +1639,7 @@ fn focus_gaps(
             crate::report_text::probe_reason(language, candidate.reason),
         ));
     }
-    Ok(lines)
+    lines
 }
 
 #[cfg(test)]

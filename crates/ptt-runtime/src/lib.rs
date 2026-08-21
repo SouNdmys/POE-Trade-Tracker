@@ -15,6 +15,38 @@ pub mod pipeline;
 pub mod report_text;
 pub mod reports;
 
+/// The domain types the page models are made of.
+///
+/// The app depends on this crate and not on the engine, the strategy layer or
+/// the workflows layer, so without these it can hold a `RadarItem` but cannot
+/// name one. Re-exporting here rather than adding four more path dependencies
+/// keeps `ptt-runtime` the single seam the interface talks to — and keeps the
+/// bilingual naming of these enums in `report_text`, where an unnamed new
+/// variant fails to compile instead of reaching a screen as a Rust
+/// identifier.
+pub mod domain {
+    pub use ptt_market_book::{
+        FreshnessAssessment, FreshnessPolicy, FreshnessStatus, QuoteRiskFlag, QuoteSelectionPolicy,
+        QuoteSelectionStrategy,
+    };
+    pub use ptt_strategy::{
+        Actionability, AnchorAction, AnchorRecommendation, AnomalySeverity, BucketSize,
+        ExecutionRisk, MakerExcludedListing, MakerMode, MakerQueueExclusion, MakerQueueLevel,
+        MakerRecommendation, MakerStrategy, MakerWall, MarketPolicy, MarketRole, ModelCaveat,
+        PriceAnomaly, PriceAnomalyKind, PriceCandle, PricePoint, PriceSummary, ProfitTier,
+        ResidualPosition, RiskAssessment, RiskThresholds, RouteAccounting, Valuation,
+        ValuationMode, ValuationStatus,
+    };
+    pub use ptt_trade_engine::{
+        AssetAmount, AssetUnit, CaptureTimeEvidence, ComparisonDirection, ConversionPath,
+        ExecutionRiskFlag, PairFill, TriangleEvaluation,
+    };
+    pub use ptt_workflows::{
+        FocusCoverage, FocusCoverageStatus, FocusRole, ProbeCandidate, ProbePriority, ProbeReason,
+        RadarDiagnostics, RadarItem, RadarItemKind, RadarReason,
+    };
+}
+
 /// Monotonically increasing id for a runtime session. Work stamped with an old
 /// generation is discarded on arrival; replacement invalidates the generation
 /// *before* waiting on anything.
