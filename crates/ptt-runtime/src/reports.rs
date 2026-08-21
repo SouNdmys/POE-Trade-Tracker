@@ -157,6 +157,7 @@ pub fn convert_report(
     context_key: &str,
     have: &MarketAssetId,
     need: &MarketAssetId,
+    holdings: Option<u64>,
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
@@ -165,7 +166,28 @@ pub fn convert_report(
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
 
-    for size in CONVERT_SIZES {
+    // A stated holding prices exactly that size — "I have 100 divine" is a
+    // question about 100, not about a ladder. Otherwise the configured
+    // ladder, with the shipped one behind an empty or zeroed setting.
+    let sizes: Vec<u64> = match holdings {
+        Some(count) => vec![count.max(1)],
+        None => {
+            let configured: Vec<u64> = tuning
+                .convert
+                .sizes
+                .iter()
+                .copied()
+                .filter(|size| *size > 0)
+                .collect();
+            if configured.is_empty() {
+                CONVERT_SIZES.to_vec()
+            } else {
+                configured
+            }
+        }
+    };
+    let max_hops = u8::try_from(tuning.convert.max_hops.clamp(1, 4)).unwrap_or(3);
+    for size in sizes.iter().copied() {
         let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
             continue;
         };
@@ -175,7 +197,7 @@ pub fn convert_report(
                 from_asset_id: have.clone(),
                 to_asset_id: need.clone(),
                 amount_in,
-                max_hops: 3,
+                max_hops,
                 max_paths: 64,
                 max_expansions: 10_000,
                 alternative_limit: 2,
@@ -260,7 +282,13 @@ pub fn convert_report(
         lines.push(text.nothing_to_convert.to_owned());
         return Ok(lines);
     }
-    lines.extend(maker_section(&market, have, need, language));
+    lines.extend(maker_section(
+        &market,
+        have,
+        need,
+        sizes[sizes.len() / 2],
+        language,
+    ));
     Ok(lines)
 }
 
@@ -274,15 +302,13 @@ fn maker_section(
     market: &Market,
     have: &MarketAssetId,
     need: &MarketAssetId,
+    size: u64,
     language: UiLanguage,
 ) -> Vec<String> {
     use crate::report_text::fill;
     use ptt_strategy::{MakerMode, MakerRecommendation, MakerRequest, calculate_maker_strategy};
 
     let text = crate::report_text::report(language);
-    // The middle configured size, so this section and the radar (which also
-    // stakes the middle) describe the same market.
-    let size = CONVERT_SIZES[CONVERT_SIZES.len() / 2];
     let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
         return Vec::new();
     };
@@ -1767,6 +1793,39 @@ mod convert_tests {
         )
     }
 
+    /// "I hold 100" prices one size — the holding — and the ladder stays
+    /// home. The maker section follows the same size.
+    #[test]
+    fn a_stated_holding_prices_exactly_that_size() {
+        let observations = vec![
+            taker("take-700", 0, (700, 1), 100_000),
+            competing("front", 1, (784, 1), 40),
+        ];
+        let lines = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            Some(100),
+            &MarketTuning::default(),
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join("\n");
+        assert!(
+            joined.contains(" 100 divine-orb"),
+            "the stated holding must be priced: {joined}"
+        );
+        assert!(
+            !joined.contains("  10 divine-orb   via"),
+            "the default ladder must not run alongside a stated holding: {joined}"
+        );
+        assert!(
+            joined.contains("at size 100"),
+            "the maker section follows the holding: {joined}"
+        );
+    }
+
     /// The Convert page's maker section, end to end from raw observations:
     /// the bait listing on the competing side is flagged by the book's
     /// median band, excluded from the queue math, and rendered with its
@@ -1785,6 +1844,7 @@ mod convert_tests {
             CONTEXT,
             &asset("divine-orb"),
             &asset("chaos-orb"),
+            None,
             &MarketTuning::default(),
             UiLanguage::English,
         )
@@ -1819,6 +1879,7 @@ mod convert_tests {
             CONTEXT,
             &asset("divine-orb"),
             &asset("chaos-orb"),
+            None,
             &MarketTuning::default(),
             UiLanguage::Chinese,
         )

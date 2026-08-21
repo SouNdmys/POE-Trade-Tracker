@@ -1695,11 +1695,14 @@ impl AppShell {
         match self.page {
             // Answered before this function is reached; see refresh_report.
             Page::Monitor | Page::Opportunities | Page::Calibrate => Ok(Vec::new()),
+            // No holdings affordance in the text shell yet; the parameter
+            // is wired so the real UI only adds an input box.
             Page::Convert => ptt_runtime::reports::convert_report(
                 &observations,
                 &context_key,
                 &have,
                 &need,
+                None,
                 &tuning,
                 self.settings.ui_language,
             ),

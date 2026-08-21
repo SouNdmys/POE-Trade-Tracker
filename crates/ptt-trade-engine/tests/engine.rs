@@ -1079,3 +1079,86 @@ fn visibility_type_remains_independent_from_engine_inputs() {
         }
     );
 }
+
+/// First coverage of `allowed_intermediate_asset_ids = Some(...)` — the
+/// focus-set restriction the radar leans on. The book offers a -> b -> c
+/// (better) and a -> c (direct, worse). An empty allow-list prunes every
+/// bridge and leaves only the direct route; allowing `b` restores the
+/// better path; and the destination never needs to be on the list.
+#[test]
+fn an_intermediate_allow_list_prunes_bridges_but_never_the_destination() {
+    let catalog = whole_catalog(&["a", "b", "c"]);
+    let build = || {
+        index(
+            QuoteSelectionStrategy::Instant,
+            catalog.clone(),
+            vec![
+                PairSpec {
+                    from: "a",
+                    to: "b",
+                    levels: vec![LevelSpec {
+                        id: "a-b",
+                        rate: "5:3",
+                        stock: 100,
+                    }],
+                },
+                PairSpec {
+                    from: "b",
+                    to: "c",
+                    levels: vec![LevelSpec {
+                        id: "b-c",
+                        rate: "5:3",
+                        stock: 100,
+                    }],
+                },
+                PairSpec {
+                    from: "a",
+                    to: "c",
+                    levels: vec![LevelSpec {
+                        id: "a-c",
+                        rate: "2:1",
+                        stock: 100,
+                    }],
+                },
+            ],
+        )
+    };
+    let request = |allowed: Option<Vec<MarketAssetId>>| ConversionRequest {
+        from_asset_id: asset("a"),
+        to_asset_id: asset("c"),
+        amount_in: amount("a", 2, &catalog),
+        max_hops: 2,
+        max_paths: 20,
+        max_expansions: 100,
+        alternative_limit: 5,
+        allowed_intermediate_asset_ids: allowed,
+        fee_policy: FeePolicy::None,
+    };
+
+    // No bridges allowed: only the direct edge survives, even though the
+    // bridged route pays more. The destination is reachable without being
+    // on the (empty) list.
+    let fenced = find_best_conversion(
+        &build(),
+        &request(Some(Vec::new())),
+        &SearchCancellation::default(),
+    )
+    .expect("conversion");
+    let best = fenced.best_path.expect("best");
+    assert_eq!(best.path_asset_ids, vec![asset("a"), asset("c")]);
+    assert_eq!(best.amount_out.quanta, 4, "the direct route's own payout");
+
+    // Allowing the bridge restores the better route.
+    let open = find_best_conversion(
+        &build(),
+        &request(Some(vec![asset("b")])),
+        &SearchCancellation::default(),
+    )
+    .expect("conversion");
+    let best = open.best_path.expect("best");
+    assert_eq!(
+        best.path_asset_ids,
+        vec![asset("a"), asset("b"), asset("c")]
+    );
+    assert_eq!(best.amount_out.quanta, 5);
+}
