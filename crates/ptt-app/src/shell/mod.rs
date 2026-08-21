@@ -806,7 +806,8 @@ impl AppShell {
             | PageData::Probes(_)
             | PageData::Opportunities(_)
             | PageData::Convert(_)
-            | PageData::Watchlist(_) => vec![text.nothing_yet.to_owned()],
+            | PageData::Watchlist(_)
+            | PageData::History(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
             PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
@@ -927,6 +928,13 @@ fn build_page_data(request: &PageRequest) -> crate::state::PageData {
             Err(reason) => PageData::Failed(reason),
         };
     }
+    if request.page == Page::History {
+        return match load_history(request) {
+            Ok(Some(model)) => PageData::History(Box::new(model)),
+            Ok(None) => PageData::WaitingForPair,
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
     if request.page == Page::Convert {
         return match load_convert(request) {
             Ok(Some(model)) => PageData::Convert(Box::new(model)),
@@ -1021,6 +1029,30 @@ fn load_watchlist(request: &PageRequest) -> Result<ptt_runtime::reports::Watchli
         &request.tuning,
         request.language,
     )
+}
+
+/// One pair's price series.
+#[cfg(windows)]
+fn load_history(
+    request: &PageRequest,
+) -> Result<Option<ptt_runtime::reports::HistoryModel>, String> {
+    use ptt_runtime::live::domain_asset_id;
+
+    let Some((have, need)) = &request.pair else {
+        return Ok(None);
+    };
+    let (context_key, observations) = load_window(request)?;
+    let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
+    let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
+    ptt_runtime::reports::history_model(
+        &observations,
+        &context_key,
+        &have,
+        &need,
+        &request.tuning,
+        request.language,
+    )
+    .map(Some)
 }
 
 /// "I hold X and want Y", priced at the requested size.
@@ -1245,6 +1277,8 @@ impl Render for AppShell {
                         self.render_convert(cx)
                     } else if self.page == Page::Watchlist {
                         self.render_watchlist(cx)
+                    } else if self.page == Page::History {
+                        self.render_history(cx)
                     } else if self.page == Page::Calibrate {
                         self.render_calibrate(cx)
                     } else {

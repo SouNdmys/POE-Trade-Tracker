@@ -6,6 +6,7 @@
 
 pub(super) mod calibrate;
 pub(super) mod convert;
+pub(super) mod history;
 pub mod opportunities;
 pub(super) mod settings;
 pub(super) mod watchlist;

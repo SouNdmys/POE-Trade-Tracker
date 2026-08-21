@@ -33,6 +33,8 @@ pub enum PageData {
     Convert(Box<ptt_runtime::reports::ConvertModel>),
     /// The focus set, its valuations and its gaps.
     Watchlist(Box<ptt_runtime::reports::WatchlistModel>),
+    /// One pair's price series.
+    History(Box<ptt_runtime::reports::HistoryModel>),
     Failed(String),
 }
 
@@ -42,9 +44,11 @@ impl PageData {
     pub fn is_content(&self) -> bool {
         match self {
             Self::Text(lines) => !lines.is_empty(),
-            Self::Probes(_) | Self::Opportunities(_) | Self::Convert(_) | Self::Watchlist(_) => {
-                true
-            }
+            Self::Probes(_)
+            | Self::Opportunities(_)
+            | Self::Convert(_)
+            | Self::Watchlist(_)
+            | Self::History(_) => true,
             _ => false,
         }
     }
