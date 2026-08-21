@@ -805,7 +805,8 @@ impl AppShell {
             | PageData::Empty
             | PageData::Probes(_)
             | PageData::Opportunities(_)
-            | PageData::Convert(_) => vec![text.nothing_yet.to_owned()],
+            | PageData::Convert(_)
+            | PageData::Watchlist(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
             PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
@@ -920,6 +921,12 @@ fn build_page_data(request: &PageRequest) -> crate::state::PageData {
             Err(reason) => PageData::Failed(reason),
         };
     }
+    if request.page == Page::Watchlist {
+        return match load_watchlist(request) {
+            Ok(model) => PageData::Watchlist(Box::new(model)),
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
     if request.page == Page::Convert {
         return match load_convert(request) {
             Ok(Some(model)) => PageData::Convert(Box::new(model)),
@@ -1001,6 +1008,21 @@ fn load_opportunities(
     )
 }
 
+/// The focus set, its valuations and its gaps.
+#[cfg(windows)]
+fn load_watchlist(request: &PageRequest) -> Result<ptt_runtime::reports::WatchlistModel, String> {
+    use ptt_runtime::pipeline::LIVE_LEAGUE;
+
+    let (context_key, observations) = load_window(request)?;
+    ptt_runtime::reports::watchlist_model(
+        &observations,
+        &context_key,
+        LIVE_LEAGUE,
+        &request.tuning,
+        request.language,
+    )
+}
+
 /// "I hold X and want Y", priced at the requested size.
 #[cfg(windows)]
 fn load_convert(
@@ -1029,7 +1051,6 @@ fn load_convert(
 #[cfg(windows)]
 fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
     use ptt_runtime::live::domain_asset_id;
-    use ptt_runtime::pipeline::LIVE_LEAGUE;
     use ptt_runtime::reports;
 
     let (context_key, observations) = load_window(request)?;
@@ -1045,9 +1066,8 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
         Page::Monitor => Ok(Vec::new()),
         // Answered as a model by `load_opportunities`.
         Page::Opportunities => Ok(Vec::new()),
-        Page::Watchlist => {
-            reports::watchlist_report(&observations, &context_key, LIVE_LEAGUE, tuning, language)
-        }
+        // Answered as a model by `load_watchlist`.
+        Page::Watchlist => Ok(Vec::new()),
         Page::Convert | Page::History => {
             let Some((have, need)) = &request.pair else {
                 return Ok(Vec::new());
@@ -1223,6 +1243,8 @@ impl Render for AppShell {
                         self.render_opportunities(cx)
                     } else if self.page == Page::Convert {
                         self.render_convert(cx)
+                    } else if self.page == Page::Watchlist {
+                        self.render_watchlist(cx)
                     } else if self.page == Page::Calibrate {
                         self.render_calibrate(cx)
                     } else {

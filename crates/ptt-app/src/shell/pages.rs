@@ -8,3 +8,4 @@ pub(super) mod calibrate;
 pub(super) mod convert;
 pub mod opportunities;
 pub(super) mod settings;
+pub(super) mod watchlist;

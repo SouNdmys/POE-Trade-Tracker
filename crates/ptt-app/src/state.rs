@@ -31,6 +31,8 @@ pub enum PageData {
     Opportunities(Box<ptt_runtime::reports::OpportunitiesModel>),
     /// "I hold X and want Y", priced.
     Convert(Box<ptt_runtime::reports::ConvertModel>),
+    /// The focus set, its valuations and its gaps.
+    Watchlist(Box<ptt_runtime::reports::WatchlistModel>),
     Failed(String),
 }
 
@@ -40,7 +42,9 @@ impl PageData {
     pub fn is_content(&self) -> bool {
         match self {
             Self::Text(lines) => !lines.is_empty(),
-            Self::Probes(_) | Self::Opportunities(_) | Self::Convert(_) => true,
+            Self::Probes(_) | Self::Opportunities(_) | Self::Convert(_) | Self::Watchlist(_) => {
+                true
+            }
             _ => false,
         }
     }
