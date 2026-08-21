@@ -226,7 +226,8 @@
         {
           "side": "available",
           "index": 0,
-          "expect": "skip"
+          "ratio": "1:1.33",
+          "stock": 9
         },
         {
           "side": "available",

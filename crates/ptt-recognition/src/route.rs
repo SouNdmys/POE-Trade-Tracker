@@ -566,6 +566,7 @@ mod windows_route {
         fn paddle_recognize_rect(
             &self,
             frame: &ptt_vision::CapturedFrame,
+            mask: Option<&ptt_vision::TextInkMask>,
             rect: ptt_vision::PixelRect,
         ) -> Option<ptt_ocr_onnx::CtcRecognition> {
             let paddle = self.paddle.as_ref()?;
@@ -582,6 +583,20 @@ mod windows_route {
                         / 1000) as u8;
                 }
             }
+            // Experiment: hand the model the ink mask's verdict instead of the
+            // raw panel. The mask already knows the stone is not a glyph.
+            // With a mask, everything it calls background is blanked before
+            // the model sees it. Reserved for the second reading of a row the
+            // ordering gate rejected — see `reread_contradictory_rows`.
+            if let Some(mask) = mask {
+                for y in 0..rect.height {
+                    for x in 0..rect.width {
+                        if mask.intensity_at(rect.x + x, rect.y + y).unwrap_or(0) == 0 {
+                            gray[y * rect.width + x] = 0;
+                        }
+                    }
+                }
+            }
             let view =
                 ptt_ocr_onnx::ImageView::gray8(rect.width, rect.height, rect.width, &gray).ok()?;
             paddle
@@ -591,37 +606,99 @@ mod windows_route {
                 .ok()
         }
 
+        /// Reads the rows the panel's own order rejects one more time, and
+        /// keeps the result only if it restores that order.
+        ///
+        /// Safe by construction: these rows are already being discarded, so a
+        /// second reading either wins one back or changes nothing. Returns
+        /// whatever is still contradictory afterwards.
+        ///
+        /// The second opinion is the ink mask. Both recognizers are handed raw
+        /// panel pixels — the mask decides geometry, not what the model sees —
+        /// so the stone texture in the blank column between the rate and the
+        /// stock reaches them, and is occasionally recognized as a glyph:
+        /// `97 : 1` came back as `97 : 10`, with the phantom `0` emitted
+        /// between the two columns and near enough to the rate to join it.
+        /// Blanking everything the mask calls background removes exactly that.
+        ///
+        /// It is not a better reader in general, which is why it is not the
+        /// first one: run over the frozen corpora it loses about as many rows
+        /// as it wins. Confined to rows already lost, only the winning half
+        /// can happen.
+        fn reread_contradictory_rows(
+            &self,
+            frame: &ptt_vision::CapturedFrame,
+            mask: &ptt_vision::TextInkMask,
+            rows: &mut Vec<RowObservation>,
+            row_rects: &[((Side, u8), ptt_vision::PixelRect)],
+        ) -> Vec<(Side, u8)> {
+            let contradictory = crate::book::out_of_order_rows(rows);
+            if contradictory.is_empty() {
+                return contradictory;
+            }
+            let mut repaired = rows.clone();
+            let mut changed = false;
+            for &(side, row_index) in &contradictory {
+                let Some(&(_, rect)) = row_rects.iter().find(|&&(key, _)| key == (side, row_index))
+                else {
+                    continue;
+                };
+                let Some((Some(ratio), Some(stock))) = self
+                    .paddle_row_line(frame, mask, rect, true)
+                    .map(|line| Self::split_row_text(&line))
+                else {
+                    continue;
+                };
+                let Some(row) = repaired
+                    .iter_mut()
+                    .find(|row| row.side == side && row.row_index == row_index)
+                else {
+                    continue;
+                };
+                if row.ratio.left == ratio.left && row.ratio.right == ratio.right {
+                    continue;
+                }
+                // The comparator is read off this frame's ink geometry rather
+                // than off the text, so the first pass's verdict on it stands.
+                row.ratio = crate::fields::RatioField {
+                    comparator: row.ratio.comparator,
+                    ..ratio
+                };
+                row.stock = stock;
+                changed = true;
+            }
+            if !changed {
+                return contradictory;
+            }
+            let after = crate::book::out_of_order_rows(&repaired);
+            // Strictly better or not at all. A reading that merely swaps which
+            // rows disagree has not learned anything about the panel.
+            if after.len() < contradictory.len() {
+                *rows = repaired;
+                return after;
+            }
+            contradictory
+        }
+
         /// The row's two columns, from one recognition of the whole row.
         ///
-        /// # Known defect
+        /// `masked` blanks everything the ink mask calls background before the
+        /// model sees the crop. Off for the first reading: over the frozen
+        /// corpora it loses about as many rows as it wins, so it is reserved
+        /// for [`Self::reread_contradictory_rows`], where the rows in question
+        /// are already being discarded.
         ///
-        /// The panel's stone texture in the blank column between the rate and
-        /// the stock is occasionally recognized as a glyph. It lands nearer
-        /// the rate than the column threshold, so it joins it: `97 : 1` came
-        /// back as `97 : 10` on a real frame, with the phantom `0` emitted at
-        /// step 15 against a rate ending at 10 and a stock starting at 27.
-        ///
-        /// No wrong value reaches the book — the ordering gate in
-        /// `crate::book::out_of_order_rows` catches the row, and takes the
-        /// good row beside it as collateral, so the panel's twelve rows became
-        /// ten. Losing two rows of depth is the cost.
-        ///
-        /// Cropping each column to its own ink, which keeps the texture out of
-        /// frame entirely, fixes that frame and costs more elsewhere: the tight
-        /// crop hands a wrapped rate's two lines to a single-line recognizer,
-        /// and the frozen corpora lost five rows to gain two. Gating it on
-        /// single-line columns is not enough — inside a 28px row crop the two
-        /// lines of a wrapped rate merge into one ink band. The approach worth
-        /// trying next is narrower: leave this path alone and re-read only the
-        /// rows the ordering gate rejects, against their own ink columns,
-        /// accepting the re-read only when it restores the panel's order.
+        /// Unmasked, the columns are split on the model's own letter spacing —
+        /// 3x the median inter-glyph delta — which is what lets panel texture
+        /// in the blank column join the rate when it is recognized as a glyph.
         fn paddle_row_line(
             &self,
             frame: &ptt_vision::CapturedFrame,
             mask: &ptt_vision::TextInkMask,
             rect: ptt_vision::PixelRect,
+            masked: bool,
         ) -> Option<String> {
-            let recognition = self.paddle_recognize_rect(frame, rect)?;
+            let recognition = self.paddle_recognize_rect(frame, masked.then_some(mask), rect)?;
 
             // The tensor is height-normalized, so absolute step distances
             // scale with the crop: use 3x the median inter-glyph delta as the
@@ -798,7 +875,7 @@ mod windows_route {
                 .map(|recognition| Self::split_row_fields(recognition.lines.as_slice()))
                 .unwrap_or((None, None));
             let paddle = self
-                .paddle_row_line(frame, mask, rect)
+                .paddle_row_line(frame, mask, rect, false)
                 .map_or((None, None), |line| Self::split_row_text(&line));
             if std::env::var_os("PTT_DEBUG_OCR").is_some() {
                 eprintln!(
@@ -962,7 +1039,7 @@ mod windows_route {
             // survives only if the join shapes allow it and the rate
             // grammar parses the result.
             let paddle_read = |rect: ptt_vision::PixelRect| -> Option<String> {
-                let text = compact(&self.paddle_recognize_rect(frame, rect)?.text);
+                let text = compact(&self.paddle_recognize_rect(frame, None, rect)?.text);
                 (!text.is_empty()).then_some(text)
             };
             // The head's separator needs no OCR at all — which is well,
@@ -1341,6 +1418,9 @@ mod windows_route {
             };
 
             let mut rows = Vec::new();
+            // Where each accepted row was read from, so a row the ordering
+            // gate rejects can be read a second time.
+            let mut row_rects: Vec<((Side, u8), ptt_vision::PixelRect)> = Vec::new();
             let mut skipped = Vec::new();
             // The row directly above, per table: where its ink starts and what
             // rate it quoted. Both are what locates the aggregate row's
@@ -1424,7 +1504,7 @@ mod windows_route {
                     // `1 : 3` and reads `6,634`, PP-OCRv5 reads the rate and
                     // writes the thousands comma as a decimal point.
                     let retry = self
-                        .paddle_row_line(frame, &mask, row_crops[band_index].content)
+                        .paddle_row_line(frame, &mask, row_crops[band_index].content, false)
                         .map_or((None, None), |line| Self::split_row_text(&line));
                     if retry.0.is_some() && retry.1.is_some() {
                         retry
@@ -1605,6 +1685,10 @@ mod windows_route {
                             ratio.right,
                         ));
                         if comparator_ok {
+                            row_rects.push((
+                                (row_band.side, first_row_index),
+                                row_crops[band_index].content,
+                            ));
                             rows.push(RowObservation {
                                 side: row_band.side,
                                 row_index: first_row_index,
@@ -1643,7 +1727,7 @@ mod windows_route {
             // are eleven rows the panel really shows, and throwing them away
             // over a twelfth is the same mistake as throwing away a frame over
             // one unreadable band.
-            let contradictory = crate::book::out_of_order_rows(&rows);
+            let contradictory = self.reread_contradictory_rows(frame, &mask, &mut rows, &row_rects);
             if !contradictory.is_empty() {
                 rows.retain(|row| {
                     let keep = !contradictory.contains(&(row.side, row.row_index));
