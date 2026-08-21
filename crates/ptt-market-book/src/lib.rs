@@ -763,10 +763,30 @@ fn top_book_outlier_quote_ids(view: &CoherentBookView, factor: u64) -> BTreeSet<
                 .cmp(&right.original_row_index)
                 .then_with(|| left.quote_id.cmp(&right.quote_id))
         });
-        let Some(baseline) = edges.first() else {
-            continue;
+        // A malicious listing prices itself to the front of its side, so a
+        // front-row baseline moves the whole band around exactly the row it
+        // exists to catch. With three or more rows the baseline is the side's
+        // median rate instead — element selection on the exact ordering, the
+        // lower middle when even, no averaging and no division — which no
+        // minority of listings can move, and which may flag the front row
+        // itself. Two rows carry no majority either way, so they keep the
+        // front row as baseline; one row has nothing to compare against.
+        let baseline = if edges.len() >= 3 {
+            let mut by_rate = edges.clone();
+            by_rate.sort_by(|left, right| {
+                left.rate
+                    .compare_value(&right.rate)
+                    .then_with(|| left.original_row_index.cmp(&right.original_row_index))
+                    .then_with(|| left.quote_id.cmp(&right.quote_id))
+            });
+            by_rate[(by_rate.len() - 1) / 2]
+        } else {
+            match edges.first() {
+                Some(front) => *front,
+                None => continue,
+            }
         };
-        for edge in edges.iter().skip(1) {
+        for edge in edges.iter() {
             if edge.rate.differs_by_more_than(&baseline.rate, factor) {
                 outliers.insert(edge.quote_id.clone());
             }
@@ -1228,6 +1248,167 @@ mod tests {
                     .reasons
                     .contains(&QuoteRejectReason::OutsideTopBookBand)
         }));
+    }
+
+    /// One taker row on the named side of one snapshot, for building sides
+    /// bigger than the shared fixture's.
+    fn taker_row(edge_id: &str, row_index: u8, rate: &str) -> MarketEdgeObservation {
+        observation(
+            edge_id,
+            "snapshot",
+            "context-a",
+            at(10),
+            QuoteSide::Available,
+            QuoteEdgeRole::AvailableTaker,
+            ExecutionType::Taker,
+            row_index,
+            rate,
+            SnapshotRecordStatus::Active,
+            true,
+        )
+    }
+
+    /// The attack the front-row baseline could never see: a too-good-to-be-
+    /// true listing sorts itself to the front of its side, becomes the
+    /// baseline, and every honest row lands "3× off" it instead — while
+    /// selection, absent the band, would pick exactly that bait rate as the
+    /// best available. With the median baseline the front row itself is
+    /// flagged and selection falls to the best honest row.
+    #[test]
+    fn a_poisoned_front_row_is_the_outlier_not_the_baseline() {
+        let observations = vec![
+            taker_row("poisoned-front", 0, "1:50"),
+            taker_row("honest-second", 1, "1:180"),
+            taker_row("honest-third", 2, "1:175"),
+            taker_row("honest-fourth", 3, "1:170"),
+        ];
+        let book =
+            build_coherent_current_book("context-a", &observations, DataVisibility::default())
+                .expect("book");
+        let result = select_quote_edges(
+            &book,
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("policy"),
+            at(10) + Duration::minutes(5),
+        )
+        .expect("selection");
+        let direction = result
+            .selections
+            .iter()
+            .find(|item| item.pair_key == "chaos-orb->divine-orb")
+            .expect("direction");
+        assert_eq!(
+            direction
+                .selected_edge
+                .as_ref()
+                .expect("selected")
+                .observation
+                .edge
+                .edge_id,
+            "honest-fourth",
+            "selection must fall to the best honest rate, not the bait"
+        );
+        assert!(
+            direction.rejections.iter().any(|rejection| {
+                rejection.edge_id == "poisoned-front"
+                    && rejection.reasons.contains(&QuoteRejectReason::PriceOutlier)
+            }),
+            "the poisoned front row must be the rejected one"
+        );
+        for honest in ["honest-second", "honest-third", "honest-fourth"] {
+            assert!(
+                !direction.rejections.iter().any(|rejection| {
+                    rejection.edge_id == honest
+                        && (rejection.reasons.contains(&QuoteRejectReason::PriceOutlier)
+                            || rejection
+                                .reasons
+                                .contains(&QuoteRejectReason::OutsideTopBookBand))
+                }),
+                "{honest} sits within the band and must not be called an outlier"
+            );
+        }
+    }
+
+    /// An even-count side has two middles; the lower one (by exact rate
+    /// ordering) is the baseline. The rates here are chosen so the two
+    /// choices flag disjoint halves — if this test fails, the tie has been
+    /// re-decided, not merely re-ordered.
+    #[test]
+    fn an_even_side_takes_the_lower_middle_as_baseline() {
+        let observations = vec![
+            taker_row("row-100", 0, "1:100"),
+            taker_row("row-101", 1, "1:101"),
+            taker_row("row-320", 2, "1:320"),
+            taker_row("row-330", 3, "1:330"),
+        ];
+        let book =
+            build_coherent_current_book("context-a", &observations, DataVisibility::default())
+                .expect("book");
+        let result = select_quote_edges(
+            &book,
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("policy"),
+            at(10) + Duration::minutes(5),
+        )
+        .expect("selection");
+        let direction = result
+            .selections
+            .iter()
+            .find(|item| item.pair_key == "chaos-orb->divine-orb")
+            .expect("direction");
+        // Ascending by value the side reads 1:330, 1:320, 1:101, 1:100; the
+        // lower middle is 1:320, so the 1:10x rows are outside the 3× band
+        // and the 1:3xx rows are inside it.
+        let rejected: Vec<&str> = direction
+            .rejections
+            .iter()
+            .filter(|rejection| rejection.reasons.contains(&QuoteRejectReason::PriceOutlier))
+            .map(|rejection| rejection.edge_id.as_str())
+            .collect();
+        assert!(
+            rejected.contains(&"row-100") && rejected.contains(&"row-101"),
+            "the far half must be flagged: {rejected:?}"
+        );
+        assert!(
+            !rejected.contains(&"row-320") && !rejected.contains(&"row-330"),
+            "the baseline half must not be flagged: {rejected:?}"
+        );
+    }
+
+    /// Two rows carry no majority, so the band keeps the front row as
+    /// baseline — the pre-median behavior, pinned so shrinking a side does
+    /// not silently change which row gets accused.
+    #[test]
+    fn a_two_row_side_keeps_the_front_row_baseline() {
+        let observations = vec![
+            taker_row("front", 0, "1:180"),
+            taker_row("second", 1, "1:1000"),
+        ];
+        let book =
+            build_coherent_current_book("context-a", &observations, DataVisibility::default())
+                .expect("book");
+        let result = select_quote_edges(
+            &book,
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("policy"),
+            at(10) + Duration::minutes(5),
+        )
+        .expect("selection");
+        let direction = result
+            .selections
+            .iter()
+            .find(|item| item.pair_key == "chaos-orb->divine-orb")
+            .expect("direction");
+        assert!(direction.rejections.iter().any(|rejection| {
+            rejection.edge_id == "second"
+                && rejection.reasons.contains(&QuoteRejectReason::PriceOutlier)
+        }));
+        assert!(
+            !direction
+                .rejections
+                .iter()
+                .any(|rejection| rejection.edge_id == "front"),
+        );
     }
 
     /// F1: the POE1/POE2 shipping bug — fresh == usable made `Usable`
