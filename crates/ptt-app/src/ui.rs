@@ -608,3 +608,119 @@ pub fn log_pane(lines: &[LogLine]) -> Div {
 pub fn el(d: Div) -> AnyElement {
     d.into_any_element()
 }
+
+// ---------------------------------------------------------------------------
+// Data-page kit(P8:表格页的徽章、详情面板与键值行)
+// ---------------------------------------------------------------------------
+
+/// 新鲜度 → 状态三色。
+///
+/// 红黄绿只在这里定义一次。四档语义(Fresh 可执行、Usable 建议核对、
+/// Stale/Archived 默认禁入执行)是算法层的判断,这里只把它翻成颜色——
+/// 每个页面各自决定"多旧算旧"会让同一份数据在两页显示成两种颜色。
+pub fn freshness_kind(status: ptt_runtime::domain::FreshnessStatus) -> StatusKind {
+    use ptt_runtime::domain::FreshnessStatus;
+    match status {
+        FreshnessStatus::Fresh => StatusKind::Monitoring,
+        FreshnessStatus::Usable => StatusKind::Warning,
+        FreshnessStatus::Stale | FreshnessStatus::Archived => StatusKind::Error,
+    }
+}
+
+/// 徽章:22px 高,状态色描边与文字,底色为该状态的 wash。
+///
+/// 用来承载 typed 的枚举名(可执行性、风险、覆盖状态),所以只收已经翻译
+/// 好的字符串——徽章不认识枚举,免得多出第二处需要双语的地方。
+pub fn chip(kind: StatusKind, label: &str) -> Div {
+    let (background, border) = match kind {
+        StatusKind::Monitoring => (ACCENT_WASH, ACCENT_LINE),
+        StatusKind::Warning => (WARN_WASH, WARN_BAR),
+        StatusKind::Hit | StatusKind::Error => (DANGER_WASH, DANGER_LINE),
+        StatusKind::Idle | StatusKind::Disabled => (PANEL, HAIRLINE),
+    };
+    div()
+        .h(px(H_CHIP))
+        .flex_none()
+        .h_flex()
+        .items_center()
+        .px(px(SP_6))
+        .rounded(px(RADIUS_BUTTON))
+        .bg(c(background))
+        .border_1()
+        .border_color(c(border))
+        .text_size(fs(FS_10_5))
+        .text_color(c(kind.text()))
+        .whitespace_nowrap()
+        .child(SharedString::from(label.to_string()))
+}
+
+/// 一行徽章,超出数量的折成 "+N"。
+///
+/// 阻断性风险常常一次来好几条,全部铺开会把表格行挤走形;省略的那部分在
+/// 详情面板里逐条列出,所以这里折叠不丢信息。
+pub fn chips(kind: StatusKind, labels: &[String], limit: usize) -> Div {
+    let mut row = div().h_flex().items_center().gap_1();
+    for label in labels.iter().take(limit) {
+        row = row.child(chip(kind, label));
+    }
+    if labels.len() > limit {
+        row = row.child(chip(
+            StatusKind::Idle,
+            &format!("+{}", labels.len() - limit),
+        ));
+    }
+    row
+}
+
+/// 详情面板:选中一行以后右侧那一栏。
+///
+/// 表格行高是固定的(虚拟化的代价),行内展开做不到,所以"看细节"这件事
+/// 由它承担。
+pub fn detail_panel(title: &str) -> Div {
+    panel()
+        .w(px(340.))
+        .flex_none()
+        .flex()
+        .flex_col()
+        .child(panel_header(title))
+}
+
+/// 详情面板里的键值行:左标签,右等宽值,值可换行。
+///
+/// 与 `metric_row` 的区别是这行不定高——路径、风险原因这类值会长到两三行,
+/// 定高会把它们裁掉。
+pub fn kv_row(label: &str, value: &str) -> Div {
+    div()
+        .flex()
+        .items_start()
+        .gap_2()
+        .py(px(3.))
+        .text_size(fs(FS_11_5))
+        .child(
+            div()
+                .w(px(96.))
+                .flex_none()
+                .text_color(c(TEXT_META))
+                .child(SharedString::from(label.to_string())),
+        )
+        .child(
+            div()
+                .flex_1()
+                .font_family(FONT_MONO)
+                .text_color(c(TEXT_PRIMARY))
+                .child(SharedString::from(value.to_string())),
+        )
+}
+
+/// 空态:面板中央一句话,而不是一片空白。
+pub fn empty_state(text: &str) -> Div {
+    div()
+        .flex_1()
+        .flex()
+        .items_center()
+        .justify_center()
+        .p_4()
+        .text_size(fs(FS_12))
+        .text_color(c(TEXT_DISABLED))
+        .child(SharedString::from(text.to_string()))
+}

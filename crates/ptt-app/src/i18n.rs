@@ -119,6 +119,15 @@ pub struct Text {
     pub game_label: &'static str,
     pub client_language_label: &'static str,
     pub restart_watch_to_apply: &'static str,
+
+    // -- data-page table columns --
+    pub radar_column_kind: &'static str,
+    pub radar_column_route: &'static str,
+    pub radar_column_edge: &'static str,
+    pub radar_column_out: &'static str,
+    pub radar_column_verdict: &'static str,
+    pub radar_column_light: &'static str,
+    pub radar_column_risks: &'static str,
 }
 
 impl Text {
@@ -191,6 +200,13 @@ impl Text {
             ("game_label", self.game_label),
             ("client_language_label", self.client_language_label),
             ("restart_watch_to_apply", self.restart_watch_to_apply),
+            ("radar_column_kind", self.radar_column_kind),
+            ("radar_column_route", self.radar_column_route),
+            ("radar_column_edge", self.radar_column_edge),
+            ("radar_column_out", self.radar_column_out),
+            ("radar_column_verdict", self.radar_column_verdict),
+            ("radar_column_light", self.radar_column_light),
+            ("radar_column_risks", self.radar_column_risks),
         ]
     }
 }
@@ -261,6 +277,14 @@ pub static ENGLISH: Text = Text {
     game_label: "Game",
     client_language_label: "Client",
     restart_watch_to_apply: "restart the watch to apply",
+
+    radar_column_kind: "kind",
+    radar_column_route: "route",
+    radar_column_edge: "edge",
+    radar_column_out: "out",
+    radar_column_verdict: "verdict",
+    radar_column_light: "data",
+    radar_column_risks: "risks",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -329,6 +353,14 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     game_label: "游戏",
     client_language_label: "游戏语言",
     restart_watch_to_apply: "重新开始监视后生效",
+
+    radar_column_kind: "种类",
+    radar_column_route: "路径",
+    radar_column_edge: "收益",
+    radar_column_out: "得到",
+    radar_column_verdict: "可执行性",
+    radar_column_light: "数据",
+    radar_column_risks: "风险",
 };
 
 #[cfg(test)]

@@ -6,6 +6,21 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 description = "POE Trade Tracker GPUI desktop app"
+default-run = "ptt-app"
+
+[lib]
+name = "ptt_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ptt-app"
+path = "src/main.rs"
+
+# Component gallery and table-density probe. Its own binary so the states a
+# live market does not happen to be in are still reachable.
+[[bin]]
+name = "ptt-ui-preview"
+path = "src/preview.rs"
 
 [dependencies]
 gpui = "0.2"
