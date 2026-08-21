@@ -197,6 +197,19 @@ pub struct AppShell {
     report_generation: u64,
     /// Pairs the user asked to be reminded about, newest first.
     probe_queue: crate::state::ProbeQueue,
+    /// The convert page's currency pickers and holdings box.
+    ///
+    /// Entities rather than values because a select owns its open menu and an
+    /// input owns its cursor: rebuilding either on refresh throws away
+    /// whatever the user was in the middle of doing.
+    convert_have: pages::convert::AssetSelect,
+    convert_need: pages::convert::AssetSelect,
+    holdings_input: gpui::Entity<gpui_component::input::InputState>,
+    /// The asset list the pickers were last filled from.
+    convert_assets: Vec<String>,
+    /// True once the user picked a pair by hand, after which an accepted book
+    /// for some other pair must not drag the page away.
+    pair_chosen_by_user: bool,
     /// The radar's table.
     ///
     /// Created once and refilled, never rebuilt: it owns the scroll position
@@ -295,6 +308,32 @@ impl AppShell {
         #[cfg(not(windows))]
         let language = ptt_settings::UiLanguage::English;
         let radar_table = Self::new_radar_table(window, cx, language);
+        let convert_have = Self::new_asset_select(window, cx);
+        let convert_need = Self::new_asset_select(window, cx);
+        let holdings_input = Self::new_holdings_input(window, cx);
+        // A picked currency or a typed holding is a new question, so the page
+        // is rebuilt; the read itself is backgrounded, so this stays cheap.
+        for (select, is_have) in [(convert_have.clone(), true), (convert_need.clone(), false)] {
+            cx.subscribe(&select, move |this: &mut AppShell, _, event, cx| {
+                let gpui_component::select::SelectEvent::Confirm(Some(value)) = event else {
+                    return;
+                };
+                if is_have {
+                    this.choose_pair(Some(value.clone()), None);
+                } else {
+                    this.choose_pair(None, Some(value.clone()));
+                }
+                cx.notify();
+            })
+            .detach();
+        }
+        cx.subscribe(&holdings_input, |this: &mut AppShell, _, event, cx| {
+            if matches!(event, gpui_component::input::InputEvent::Change) {
+                this.report_stale = true;
+                cx.notify();
+            }
+        })
+        .detach();
         cx.subscribe(&radar_table, |_, _, event, cx| {
             if matches!(
                 event,
@@ -309,6 +348,11 @@ impl AppShell {
         Self {
             focus_handle: cx.focus_handle(),
             radar_table,
+            convert_have,
+            convert_need,
+            holdings_input,
+            convert_assets: Vec::new(),
+            pair_chosen_by_user: false,
             #[cfg(windows)]
             backend: None,
             #[cfg(windows)]
@@ -400,7 +444,11 @@ impl AppShell {
                         self.last_header = Some(header);
                         self.last_rows = rows;
                         self.last_analysis = analysis;
-                        self.report_pair = Some((have_asset_id, need_asset_id));
+                        // A pair the user picked by hand outranks whatever
+                        // panel happens to be open in game.
+                        if !self.pair_chosen_by_user {
+                            self.report_pair = Some((have_asset_id, need_asset_id));
+                        }
                         self.report_stale = true;
                         self.last_skip = None;
                     }
@@ -539,7 +587,7 @@ impl AppShell {
             self.report = PageData::WaitingForPair;
             return;
         }
-        let Some(request) = self.page_request() else {
+        let Some(request) = self.page_request(cx) else {
             self.report = PageData::WaitingForPair;
             return;
         };
@@ -572,11 +620,12 @@ impl AppShell {
     /// A snapshot rather than a borrow: the task outlives this frame, and the
     /// settings behind it can change while it runs.
     #[cfg(windows)]
-    fn page_request(&self) -> Option<PageRequest> {
+    fn page_request(&self, cx: &gpui::App) -> Option<PageRequest> {
         let profile = self.settings.active_profile;
         Some(PageRequest {
             page: self.page,
             pair: self.report_pair.clone(),
+            holdings: self.holdings_value(cx),
             profile,
             language: self.settings.ui_language,
             tuning: self.settings.market_tuning(profile.game),
@@ -755,7 +804,8 @@ impl AppShell {
             PageData::Text(_)
             | PageData::Empty
             | PageData::Probes(_)
-            | PageData::Opportunities(_) => vec![text.nothing_yet.to_owned()],
+            | PageData::Opportunities(_)
+            | PageData::Convert(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
             PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
@@ -843,6 +893,8 @@ impl AppShell {
 struct PageRequest {
     page: Page,
     pair: Option<(String, String)>,
+    /// The holding the convert page is pricing, when the box holds a number.
+    holdings: Option<u64>,
     profile: ptt_core::ProfileId,
     language: ptt_settings::UiLanguage,
     tuning: ptt_settings::MarketTuning,
@@ -865,6 +917,13 @@ fn build_page_data(request: &PageRequest) -> crate::state::PageData {
     if request.page == Page::Opportunities {
         return match load_opportunities(request) {
             Ok(model) => PageData::Opportunities(Box::new(model)),
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
+    if request.page == Page::Convert {
+        return match load_convert(request) {
+            Ok(Some(model)) => PageData::Convert(Box::new(model)),
+            Ok(None) => PageData::WaitingForPair,
             Err(reason) => PageData::Failed(reason),
         };
     }
@@ -942,6 +1001,31 @@ fn load_opportunities(
     )
 }
 
+/// "I hold X and want Y", priced at the requested size.
+#[cfg(windows)]
+fn load_convert(
+    request: &PageRequest,
+) -> Result<Option<ptt_runtime::reports::ConvertModel>, String> {
+    use ptt_runtime::live::domain_asset_id;
+
+    let Some((have, need)) = &request.pair else {
+        return Ok(None);
+    };
+    let (context_key, observations) = load_window(request)?;
+    let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
+    let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
+    ptt_runtime::reports::convert_model(
+        &observations,
+        &context_key,
+        &have,
+        &need,
+        request.holdings,
+        &request.tuning,
+        request.language,
+    )
+    .map(Some)
+}
+
 #[cfg(windows)]
 fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
     use ptt_runtime::live::domain_asset_id;
@@ -971,17 +1055,8 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
             let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
             let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
             if request.page == Page::Convert {
-                // No holdings affordance in the text shell yet; the parameter
-                // is wired so the real page only adds an input box.
-                reports::convert_report(
-                    &observations,
-                    &context_key,
-                    &have,
-                    &need,
-                    None,
-                    tuning,
-                    language,
-                )
+                // Answered as a model by `load_convert`.
+                Ok(Vec::new())
             } else {
                 reports::history_report(&observations, &context_key, &have, &need, tuning, language)
             }
@@ -992,7 +1067,12 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
 }
 
 impl Render for AppShell {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Rebuilding a select needs a window, which the background answer
+        // does not carry, so the pickers are brought up to date on the first
+        // frame after one lands.
+        #[cfg(windows)]
+        self.sync_convert_selects(window, cx);
         let text = self.text();
         let (dot_kind, state_label) = if self.fault.is_some() {
             (StatusKind::Error, text.state_fault)
@@ -1141,6 +1221,8 @@ impl Render for AppShell {
                             )
                     } else if self.page == Page::Opportunities {
                         self.render_opportunities(cx)
+                    } else if self.page == Page::Convert {
+                        self.render_convert(cx)
                     } else if self.page == Page::Calibrate {
                         self.render_calibrate(cx)
                     } else {

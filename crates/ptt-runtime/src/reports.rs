@@ -57,6 +57,12 @@ pub struct ConvertModel {
     pub notes: Notes,
     pub have: MarketAssetId,
     pub need: MarketAssetId,
+    /// Every asset the window has seen, sorted.
+    ///
+    /// "I hold X and want Y" is only answerable for the assets the book knows
+    /// about, so which ones those are is part of the page's answer rather
+    /// than something the interface has to work out for itself.
+    pub assets: Vec<MarketAssetId>,
     /// One entry per size that could be priced at all. A size the unit
     /// catalogue cannot express is absent rather than present-and-empty.
     pub sizes: Vec<SizeRoute>,
@@ -429,10 +435,23 @@ pub fn convert_model(
         .then(|| maker_model(&market, have, need, sizes[sizes.len() / 2]))
         .flatten();
 
+    let mut assets: Vec<MarketAssetId> = observations
+        .iter()
+        .flat_map(|observation| {
+            [
+                observation.edge.from_asset_id.clone(),
+                observation.edge.to_asset_id.clone(),
+            ]
+        })
+        .collect();
+    assets.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+    assets.dedup();
+
     Ok(ConvertModel {
         notes: market.notes,
         have: have.clone(),
         need: need.clone(),
+        assets,
         sizes: routes,
         maker,
     })
