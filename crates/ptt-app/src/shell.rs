@@ -9,10 +9,12 @@ use gpui::{
     Context, FocusHandle, InteractiveElement as _, IntoElement, ParentElement, Render, Styled,
     Window, div, px,
 };
+use gpui_component::StyledExt as _;
 
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, button, hairline_soft, mono, panel, panel_header, spaced, status_dot,
+    LedgerButton, StatusKind, button, chip, hairline_soft, mono, panel, panel_header, spaced,
+    status_dot,
 };
 
 #[cfg(windows)]
@@ -57,16 +59,18 @@ pub enum Page {
     Convert,
     Watchlist,
     History,
+    Settings,
 }
 
 impl Page {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Monitor,
         Self::Calibrate,
         Self::Opportunities,
         Self::Convert,
         Self::Watchlist,
         Self::History,
+        Self::Settings,
     ];
 
     fn label(self, text: &'static crate::i18n::Text) -> &'static str {
@@ -77,6 +81,7 @@ impl Page {
             Self::Convert => text.page_convert,
             Self::Watchlist => text.page_watchlist,
             Self::History => text.page_history,
+            Self::Settings => text.page_settings,
         }
     }
 
@@ -88,8 +93,29 @@ impl Page {
     /// though it never needed one.
     const fn needs_a_pair(self) -> bool {
         match self {
-            Self::Monitor | Self::Opportunities | Self::Calibrate => false,
-            Self::Convert | Self::Watchlist | Self::History => true,
+            // The watchlist is about the focus set, not about a pair. It
+            // waited for a book it never used, so an empty session showed it
+            // as "waiting" forever while it had coverage to report all along.
+            Self::Monitor
+            | Self::Opportunities
+            | Self::Calibrate
+            | Self::Watchlist
+            | Self::Settings => false,
+            Self::Convert | Self::History => true,
+        }
+    }
+
+    /// Whether this page answers from the store rather than from its own
+    /// state. Calibrate draws a screenshot and Settings draws the settings
+    /// file; neither has a book to read.
+    const fn reads_the_store(self) -> bool {
+        match self {
+            Self::Calibrate | Self::Settings => false,
+            Self::Monitor
+            | Self::Opportunities
+            | Self::Convert
+            | Self::Watchlist
+            | Self::History => true,
         }
     }
 
@@ -105,6 +131,7 @@ impl Page {
             Self::Convert => "page-convert",
             Self::Watchlist => "page-watchlist",
             Self::History => "page-history",
+            Self::Settings => "page-settings",
         }
     }
 }
@@ -161,7 +188,17 @@ pub struct AppShell {
     page: Page,
     /// The pair the report pages describe: the last book that was accepted.
     report_pair: Option<(String, String)>,
-    report_lines: Vec<String>,
+    /// What the visible page is showing.
+    report: crate::state::PageData,
+    /// Which request the displayed answer came from.
+    ///
+    /// The store read happens off the interface thread, so answers can arrive
+    /// after the question stopped being the current one — a slow page the
+    /// user has already navigated away from, or two refreshes racing after a
+    /// book lands. Only the newest generation is allowed to write.
+    report_generation: u64,
+    /// Pairs the user asked to be reminded about, newest first.
+    probe_queue: crate::state::ProbeQueue,
     /// True when a new book landed since the visible page was last built.
     report_stale: bool,
 }
@@ -279,7 +316,9 @@ impl AppShell {
             fault: None,
             page: Page::Monitor,
             report_pair: None,
-            report_lines: Vec::new(),
+            report: crate::state::PageData::Empty,
+            report_generation: 0,
+            probe_queue: crate::state::ProbeQueue::default(),
             report_stale: true,
         }
     }
@@ -306,7 +345,7 @@ impl AppShell {
                 }
             }
             if self.report_stale {
-                self.refresh_report();
+                self.refresh_report(cx);
                 dirty = true;
             }
             if dirty {
@@ -1582,146 +1621,110 @@ impl AppShell {
     /// Reads happen when the page changes, on request, or after a new book —
     /// never on the frame tick, so a growing database cannot turn into a
     /// per-frame query.
-    #[cfg(windows)]
-    fn refresh_report(&mut self) {
-        self.report_stale = false;
-        // Page dispatch happens here and nowhere else. It used to happen
-        // twice, at two depths, and the two disagreed: this function returned
-        // early on Monitor while `build_report` carried a Monitor branch that
-        // could therefore never run, leaving the probe queue permanently
-        // blank.
-        //
-        // Monitor is the one page that needs no pair — the probe queue is
-        // about what has *not* been captured — so it is answered before the
-        // pair guard.
-        if !self.page.needs_a_pair() {
-            self.report_lines = match self.pairless_report() {
-                Ok(lines) => lines,
-                Err(reason) => vec![format!("unavailable: {reason}")],
-            };
-            return;
-        }
-        let Some((have, need)) = self.report_pair.clone() else {
-            self.report_lines = vec![self.text().waiting_for_book.to_owned()];
-            return;
-        };
-        self.report_lines = match self.build_report(&have, &need) {
-            Ok(lines) => lines,
-            Err(reason) => vec![format!("report unavailable: {reason}")],
-        };
-    }
-
-    /// Loads the window the report pages read.
+    /// Rebuilds the visible page's answer, off the interface thread.
     ///
-    /// The league is the pipeline's, not a second literal: the writer and the
-    /// reader agree on the context key or every page silently reads an empty
-    /// book.
+    /// The read is a database open, a windowed query and a full book build,
+    /// which on the interface thread showed up as the window locking for the
+    /// duration every time a book landed. It runs on the background executor
+    /// instead, and the answer is only accepted if it is still the answer to
+    /// the current question.
     #[cfg(windows)]
-    fn load_window(
-        &self,
-    ) -> Result<(String, Vec<ptt_trade_domain::MarketEdgeObservation>), String> {
-        use ptt_runtime::live::live_context;
-        use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
+    fn refresh_report(&mut self, cx: &mut Context<Self>) {
+        use crate::state::PageData;
 
-        let store = ptt_storage::MarketStore::open(default_database_path())
-            .map_err(|error| format!("storage: {error}"))?;
-        // The profile is the pipeline's too, for the same reason the league
-        // is: the context key mixes in the game, so a reader on POE2 and a
-        // writer on POE1 agree on the league and still share nothing.
-        let context = live_context(self.settings.active_profile, LIVE_LEAGUE)
-            .map_err(|error| format!("{error:?}"))?;
-        let context_key = context.stable_key();
-        // Clamped to a year: the window only bounds how much history a page
-        // loads, and anything past that is the whole database anyway.
-        let window_hours = i64::try_from(
-            self.settings
-                .market_tuning(self.settings.active_profile.game)
-                .report_window_hours,
-        )
-        .unwrap_or(FALLBACK_REPORT_WINDOW_HOURS)
-        .clamp(1, 24 * 365);
-        let observations = store
-            .load_observations(
-                &context_key,
-                Some(chrono::Utc::now() - chrono::Duration::hours(window_hours)),
-            )
-            .map_err(|error| format!("load: {error}"))?;
-        Ok((context_key, observations))
+        self.report_stale = false;
+        self.report_generation = self.report_generation.wrapping_add(1);
+        let generation = self.report_generation;
+
+        if !self.page.reads_the_store() {
+            self.report = PageData::Empty;
+            return;
+        }
+        if self.page.needs_a_pair() && self.report_pair.is_none() {
+            self.report = PageData::WaitingForPair;
+            return;
+        }
+        let Some(request) = self.page_request() else {
+            self.report = PageData::WaitingForPair;
+            return;
+        };
+        // Only announce loading when there is nothing to look at; replacing a
+        // rendered page with a spinner on every accepted book is a flicker,
+        // not information.
+        if !self.report.is_content() {
+            self.report = PageData::Loading;
+        }
+        cx.spawn(async move |this, cx| {
+            let data = cx
+                .background_executor()
+                .spawn(async move { build_page_data(&request) })
+                .await;
+            this.update(cx, |this: &mut AppShell, cx| {
+                if this.report_generation == generation {
+                    this.report = data;
+                    this.close_answered_probes();
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
-    /// The pages that describe the whole market rather than one pair.
+    /// Everything the background read needs, copied out of the shell.
+    ///
+    /// A snapshot rather than a borrow: the task outlives this frame, and the
+    /// settings behind it can change while it runs.
     #[cfg(windows)]
-    fn pairless_report(&self) -> Result<Vec<String>, String> {
-        use ptt_runtime::pipeline::LIVE_LEAGUE;
+    fn page_request(&self) -> Option<PageRequest> {
+        let profile = self.settings.active_profile;
+        Some(PageRequest {
+            page: self.page,
+            pair: self.report_pair.clone(),
+            profile,
+            language: self.settings.ui_language,
+            tuning: self.settings.market_tuning(profile.game),
+        })
+    }
 
-        let (context_key, observations) = self.load_window()?;
-        let tuning = self
-            .settings
-            .market_tuning(self.settings.active_profile.game);
-        match self.page {
-            Page::Monitor => ptt_runtime::reports::probe_queue(
-                &observations,
-                &context_key,
-                LIVE_LEAGUE,
-                &tuning,
-                self.settings.ui_language,
-            ),
-            Page::Opportunities => ptt_runtime::reports::opportunities_report(
-                &observations,
-                &context_key,
-                LIVE_LEAGUE,
-                &tuning,
-                self.settings.ui_language,
-            ),
-            // Draws rather than reports; `render_calibrate` reads its own state.
-            Page::Calibrate => Ok(Vec::new()),
-            // `needs_a_pair` sends the rest through `build_report`.
-            page => Err(format!("{page:?} is a pair page")),
-        }
+    /// Drops pinned probes for pairs the newest answer can already price.
+    ///
+    /// Only the watchlist and the monitor know which pairs are still
+    /// incomplete, so this runs where their answers arrive rather than on a
+    /// timer.
+    #[cfg(windows)]
+    fn close_answered_probes(&mut self) {
+        // Only the coverage pass knows which pairs are still incomplete, so
+        // this runs where its answer arrives rather than on a timer.
+        let crate::state::PageData::Probes(model) = &self.report else {
+            return;
+        };
+        let missing: Vec<(String, String)> = model
+            .candidates
+            .iter()
+            .map(|candidate| {
+                (
+                    candidate.from_asset_id.as_str().to_owned(),
+                    candidate.to_asset_id.as_str().to_owned(),
+                )
+            })
+            .collect();
+        self.probe_queue.retain_missing(&missing);
+    }
+
+    /// Queues a pair for the user to go and flip.
+    #[cfg(windows)]
+    pub(crate) fn pin_probe(&mut self, from: &str, to: &str, reason: &str) {
+        self.probe_queue.pin(crate::state::PinnedProbe {
+            from_asset_id: from.to_owned(),
+            to_asset_id: to.to_owned(),
+            reason: reason.to_owned(),
+        });
     }
 
     #[cfg(windows)]
-    fn build_report(&self, have: &str, need: &str) -> Result<Vec<String>, String> {
-        use ptt_runtime::live::domain_asset_id;
-        use ptt_runtime::pipeline::LIVE_LEAGUE;
-
-        let (context_key, observations) = self.load_window()?;
-        let tuning = self
-            .settings
-            .market_tuning(self.settings.active_profile.game);
-        let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
-        let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
-
-        match self.page {
-            // Answered before this function is reached; see refresh_report.
-            Page::Monitor | Page::Opportunities | Page::Calibrate => Ok(Vec::new()),
-            // No holdings affordance in the text shell yet; the parameter
-            // is wired so the real UI only adds an input box.
-            Page::Convert => ptt_runtime::reports::convert_report(
-                &observations,
-                &context_key,
-                &have,
-                &need,
-                None,
-                &tuning,
-                self.settings.ui_language,
-            ),
-            Page::Watchlist => ptt_runtime::reports::watchlist_report(
-                &observations,
-                &context_key,
-                LIVE_LEAGUE,
-                &tuning,
-                self.settings.ui_language,
-            ),
-            Page::History => ptt_runtime::reports::history_report(
-                &observations,
-                &context_key,
-                &have,
-                &need,
-                &tuning,
-                self.settings.ui_language,
-            ),
-        }
+    pub(crate) fn unpin_probe(&mut self, from: &str, to: &str) {
+        self.probe_queue.unpin(from, to);
     }
 
     #[cfg(not(windows))]
@@ -1730,8 +1733,148 @@ impl AppShell {
     }
 
     #[cfg(not(windows))]
-    fn refresh_report(&mut self) {
+    fn refresh_report(&mut self, _cx: &mut Context<Self>) {
         self.report_stale = false;
+    }
+
+    /// The lines a text page draws, including the ones that describe an
+    /// absence.
+    ///
+    /// An empty answer, a page still reading, a page with no pair yet and a
+    /// page whose read failed are four different things, and a bare empty
+    /// list says the same nothing for all four.
+    /// The probe queue: what to go and flip next.
+    ///
+    /// Pinned pairs sit above the suggestions, because a pair the user chose
+    /// to keep is a commitment and a suggestion is an opinion. Both leave the
+    /// list the same way — by being captured.
+    #[cfg(windows)]
+    fn probe_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+        use crate::state::PageData;
+
+        let text = self.text();
+        let language = self.language();
+        let mut body = div().p_3().flex().flex_col().gap_1();
+
+        for entry in self.probe_queue.entries() {
+            let (from, to) = (entry.from_asset_id.clone(), entry.to_asset_id.clone());
+            body = body.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(chip(StatusKind::Monitoring, text.pinned_label))
+                    .child(
+                        mono(format!("{from} -> {to}"))
+                            .text_size(fs(FS_12))
+                            .flex_grow(),
+                    )
+                    .child(
+                        mono(entry.reason.clone())
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META)),
+                    )
+                    .child(
+                        button("probe-unpin", LedgerButton::Quiet, text.unpin_label, cx).on_click(
+                            cx.listener(move |this, _, _, cx| {
+                                this.unpin_probe(&from, &to);
+                                cx.notify();
+                            }),
+                        ),
+                    ),
+            );
+        }
+
+        match &self.report {
+            PageData::Probes(model) => {
+                let candidates: Vec<_> = model
+                    .candidates
+                    .iter()
+                    .filter(|candidate| {
+                        !self.probe_queue.is_pinned(
+                            candidate.from_asset_id.as_str(),
+                            candidate.to_asset_id.as_str(),
+                        )
+                    })
+                    .take(6)
+                    .collect();
+                if self.probe_queue.entries().is_empty() && candidates.is_empty() {
+                    body = body.child(mono(text.nothing_yet).text_size(fs(FS_12)));
+                }
+                for candidate in candidates {
+                    let from = candidate.from_asset_id.as_str().to_owned();
+                    let to = candidate.to_asset_id.as_str().to_owned();
+                    let reason = ptt_runtime::report_text::probe_reason(language, candidate.reason);
+                    let (pin_from, pin_to, pin_reason) =
+                        (from.clone(), to.clone(), reason.to_owned());
+                    body = body.child(
+                        div()
+                            .h_flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                mono(format!("{from} -> {to}"))
+                                    .text_size(fs(FS_12))
+                                    .flex_grow(),
+                            )
+                            .child(mono(reason).text_size(fs(FS_10_5)).text_color(c(TEXT_META)))
+                            .child(
+                                button("probe-pin", LedgerButton::Quiet, text.pin_label, cx)
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.pin_probe(&pin_from, &pin_to, &pin_reason);
+                                        cx.notify();
+                                    })),
+                            ),
+                    );
+                }
+            }
+            _ => {
+                body = body.children(
+                    self.report_body()
+                        .into_iter()
+                        .map(|line| mono(line).text_size(fs(FS_12))),
+                );
+            }
+        }
+
+        panel()
+            .overflow_hidden()
+            .child(panel_header(text.panel_probe_queue))
+            .child(body)
+    }
+
+    #[cfg(not(windows))]
+    fn probe_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
+        panel()
+    }
+
+    fn report_body(&self) -> Vec<String> {
+        use crate::state::PageData;
+
+        let text = self.text();
+        match &self.report {
+            PageData::Text(lines) if !lines.is_empty() => lines.clone(),
+            // `probe_panel` draws these as rows; reaching here means some
+            // other page is showing the monitor's answer.
+            PageData::Text(_) | PageData::Empty | PageData::Probes(_) => {
+                vec![text.nothing_yet.to_owned()]
+            }
+            PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
+            PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
+            PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
+        }
+    }
+
+    /// The reader's language.
+    fn language(&self) -> ptt_settings::UiLanguage {
+        #[cfg(windows)]
+        {
+            self.settings.ui_language
+        }
+        #[cfg(not(windows))]
+        {
+            ptt_settings::UiLanguage::English
+        }
     }
 
     fn nav_rail(&self, cx: &mut Context<Self>) -> gpui::Div {
@@ -1767,11 +1910,7 @@ impl AppShell {
     fn report_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
         let text = self.text();
         let title = self.page.label(text);
-        let lines = if self.report_lines.is_empty() {
-            vec![text.nothing_yet.to_owned()]
-        } else {
-            self.report_lines.clone()
-        };
+        let lines = self.report_body();
         panel()
             .flex_grow()
             .overflow_hidden()
@@ -1785,7 +1924,7 @@ impl AppShell {
                         div().pr_3().child(
                             button("report-refresh", LedgerButton::Secondary, text.refresh, cx)
                                 .on_click(cx.listener(|this, _, _, cx| {
-                                    this.refresh_report();
+                                    this.refresh_report(cx);
                                     cx.notify();
                                 })),
                         ),
@@ -1798,6 +1937,142 @@ impl AppShell {
                         .map(|line| mono(line).text_size(fs(FS_12))),
                 ),
             )
+    }
+}
+
+/// Everything one background read needs.
+#[cfg(windows)]
+#[derive(Clone)]
+struct PageRequest {
+    page: Page,
+    pair: Option<(String, String)>,
+    profile: ptt_core::ProfileId,
+    language: ptt_settings::UiLanguage,
+    tuning: ptt_settings::MarketTuning,
+}
+
+/// Reads the store and builds one page's answer.
+///
+/// A free function on purpose: it runs on the background executor, where a
+/// borrow of the shell could not follow it.
+#[cfg(windows)]
+fn build_page_data(request: &PageRequest) -> crate::state::PageData {
+    use crate::state::PageData;
+
+    if request.page == Page::Monitor {
+        return match load_probe_queue(request) {
+            Ok(model) => PageData::Probes(Box::new(model)),
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
+    match load_page_lines(request) {
+        Ok(lines) => PageData::Text(lines),
+        Err(reason) => PageData::Failed(reason),
+    }
+}
+
+/// The probe queue as rows, so each pair can carry its own controls.
+#[cfg(windows)]
+fn load_probe_queue(
+    request: &PageRequest,
+) -> Result<ptt_runtime::reports::ProbeQueueModel, String> {
+    use ptt_runtime::pipeline::LIVE_LEAGUE;
+
+    let (context_key, observations) = load_window(request)?;
+    ptt_runtime::reports::probe_queue_model(
+        &observations,
+        &context_key,
+        LIVE_LEAGUE,
+        &request.tuning,
+        request.language,
+    )
+}
+
+/// The observation window the report pages read.
+///
+/// The league is the pipeline's, not a second literal: the writer and the
+/// reader agree on the context key or every page silently reads an empty
+/// book.
+#[cfg(windows)]
+fn load_window(
+    request: &PageRequest,
+) -> Result<(String, Vec<ptt_trade_domain::MarketEdgeObservation>), String> {
+    use ptt_runtime::live::live_context;
+    use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
+
+    let store = ptt_storage::MarketStore::open(default_database_path())
+        .map_err(|error| format!("storage: {error}"))?;
+    // The profile is the pipeline's too, for the same reason the league is:
+    // the context key mixes in the game, so a reader on POE2 and a writer on
+    // POE1 agree on the league and still share nothing.
+    let context =
+        live_context(request.profile, LIVE_LEAGUE).map_err(|error| format!("{error:?}"))?;
+    let context_key = context.stable_key();
+    // Clamped to a year: the window only bounds how much history a page
+    // loads, and anything past that is the whole database anyway.
+    let window_hours = i64::try_from(request.tuning.report_window_hours)
+        .unwrap_or(FALLBACK_REPORT_WINDOW_HOURS)
+        .clamp(1, 24 * 365);
+    let observations = store
+        .load_observations(
+            &context_key,
+            Some(chrono::Utc::now() - chrono::Duration::hours(window_hours)),
+        )
+        .map_err(|error| format!("load: {error}"))?;
+    Ok((context_key, observations))
+}
+
+#[cfg(windows)]
+fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
+    use ptt_runtime::live::domain_asset_id;
+    use ptt_runtime::pipeline::LIVE_LEAGUE;
+    use ptt_runtime::reports;
+
+    let (context_key, observations) = load_window(request)?;
+    let tuning = &request.tuning;
+    let language = request.language;
+
+    // Page dispatch happens here and nowhere else. It used to happen twice,
+    // at two depths, and the two disagreed: one returned early on Monitor
+    // while the other carried a Monitor branch that could therefore never
+    // run, leaving the probe queue permanently blank.
+    match request.page {
+        // Answered as a model by `load_probe_queue`.
+        Page::Monitor => Ok(Vec::new()),
+        Page::Opportunities => reports::opportunities_report(
+            &observations,
+            &context_key,
+            LIVE_LEAGUE,
+            tuning,
+            language,
+        ),
+        Page::Watchlist => {
+            reports::watchlist_report(&observations, &context_key, LIVE_LEAGUE, tuning, language)
+        }
+        Page::Convert | Page::History => {
+            let Some((have, need)) = &request.pair else {
+                return Ok(Vec::new());
+            };
+            let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
+            let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
+            if request.page == Page::Convert {
+                // No holdings affordance in the text shell yet; the parameter
+                // is wired so the real page only adds an input box.
+                reports::convert_report(
+                    &observations,
+                    &context_key,
+                    &have,
+                    &need,
+                    None,
+                    tuning,
+                    language,
+                )
+            } else {
+                reports::history_report(&observations, &context_key, &have, &need, tuning, language)
+            }
+        }
+        // `reads_the_store` keeps these from reaching a background read.
+        Page::Calibrate | Page::Settings => Ok(Vec::new()),
     }
 }
 
@@ -1875,7 +2150,15 @@ impl Render for AppShell {
             .child(
                 // Body: navigation rail plus the active page.
                 div().flex_grow().flex().child(self.nav_rail(cx)).child(
-                    if self.page == Page::Monitor {
+                    if self.page == Page::Settings {
+                        div()
+                            .flex_grow()
+                            .flex()
+                            .flex_col()
+                            .gap_3()
+                            .p_3()
+                            .child(self.settings_panel(cx))
+                    } else if self.page == Page::Monitor {
                         div()
                             .flex_grow()
                             .flex()
@@ -1923,16 +2206,6 @@ impl Render for AppShell {
                                                 },
                                             )),
                                     )
-                                    // First in the column, not last. Everything
-                                    // below it is a list that grows with the
-                                    // market — the probe queue alone runs to
-                                    // six suggestions — and a fixed panel at
-                                    // the bottom of growing lists is a panel
-                                    // that scrolls out of reach. The calibrate
-                                    // buttons vanishing after a profile switch
-                                    // was exactly that: more missing pairs,
-                                    // longer queue, settings pushed off.
-                                    .child(self.settings_panel(cx))
                                     .child(panel().child(panel_header(text.panel_skips)).child(
                                         div().p_3().flex().flex_col().gap_1().children(
                                             if skip_lines.is_empty() {
@@ -1949,25 +2222,7 @@ impl Render for AppShell {
                                             },
                                         ),
                                     ))
-                                    .child(
-                                        panel()
-                                            .overflow_hidden()
-                                            .child(panel_header(text.panel_probe_queue))
-                                            .child(div().p_3().flex().flex_col().gap_1().children(
-                                                if self.report_lines.is_empty() {
-                                                    vec![
-                                                        mono(text.nothing_yet).text_size(fs(FS_12)),
-                                                    ]
-                                                } else {
-                                                    self.report_lines
-                                                        .iter()
-                                                        .map(|line| {
-                                                            mono(line.clone()).text_size(fs(FS_12))
-                                                        })
-                                                        .collect()
-                                                },
-                                            )),
-                                    ),
+                                    .child(self.probe_panel(cx)),
                             )
                     } else if self.page == Page::Calibrate {
                         self.render_calibrate(cx)
