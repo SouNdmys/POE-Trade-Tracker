@@ -18,6 +18,7 @@
 //! it sits inside sentences the reports build, and `risks unknown fee` reads
 //! where `risks UnknownFee` does not.
 
+use ptt_market_book::FreshnessStatus;
 use ptt_settings::UiLanguage;
 
 use ptt_strategy::{
@@ -68,6 +69,8 @@ pub struct ReportText {
     pub maker_over_taker: &'static str,
     pub listings_note: &'static str,
     pub nothing_current: &'static str,
+    pub freshness_config_invalid: &'static str,
+    pub freshness_light_line: &'static str,
     pub settlement_config_invalid: &'static str,
     pub settlement_config_partial: &'static str,
     pub maker_header: &'static str,
@@ -129,6 +132,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_over_taker: "maker over taker: {}bp",
     listings_note: "  (listings)",
     nothing_current: "nothing current - this is history, not a price",
+    freshness_config_invalid: "freshness thresholds in settings are invalid - using defaults",
+    freshness_light_line: "data freshness: {}",
     settlement_config_invalid: "settlement currencies in settings are invalid - using defaults",
     settlement_config_partial: "{} settlement entries in settings were ignored (invalid ids)",
     maker_header: "listing strategy {} -> {} at size {}",
@@ -182,6 +187,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_over_taker: "挂单高于吃单：{}bp",
     listings_note: "  （挂单）",
     nothing_current: "没有当前报价 — 这是历史，不是价格",
+    freshness_config_invalid: "设置里的新鲜度阈值无效 — 已回落到默认",
+    freshness_light_line: "数据新鲜度：{}",
     settlement_config_invalid: "设置里的结算通货无效 — 已回落到默认",
     settlement_config_partial: "设置里有 {} 条结算通货无效，已忽略",
     maker_header: "挂单策略 {} → {}（规模 {}）",
@@ -228,6 +235,16 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
+        (
+            "freshness_config_invalid",
+            REPORT_ENGLISH.freshness_config_invalid,
+            REPORT_CHINESE.freshness_config_invalid,
+        ),
+        (
+            "freshness_light_line",
+            REPORT_ENGLISH.freshness_light_line,
+            REPORT_CHINESE.freshness_light_line,
+        ),
         (
             "settlement_config_invalid",
             REPORT_ENGLISH.settlement_config_invalid,
@@ -517,6 +534,25 @@ pub const fn execution_risk(language: UiLanguage, value: ExecutionRisk) -> &'sta
     }
 }
 
+/// The traffic light one freshness class shows as. Green acts as-is,
+/// yellow says verify the rate in game first, red asks for a recapture —
+/// the selection and risk semantics behind the classes are untouched.
+#[must_use]
+pub const fn freshness_light(language: UiLanguage, value: FreshnessStatus) -> &'static str {
+    match value {
+        FreshnessStatus::Fresh => pick(language, "green - fresh", "绿（新鲜）"),
+        FreshnessStatus::Usable => pick(
+            language,
+            "yellow - verify in game before acting",
+            "黄（用前先核对盘口）",
+        ),
+        FreshnessStatus::Stale => {
+            pick(language, "red - stale, recapture", "红（已过期，建议重抓）")
+        }
+        FreshnessStatus::Archived => pick(language, "red - archived", "红（归档数据）"),
+    }
+}
+
 /// Why a listing was kept out of the maker queue math.
 #[must_use]
 pub const fn maker_exclusion(language: UiLanguage, value: MakerQueueExclusion) -> &'static str {
@@ -742,6 +778,15 @@ mod tests {
             ]
         );
         check!(maker_exclusion, [MakerQueueExclusion::PriceOutlier]);
+        check!(
+            freshness_light,
+            [
+                FreshnessStatus::Fresh,
+                FreshnessStatus::Usable,
+                FreshnessStatus::Stale,
+                FreshnessStatus::Archived,
+            ]
+        );
         check!(
             execution_risk,
             [

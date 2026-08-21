@@ -141,6 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &context_key,
             &have_id,
             &need_id,
+            &ptt_settings::MarketTuning::default(),
             ptt_settings::UiLanguage::English,
         ) {
             Ok(lines) => {
@@ -157,6 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &context_key,
             &have_id,
             &need_id,
+            &ptt_settings::MarketTuning::default(),
             ptt_settings::UiLanguage::English,
         ) {
             failures.push(format!("{have} -> {need}: history failed: {reason}"));

@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 
 use chrono::Utc;
 use ptt_market_book::{
-    DataVisibility, EvaluatedQuoteEdge, QuoteSelectionPolicy, QuoteSelectionStrategy,
-    build_coherent_current_book, select_quote_edges,
+    DataVisibility, EvaluatedQuoteEdge, FreshnessPolicy, FreshnessStatus, QuoteSelectionPolicy,
+    QuoteSelectionStrategy, build_coherent_current_book, select_quote_edges,
 };
 use ptt_settings::{MarketTuning, UiLanguage};
 use ptt_strategy::{
@@ -34,6 +34,9 @@ const CONVERT_SIZES: [u64; 3] = [1, 10, 100];
 /// Everything the engine needs, assembled once from stored observations.
 struct Market {
     index: MarketDepthIndex,
+    /// Lines the pages print before anything else — a tuned policy that
+    /// could not be used degrades loudly, never silently.
+    notes: Vec<String>,
     units: AssetUnitCatalog,
     selected: Vec<EvaluatedQuoteEdge>,
     mark_rates: MarkRateTable,
@@ -44,14 +47,47 @@ struct Market {
     instant_selection: ptt_market_book::QuoteSelectionResult,
 }
 
+/// The tuned selection policy for one strategy, or the shipped default and
+/// a visible note when the tuning does not validate.
+fn selection_policy_from(
+    tuning: &MarketTuning,
+    strategy: QuoteSelectionStrategy,
+    language: UiLanguage,
+) -> Result<(QuoteSelectionPolicy, Option<String>), String> {
+    let text = crate::report_text::report(language);
+    let tuned = FreshnessPolicy::try_new(
+        tuning.freshness.fresh_seconds,
+        tuning.freshness.usable_seconds,
+        tuning.freshness.stale_seconds,
+    )
+    .ok()
+    .and_then(|freshness| {
+        QuoteSelectionPolicy::personal_tuned(
+            strategy,
+            freshness,
+            tuning.freshness.capture_skew_seconds,
+            tuning.risk.top_book_outlier_factor,
+        )
+        .ok()
+    });
+    if let Some(policy) = tuned {
+        return Ok((policy, None));
+    }
+    let policy = QuoteSelectionPolicy::personal_default(strategy)
+        .map_err(|error| format!("policy: {error}"))?;
+    Ok((policy, Some(text.freshness_config_invalid.to_owned())))
+}
+
 fn build_market(
     observations: &[MarketEdgeObservation],
     context_key: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
 ) -> Result<Market, String> {
     let book = build_coherent_current_book(context_key, observations, DataVisibility::default())
         .map_err(|error| format!("book: {error}"))?;
-    let policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
-        .map_err(|error| format!("policy: {error}"))?;
+    let (policy, policy_note) =
+        selection_policy_from(tuning, QuoteSelectionStrategy::Instant, language)?;
     let selection = select_quote_edges(&book, &policy, Utc::now())
         .map_err(|error| format!("select: {error}"))?;
 
@@ -82,6 +118,7 @@ fn build_market(
 
     Ok(Market {
         index,
+        notes: policy_note.into_iter().collect(),
         units,
         selected,
         mark_rates,
@@ -120,10 +157,11 @@ pub fn convert_report(
     context_key: &str,
     have: &MarketAssetId,
     need: &MarketAssetId,
+    tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let market = build_market(observations, context_key)?;
-    let mut lines = Vec::new();
+    let market = build_market(observations, context_key, tuning, language)?;
+    let mut lines = market.notes.clone();
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
 
@@ -472,9 +510,9 @@ pub fn watchlist_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let market = build_market(observations, context_key)?;
+    let market = build_market(observations, context_key, tuning, language)?;
     let (policy, policy_warning) = market_policy_from(tuning, league, language);
-    let mut lines = Vec::new();
+    let mut lines = market.notes.clone();
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
 
@@ -595,7 +633,7 @@ pub fn opportunities_report(
     if seen.len() < 2 {
         return Ok(vec![text.not_enough_market.to_owned()]);
     }
-    let market = build_market(observations, context_key)?;
+    let market = build_market(observations, context_key, tuning, language)?;
 
     let items = focus_items_from(&policy, tuning, &seen);
     let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
@@ -667,7 +705,7 @@ pub fn opportunities_report(
     )
     .map_err(|error| format!("radar: {error:?}"))?;
 
-    let mut lines = Vec::new();
+    let mut lines = market.notes.clone();
     if let Some(warning) = policy_warning {
         lines.push(warning);
     }
@@ -706,8 +744,26 @@ pub fn opportunities_report(
         return Ok(lines);
     }
 
+    let freshness = market.instant_selection.policy.freshness;
+    let now = Utc::now();
     for item in &result.items {
-        lines.extend(radar_item_lines(item, language));
+        // The light reads the oldest leg: a route is only as current as the
+        // capture it leans on hardest.
+        let light = item
+            .conversion_path
+            .as_ref()
+            .and_then(|path| path.capture_time_evidence.as_ref())
+            .or_else(|| {
+                item.triangle
+                    .as_ref()
+                    .and_then(|triangle| triangle.capture_time_evidence.as_ref())
+            })
+            .map(|evidence| {
+                freshness
+                    .classify(evidence.earliest_captured_at, now)
+                    .status
+            });
+        lines.extend(radar_item_lines(item, light, language));
     }
     Ok(lines)
 }
@@ -730,7 +786,11 @@ const fn risks_label(language: UiLanguage) -> &'static str {
     }
 }
 
-fn radar_item_lines(item: &ptt_workflows::RadarItem, language: UiLanguage) -> Vec<String> {
+fn radar_item_lines(
+    item: &ptt_workflows::RadarItem,
+    freshness: Option<FreshnessStatus>,
+    language: UiLanguage,
+) -> Vec<String> {
     let route = item
         .path_asset_ids
         .iter()
@@ -742,13 +802,19 @@ fn radar_item_lines(item: &ptt_workflows::RadarItem, language: UiLanguage) -> Ve
         |points| format!("{}.{:02}%", points / 100, (points % 100).abs()),
     );
     let category = crate::report_text::actionability(language, item.category);
+    let light = freshness.map_or(String::new(), |status| {
+        format!(
+            "   {}",
+            crate::report_text::freshness_light(language, status)
+        )
+    });
     let mut lines = vec![
         format!(
             "{edge:>8}  {}  {route}",
             crate::report_text::radar_item_kind(language, item.kind)
         ),
         format!(
-            "          {category}   out {} {}",
+            "          {category}   out {} {}{light}",
             item.amount_out.quanta,
             item.path_asset_ids
                 .last()
@@ -838,24 +904,47 @@ pub fn history_report(
     context_key: &str,
     have: &MarketAssetId,
     need: &MarketAssetId,
+    tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
-    let market = build_market(observations, context_key)?;
+    let market = build_market(observations, context_key, tuning, language)?;
     let points = price_points(&market.selected, have, need);
     if points.is_empty() {
-        return Ok(vec![fill(
-            text.no_history_yet,
-            &[have.as_str(), need.as_str()],
-        )]);
+        let mut lines = market.notes.clone();
+        lines.push(fill(text.no_history_yet, &[have.as_str(), need.as_str()]));
+        return Ok(lines);
     }
 
     let summary = summarize(&points, have, need);
-    let mut lines = vec![format!(
+    let mut lines = market.notes.clone();
+    lines.push(format!(
         "{have} -> {need}: {} points over {} snapshots",
         summary.point_count, summary.snapshot_count
-    )];
+    ));
+    // The pair's traffic light reads the newest capture of this direction:
+    // older points are history, but the light describes what acting now
+    // would lean on.
+    if let Some(newest) = observations
+        .iter()
+        .filter(|observation| {
+            observation.edge.from_asset_id == *have && observation.edge.to_asset_id == *need
+        })
+        .map(|observation| observation.edge.captured_at)
+        .max()
+    {
+        let status = market
+            .instant_selection
+            .policy
+            .freshness
+            .classify(newest, Utc::now())
+            .status;
+        lines.push(fill(
+            text.freshness_light_line,
+            &[crate::report_text::freshness_light(language, status)],
+        ));
+    }
     if let Some(median) = &summary.median_rate {
         lines.push(format!(
             "median {}   low {}   high {}",
@@ -944,7 +1033,7 @@ fn focus_coverage(
     let market = match prebuilt {
         Some(market) => market,
         None => {
-            owned = build_market(observations, context_key)?;
+            owned = build_market(observations, context_key, tuning, UiLanguage::English)?;
             &owned
         }
     };
@@ -954,8 +1043,7 @@ fn focus_coverage(
         QuoteSelectionStrategy::FastMaker,
         QuoteSelectionStrategy::Probe,
     ] {
-        let policy = QuoteSelectionPolicy::personal_default(strategy)
-            .map_err(|error| format!("policy: {error}"))?;
+        let (policy, _note) = selection_policy_from(tuning, strategy, UiLanguage::English)?;
         selections.push(
             select_quote_edges(&market.book, &policy, now)
                 .map_err(|error| format!("select: {error}"))?,
@@ -1057,7 +1145,7 @@ mod radar_tests {
             conversion_path: None,
             triangle: None,
         };
-        let lines = radar_item_lines(&item, UiLanguage::English);
+        let lines = radar_item_lines(&item, None, UiLanguage::English);
         let joined = lines.join(
             "
 ",
@@ -1087,7 +1175,7 @@ mod radar_tests {
         // language-specific except its words, so a row that renders in one
         // language and not the other means a value reached the screen as a
         // bare Rust identifier -- which is what this whole path replaced.
-        let chinese = radar_item_lines(&item, UiLanguage::Chinese).join(
+        let chinese = radar_item_lines(&item, None, UiLanguage::Chinese).join(
             "
 ",
         );
@@ -1138,13 +1226,13 @@ mod radar_tests {
             conversion_path: None,
             triangle: None,
         };
-        let joined = radar_item_lines(&item, UiLanguage::English).join(
+        let joined = radar_item_lines(&item, None, UiLanguage::English).join(
             "
 ",
         );
         assert!(joined.contains("unpriced"), "{joined}");
         assert!(joined.contains("capture more before trusting"), "{joined}");
-        let chinese = radar_item_lines(&item, UiLanguage::Chinese).join(
+        let chinese = radar_item_lines(&item, None, UiLanguage::Chinese).join(
             "
 ",
         );
@@ -1179,9 +1267,31 @@ mod settlement_tests {
         MarketAssetId::try_new(id).expect("asset id")
     }
 
+    /// A taker row between any two assets, captured `age_seconds` ago.
+    fn aged_taker(
+        from: &str,
+        to: &str,
+        rate: (u64, u64),
+        stock: u64,
+        age_seconds: i64,
+    ) -> MarketEdgeObservation {
+        let captured = Utc::now() - chrono::Duration::seconds(age_seconds);
+        taker_at(from, to, rate, stock, captured)
+    }
+
     /// A fresh taker row between any two assets.
     fn taker(from: &str, to: &str, rate: (u64, u64), stock: u64) -> MarketEdgeObservation {
         let captured = Utc::now() - chrono::Duration::minutes(1);
+        taker_at(from, to, rate, stock, captured)
+    }
+
+    fn taker_at(
+        from: &str,
+        to: &str,
+        rate: (u64, u64),
+        stock: u64,
+        captured: chrono::DateTime<Utc>,
+    ) -> MarketEdgeObservation {
         MarketEdgeObservation {
             edge: QuoteEdge {
                 edge_id: format!("{from}->{to}"),
@@ -1361,6 +1471,72 @@ mod settlement_tests {
             "and the shipped default must carry the page: {lines:?}"
         );
     }
+
+    /// The traffic light against the default 2h/6h bands: one hour is
+    /// green, three is yellow, seven is red — and exactly 7200 seconds is
+    /// still green, pinning the classifier's inclusive boundary.
+    #[test]
+    fn the_pair_light_follows_the_configured_bands() {
+        for (age, expected) in [
+            (3_600_i64, "green - fresh"),
+            (7_200, "green - fresh"),
+            (3 * 3_600, "yellow - verify in game before acting"),
+            (7 * 3_600, "red - stale, recapture"),
+        ] {
+            let observations = vec![aged_taker("divine-orb", "chaos-orb", (100, 1), 1_000, age)];
+            let lines = history_report(
+                &observations,
+                CONTEXT,
+                &asset("divine-orb"),
+                &asset("chaos-orb"),
+                &MarketTuning::default(),
+                UiLanguage::English,
+            )
+            .expect("report");
+            assert!(
+                lines
+                    .iter()
+                    .any(|line| line.contains(&format!("data freshness: {expected}"))),
+                "age {age}s must read {expected}: {lines:?}"
+            );
+        }
+    }
+
+    /// Thresholds that do not validate (fresh >= usable) degrade to the
+    /// shipped default with a visible line — the page still renders.
+    #[test]
+    fn invalid_freshness_thresholds_degrade_loudly() {
+        let observations = vec![aged_taker("divine-orb", "chaos-orb", (100, 1), 1_000, 60)];
+        let tuning = MarketTuning {
+            freshness: ptt_settings::FreshnessTuning {
+                fresh_seconds: 21_600,
+                usable_seconds: 7_200,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = history_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            &tuning,
+            UiLanguage::English,
+        )
+        .expect("report");
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("freshness thresholds in settings are invalid")),
+            "{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("data freshness: green - fresh")),
+            "the default bands must still classify: {lines:?}"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1457,6 +1633,7 @@ mod convert_tests {
             CONTEXT,
             &asset("divine-orb"),
             &asset("chaos-orb"),
+            &MarketTuning::default(),
             UiLanguage::English,
         )
         .expect("report");
@@ -1490,6 +1667,7 @@ mod convert_tests {
             CONTEXT,
             &asset("divine-orb"),
             &asset("chaos-orb"),
+            &MarketTuning::default(),
             UiLanguage::Chinese,
         )
         .expect("report")

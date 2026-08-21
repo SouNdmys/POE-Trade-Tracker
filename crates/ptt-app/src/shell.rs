@@ -1700,6 +1700,7 @@ impl AppShell {
                 &context_key,
                 &have,
                 &need,
+                &tuning,
                 self.settings.ui_language,
             ),
             Page::Watchlist => ptt_runtime::reports::watchlist_report(
@@ -1714,6 +1715,7 @@ impl AppShell {
                 &context_key,
                 &have,
                 &need,
+                &tuning,
                 self.settings.ui_language,
             ),
         }

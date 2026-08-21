@@ -465,6 +465,25 @@ impl QuoteSelectionPolicy {
         Ok(policy)
     }
 
+    /// The personal default with the user-tuned knobs applied: freshness
+    /// windows, cross-leg capture-skew tolerance, and the outlier factor.
+    /// Everything else stays canonical, and the tuned values pass the same
+    /// validation the defaults do — an invalid combination is the caller's
+    /// typed error to degrade from, never a silently patched policy.
+    pub fn personal_tuned(
+        strategy: QuoteSelectionStrategy,
+        freshness: FreshnessPolicy,
+        max_capture_skew_seconds: u64,
+        top_book_outlier_factor: u64,
+    ) -> Result<Self, MarketBookError> {
+        let mut policy = Self::personal_default(strategy)?;
+        policy.freshness = freshness;
+        policy.capture_skew.max_capture_skew_seconds = Some(max_capture_skew_seconds);
+        policy.top_book_outlier_factor = top_book_outlier_factor;
+        policy.validate()?;
+        Ok(policy)
+    }
+
     #[must_use]
     pub fn is_personal_default(&self) -> bool {
         Self::personal_default(self.strategy).is_ok_and(|canonical| *self == canonical)
