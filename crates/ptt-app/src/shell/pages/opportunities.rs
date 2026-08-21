@@ -359,6 +359,27 @@ impl AppShell {
                 .text_size(fs(FS_11_5))
                 .text_color(c(TEXT_META)),
             );
+        // What the scan actually did, so an empty list is distinguishable
+        // from a scan that never ran: "no opportunities across 40 priced
+        // conversions" is an answer, "no opportunities" alone is a shrug.
+        header = header.child(
+            mono(report_text::fill(
+                report_text::report(language).scan_accounting,
+                &[
+                    &scan.diagnostics.scanned_conversion_count.to_string(),
+                    &scan.diagnostics.complete_conversion_count.to_string(),
+                    &scan.diagnostics.missing_conversion_count.to_string(),
+                    &scan.diagnostics.triangle_evaluation_count.to_string(),
+                    &self
+                        .settings_tuning()
+                        .radar
+                        .minimum_profit_basis_points
+                        .to_string(),
+                ],
+            ))
+            .text_size(fs(FS_11_5))
+            .text_color(c(TEXT_META)),
+        );
         // Said above the results, not below: a truncated search that looks
         // complete is how "there is nothing better" gets believed.
         if scan.diagnostics.budget_exhausted || scan.diagnostics.results_truncated {

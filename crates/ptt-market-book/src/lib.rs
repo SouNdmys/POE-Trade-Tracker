@@ -148,14 +148,66 @@ pub fn build_coherent_current_book(
 
     let mut views = Vec::with_capacity(snapshots.len());
     for (pair_key, pair_snapshots) in snapshots {
-        let selected = pair_snapshots.into_iter().max_by(|left, right| {
-            snapshot_time(&left.1)
-                .cmp(&snapshot_time(&right.1))
-                .then_with(|| left.0.cmp(&right.0))
-        });
-        let Some((snapshot_id, mut selected_observations)) = selected else {
-            continue;
+        // Newest snapshot *per panel side*, not per pair. A capture that read
+        // only the available table has observed nothing about the competing
+        // one, and must not delete what an earlier capture knew about it.
+        //
+        // This is not hypothetical: 16% of one live session's accepted books
+        // held a single row. Under newest-per-pair, each of those erased a
+        // full twelve-row book taken seconds earlier — the competing side
+        // vanished, and with it the pair's maker reference in one direction
+        // and its instant price in the other. Coverage read "missing" for
+        // pairs the user had just captured, and the radar starved, because a
+        // cycle needs both directions priced and the reverse instant lives on
+        // the competing side.
+        //
+        // Within a side the newest snapshot still wins whole: rows of one
+        // side are one order book and must not be mixed across captures.
+        let newest_for = |side: QuoteSide| {
+            pair_snapshots
+                .iter()
+                .filter(|(_, observations)| {
+                    observations
+                        .iter()
+                        .any(|observation| observation.edge.source_side == side)
+                })
+                .max_by(|left, right| {
+                    snapshot_time(left.1)
+                        .cmp(&snapshot_time(right.1))
+                        .then_with(|| left.0.cmp(right.0))
+                })
+                .map(|(snapshot_id, _)| snapshot_id.clone())
         };
+        let available_snapshot = newest_for(QuoteSide::Available);
+        let competing_snapshot = newest_for(QuoteSide::Competing);
+
+        let mut selected_observations: Vec<MarketEdgeObservation> = Vec::new();
+        for (snapshot_id, observations) in &pair_snapshots {
+            for observation in observations {
+                let chosen = match observation.edge.source_side {
+                    QuoteSide::Available => available_snapshot.as_ref(),
+                    QuoteSide::Competing => competing_snapshot.as_ref(),
+                };
+                if chosen == Some(snapshot_id) {
+                    selected_observations.push(observation.clone());
+                }
+            }
+        }
+        if selected_observations.is_empty() {
+            continue;
+        }
+        // The newer contributing snapshot names the view; when one snapshot
+        // supplies both sides this is exactly the old field.
+        let snapshot_id = [&available_snapshot, &competing_snapshot]
+            .into_iter()
+            .flatten()
+            .max_by_key(|id| {
+                pair_snapshots
+                    .get(*id)
+                    .map(|observations| snapshot_time(observations))
+            })
+            .cloned()
+            .unwrap_or_default();
         selected_observations.sort_by(compare_observation_identity);
         views.push(CoherentBookView {
             context_key: context_key.to_owned(),
@@ -1029,6 +1081,70 @@ mod tests {
                 complete,
             ),
         ]
+    }
+
+    /// A capture that read only one panel table observed nothing about the
+    /// other, and must not delete what an earlier capture knew about it.
+    ///
+    /// Sixteen percent of one live session's accepted books held a single
+    /// available row; under newest-per-pair each erased a full book taken
+    /// seconds earlier, and the competing side — one direction's maker
+    /// reference, the other direction's instant price — vanished from every
+    /// report until the pair happened to be recaptured cleanly.
+    #[test]
+    fn a_one_sided_snapshot_does_not_erase_the_other_side() {
+        let mut observations = snapshot_edges(
+            "full",
+            "context-a",
+            at(9),
+            SnapshotRecordStatus::Active,
+            true,
+        );
+        // The newer capture: available side only, as a torn frame reads.
+        let partial: Vec<MarketEdgeObservation> = snapshot_edges(
+            "partial",
+            "context-a",
+            at(10),
+            SnapshotRecordStatus::Active,
+            true,
+        )
+        .into_iter()
+        .filter(|observation| observation.edge.source_side == QuoteSide::Available)
+        .collect();
+        assert_eq!(partial.len(), 2, "the fixture halves cleanly");
+        observations.extend(partial);
+
+        let book =
+            build_coherent_current_book("context-a", &observations, DataVisibility::default())
+                .expect("book");
+        assert_eq!(book.views.len(), 1);
+        let view = &book.views[0];
+        // Available rows come from the newer capture, competing rows survive
+        // from the older one.
+        let sides: Vec<(&str, QuoteSide)> = view
+            .observations
+            .iter()
+            .map(|observation| {
+                (
+                    observation.edge.snapshot_id.as_str(),
+                    observation.edge.source_side,
+                )
+            })
+            .collect();
+        assert!(
+            sides.contains(&("partial", QuoteSide::Available)),
+            "newest available wins: {sides:?}"
+        );
+        assert!(
+            sides.contains(&("full", QuoteSide::Competing)),
+            "competing survives: {sides:?}"
+        );
+        assert!(
+            !sides.contains(&("full", QuoteSide::Available)),
+            "sides are never mixed within available: {sides:?}"
+        );
+        // The view is named for the newer contributor.
+        assert_eq!(view.snapshot_id, "partial");
     }
 
     #[test]

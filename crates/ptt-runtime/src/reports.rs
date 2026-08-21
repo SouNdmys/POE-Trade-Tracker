@@ -1650,6 +1650,69 @@ fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
 /// Coverage needs three views of the same book — what can be taken now, what
 /// is only listed, and what shows up once old data is allowed — because
 /// "missing" and "stale" are different problems with different fixes.
+/// Prints every candidate edge for one pair in all three coverage views.
+///
+/// Diagnosis, not product: "I captured this pair and coverage still calls it
+/// missing" cannot be answered from the screen, because the screen shows the
+/// verdict and the reasons live on the edges. This walks the same three
+/// selections coverage walks and says what each saw.
+pub fn debug_pair(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    tuning: &MarketTuning,
+    from: &str,
+    to: &str,
+) -> Result<(), String> {
+    let market = build_market(observations, context_key, tuning, UiLanguage::English)?;
+    let now = Utc::now();
+    let mut views = vec![("instant", market.instant_selection.clone())];
+    for (name, strategy) in [
+        ("maker", QuoteSelectionStrategy::FastMaker),
+        ("probe", QuoteSelectionStrategy::Probe),
+    ] {
+        let (policy, _) = selection_policy_from(tuning, strategy, UiLanguage::English)?;
+        views.push((
+            name,
+            select_quote_edges(&market.book, &policy, now)
+                .map_err(|error| format!("select: {error}"))?,
+        ));
+    }
+    for (name, view) in &views {
+        let selection = view.selections.iter().find(|selection| {
+            selection.from_asset_id.as_str() == from && selection.to_asset_id.as_str() == to
+        });
+        let Some(selection) = selection else {
+            println!("[{name}] no selection entry for {from} -> {to}");
+            continue;
+        };
+        println!(
+            "[{name}] {from} -> {to}: {} candidate edge(s), selected={}",
+            selection.candidate_edges.len(),
+            selection.selected_edge.is_some(),
+        );
+        for edge in &selection.candidate_edges {
+            println!(
+                "  role={:?} exec={:?} rate={} stock={} captured={} fresh={:?}",
+                edge.observation.edge.role,
+                edge.observation.edge.execution_type,
+                edge.observation.edge.rate.text,
+                edge.observation.edge.stock,
+                edge.observation.edge.captured_at.format("%H:%M:%S"),
+                edge.freshness.status,
+            );
+            println!(
+                "    accepted={} depth_eligible={} rejections={:?} blockers={:?} risks={:?}",
+                edge.accepted_for_selection,
+                edge.eligible_for_depth_analysis,
+                edge.selection_rejections,
+                edge.execution_blockers,
+                edge.risk_flags,
+            );
+        }
+    }
+    Ok(())
+}
+
 fn focus_coverage(
     observations: &[MarketEdgeObservation],
     context_key: &str,

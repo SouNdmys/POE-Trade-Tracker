@@ -132,6 +132,35 @@ impl AppShell {
         }
     }
 
+    /// Stops drawing a currency's valuation row. Display only.
+    #[cfg(windows)]
+    pub(crate) fn hide_asset(&mut self, asset: &str) {
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            if tuning.hidden_assets.iter().any(|held| held == asset) {
+                return;
+            }
+            tuning.hidden_assets.push(asset.to_owned());
+            tuning.hidden_assets.sort();
+        }
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
+    }
+
+    /// Brings every hidden row back.
+    #[cfg(windows)]
+    pub(crate) fn unhide_all_assets(&mut self) {
+        let game = self.settings.active_profile.game;
+        self.settings.market_tuning_mut(game).hidden_assets.clear();
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
+    }
+
     /// Stops a currency being suggested again.
     ///
     /// Its own list rather than watch-only: "do not ask me about this" is not
@@ -238,13 +267,41 @@ impl AppShell {
         if model.valuations.is_empty() {
             body = body.child(empty_state(report_text::report(language).no_price_capture));
         }
+        #[cfg(windows)]
+        let hidden: std::collections::BTreeSet<String> = self
+            .settings_tuning()
+            .hidden_assets
+            .iter()
+            .cloned()
+            .collect();
+        #[cfg(not(windows))]
+        let hidden: std::collections::BTreeSet<String> = Default::default();
+        let mut hidden_count = 0usize;
+
         for (row, entry) in model.valuations.iter().enumerate() {
             let asset = entry.asset_id.as_str().to_owned();
+            if hidden.contains(&asset) {
+                hidden_count += 1;
+                continue;
+            }
+            // "91:2" is exact and unreadable; "each ≈ 45.50 chaos" is what a
+            // person actually wants to know. The division is integer
+            // arithmetic rounded to two places — a display projection of the
+            // rational value, never fed back into anything.
             let value = match (&entry.valuation.value, entry.valuation.status) {
-                (Some(value), ValuationStatus::TwoSided) => {
-                    format!("{} ({})", value.text, text.valuation_two_sided)
+                (Some(value), status) => {
+                    let anchor = self.display_name(entry.valuation.anchor_asset_id.as_str());
+                    let per_unit = per_unit_text(value);
+                    let status_word = if status == ValuationStatus::TwoSided {
+                        text.valuation_two_sided
+                    } else {
+                        text.valuation_one_sided
+                    };
+                    format!(
+                        "{} ({status_word})",
+                        report_text::fill(text.per_unit, &[&per_unit, &anchor])
+                    )
                 }
-                (Some(value), _) => format!("{} ({})", value.text, text.valuation_one_sided),
                 (None, _) => report_text::report(language).no_price_capture.to_owned(),
             };
             #[cfg(windows)]
@@ -289,6 +346,10 @@ impl AppShell {
                 roles = roles.child(cell.child(option.label(text)));
             }
 
+            // Hiding is offered only where it is meaningful: a row with a
+            // role keeps it (un-list first), a settlement row cannot go.
+            let hideable = !settlement && choice == FocusChoice::Unlisted;
+            let hide_target = asset.clone();
             body = body.child(
                 div()
                     .h_flex()
@@ -305,11 +366,44 @@ impl AppShell {
                             .text_color(c(TEXT_SECONDARY))
                             .flex_grow(),
                     )
+                    .children(hideable.then(|| {
+                        button(("row-hide", row), LedgerButton::Quiet, text.hide_label, cx)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                #[cfg(windows)]
+                                this.hide_asset(&hide_target);
+                                cx.notify();
+                            }))
+                    }))
                     .child(if settlement {
                         div().child(chip(StatusKind::Monitoring, text.settlement_label))
                     } else {
                         div().border_1().border_color(c(HAIRLINE)).child(roles)
                     }),
+            );
+        }
+        if hidden_count > 0 {
+            body = body.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        mono(report_text::fill(
+                            text.hidden_count,
+                            &[&hidden_count.to_string()],
+                        ))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DISABLED)),
+                    )
+                    .child(
+                        button("rows-unhide", LedgerButton::Quiet, text.unhide_all, cx).on_click(
+                            cx.listener(|this, _, _, cx| {
+                                #[cfg(windows)]
+                                this.unhide_all_assets();
+                                cx.notify();
+                            }),
+                        ),
+                    ),
             );
         }
 
@@ -500,5 +594,28 @@ impl AppShell {
             .overflow_hidden()
             .child(panel_header(text.coverage_header))
             .child(crate::ui::scrollable(body, "watchlist-coverage"))
+    }
+}
+
+/// A ratio of anchor-per-unit, as a two-decimal reading.
+///
+/// Integer arithmetic with explicit rounding — `91:2` becomes `45.50`, and
+/// `58469137:200000` becomes `292.35` instead of a wall of digits. Display
+/// only; every decision still runs on the exact ratio.
+fn per_unit_text(value: &ptt_trade_domain::Ratio) -> String {
+    if value.denominator == 0 {
+        return value.text.clone();
+    }
+    let numerator = u128::from(value.numerator);
+    let denominator = u128::from(value.denominator);
+    let scaled = (numerator * 100 + denominator / 2) / denominator;
+    let whole = scaled / 100;
+    let cents = scaled % 100;
+    if cents == 0 {
+        format!("{whole}")
+    } else if cents % 10 == 0 {
+        format!("{whole}.{}", cents / 10)
+    } else {
+        format!("{whole}.{cents:02}")
     }
 }

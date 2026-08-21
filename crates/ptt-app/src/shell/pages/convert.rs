@@ -210,9 +210,19 @@ impl AppShell {
                 select.update(cx, |state, cx| state.set_items(items, window, cx));
             }
         }
-        // The pair the report describes, reflected in the pickers. Assigning
-        // what a picker already holds is skipped, so a choice the user just
-        // made is not disturbed; a book landing for another pair moves it.
+        // The pair the report describes, reflected in the pickers — but only
+        // when it changes. The change is detected against our own record of
+        // the last pair pushed, never against the picker's `selected_value`:
+        // that field does not update synchronously with `set_selected_value`
+        // (the swap button was broken by assuming it does), so a guard read
+        // from it judged every frame "not yet applied" and re-pushed — and
+        // since the push resets the list to clear any search filter, the
+        // search box was wiped faster than a person can type. Searching was
+        // simply dead while a pair was set, which is always.
+        if self.report_pair == self.convert_synced_pair {
+            return;
+        }
+        self.convert_synced_pair = self.report_pair.clone();
         let Some((have, need)) = self.report_pair.clone() else {
             return;
         };
@@ -221,19 +231,22 @@ impl AppShell {
             (self.convert_need.clone(), need),
         ] {
             let chosen = gpui::SharedString::from(chosen);
-            if select.read(cx).selected_value() == Some(&chosen) {
-                continue;
-            }
-            // The list is reset first because a search leaves it filtered, and
-            // the component looks an assigned value up in the filtered set: a
-            // picker last searched for "div" cannot be told to hold chaos, and
-            // silently empties instead. That is what the swap button looked
-            // like before this line existed. It runs only when the pair really
-            // changes -- a click, not a frame.
+            // Rebuilt whole rather than patched. A search leaves two pieces
+            // of state behind — the filtered list and the query text — and
+            // the component clears neither on its own: patching the list put
+            // the last search's text in front of the next one, so a reader
+            // who searched "div", picked, and reopened found themselves
+            // typing onto "div". A fresh state holds the full list, an empty
+            // query and the right selection, and this runs only when the
+            // pair changes, so nothing mid-search is ever torn down.
+            let index = self
+                .convert_choices
+                .iter()
+                .position(|choice| gpui_component::select::SelectItem::value(choice) == &chosen)
+                .map(gpui_component::IndexPath::new);
             let items = AssetList::new(self.convert_choices.clone());
             select.update(cx, |state, cx| {
-                state.set_items(items, window, cx);
-                state.set_selected_value(&chosen, window, cx);
+                *state = SelectState::new(items, index, window, cx).searchable(true);
             });
         }
     }

@@ -122,6 +122,15 @@ pub struct MarketTuning {
     /// [`IgnoredSuggestion`].
     #[serde(default)]
     pub ignored_suggestions: Vec<IgnoredSuggestion>,
+    /// Currencies whose valuation row the watchlist stops drawing.
+    ///
+    /// Display only: a hidden currency is still priced, still arbitraged and
+    /// still suggestible. The watchlist lists every currency the window has
+    /// seen, which after a day of capturing is a wall; this is the "I do not
+    /// need this row" for the rows that are only there because the watcher
+    /// walked past them once.
+    #[serde(default)]
+    pub hidden_assets: Vec<String>,
     /// Whether a route may pass through a focus target.
     ///
     /// Bridges say "route through me, I am not a destination". Nothing said
@@ -204,6 +213,7 @@ impl Default for MarketTuning {
             bridge_assets: Vec::new(),
             watch_only_assets: Vec::new(),
             ignored_suggestions: Vec::new(),
+            hidden_assets: Vec::new(),
             route_through_targets: default_route_through_targets(),
             freshness: FreshnessTuning::default(),
             convert: ConvertTuning::default(),

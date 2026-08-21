@@ -241,6 +241,9 @@ pub struct AppShell {
     /// That list, kept so assigning a selection can reset a searched picker
     /// without walking the catalogue again.
     convert_choices: Vec<pages::convert::AssetChoice>,
+    /// The pair last pushed into the pickers. The sync compares against this
+    /// rather than the pickers' own `selected_value`, which lags assignment.
+    convert_synced_pair: Option<(String, String)>,
     /// True once the user picked a pair by hand, after which an accepted book
     /// for some other pair must not drag the page away.
     pair_chosen_by_user: bool,
@@ -398,6 +401,7 @@ impl AppShell {
             holdings_input,
             convert_choices_key: None,
             convert_choices: Vec::new(),
+            convert_synced_pair: None,
             pair_chosen_by_user: false,
             #[cfg(windows)]
             backend: None,
@@ -595,6 +599,19 @@ impl AppShell {
     /// A pair, named the way the reader knows it.
     fn pair_label(&self, from: &str, to: &str) -> String {
         crate::names::pair_name(self.catalog(), self.language(), from, to)
+    }
+
+    /// The active game's market tuning, for pages that state its numbers.
+    pub(crate) fn settings_tuning(&self) -> ptt_settings::MarketTuning {
+        #[cfg(windows)]
+        {
+            self.settings
+                .market_tuning(self.settings.active_profile.game)
+        }
+        #[cfg(not(windows))]
+        {
+            ptt_settings::MarketTuning::default()
+        }
     }
 
     /// The catalogue for the game being watched.
