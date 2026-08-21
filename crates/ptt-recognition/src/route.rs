@@ -591,6 +591,30 @@ mod windows_route {
                 .ok()
         }
 
+        /// The row's two columns, from one recognition of the whole row.
+        ///
+        /// # Known defect
+        ///
+        /// The panel's stone texture in the blank column between the rate and
+        /// the stock is occasionally recognized as a glyph. It lands nearer
+        /// the rate than the column threshold, so it joins it: `97 : 1` came
+        /// back as `97 : 10` on a real frame, with the phantom `0` emitted at
+        /// step 15 against a rate ending at 10 and a stock starting at 27.
+        ///
+        /// No wrong value reaches the book — the ordering gate in
+        /// `crate::book::out_of_order_rows` catches the row, and takes the
+        /// good row beside it as collateral, so the panel's twelve rows became
+        /// ten. Losing two rows of depth is the cost.
+        ///
+        /// Cropping each column to its own ink, which keeps the texture out of
+        /// frame entirely, fixes that frame and costs more elsewhere: the tight
+        /// crop hands a wrapped rate's two lines to a single-line recognizer,
+        /// and the frozen corpora lost five rows to gain two. Gating it on
+        /// single-line columns is not enough — inside a 28px row crop the two
+        /// lines of a wrapped rate merge into one ink band. The approach worth
+        /// trying next is narrower: leave this path alone and re-read only the
+        /// rows the ordering gate rejects, against their own ink columns,
+        /// accepting the re-read only when it restores the panel's order.
         fn paddle_row_line(
             &self,
             frame: &ptt_vision::CapturedFrame,
@@ -628,7 +652,19 @@ mod windows_route {
                 previous_step = Some(emission.time_step);
             }
             if std::env::var_os("PTT_DEBUG_OCR").is_some() {
-                eprintln!("debug paddle-row: tokens={tokens:?}");
+                // Per-emission steps, not just the tokens: a phantom glyph
+                // struck in the blank column between the rate and the stock
+                // is invisible in the joined token but obvious as a step
+                // sitting alone in the gap. See the known-defect note on
+                // `paddle_row_line`.
+                let emissions: Vec<(usize, &str)> = recognition
+                    .emissions
+                    .iter()
+                    .map(|emission| (emission.time_step, emission.text.as_str()))
+                    .collect();
+                eprintln!(
+                    "debug paddle-row: tokens={tokens:?} gap>={column_gap_steps}                      emissions={emissions:?}"
+                );
             }
             // A leading bare comparator is part of the ratio.
             if tokens.len() > 2 && (tokens[0] == "<" || tokens[0] == ">") {

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "profile": "poe2-en",
+  "screenshot_dir": "test-screenshots/poe2/8.21.1",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.21 - 16.44.04.84.png",
+      "expect": "accept",
+      "need": "omen_of_dextral_annulment",
+      "have": "divine_orb",
+      "min_rows": 12,
+      "note": "A full panel read clean, both tables, verified against the pixels row by row.",
+      "rows": [
+        { "side": "available", "index": 0, "ratio": "1:8.80", "stock": 5 },
+        { "side": "available", "index": 1, "ratio": "1:8.88", "stock": 42 },
+        { "side": "available", "index": 2, "ratio": "1:8.90", "stock": 150 },
+        { "side": "available", "index": 3, "ratio": "1:8.91", "stock": 23 },
+        { "side": "available", "index": 4, "ratio": "1:9", "stock": 661 },
+        { "side": "available", "index": 5, "ratio": "<1:9", "stock": 2721 },
+        { "side": "competing", "index": 0, "ratio": "1:8.75", "stock": 4708 },
+        { "side": "competing", "index": 1, "ratio": "1:8.60", "stock": 688 },
+        { "side": "competing", "index": 2, "ratio": "1:8.50", "stock": 5355 },
+        { "side": "competing", "index": 3, "ratio": "1:8", "stock": 28656 },
+        { "side": "competing", "index": 4, "ratio": "1:7.33", "stock": 66 },
+        { "side": "competing", "index": 5, "ratio": ">1:7.33", "stock": 1557 }
+      ]
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.21 - 17.03.56.10.png",
+      "expect": "accept",
+      "need": "chaos_orb",
+      "have": "fracturing_orb",
+      "min_rows": 10,
+      "note": "The two skipped rows are the known phantom-glyph defect on paddle_row_line. Windows OCR returns nothing for these three short rows, so PP-OCRv5 reads the whole row, and panel stone in the blank column between the rate and the stock is recognized as a glyph: `97 : 1` comes back as `97 : 10`. The ordering gate catches it and takes the good row above it as collateral, which is why competing #0 is listed as a skip even though its own read is correct. Values are recorded so the gate checks them the day the rows come back.",
+      "rows": [
+        { "side": "available", "index": 0, "ratio": "94:1", "stock": 940 },
+        { "side": "available", "index": 1, "ratio": "93:1", "stock": 744 },
+        { "side": "available", "index": 2, "ratio": "91.50:1", "stock": 915 },
+        { "side": "available", "index": 3, "ratio": "90:1", "stock": 3600 },
+        { "side": "available", "index": 4, "ratio": "87:1", "stock": 87 },
+        { "side": "available", "index": 5, "ratio": "<87:1", "stock": 2560 },
+        { "side": "competing", "index": 0, "expect": "skip", "ratio": "96:1", "stock": 2 },
+        { "side": "competing", "index": 1, "expect": "skip", "ratio": "97:1", "stock": 1 },
+        { "side": "competing", "index": 2, "ratio": "98:1", "stock": 1 },
+        { "side": "competing", "index": 3, "ratio": "99:1", "stock": 21 },
+        { "side": "competing", "index": 4, "ratio": "100:1", "stock": 4 },
+        { "side": "competing", "index": 5, "ratio": ">100:1", "stock": 392 }
+      ]
+    }
+  ]
+}
