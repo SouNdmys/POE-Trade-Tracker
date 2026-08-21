@@ -120,6 +120,13 @@ pub enum CoverageOutcome {
 
 #[derive(Clone, Debug)]
 pub struct CoverageModel {
+    /// Whether the scope was answerable at all.
+    ///
+    /// Carried rather than inferred from an entry count: a list that names
+    /// only currencies the settlement set already covers produces a scope with
+    /// no targets, and the two pairs left over — the settlement currencies
+    /// against each other — look exactly like a market nobody has captured.
+    pub status: ptt_workflows::FocusScopeStatus,
     pub entries: Vec<ptt_workflows::FocusCoverage>,
     pub candidates: Vec<ptt_workflows::ProbeCandidate>,
 }
@@ -953,7 +960,8 @@ pub fn watchlist_model(
         &seen,
         Some(&market),
     ) {
-        Ok((entries, candidates)) => CoverageOutcome::Ready(CoverageModel {
+        Ok((status, entries, candidates)) => CoverageOutcome::Ready(CoverageModel {
+            status,
             entries,
             candidates,
         }),
@@ -1425,7 +1433,7 @@ pub fn probe_queue_model(
         });
     }
 
-    let (coverage, candidates) =
+    let (_status, coverage, candidates) =
         focus_coverage(observations, context_key, &policy, tuning, &seen, None)?;
     let missing = coverage
         .iter()
@@ -1637,6 +1645,7 @@ fn focus_coverage(
     prebuilt: Option<&Market>,
 ) -> Result<
     (
+        ptt_workflows::FocusScopeStatus,
         Vec<ptt_workflows::FocusCoverage>,
         Vec<ptt_workflows::ProbeCandidate>,
     ),
@@ -1669,14 +1678,15 @@ fn focus_coverage(
         );
     }
 
-    derive_focus_probe_candidates(
+    let (entries, candidates) = derive_focus_probe_candidates(
         "live-focus",
         &scope,
         &market.instant_selection,
         &selections[0],
         &selections[1],
     )
-    .map_err(|error| format!("{error}"))
+    .map_err(|error| format!("{error}"))?;
+    Ok((scope.status, entries, candidates))
 }
 
 /// The same coverage, rendered for the watchlist page.
@@ -1684,6 +1694,9 @@ fn render_coverage(coverage: &CoverageModel, language: UiLanguage) -> Vec<String
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
     let mut lines = Vec::new();
+    if coverage.status == ptt_workflows::FocusScopeStatus::MissingTarget {
+        lines.push(text.focus_has_no_targets.to_owned());
+    }
     let incomplete: Vec<_> = coverage
         .entries
         .iter()

@@ -45,8 +45,8 @@ pub mod domain {
         ExecutionRiskFlag, PairFill, TriangleEvaluation,
     };
     pub use ptt_workflows::{
-        FocusCoverage, FocusCoverageStatus, FocusRole, ProbeCandidate, ProbePriority, ProbeReason,
-        RadarDiagnostics, RadarItem, RadarItemKind, RadarReason,
+        FocusCoverage, FocusCoverageStatus, FocusRole, FocusScopeStatus, ProbeCandidate,
+        ProbePriority, ProbeReason, RadarDiagnostics, RadarItem, RadarItemKind, RadarReason,
     };
 }
 

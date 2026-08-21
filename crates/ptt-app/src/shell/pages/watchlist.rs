@@ -61,6 +61,22 @@ impl FocusChoice {
 }
 
 impl AppShell {
+    /// Whether a currency is one of the settlement currencies.
+    ///
+    /// They hold a role no list can change — everything is priced against
+    /// them — so the four buttons do not apply, and offering them was worse
+    /// than useless: clicking one had no visible effect on the row while
+    /// quietly putting an entry in the focus list, which is enough to switch
+    /// the whole coverage panel from "everything captured" to "the list".
+    #[cfg(windows)]
+    pub(crate) fn is_settlement(&self, asset: &str) -> bool {
+        self.settings
+            .market_tuning(self.settings.active_profile.game)
+            .settlement_assets
+            .iter()
+            .any(|held| held == asset)
+    }
+
     /// Where a currency currently sits.
     #[cfg(windows)]
     pub(crate) fn focus_choice(&self, asset: &str) -> FocusChoice {
@@ -181,6 +197,11 @@ impl AppShell {
             #[cfg(not(windows))]
             let choice = FocusChoice::Unlisted;
 
+            #[cfg(windows)]
+            let settlement = self.is_settlement(&asset);
+            #[cfg(not(windows))]
+            let settlement = false;
+
             let mut roles = div().h_flex().items_center().flex_none();
             for (index, option) in FocusChoice::EDITABLE.into_iter().enumerate() {
                 let target = asset.clone();
@@ -229,7 +250,11 @@ impl AppShell {
                             .text_color(c(TEXT_SECONDARY))
                             .flex_grow(),
                     )
-                    .child(div().border_1().border_color(c(HAIRLINE)).child(roles)),
+                    .child(if settlement {
+                        div().child(chip(StatusKind::Monitoring, text.settlement_label))
+                    } else {
+                        div().border_1().border_color(c(HAIRLINE)).child(roles)
+                    }),
             );
         }
 
@@ -302,6 +327,16 @@ impl AppShell {
                 );
             }
             CoverageOutcome::Ready(coverage) => {
+                // A list that names only settlement currencies leaves nothing
+                // to measure, and the two pairs it does produce look exactly
+                // like a market nobody has captured.
+                if coverage.status == ptt_runtime::domain::FocusScopeStatus::MissingTarget {
+                    body = body.child(
+                        mono(report_text::report(language).focus_has_no_targets)
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(WARN_TEXT)),
+                    );
+                }
                 let incomplete: Vec<_> = coverage
                     .entries
                     .iter()

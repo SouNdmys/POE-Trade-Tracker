@@ -52,6 +52,9 @@ pub struct ReportText {
     /// content, which the page has to say plainly so the reader knows to
     /// change one of them rather than wonder what broke.
     pub same_currency: &'static str,
+    /// The focus list names nothing the settlement set does not already
+    /// cover, so there is nothing to measure coverage of.
+    pub focus_has_no_targets: &'static str,
     pub core_liquidity: &'static str,
     pub no_price_capture: &'static str,
     pub coverage_unavailable: &'static str,
@@ -125,6 +128,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     break_even_at: "break even at 1 : {}",
     nothing_to_convert: "nothing to convert yet - capture a book first",
     same_currency: "have and want are the same currency - pick two different ones",
+    focus_has_no_targets: "the focus list adds nothing to the settlement set - only the settlement currencies are being compared",
     core_liquidity: "core liquidity: {}",
     no_price_capture: "no price - capture this pair",
     coverage_unavailable: "coverage unavailable: {}",
@@ -190,6 +194,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     break_even_at: "保本价 1 : {}",
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
     same_currency: "拥有和想要是同一种通货 — 请选两种不同的",
+    focus_has_no_targets: "关注列表没有在结算通货之外添加任何东西 — 现在只在结算通货之间比对",
     core_liquidity: "核心流通币：{}",
     no_price_capture: "没有价格 — 去翻这一对",
     coverage_unavailable: "覆盖情况读不出来：{}",
@@ -459,6 +464,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "same_currency",
             REPORT_ENGLISH.same_currency,
             REPORT_CHINESE.same_currency,
+        ),
+        (
+            "focus_has_no_targets",
+            REPORT_ENGLISH.focus_has_no_targets,
+            REPORT_CHINESE.focus_has_no_targets,
         ),
         (
             "core_liquidity",
