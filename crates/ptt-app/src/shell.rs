@@ -406,7 +406,7 @@ impl AppShell {
             if let Some(mut backend) = self.backend.take() {
                 backend.stop();
             }
-            self.backend = Some(Backend::start());
+            self.backend = Some(Backend::start(self.settings.ui_language));
         }
     }
 
@@ -429,7 +429,7 @@ impl AppShell {
                 self.watching = false;
             } else {
                 self.fault = None;
-                self.backend = Some(Backend::start());
+                self.backend = Some(Backend::start(self.settings.ui_language));
                 self.watching = true;
             }
             cx.notify();

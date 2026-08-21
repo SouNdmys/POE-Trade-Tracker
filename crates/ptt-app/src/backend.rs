@@ -153,13 +153,13 @@ mod windows_backend {
     }
 
     impl Backend {
-        pub fn start() -> Self {
+        pub fn start(ui_language: ptt_settings::UiLanguage) -> Self {
             let (sender, events) = channel();
             let cancel = Arc::new(AtomicBool::new(false));
             let worker_cancel = Arc::clone(&cancel);
             let worker = std::thread::Builder::new()
                 .name("ptt-watch".to_owned())
-                .spawn(move || run_watch(&worker_cancel, &sender))
+                .spawn(move || run_watch(&worker_cancel, &sender, ui_language))
                 .expect("spawn watch thread");
             Self {
                 events,
@@ -209,12 +209,16 @@ mod windows_backend {
         }
     }
 
-    fn run_watch(cancel: &AtomicBool, sender: &Sender<UiEvent>) {
+    fn run_watch(
+        cancel: &AtomicBool,
+        sender: &Sender<UiEvent>,
+        ui_language: ptt_settings::UiLanguage,
+    ) {
         let mut sentinel = FaultOnDrop {
             sender: sender.clone(),
             armed: true,
         };
-        let mut pipeline = match LivePipeline::open("live-league", None) {
+        let mut pipeline = match LivePipeline::open("live-league", None, ui_language) {
             Ok(pipeline) => pipeline,
             Err(error) => {
                 let _ = sender.send(UiEvent::Fault(error.to_string()));

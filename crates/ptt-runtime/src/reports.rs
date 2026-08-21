@@ -448,7 +448,10 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
     for route in &model.sizes {
         let size = route.size;
         let Some(accounting) = &route.accounting else {
-            lines.push(format!("{size:>4} {have} -> {need}: no route yet"));
+            lines.push(format!(
+                "{size:>4} {}",
+                fill(text.no_route_for_pair, &[have.as_str(), need.as_str()])
+            ));
             continue;
         };
         let route = accounting
@@ -946,9 +949,9 @@ fn render_watchlist(model: &WatchlistModel, language: UiLanguage) -> Vec<String>
     for entry in &model.valuations {
         let value = match (&entry.valuation.value, entry.valuation.status) {
             (Some(value), ValuationStatus::TwoSided) => {
-                format!("{} (both sides)", value.text)
+                fill(text.valuation_two_sided, &[&value.text])
             }
-            (Some(value), _) => format!("{} (one side only)", value.text),
+            (Some(value), _) => fill(text.valuation_one_sided, &[&value.text]),
             (None, _) => text.no_price_capture.to_owned(),
         };
         lines.push(format!("{:<20} {value}", entry.asset_id.as_str(),));
@@ -973,14 +976,19 @@ fn render_watchlist(model: &WatchlistModel, language: UiLanguage) -> Vec<String>
     }
 
     for recommendation in &model.anchors {
-        lines.push(format!(
-            "{}: {} (score {}.{}, {} pairs, {} two-way)",
-            crate::report_text::anchor_action(language, recommendation.action),
-            recommendation.asset_id.as_str(),
-            recommendation.score_tenths / 10,
-            recommendation.score_tenths % 10,
-            recommendation.pair_coverage_count,
-            recommendation.bidirectional_pair_count,
+        lines.push(fill(
+            text.anchor_recommendation,
+            &[
+                crate::report_text::anchor_action(language, recommendation.action),
+                recommendation.asset_id.as_str(),
+                &format!(
+                    "{}.{}",
+                    recommendation.score_tenths / 10,
+                    recommendation.score_tenths % 10
+                ),
+                &recommendation.pair_coverage_count.to_string(),
+                &recommendation.bidirectional_pair_count.to_string(),
+            ],
         ));
     }
     lines
@@ -1233,9 +1241,9 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
     if scan.items.is_empty() {
         lines.push(text.nothing_beats_holding.to_owned());
         if scan.diagnostics.missing_conversion_count > 0 {
-            lines.push(format!(
-                "{} targets have no route yet — the Watchlist says which to flip",
-                scan.diagnostics.missing_conversion_count
+            lines.push(fill(
+                text.targets_without_route,
+                &[&scan.diagnostics.missing_conversion_count.to_string()],
             ));
         }
         lines.extend(probe_lines);
@@ -1256,15 +1264,8 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
 /// the captured corpus does not have one — leaving the only branch a user sees
 /// when the radar succeeds as the only branch never executed.
 /// The word introducing a list of risk flags.
-///
-/// Here rather than in `report_text` because it names nothing typed -- it is
-/// the one word of prose these two lines share, and the rest of the reports'
-/// prose has not moved yet.
 const fn risks_label(language: UiLanguage) -> &'static str {
-    match language {
-        UiLanguage::English => "risks",
-        UiLanguage::Chinese => "风险",
-    }
+    crate::report_text::report(language).risks
 }
 
 fn radar_item_lines(
@@ -1272,6 +1273,8 @@ fn radar_item_lines(
     freshness: Option<FreshnessStatus>,
     language: UiLanguage,
 ) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
     let route = item
         .path_asset_ids
         .iter()
@@ -1279,7 +1282,7 @@ fn radar_item_lines(
         .collect::<Vec<_>>()
         .join(" -> ");
     let edge = item.value_basis_points.map_or_else(
-        || "unpriced".to_owned(),
+        || text.unpriced.to_owned(),
         |points| format!("{}.{:02}%", points / 100, (points % 100).abs()),
     );
     let category = crate::report_text::actionability(language, item.category);
@@ -1295,11 +1298,16 @@ fn radar_item_lines(
             crate::report_text::radar_item_kind(language, item.kind)
         ),
         format!(
-            "          {category}   out {} {}{light}",
-            item.amount_out.quanta,
-            item.path_asset_ids
-                .last()
-                .map_or("?", MarketAssetId::as_str),
+            "          {category}   {}{light}",
+            fill(
+                text.out_amount,
+                &[
+                    item.amount_out.quanta.to_string().as_str(),
+                    item.path_asset_ids
+                        .last()
+                        .map_or("?", MarketAssetId::as_str),
+                ],
+            )
         ),
     ];
     if !item.blocking_risks.is_empty() {
@@ -1384,13 +1392,17 @@ pub fn probe_queue_model(
 
 /// The probe queue as display lines.
 fn render_probe_queue(model: &ProbeQueueModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
     let text = crate::report_text::report(language);
     if model.nothing_captured {
         return vec![text.no_pairs_captured.to_owned()];
     }
-    let mut lines = vec![format!(
-        "{} of {} pairs complete",
-        model.complete_pairs, model.total_pairs
+    let mut lines = vec![fill(
+        text.pairs_complete,
+        &[
+            &model.complete_pairs.to_string(),
+            &model.total_pairs.to_string(),
+        ],
     )];
     if model.candidates.is_empty() {
         lines.push(text.nothing_to_probe.to_owned());
@@ -1486,9 +1498,14 @@ fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
         lines.push(fill(text.no_history_yet, &[have.as_str(), need.as_str()]));
         return lines;
     };
-    lines.push(format!(
-        "{have} -> {need}: {} points over {} snapshots",
-        summary.point_count, summary.snapshot_count
+    lines.push(fill(
+        text.history_header,
+        &[
+            have.as_str(),
+            need.as_str(),
+            &summary.point_count.to_string(),
+            &summary.snapshot_count.to_string(),
+        ],
     ));
     if let Some(status) = model.light {
         lines.push(fill(
@@ -1497,17 +1514,19 @@ fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
         ));
     }
     if let Some(median) = &summary.median_rate {
-        lines.push(format!(
-            "median {}   low {}   high {}",
-            median.text,
-            summary
-                .min_rate
-                .as_ref()
-                .map_or("—", |rate| rate.text.as_str()),
-            summary
-                .max_rate
-                .as_ref()
-                .map_or("—", |rate| rate.text.as_str()),
+        lines.push(fill(
+            text.median_low_high,
+            &[
+                &median.text,
+                summary
+                    .min_rate
+                    .as_ref()
+                    .map_or("—", |rate| rate.text.as_str()),
+                summary
+                    .max_rate
+                    .as_ref()
+                    .map_or("—", |rate| rate.text.as_str()),
+            ],
         ));
     }
     if let Some(spread) = summary.spread_basis_points {
@@ -1520,19 +1539,21 @@ fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
     // Newest first, and only the most recent few: the model keeps every
     // candle so a chart can draw the whole window.
     for candle in model.candles.iter().rev().take(8) {
-        lines.push(format!(
-            "{}  o {} h {} l {} c {}  n={}{}",
-            candle.bucket_start.format("%H:%M"),
-            candle.open.text,
-            candle.high.text,
-            candle.low.text,
-            candle.close.text,
-            candle.sample_count,
-            if candle.maker_only {
-                "  (listings)"
-            } else {
-                ""
-            },
+        lines.push(fill(
+            text.candle_line,
+            &[
+                &candle.bucket_start.format("%H:%M").to_string(),
+                &candle.open.text,
+                &candle.high.text,
+                &candle.low.text,
+                &candle.close.text,
+                &candle.sample_count.to_string(),
+                if candle.maker_only {
+                    text.listings_note
+                } else {
+                    ""
+                },
+            ],
         ));
     }
 
@@ -1611,16 +1632,20 @@ fn focus_coverage(
 
 /// The same coverage, rendered for the watchlist page.
 fn render_coverage(coverage: &CoverageModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
     let mut lines = Vec::new();
     let incomplete: Vec<_> = coverage
         .entries
         .iter()
         .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
         .collect();
-    lines.push(format!(
-        "coverage: {} of {} pairs complete",
-        coverage.entries.len() - incomplete.len(),
-        coverage.entries.len()
+    lines.push(fill(
+        text.coverage_progress,
+        &[
+            &(coverage.entries.len() - incomplete.len()).to_string(),
+            &coverage.entries.len().to_string(),
+        ],
     ));
     for entry in incomplete.iter().take(8) {
         lines.push(format!(
@@ -1632,7 +1657,8 @@ fn render_coverage(coverage: &CoverageModel, language: UiLanguage) -> Vec<String
     }
     for candidate in coverage.candidates.iter().take(8) {
         lines.push(format!(
-            "  probe {}: {} -> {}  ({})",
+            "  {} {}: {} -> {}  ({})",
+            text.probe,
             crate::report_text::probe_priority(language, candidate.priority),
             candidate.from_asset_id.as_str(),
             candidate.to_asset_id.as_str(),

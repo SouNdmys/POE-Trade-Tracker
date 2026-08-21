@@ -8,6 +8,7 @@ use ptt_market_book::{
     DataVisibility, QuoteSelectionPolicy, QuoteSelectionStrategy, build_coherent_current_book,
     select_quote_edges,
 };
+use ptt_settings::UiLanguage;
 use ptt_trade_domain::{MarketAssetId, MarketEdgeObservation};
 use ptt_trade_engine::{
     AssetAmount, AssetUnit, AssetUnitCatalog, ConversionRequest, FeePolicy, MarketDepthIndex,
@@ -23,7 +24,10 @@ pub fn pair_analysis_lines(
     context_key: &str,
     need: &MarketAssetId,
     have: &MarketAssetId,
+    language: UiLanguage,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    use crate::report_text::{execution_risk_flag, join};
+
     let mut lines = Vec::new();
     let book = build_coherent_current_book(context_key, observations, DataVisibility::default())?;
     let policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)?;
@@ -53,12 +57,16 @@ pub fn pair_analysis_lines(
         &SearchCancellation::default(),
     )?;
     match (&conversion.direct_path, &conversion.best_path) {
+        // Flag names come from the report catalogue rather than from `Debug`,
+        // which put Rust identifiers on screen and let a new variant reach a
+        // reader unnamed. Naming them there means a new one does not compile
+        // until both languages have a word for it.
         (Some(direct), Some(best)) => lines.push(format!(
-            "100 {have} -> {need}: direct {} | best {} ({} hops, risks {:?})",
+            "100 {have} -> {need}: direct {} | best {} ({} hops, risks {})",
             direct.amount_out.quanta,
             best.amount_out.quanta,
             best.steps.len(),
-            best.risk_flags,
+            join(language, &best.risk_flags, execution_risk_flag),
         )),
         (Some(direct), None) => lines.push(format!(
             "100 {have} -> {need}: direct {}",
@@ -86,10 +94,12 @@ pub fn pair_analysis_lines(
             .map(|step| step.from_asset_id.clone())
             .collect();
         lines.push(format!(
-            "triangle {} profit={:?}bp risks={:?}",
+            "triangle {} profit={}bp risks={}",
             canonical_cycle_key(&cycle),
-            opportunity.profit_basis_points,
-            opportunity.risk_flags,
+            opportunity
+                .profit_basis_points
+                .map_or_else(|| "?".to_owned(), |points| points.to_string()),
+            join(language, &opportunity.risk_flags, execution_risk_flag),
         ));
     }
     if triangles.opportunities.is_empty() {

@@ -47,7 +47,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         resolved_db.display()
     );
 
-    let mut pipeline = LivePipeline::open("live-league", db_path.as_deref())?;
+    let mut pipeline = LivePipeline::open(
+        "live-league",
+        db_path.as_deref(),
+        ptt_settings::UiLanguage::English,
+    )?;
     let stats = pipeline.run(
         std::time::Duration::from_secs(seconds),
         &CANCEL,

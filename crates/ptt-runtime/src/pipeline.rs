@@ -179,12 +179,21 @@ pub struct LivePipeline {
     context: MarketContext,
     context_key: String,
     sequence: u64,
+    /// The reader's language, for the analysis lines each accepted book
+    /// carries. Distinct from the route's language, which is the game
+    /// client's. Captured at open: a switch mid-session reaches the next book
+    /// rather than rewriting the one already on screen.
+    ui_language: ptt_settings::UiLanguage,
 }
 
 impl LivePipeline {
     /// Opens the recognition route, the store, and the market context, with
     /// the user's calibration applied.
-    pub fn open(league: &str, database_path: Option<&Path>) -> Result<Self, PipelineError> {
+    pub fn open(
+        league: &str,
+        database_path: Option<&Path>,
+        ui_language: ptt_settings::UiLanguage,
+    ) -> Result<Self, PipelineError> {
         let profile = active_profile();
         apply_saved_calibration();
         let (layout, language) = route_for(profile);
@@ -205,6 +214,7 @@ impl LivePipeline {
             context,
             context_key,
             sequence: 0,
+            ui_language,
         })
     }
 
@@ -230,6 +240,7 @@ impl LivePipeline {
             context,
             context_key,
             sequence,
+            ui_language,
         } = self;
         run_session(
             route,
@@ -287,7 +298,7 @@ impl LivePipeline {
                         return;
                     }
 
-                    let analysis = analyse(store, context_key, &need_id, &have_id)
+                    let analysis = analyse(store, context_key, &need_id, &have_id, *ui_language)
                         .unwrap_or_else(|error| vec![format!("analysis error: {error}")]);
                     on_event(PipelineEvent::Accepted(Box::new(AcceptedBook {
                         sequence: *sequence,
@@ -320,6 +331,7 @@ fn analyse(
     context_key: &str,
     need_id: &str,
     have_id: &str,
+    language: ptt_settings::UiLanguage,
 ) -> Result<Vec<String>, String> {
     let observations = store
         .load_observations(
@@ -329,7 +341,7 @@ fn analyse(
         .map_err(|error| format!("load: {error}"))?;
     let need = domain_asset_id(need_id).map_err(|error| format!("{error:?}"))?;
     let have = domain_asset_id(have_id).map_err(|error| format!("{error:?}"))?;
-    pair_analysis_lines(&observations, context_key, &need, &have)
+    pair_analysis_lines(&observations, context_key, &need, &have, language)
         .map_err(|error| format!("analysis: {error}"))
 }
 
