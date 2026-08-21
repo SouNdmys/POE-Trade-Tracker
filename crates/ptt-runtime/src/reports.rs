@@ -12,7 +12,7 @@ use ptt_market_book::{
     DataVisibility, EvaluatedQuoteEdge, QuoteSelectionPolicy, QuoteSelectionStrategy,
     build_coherent_current_book, select_quote_edges,
 };
-use ptt_settings::UiLanguage;
+use ptt_settings::{MarketTuning, UiLanguage};
 use ptt_strategy::{
     BucketSize, MarkRateTable, MarketPolicy, ProfitTier, RiskThresholds, RouteAccountingRequest,
     ValuationMode, ValuationRequest, ValuationStatus, anomalies, candles, derive_route_accounting,
@@ -24,20 +24,12 @@ use ptt_trade_engine::{
     MarketDepthIndex, SearchCancellation, find_best_conversion,
 };
 use ptt_workflows::{
-    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarRequest,
+    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarRequest, RadarStart,
     derive_focus_probe_candidates, run_opportunity_radar,
 };
 
 /// The sizes the convert page prices, in whole orbs.
 const CONVERT_SIZES: [u64; 3] = [1, 10, 100];
-
-/// What the radar assumes you are willing to put in, in whole anchor units.
-///
-/// A radar has to stake something, because depth makes profit size-dependent:
-/// the best route for one orb is often not the best route for a hundred. This
-/// is the middle of the sizes the Convert page prices, so the two pages agree
-/// about the market they are describing.
-const RADAR_STAKE: u64 = 10;
 
 /// Everything the engine needs, assembled once from stored observations.
 struct Market {
@@ -392,20 +384,103 @@ fn maker_section(
     lines
 }
 
+/// The market policy the settings ask for: the configured settlement
+/// currencies become the core-liquidity set, with the shipped default as the
+/// fallback and a visible line — never a silent one — when the configuration
+/// could not be used.
+fn market_policy_from(
+    tuning: &MarketTuning,
+    league: &str,
+    language: UiLanguage,
+) -> (MarketPolicy, Option<String>) {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
+    let mut policy = MarketPolicy::default_for(league);
+    if tuning.settlement_assets.is_empty() {
+        return (policy, None);
+    }
+    let parsed: Vec<MarketAssetId> = tuning
+        .settlement_assets
+        .iter()
+        .filter_map(|id| MarketAssetId::try_new(id).ok())
+        .collect();
+    let dropped = tuning.settlement_assets.len() - parsed.len();
+    if parsed.is_empty() || !policy.set_core_liquidity(parsed) {
+        return (policy, Some(text.settlement_config_invalid.to_owned()));
+    }
+    let warning =
+        (dropped > 0).then(|| fill(text.settlement_config_partial, &[&dropped.to_string()]));
+    (policy, warning)
+}
+
+/// The focus items the reports scope over: the settlement currencies as
+/// anchors, then the user's configured lists — or, when no focus list is
+/// configured, every asset seen in the window, which is the pre-P7 behavior.
+/// Watch-only and bridge lists apply in both modes, and watch-only wins over
+/// target so a demoted asset cannot sneak back in through "seen".
+fn focus_items_from(
+    policy: &MarketPolicy,
+    tuning: &MarketTuning,
+    seen: &[MarketAssetId],
+) -> Vec<FocusGroupItem> {
+    let mut taken = std::collections::BTreeSet::new();
+    let mut items = Vec::new();
+    let push = |asset: MarketAssetId,
+                role: FocusRole,
+                taken: &mut std::collections::BTreeSet<MarketAssetId>,
+                items: &mut Vec<FocusGroupItem>| {
+        if taken.insert(asset.clone()) {
+            items.push(FocusGroupItem {
+                asset_id: asset,
+                role,
+            });
+        }
+    };
+    for asset in &policy.core_liquidity {
+        push(asset.clone(), FocusRole::Anchor, &mut taken, &mut items);
+    }
+    for (list, role) in [
+        (&tuning.watch_only_assets, FocusRole::WatchOnly),
+        (&tuning.bridge_assets, FocusRole::Bridge),
+    ] {
+        for id in list {
+            if let Ok(asset) = MarketAssetId::try_new(id) {
+                push(asset, role, &mut taken, &mut items);
+            }
+        }
+    }
+    if tuning.focus_assets.is_empty() {
+        for asset in seen {
+            push(asset.clone(), FocusRole::Target, &mut taken, &mut items);
+        }
+    } else {
+        for id in &tuning.focus_assets {
+            if let Ok(asset) = MarketAssetId::try_new(id) {
+                push(asset, FocusRole::Target, &mut taken, &mut items);
+            }
+        }
+    }
+    items
+}
+
 /// "Is what I am watching healthy": coverage, valuations, and what to go
 /// look at next.
 pub fn watchlist_report(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     league: &str,
+    tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     let market = build_market(observations, context_key)?;
-    let policy = MarketPolicy::default_for(league);
+    let (policy, policy_warning) = market_policy_from(tuning, league, language);
     let mut lines = Vec::new();
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
 
+    if let Some(warning) = policy_warning {
+        lines.push(warning);
+    }
     lines.push(fill(
         text.core_liquidity,
         &[&policy
@@ -456,6 +531,7 @@ pub fn watchlist_report(
         observations,
         context_key,
         &policy,
+        tuning,
         &seen,
         Some(&market),
         language,
@@ -494,14 +570,15 @@ pub fn opportunities_report(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     league: &str,
+    tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     use crate::report_text::fill;
     let text = crate::report_text::report(language);
-    let policy = MarketPolicy::default_for(league);
-    let Some(anchor) = policy.core_liquidity.first().cloned() else {
+    let (policy, policy_warning) = market_policy_from(tuning, league, language);
+    if policy.core_liquidity.is_empty() {
         return Ok(vec![text.no_core_currency.to_owned()]);
-    };
+    }
     // Counted before the book is built: an empty window has no assets, and
     // `build_market` cannot make a unit catalogue out of none.
     let mut seen: Vec<MarketAssetId> = observations
@@ -520,48 +597,60 @@ pub fn opportunities_report(
     }
     let market = build_market(observations, context_key)?;
 
-    let mut items: Vec<FocusGroupItem> = vec![FocusGroupItem {
-        asset_id: anchor.clone(),
-        role: FocusRole::Anchor,
-    }];
-    for asset_id in seen.iter().filter(|asset| **asset != anchor) {
-        items.push(FocusGroupItem {
-            asset_id: asset_id.clone(),
-            // Core liquidity is money, not a position to end up holding, so it
-            // routes through rather than being a destination — the same split
-            // the Watchlist uses.
-            role: if policy.is_core_liquidity(asset_id) {
-                FocusRole::Anchor
-            } else {
-                FocusRole::Target
-            },
-        });
-    }
+    let items = focus_items_from(&policy, tuning, &seen);
     let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
         .map_err(|error| format!("scope: {error}"))?;
 
-    let Ok(amount_in) = AssetAmount::from_whole_units(anchor.clone(), RADAR_STAKE, &market.units)
-    else {
+    // One start per settlement currency the book can actually stake — a
+    // configured settlement asset the window has never seen has no unit yet
+    // and is skipped rather than failing the whole scan.
+    let stake = tuning.radar.stake.max(1);
+    let mut starts = Vec::new();
+    for asset in &policy.core_liquidity {
+        if let Ok(amount_in) = AssetAmount::from_whole_units(asset.clone(), stake, &market.units) {
+            starts.push(RadarStart {
+                start_asset_id: asset.clone(),
+                amount_in,
+            });
+        }
+    }
+    if starts.is_empty() {
+        let anchor_name = policy
+            .core_liquidity
+            .first()
+            .map_or("?", MarketAssetId::as_str);
         return Ok(vec![fill(
             text.cannot_stake,
-            &[&RADAR_STAKE.to_string(), anchor.as_str()],
+            &[&stake.to_string(), anchor_name],
         )]);
-    };
+    }
+    let start_names = starts
+        .iter()
+        .map(|start| start.start_asset_id.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    // Settings values pass through the engine's own validation bounds; a
+    // hand-edited extreme is clamped to the largest honest value rather than
+    // failing the page.
+    let minimum_bps =
+        u32::try_from(tuning.radar.minimum_profit_basis_points.min(1_000_000)).unwrap_or(100);
+    let budget_expansions =
+        u32::try_from(tuning.radar.max_total_expansions.clamp(1, 1_000_000)).unwrap_or(60_000);
+    let max_results = u16::try_from(tuning.radar.max_results.clamp(1, 500)).unwrap_or(12);
     let request = RadarRequest {
         context_key: context_key.to_owned(),
-        start_asset_id: anchor.clone(),
-        amount_in,
-        minimum_conversion_improvement_basis_points: 100,
-        minimum_triangle_profit_basis_points: 100,
+        starts,
+        minimum_conversion_improvement_basis_points: minimum_bps,
+        minimum_triangle_profit_basis_points: minimum_bps,
         max_hops: 3,
         max_paths_per_target: 32,
         max_expansions_per_target: 4_000,
         budget: RadarBudget {
-            max_total_expansions: 60_000,
+            max_total_expansions: budget_expansions,
             max_targets: 48,
         },
         max_triangle_evaluations: 4_000,
-        max_results: 12,
+        max_results,
         // Gross by product decision: no monetary fee is modelled.
         fee_policy: FeePolicy::None,
     };
@@ -575,14 +664,18 @@ pub fn opportunities_report(
     )
     .map_err(|error| format!("radar: {error:?}"))?;
 
-    let mut lines = vec![fill(
+    let mut lines = Vec::new();
+    if let Some(warning) = policy_warning {
+        lines.push(warning);
+    }
+    lines.push(fill(
         text.staking,
         &[
-            &RADAR_STAKE.to_string(),
-            anchor.as_str(),
+            &stake.to_string(),
+            &start_names,
             &result.diagnostics.target_count.to_string(),
         ],
-    )];
+    ));
     // Said before the results, not after: a truncated search that looks like a
     // complete one is how "there is nothing better" gets believed.
     if result.diagnostics.budget_exhausted || result.diagnostics.results_truncated {
@@ -689,10 +782,11 @@ pub fn probe_queue(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     league: &str,
+    tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
     let text = crate::report_text::report(language);
-    let policy = MarketPolicy::default_for(league);
+    let (policy, _policy_warning) = market_policy_from(tuning, league, language);
     let mut seen: Vec<MarketAssetId> = observations
         .iter()
         .flat_map(|observation| {
@@ -708,7 +802,8 @@ pub fn probe_queue(
         return Ok(vec![text.no_pairs_captured.to_owned()]);
     }
 
-    let (coverage, candidates) = focus_coverage(observations, context_key, &policy, &seen, None)?;
+    let (coverage, candidates) =
+        focus_coverage(observations, context_key, &policy, tuning, &seen, None)?;
     let missing = coverage
         .iter()
         .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
@@ -822,6 +917,7 @@ fn focus_coverage(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     policy: &MarketPolicy,
+    tuning: &MarketTuning,
     seen: &[MarketAssetId],
     // The caller's already-built Instant selection, when it has one. Coverage
     // needs three views of the book and one of them is the Instant view the
@@ -835,22 +931,7 @@ fn focus_coverage(
     ),
     String,
 > {
-    let mut items: Vec<FocusGroupItem> = policy
-        .core_liquidity
-        .iter()
-        .map(|asset_id| FocusGroupItem {
-            asset_id: asset_id.clone(),
-            role: FocusRole::Anchor,
-        })
-        .collect();
-    for asset_id in seen {
-        if !policy.is_core_liquidity(asset_id) {
-            items.push(FocusGroupItem {
-                asset_id: asset_id.clone(),
-                role: FocusRole::Target,
-            });
-        }
-    }
+    let items = focus_items_from(policy, tuning, seen);
     let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
         .map_err(|error| format!("{error}"))?;
 
@@ -893,11 +974,13 @@ fn focus_gaps(
     observations: &[MarketEdgeObservation],
     context_key: &str,
     policy: &MarketPolicy,
+    tuning: &MarketTuning,
     seen: &[MarketAssetId],
     prebuilt: Option<&Market>,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let (coverage, candidates) = focus_coverage(observations, context_key, policy, seen, prebuilt)?;
+    let (coverage, candidates) =
+        focus_coverage(observations, context_key, policy, tuning, seen, prebuilt)?;
     let mut lines = Vec::new();
     let incomplete: Vec<_> = coverage
         .iter()
@@ -1066,9 +1149,168 @@ mod radar_tests {
     /// A book with nothing in it must say so rather than error.
     #[test]
     fn an_empty_book_says_so() {
-        let lines =
-            opportunities_report(&[], CONTEXT, "test-league", UiLanguage::English).expect("report");
+        let lines = opportunities_report(
+            &[],
+            CONTEXT,
+            "test-league",
+            &MarketTuning::default(),
+            UiLanguage::English,
+        )
+        .expect("report");
         assert!(!lines.is_empty(), "the radar must always say something");
+    }
+}
+
+#[cfg(test)]
+mod settlement_tests {
+    use super::*;
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    const CONTEXT: &str = "settlement-test-context";
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// A fresh taker row between any two assets.
+    fn taker(from: &str, to: &str, rate: (u64, u64), stock: u64) -> MarketEdgeObservation {
+        let captured = Utc::now() - chrono::Duration::minutes(1);
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: format!("{from}->{to}"),
+                snapshot_id: format!("snapshot-{from}-{to}"),
+                quote_id: format!("quote-{from}-{to}"),
+                context_key: CONTEXT.to_owned(),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                rate: Ratio::from_parts(rate.0, rate.1).expect("rate"),
+                source_side: QuoteSide::Available,
+                execution_type: ExecutionType::Taker,
+                role: QuoteEdgeRole::AvailableTaker,
+                stock,
+                original_need_asset_id: asset(to),
+                original_have_asset_id: asset(from),
+                original_row_index: 0,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(990_000),
+                captured_at: captured,
+                confirmed_at: captured,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    /// One physical arbitrage loop, visible from both settlement starts.
+    /// divine -> chaos x100, chaos -> exalted x2, exalted -> divine /100:
+    /// the cycle multiplies holdings by 2 from either entry, exactly, so
+    /// both scans find it — and the report must show it once, not twice.
+    #[test]
+    fn the_same_cycle_from_two_settlement_starts_appears_once() {
+        let observations = vec![
+            taker("divine-orb", "chaos-orb", (100, 1), 10_000_000),
+            taker("chaos-orb", "exalted-orb", (2, 1), 10_000_000),
+            taker("exalted-orb", "divine-orb", (1, 100), 10_000_000),
+        ];
+        let tuning = MarketTuning {
+            radar: ptt_settings::RadarTuning {
+                stake: 1_000,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = opportunities_report(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &tuning,
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join(
+            "
+",
+        );
+
+        assert!(
+            joined.contains("staking 1000 divine-orb, chaos-orb"),
+            "both settlement currencies must be scanned from: {joined}"
+        );
+        // The kind column, not the word: reason lines also say "triangle".
+        let triangle_lines = lines
+            .iter()
+            .filter(|line| line.contains("  triangle  "))
+            .count();
+        assert_eq!(
+            triangle_lines, 1,
+            "one physical loop must appear exactly once: {joined}"
+        );
+        assert!(
+            joined.contains("100.00%"),
+            "the loop doubles holdings — 10000bp: {joined}"
+        );
+    }
+
+    /// The configured settlement list drives the core-liquidity set; a
+    /// wholly invalid configuration falls back to the shipped default with a
+    /// visible line, never silently.
+    #[test]
+    fn the_settlement_setting_drives_the_core_list() {
+        let observations = vec![taker("divine-orb", "chaos-orb", (100, 1), 1_000)];
+        let tuning = MarketTuning {
+            settlement_assets: vec!["chaos-orb".to_owned()],
+            ..Default::default()
+        };
+        let lines = watchlist_report(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &tuning,
+            UiLanguage::English,
+        )
+        .expect("report");
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("core liquidity: chaos-orb")),
+            "{lines:?}"
+        );
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.contains("divine-orb, chaos-orb")),
+            "the default list must be replaced, not appended to: {lines:?}"
+        );
+
+        let broken = MarketTuning {
+            settlement_assets: vec!["NOT AN ID".to_owned()],
+            ..Default::default()
+        };
+        let lines = watchlist_report(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &broken,
+            UiLanguage::English,
+        )
+        .expect("report");
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("settlement currencies in settings are invalid")),
+            "an unusable configuration must say so: {lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("core liquidity: divine-orb")),
+            "and the shipped default must carry the page: {lines:?}"
+        );
     }
 }
 

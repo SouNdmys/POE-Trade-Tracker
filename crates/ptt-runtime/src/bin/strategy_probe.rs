@@ -256,6 +256,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &observations,
         &context_key,
         "corpus-league",
+        &ptt_settings::MarketTuning::default(),
         ptt_settings::UiLanguage::English,
     ) {
         Ok(lines) => {
@@ -275,6 +276,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &observations,
         &context_key,
         "corpus-league",
+        &ptt_settings::MarketTuning::default(),
         ptt_settings::UiLanguage::English,
     )
     .map_err(|reason| format!("probe queue failed: {reason}"))?;

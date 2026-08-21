@@ -70,6 +70,8 @@ pub struct ReportText {
     pub maker_over_taker: &'static str,
     pub listings_note: &'static str,
     pub nothing_current: &'static str,
+    pub settlement_config_invalid: &'static str,
+    pub settlement_config_partial: &'static str,
     pub maker_header: &'static str,
     pub maker_instant: &'static str,
     pub maker_no_instant: &'static str,
@@ -129,6 +131,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_over_taker: "maker over taker: {}bp",
     listings_note: "  (listings)",
     nothing_current: "nothing current - this is history, not a price",
+    settlement_config_invalid: "settlement currencies in settings are invalid - using defaults",
+    settlement_config_partial: "{} settlement entries in settings were ignored (invalid ids)",
     maker_header: "listing strategy {} -> {} at size {}",
     maker_instant: "take now at {}",
     maker_no_instant: "no instant fill - the taker side is empty",
@@ -180,6 +184,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_over_taker: "挂单高于吃单：{}bp",
     listings_note: "  （挂单）",
     nothing_current: "没有当前报价 — 这是历史，不是价格",
+    settlement_config_invalid: "设置里的结算通货无效 — 已回落到默认",
+    settlement_config_partial: "设置里有 {} 条结算通货无效，已忽略",
     maker_header: "挂单策略 {} → {}（规模 {}）",
     maker_instant: "立即成交价 {}",
     maker_no_instant: "无法立即成交 — 可用侧没有挂单",
@@ -224,6 +230,16 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
+        (
+            "settlement_config_invalid",
+            REPORT_ENGLISH.settlement_config_invalid,
+            REPORT_CHINESE.settlement_config_invalid,
+        ),
+        (
+            "settlement_config_partial",
+            REPORT_ENGLISH.settlement_config_partial,
+            REPORT_CHINESE.settlement_config_partial,
+        ),
         (
             "maker_header",
             REPORT_ENGLISH.maker_header,

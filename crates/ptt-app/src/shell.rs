@@ -1655,17 +1655,22 @@ impl AppShell {
         use ptt_runtime::pipeline::LIVE_LEAGUE;
 
         let (context_key, observations) = self.load_window()?;
+        let tuning = self
+            .settings
+            .market_tuning(self.settings.active_profile.game);
         match self.page {
             Page::Monitor => ptt_runtime::reports::probe_queue(
                 &observations,
                 &context_key,
                 LIVE_LEAGUE,
+                &tuning,
                 self.settings.ui_language,
             ),
             Page::Opportunities => ptt_runtime::reports::opportunities_report(
                 &observations,
                 &context_key,
                 LIVE_LEAGUE,
+                &tuning,
                 self.settings.ui_language,
             ),
             // Draws rather than reports; `render_calibrate` reads its own state.
@@ -1681,6 +1686,9 @@ impl AppShell {
         use ptt_runtime::pipeline::LIVE_LEAGUE;
 
         let (context_key, observations) = self.load_window()?;
+        let tuning = self
+            .settings
+            .market_tuning(self.settings.active_profile.game);
         let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
         let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
 
@@ -1698,6 +1706,7 @@ impl AppShell {
                 &observations,
                 &context_key,
                 LIVE_LEAGUE,
+                &tuning,
                 self.settings.ui_language,
             ),
             Page::History => ptt_runtime::reports::history_report(

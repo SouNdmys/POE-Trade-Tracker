@@ -1,12 +1,13 @@
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 
 use ptt_market_book::{QuoteSelectionPolicy, QuoteSelectionResult, QuoteSelectionStrategy};
 use ptt_trade_domain::MarketAssetId;
 use ptt_trade_engine::{
     AssetAmount, AssetUnitCatalog, ComparisonDirection, ConversionComparisonStatus, ConversionPath,
     ConversionRequest, EngineError, ExecutionRiskFlag, FeePolicy, MarketDepthIndex,
-    SearchCancellation, TriangleEvaluation, TriangleRequest, find_best_conversion,
-    find_triangle_opportunities,
+    SearchCancellation, TriangleEvaluation, TriangleRequest, canonical_cycle_key,
+    find_best_conversion, find_triangle_opportunities,
 };
 use serde::{Deserialize, Serialize};
 
@@ -61,12 +62,23 @@ pub enum RadarReason {
     CaptureSkewExceeded,
 }
 
+/// One settlement currency the radar scans from. Cycles rooted here close
+/// back into it by construction, which is what makes it a settlement scan.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadarStart {
+    pub start_asset_id: MarketAssetId,
+    pub amount_in: AssetAmount,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RadarRequest {
     pub context_key: String,
-    pub start_asset_id: MarketAssetId,
-    pub amount_in: AssetAmount,
+    /// The settlement currencies to scan from, in preference order. Every
+    /// conversion and every cycle starts at one of these; the evaluation
+    /// budgets are split equally across them.
+    pub starts: Vec<RadarStart>,
     pub minimum_conversion_improvement_basis_points: u32,
     pub minimum_triangle_profit_basis_points: u32,
     pub max_hops: u8,
@@ -170,8 +182,7 @@ pub struct RadarDiagnostics {
 pub struct RadarResult {
     pub context_key: String,
     pub analysis_policy: QuoteSelectionPolicy,
-    pub start_asset_id: MarketAssetId,
-    pub amount_in: AssetAmount,
+    pub starts: Vec<RadarStart>,
     pub items: Vec<RadarItem>,
     pub probe_candidates: Vec<ProbeCandidate>,
     pub diagnostics: RadarDiagnostics,
@@ -193,16 +204,23 @@ pub fn run_opportunity_radar(
     let restricted = restrict_selection(selection, scope);
     let index = MarketDepthIndex::try_from_selection(&restricted, units.clone())
         .map_err(|_| WorkflowError::InvalidMarketSelection)?;
-    let targets = scope
-        .endpoint_asset_ids
+    // One scan unit per (settlement start, target) pair, so the budget math
+    // and the coverage claim describe the same set.
+    let pairs = request
+        .starts
         .iter()
-        .filter(|target| {
-            **target != request.start_asset_id
-                && scope.endpoint_pair_allowed(&request.start_asset_id, target)
+        .flat_map(|start| {
+            scope
+                .endpoint_asset_ids
+                .iter()
+                .filter(|target| {
+                    **target != start.start_asset_id
+                        && scope.endpoint_pair_allowed(&start.start_asset_id, target)
+                })
+                .map(move |target| (start, target.clone()))
         })
-        .cloned()
         .collect::<Vec<_>>();
-    let total_units = count(targets.len())?
+    let total_units = count(pairs.len())?
         .checked_add(1)
         .ok_or(WorkflowError::NumericOverflow)?;
     progress(RadarProgress {
@@ -220,9 +238,9 @@ pub fn run_opportunity_radar(
     let mut budget_exhausted = false;
     let per_target_budget = request
         .budget
-        .per_target(targets.len())
+        .per_target(pairs.len())
         .min(request.max_expansions_per_target);
-    for target in &targets {
+    for (start, target) in &pairs {
         ensure_not_cancelled(cancellation)?;
         if expansions_used >= request.budget.max_total_expansions {
             budget_exhausted = true;
@@ -241,9 +259,9 @@ pub fn run_opportunity_radar(
         let result = find_best_conversion(
             &index,
             &ConversionRequest {
-                from_asset_id: request.start_asset_id.clone(),
+                from_asset_id: start.start_asset_id.clone(),
                 to_asset_id: target.clone(),
-                amount_in: request.amount_in.clone(),
+                amount_in: start.amount_in.clone(),
                 max_hops: request.max_hops,
                 max_paths: request.max_paths_per_target,
                 max_expansions: per_target_budget,
@@ -265,14 +283,14 @@ pub fn run_opportunity_radar(
             missing_conversion_count = missing_conversion_count
                 .checked_add(1)
                 .ok_or(WorkflowError::NumericOverflow)?;
-            probe_candidates.push(missing_conversion_probe(&request, target));
+            probe_candidates.push(missing_conversion_probe(start, target));
             continue;
         };
         if !best.is_fully_filled {
             missing_conversion_count = missing_conversion_count
                 .checked_add(1)
                 .ok_or(WorkflowError::NumericOverflow)?;
-            probe_candidates.push(confirm_conversion_probe(&request, target, &best));
+            probe_candidates.push(confirm_conversion_probe(start, target, &best));
             continue;
         }
         complete_conversion_count = complete_conversion_count
@@ -307,20 +325,50 @@ pub fn run_opportunity_radar(
         completed_units: scanned_conversion_count,
         total_units,
     });
-    let triangles = find_triangle_opportunities(
-        &index,
-        &TriangleRequest {
-            start_asset_id: request.start_asset_id.clone(),
-            amount_in: request.amount_in.clone(),
-            minimum_profit_basis_points: request.minimum_triangle_profit_basis_points,
-            max_results: request.max_results,
-            max_evaluations: request.max_triangle_evaluations,
-            fee_policy: request.fee_policy,
-        },
-        cancellation,
-    )
-    .map_err(map_engine_error)?;
-    for triangle in triangles.opportunities.iter().cloned() {
+    // One cycle scan per settlement start, the evaluation budget split
+    // equally. The same physical loop reached from two starts is one
+    // opportunity entered at different points, so cycles deduplicate by
+    // their rotation-invariant key and the better entry wins.
+    let per_start_evaluations =
+        (request.max_triangle_evaluations / count(request.starts.len())?.max(1)).max(1);
+    let mut triangles_truncated = false;
+    let mut triangle_evaluation_count = 0_u32;
+    let mut best_by_cycle: BTreeMap<String, TriangleEvaluation> = BTreeMap::new();
+    for start in &request.starts {
+        ensure_not_cancelled(cancellation)?;
+        let triangles = find_triangle_opportunities(
+            &index,
+            &TriangleRequest {
+                start_asset_id: start.start_asset_id.clone(),
+                amount_in: start.amount_in.clone(),
+                minimum_profit_basis_points: request.minimum_triangle_profit_basis_points,
+                max_results: request.max_results,
+                max_evaluations: per_start_evaluations,
+                fee_policy: request.fee_policy,
+            },
+            cancellation,
+        )
+        .map_err(map_engine_error)?;
+        triangles_truncated |= triangles.diagnostics.truncated;
+        triangle_evaluation_count =
+            triangle_evaluation_count.saturating_add(triangles.diagnostics.evaluated_cycle_count);
+        for triangle in triangles.opportunities {
+            let cycle: Vec<MarketAssetId> = triangle
+                .steps
+                .iter()
+                .map(|step| step.from_asset_id.clone())
+                .collect();
+            let key = canonical_cycle_key(&cycle);
+            let better = best_by_cycle.get(&key).is_none_or(|existing| {
+                triangle.profit_basis_points.unwrap_or(i64::MIN)
+                    > existing.profit_basis_points.unwrap_or(i64::MIN)
+            });
+            if better {
+                best_by_cycle.insert(key, triangle);
+            }
+        }
+    }
+    for triangle in best_by_cycle.into_values() {
         if !triangle.execution_eligible {
             for step in &triangle.steps {
                 probe_candidates.push(ProbeCandidate {
@@ -350,10 +398,10 @@ pub fn run_opportunity_radar(
     let item_count_before_limit = count(items.len())?;
     let result_limit = usize::from(request.max_results);
     let results_truncated = items.len() > result_limit;
-    if triangles.diagnostics.truncated {
+    if triangles_truncated {
         budget_exhausted = true;
     }
-    let skipped_target_count = count(targets.len())?.saturating_sub(scanned_conversion_count);
+    let skipped_target_count = count(pairs.len())?.saturating_sub(scanned_conversion_count);
     items.truncate(result_limit);
     deduplicate_probe_candidates(&mut probe_candidates);
     progress(RadarProgress {
@@ -364,16 +412,15 @@ pub fn run_opportunity_radar(
     Ok(RadarResult {
         context_key: request.context_key.clone(),
         analysis_policy: selection.policy.clone(),
-        start_asset_id: request.start_asset_id.clone(),
-        amount_in: request.amount_in.clone(),
+        starts: request.starts.clone(),
         items,
         probe_candidates,
         diagnostics: RadarDiagnostics {
-            target_count: count(targets.len())?,
+            target_count: count(pairs.len())?,
             scanned_conversion_count,
             complete_conversion_count,
             missing_conversion_count,
-            triangle_evaluation_count: triangles.diagnostics.evaluated_cycle_count,
+            triangle_evaluation_count,
             item_count_before_limit,
             expansions_used,
             skipped_target_count,
@@ -397,13 +444,7 @@ fn validate_request(
         || selection.context_key != request.context_key
         || request.context_key.trim().is_empty()
         || scope.status != FocusScopeStatus::Ready
-        || !scope.endpoint_asset_ids.contains(&request.start_asset_id)
-        || request.amount_in.asset_id != request.start_asset_id
-        || request.amount_in.quanta == 0
-        || request.amount_in.unit
-            != units
-                .unit(&request.start_asset_id)
-                .map_err(|_| WorkflowError::InvalidRequest)?
+        || request.starts.is_empty()
         || request.minimum_conversion_improvement_basis_points > 1_000_000
         || request.minimum_triangle_profit_basis_points > 1_000_000
         || !(1..=4).contains(&request.max_hops)
@@ -417,6 +458,20 @@ fn validate_request(
         || request.max_results > 500
     {
         return Err(WorkflowError::InvalidRequest);
+    }
+    let mut seen_starts = std::collections::BTreeSet::new();
+    for start in &request.starts {
+        if !scope.endpoint_asset_ids.contains(&start.start_asset_id)
+            || start.amount_in.asset_id != start.start_asset_id
+            || start.amount_in.quanta == 0
+            || start.amount_in.unit
+                != units
+                    .unit(&start.start_asset_id)
+                    .map_err(|_| WorkflowError::InvalidRequest)?
+            || !seen_starts.insert(start.start_asset_id.clone())
+        {
+            return Err(WorkflowError::InvalidRequest);
+        }
     }
     Ok(())
 }
@@ -557,9 +612,9 @@ fn append_capture_skew_reasons(risks: &[ExecutionRiskFlag], reasons: &mut Vec<Ra
     }
 }
 
-fn missing_conversion_probe(request: &RadarRequest, target: &MarketAssetId) -> ProbeCandidate {
+fn missing_conversion_probe(start: &RadarStart, target: &MarketAssetId) -> ProbeCandidate {
     ProbeCandidate {
-        from_asset_id: request.start_asset_id.clone(),
+        from_asset_id: start.start_asset_id.clone(),
         to_asset_id: target.clone(),
         reason: ProbeReason::MissingForwardQuote,
         source: ProbeSource::OpportunityRadar,
@@ -573,12 +628,12 @@ fn missing_conversion_probe(request: &RadarRequest, target: &MarketAssetId) -> P
 }
 
 fn confirm_conversion_probe(
-    request: &RadarRequest,
+    start: &RadarStart,
     target: &MarketAssetId,
     path: &ConversionPath,
 ) -> ProbeCandidate {
     ProbeCandidate {
-        from_asset_id: request.start_asset_id.clone(),
+        from_asset_id: start.start_asset_id.clone(),
         to_asset_id: target.clone(),
         reason: ProbeReason::OpportunityConfirmation,
         source: ProbeSource::OpportunityRadar,

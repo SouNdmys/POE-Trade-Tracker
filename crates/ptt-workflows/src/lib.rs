@@ -21,7 +21,7 @@ pub use probe::{
 };
 pub use radar::{
     RadarBudget, RadarCategory, RadarDiagnostics, RadarItem, RadarItemKind, RadarProgress,
-    RadarReason, RadarRequest, RadarResult, RadarStage, run_opportunity_radar,
+    RadarReason, RadarRequest, RadarResult, RadarStage, RadarStart, run_opportunity_radar,
 };
 pub use watch::{
     WatchHealth, WatchItem, WatchItemDraft, WatchItemStatus, WatchPriority, WatchTarget,
