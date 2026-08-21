@@ -232,8 +232,13 @@ pub struct AppShell {
     convert_have: pages::convert::AssetSelect,
     convert_need: pages::convert::AssetSelect,
     holdings_input: gpui::Entity<gpui_component::input::InputState>,
-    /// The asset list the pickers were last filled from.
-    convert_assets: Vec<String>,
+    /// What the pickers were last filled for: the catalogue in play and the
+    /// language its labels were written in. Rebuilding a thousand-entry list
+    /// on a frame that changed neither is work nobody asked for.
+    convert_choices_key: Option<(usize, ptt_settings::UiLanguage)>,
+    /// That list, kept so assigning a selection can reset a searched picker
+    /// without walking the catalogue again.
+    convert_choices: Vec<pages::convert::AssetChoice>,
     /// True once the user picked a pair by hand, after which an accepted book
     /// for some other pair must not drag the page away.
     pair_chosen_by_user: bool,
@@ -353,11 +358,10 @@ impl AppShell {
                 let gpui_component::select::SelectEvent::Confirm(Some(value)) = event else {
                     return;
                 };
-                if is_have {
-                    this.choose_pair(Some(value.to_string()), None);
-                } else {
-                    this.choose_pair(None, Some(value.to_string()));
-                }
+                // Which box changed does not matter: the pair is whatever
+                // the two of them now say.
+                let _ = (is_have, value);
+                this.choose_pair(cx);
                 cx.notify();
             })
             .detach();
@@ -388,7 +392,8 @@ impl AppShell {
             convert_have,
             convert_need,
             holdings_input,
-            convert_assets: Vec::new(),
+            convert_choices_key: None,
+            convert_choices: Vec::new(),
             pair_chosen_by_user: false,
             #[cfg(windows)]
             backend: None,

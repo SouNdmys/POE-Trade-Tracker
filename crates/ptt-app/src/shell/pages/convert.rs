@@ -80,8 +80,76 @@ impl gpui_component::select::SelectItem for AssetChoice {
     }
 }
 
+/// The currency picker's list.
+///
+/// Its own delegate rather than `SearchableVec`, which searches the title it
+/// displays and nothing else: `SelectItem::matches` exists, but
+/// `SearchableVec::perform_search` never calls it, so overriding it there is
+/// dead code and a Chinese list stays searchable only in Chinese.
+pub struct AssetList {
+    items: Vec<AssetChoice>,
+    matched: Vec<AssetChoice>,
+}
+
+impl AssetList {
+    #[must_use]
+    pub fn new(items: Vec<AssetChoice>) -> Self {
+        Self {
+            matched: items.clone(),
+            items,
+        }
+    }
+
+    /// The subset a query names.
+    ///
+    /// A free function so the search can be exercised without a window; this
+    /// is the same call `perform_search` makes.
+    #[must_use]
+    pub fn filter(items: &[AssetChoice], query: &str) -> Vec<AssetChoice> {
+        items
+            .iter()
+            .filter(|item| gpui_component::select::SelectItem::matches(*item, query))
+            .cloned()
+            .collect()
+    }
+}
+
+impl gpui_component::select::SelectDelegate for AssetList {
+    type Item = AssetChoice;
+
+    fn items_count(&self, _: usize) -> usize {
+        self.matched.len()
+    }
+
+    fn item(&self, ix: gpui_component::IndexPath) -> Option<&Self::Item> {
+        self.matched.get(ix.row)
+    }
+
+    fn position<V>(&self, value: &V) -> Option<gpui_component::IndexPath>
+    where
+        Self::Item: gpui_component::select::SelectItem<Value = V>,
+        V: PartialEq,
+    {
+        // Over the matched set, because that is what `item` indexes.
+        self.matched
+            .iter()
+            .position(|item| gpui_component::select::SelectItem::value(item) == value)
+            .map(|row| gpui_component::IndexPath::default().row(row))
+    }
+
+    fn perform_search(
+        &mut self,
+        query: &str,
+        _: &mut gpui::Window,
+        _: &mut Context<SelectState<Self>>,
+    ) -> gpui::Task<()> {
+        self.matched = Self::filter(&self.items, query);
+        gpui::Task::ready(())
+    }
+}
+
 /// The currency picker's items.
-pub type AssetSelect = Entity<SelectState<gpui_component::select::SearchableVec<AssetChoice>>>;
+pub type AssetSelect = Entity<SelectState<AssetList>>;
 
 impl AppShell {
     /// One currency picker.
@@ -89,15 +157,7 @@ impl AppShell {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> AssetSelect {
-        cx.new(|cx| {
-            SelectState::new(
-                gpui_component::select::SearchableVec::new(Vec::<AssetChoice>::new()),
-                None,
-                window,
-                cx,
-            )
-            .searchable(true)
-        })
+        cx.new(|cx| SelectState::new(AssetList::new(Vec::new()), None, window, cx).searchable(true))
     }
 
     /// The holdings box.
@@ -134,72 +194,101 @@ impl AppShell {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
-        let choices = self.catalog_choices();
-        let (have, need) = self
-            .report_pair
-            .clone()
-            .unwrap_or_else(|| (String::new(), String::new()));
-        let signature: Vec<String> = choices
-            .iter()
-            .map(|choice| choice.id.to_string())
-            .chain([have.clone(), need.clone()])
-            .collect();
-        if signature == self.convert_assets {
-            return;
+        // Runs every frame, so the list is rebuilt only when what it would
+        // contain changes: the catalogue follows the game, the labels follow
+        // the interface language, and neither moves while a session runs.
+        let key = (std::ptr::from_ref(self.catalog()).addr(), self.language());
+        if self.convert_choices_key != Some(key) {
+            self.convert_choices_key = Some(key);
+            self.convert_choices = self.catalog_choices();
+            for select in [self.convert_have.clone(), self.convert_need.clone()] {
+                let items = AssetList::new(self.convert_choices.clone());
+                select.update(cx, |state, cx| state.set_items(items, window, cx));
+            }
         }
-        self.convert_assets = signature;
+        // The pair the report describes, reflected in the pickers. Assigning
+        // what a picker already holds is skipped, so a choice the user just
+        // made is not disturbed; a book landing for another pair moves it.
+        let Some((have, need)) = self.report_pair.clone() else {
+            return;
+        };
         for (select, chosen) in [
             (self.convert_have.clone(), have),
             (self.convert_need.clone(), need),
         ] {
-            let items = choices.clone();
+            let chosen = gpui::SharedString::from(chosen);
+            if select.read(cx).selected_value() == Some(&chosen) {
+                continue;
+            }
+            // The list is reset first because a search leaves it filtered, and
+            // the component looks an assigned value up in the filtered set: a
+            // picker last searched for "div" cannot be told to hold chaos, and
+            // silently empties instead. That is what the swap button looked
+            // like before this line existed. It runs only when the pair really
+            // changes -- a click, not a frame.
+            let items = AssetList::new(self.convert_choices.clone());
             select.update(cx, |state, cx| {
-                let index = items
-                    .iter()
-                    .position(|choice| choice.id == chosen)
-                    .map(gpui_component::IndexPath::new);
-                *state = SelectState::new(
-                    gpui_component::select::SearchableVec::new(items),
-                    index,
-                    window,
-                    cx,
-                )
-                .searchable(true);
+                state.set_items(items, window, cx);
+                state.set_selected_value(&chosen, window, cx);
             });
         }
     }
 
-    /// Applies a picked currency.
+    /// Takes the pair from whatever the two pickers now say.
+    ///
+    /// Read off the widgets rather than accumulated as the events arrive. The
+    /// first version filled the side that had not changed in from
+    /// `report_pair`, which holds nothing until a book lands, so on a fresh
+    /// session picking one currency was refused for want of the other and
+    /// picking the second was refused because the first had never been
+    /// recorded. The pickers are what the user chose; they are the place to
+    /// ask.
     ///
     /// An explicit choice sticks: once the user has said which pair they are
-    /// looking at, an accepted book for some other pair must not drag the
-    /// page away mid-thought.
-    pub(crate) fn choose_pair(&mut self, have: Option<String>, need: Option<String>) {
-        let (current_have, current_need) = self
-            .report_pair
-            .clone()
-            .unwrap_or_else(|| (String::new(), String::new()));
-        let have = have.unwrap_or(current_have);
-        let need = need.unwrap_or(current_need);
-        if have.is_empty() || need.is_empty() {
+    /// looking at, an accepted book for some other pair must not drag the page
+    /// away mid-thought.
+    pub(crate) fn choose_pair(&mut self, cx: &gpui::App) {
+        let (Some(have), Some(need)) = (
+            self.convert_have.read(cx).selected_value().cloned(),
+            self.convert_need.read(cx).selected_value().cloned(),
+        ) else {
+            return;
+        };
+        let pair = (have.to_string(), need.to_string());
+        self.pair_chosen_by_user = true;
+        if self.report_pair.as_ref() == Some(&pair) {
             return;
         }
-        self.report_pair = Some((have, need));
-        self.pair_chosen_by_user = true;
+        self.report_pair = Some(pair);
         self.report_stale = true;
     }
 
     /// Turns the pair around.
     ///
     /// "What does the other direction look like" is the question that follows
-    /// almost every answer this page gives — the two rates are not reciprocals,
-    /// they are separate sides of a real book — and re-typing both currencies
-    /// to ask it is the kind of friction that stops people asking.
-    pub(crate) fn swap_pair(&mut self) {
-        let Some((have, need)) = self.report_pair.clone() else {
+    /// almost every answer this page gives — the two rates are not
+    /// reciprocals, they are separate sides of a real book — and re-typing
+    /// both currencies to ask it is the kind of friction that stops people
+    /// asking.
+    ///
+    /// Writes the turned-around pair and lets [`Self::sync_convert_selects`]
+    /// carry it into the pickers.
+    ///
+    /// Moving the two pickers here instead does not work, and the way it fails
+    /// is quiet: `set_selected_value` does not land in `selected_value` by the
+    /// time the call returns, so reading them back to recompute the pair —
+    /// which is what every other change on this page does — reads the values
+    /// from before the swap, writes them back, and the next frame restores the
+    /// pickers to match. The button fires, the pair is read correctly, and
+    /// nothing appears to happen.
+    pub(crate) fn swap_pair(&mut self, cx: &gpui::App) {
+        let (Some(have), Some(need)) = (
+            self.convert_have.read(cx).selected_value().cloned(),
+            self.convert_need.read(cx).selected_value().cloned(),
+        ) else {
             return;
         };
-        self.report_pair = Some((need, have));
+        self.report_pair = Some((need.to_string(), have.to_string()));
         self.pair_chosen_by_user = true;
         self.report_stale = true;
     }
@@ -325,7 +414,7 @@ impl AppShell {
                 // interface languages, and the bar has no room for a sentence.
                 button("convert-swap", LedgerButton::Quiet, "⇄", cx).on_click(cx.listener(
                     |this, _, _, cx| {
-                        this.swap_pair();
+                        this.swap_pair(cx);
                         cx.notify();
                     },
                 )),
@@ -397,8 +486,11 @@ impl AppShell {
                     .items_center()
                     .gap_2()
                     .child(
-                        mono(format!("{size} {}", accounting.requested_input.asset_id))
-                            .text_size(fs(FS_12_5)),
+                        mono(format!(
+                            "{size} {}",
+                            self.display_name(accounting.requested_input.asset_id.as_str())
+                        ))
+                        .text_size(fs(FS_12_5)),
                     )
                     .child(mono(route).text_size(fs(FS_11_5)).text_color(c(TEXT_META)))
                     .child(div().flex_grow())
@@ -673,7 +765,10 @@ impl AppShell {
                 text.maker_depth_label,
                 &format!(
                     "{} {}   ≤ {} {}",
-                    depth.quanta, strategy.from_asset_id, cap.quanta, strategy.from_asset_id
+                    depth.quanta,
+                    self.display_name(strategy.from_asset_id.as_str()),
+                    cap.quanta,
+                    self.display_name(strategy.from_asset_id.as_str())
                 ),
             ));
         }
@@ -724,5 +819,58 @@ impl AppShell {
             .child(panel_header(text.maker_header))
             .child(body)
             .child(div().px_3().pb_3().child(queue))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AssetChoice, AssetList};
+
+    /// The list as a Chinese interface builds it: labels in Chinese, keys
+    /// covering every name the currency has.
+    fn choices() -> Vec<AssetChoice> {
+        ptt_runtime::domain::poe2_catalog()
+            .assets()
+            .iter()
+            .map(|asset| {
+                AssetChoice::new(
+                    asset.id.replace('_', "-"),
+                    asset.name_zh_tw.clone(),
+                    crate::names::search_keys(asset),
+                )
+            })
+            .collect()
+    }
+
+    fn finds(query: &str, label: &str) -> bool {
+        AssetList::filter(&choices(), query)
+            .iter()
+            .any(|choice| choice.label() == label)
+    }
+
+    /// Exercises `AssetList::filter`, which is what `perform_search` calls.
+    ///
+    /// The version before this one overrode `SelectItem::matches` instead --
+    /// a method `SearchableVec::perform_search` never calls -- so the search
+    /// silently kept working only in the language the list was displaying.
+    /// A test against `matches` would have passed while the product did not.
+    #[test]
+    fn a_chinese_list_is_searchable_in_english() {
+        for query in ["div", "Divine Orb", "divine orb", "DIVINE", "divine-orb"] {
+            assert!(finds(query, "神聖石"), "{query:?} should find divine orb");
+        }
+        // And still in the language it is showing.
+        assert!(finds("神聖石", "神聖石"));
+    }
+
+    #[test]
+    fn an_empty_query_keeps_the_whole_list() {
+        let items = choices();
+        assert_eq!(AssetList::filter(&items, "").len(), items.len());
+    }
+
+    #[test]
+    fn a_query_naming_nothing_matches_nothing() {
+        assert!(AssetList::filter(&choices(), "zzzznotacurrency").is_empty());
     }
 }
