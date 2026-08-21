@@ -27,6 +27,8 @@ pub enum PageData {
     /// The probe queue, which the monitor draws as rows rather than lines so
     /// each pair carries its own controls.
     Probes(Box<ptt_runtime::reports::ProbeQueueModel>),
+    /// The radar's ranked routes.
+    Opportunities(Box<ptt_runtime::reports::OpportunitiesModel>),
     Failed(String),
 }
 
@@ -36,7 +38,7 @@ impl PageData {
     pub fn is_content(&self) -> bool {
         match self {
             Self::Text(lines) => !lines.is_empty(),
-            Self::Probes(_) => true,
+            Self::Probes(_) | Self::Opportunities(_) => true,
             _ => false,
         }
     }

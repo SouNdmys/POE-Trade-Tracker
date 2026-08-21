@@ -2,7 +2,7 @@
 //! skip histogram). P3 skeleton — layout only, visuals iterate later.
 
 mod hud;
-mod pages;
+pub mod pages;
 
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
@@ -197,12 +197,17 @@ pub struct AppShell {
     report_generation: u64,
     /// Pairs the user asked to be reminded about, newest first.
     probe_queue: crate::state::ProbeQueue,
+    /// The radar's table.
+    ///
+    /// Created once and refilled, never rebuilt: it owns the scroll position
+    /// and the selected row, and a book lands every few seconds.
+    radar_table: gpui::Entity<gpui_component::table::TableState<pages::opportunities::RadarTable>>,
     /// True when a new book landed since the visible page was last built.
     report_stale: bool,
 }
 
 impl AppShell {
-    pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -281,8 +286,29 @@ impl AppShell {
             hud: false,
         };
 
+        // The table is created here rather than on first render so it can
+        // keep its scroll and selection from the very first refresh, and so
+        // the shell can subscribe to it: a selection change redraws the table
+        // but the detail panel beside it belongs to the shell.
+        #[cfg(windows)]
+        let language = settings.ui_language;
+        #[cfg(not(windows))]
+        let language = ptt_settings::UiLanguage::English;
+        let radar_table = Self::new_radar_table(window, cx, language);
+        cx.subscribe(&radar_table, |_, _, event, cx| {
+            if matches!(
+                event,
+                gpui_component::table::TableEvent::SelectRow(_)
+                    | gpui_component::table::TableEvent::DoubleClickedRow(_)
+            ) {
+                cx.notify();
+            }
+        })
+        .detach();
+
         Self {
             focus_handle: cx.focus_handle(),
+            radar_table,
             #[cfg(windows)]
             backend: None,
             #[cfg(windows)]
@@ -531,6 +557,7 @@ impl AppShell {
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.report_generation == generation {
                     this.report = data;
+                    this.sync_radar_table(cx);
                     this.close_answered_probes();
                     cx.notify();
                 }
@@ -725,9 +752,10 @@ impl AppShell {
             PageData::Text(lines) if !lines.is_empty() => lines.clone(),
             // `probe_panel` draws these as rows; reaching here means some
             // other page is showing the monitor's answer.
-            PageData::Text(_) | PageData::Empty | PageData::Probes(_) => {
-                vec![text.nothing_yet.to_owned()]
-            }
+            PageData::Text(_)
+            | PageData::Empty
+            | PageData::Probes(_)
+            | PageData::Opportunities(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
             PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
@@ -834,6 +862,12 @@ fn build_page_data(request: &PageRequest) -> crate::state::PageData {
             Err(reason) => PageData::Failed(reason),
         };
     }
+    if request.page == Page::Opportunities {
+        return match load_opportunities(request) {
+            Ok(model) => PageData::Opportunities(Box::new(model)),
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
     match load_page_lines(request) {
         Ok(lines) => PageData::Text(lines),
         Err(reason) => PageData::Failed(reason),
@@ -891,6 +925,23 @@ fn load_window(
     Ok((context_key, observations))
 }
 
+/// The radar's ranked routes.
+#[cfg(windows)]
+fn load_opportunities(
+    request: &PageRequest,
+) -> Result<ptt_runtime::reports::OpportunitiesModel, String> {
+    use ptt_runtime::pipeline::LIVE_LEAGUE;
+
+    let (context_key, observations) = load_window(request)?;
+    ptt_runtime::reports::opportunities_model(
+        &observations,
+        &context_key,
+        LIVE_LEAGUE,
+        &request.tuning,
+        request.language,
+    )
+}
+
 #[cfg(windows)]
 fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
     use ptt_runtime::live::domain_asset_id;
@@ -908,13 +959,8 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
     match request.page {
         // Answered as a model by `load_probe_queue`.
         Page::Monitor => Ok(Vec::new()),
-        Page::Opportunities => reports::opportunities_report(
-            &observations,
-            &context_key,
-            LIVE_LEAGUE,
-            tuning,
-            language,
-        ),
+        // Answered as a model by `load_opportunities`.
+        Page::Opportunities => Ok(Vec::new()),
         Page::Watchlist => {
             reports::watchlist_report(&observations, &context_key, LIVE_LEAGUE, tuning, language)
         }
@@ -1093,6 +1139,8 @@ impl Render for AppShell {
                                     ))
                                     .child(self.probe_panel(cx)),
                             )
+                    } else if self.page == Page::Opportunities {
+                        self.render_opportunities(cx)
                     } else if self.page == Page::Calibrate {
                         self.render_calibrate(cx)
                     } else {

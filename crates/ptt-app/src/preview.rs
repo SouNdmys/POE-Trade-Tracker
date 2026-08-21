@@ -25,6 +25,7 @@ use gpui_component::{
     Root, Sizable, Size, StyledExt,
     table::{Column, Table, TableDelegate, TableState},
 };
+use ptt_app::shell::pages::opportunities::{RadarTable, actionability_kind};
 use ptt_runtime::domain::{
     Actionability, AssetAmount, AssetUnit, ExecutionRisk, FreshnessStatus, RadarItem,
     RadarItemKind, RadarReason,
@@ -34,7 +35,6 @@ use ptt_runtime::reports::OpportunityRow;
 use ptt_settings::UiLanguage;
 use ptt_trade_domain::MarketAssetId;
 
-use ptt_app::i18n;
 use ptt_app::theme::{self, *};
 use ptt_app::ui::*;
 
@@ -133,159 +133,45 @@ fn density_rows(count: usize) -> Vec<OpportunityRow> {
         .collect()
 }
 
-/// The radar table, in the shape the Opportunities page will use it.
-struct RadarTable {
-    columns: Vec<Column>,
-    rows: Vec<OpportunityRow>,
-    language: UiLanguage,
-    /// Cells the table has asked for since the counter was last reset.
-    ///
-    /// Shared with the view rather than read back through the delegate: the
-    /// delegate lives inside the table's own entity, and the panel that
-    /// displays this number renders outside it.
+/// The shipping delegate, with a tally.
+///
+/// A wrapper rather than a second delegate: rehearsing a copy of the table
+/// would measure the copy. Every method forwards, and the only thing added is
+/// the count of cells the table actually asks for.
+struct CountingTable {
+    inner: RadarTable,
     drawn: Rc<Cell<usize>>,
 }
 
-impl RadarTable {
-    fn new(rows: Vec<OpportunityRow>, language: UiLanguage, drawn: Rc<Cell<usize>>) -> Self {
-        let chrome = i18n::text(language);
-        Self {
-            columns: vec![
-                Column::new("kind", chrome.radar_column_kind).width(px(120.)),
-                Column::new("route", chrome.radar_column_route).width(px(320.)),
-                Column::new("edge", chrome.radar_column_edge)
-                    .width(px(90.))
-                    .text_right()
-                    .sortable(),
-                Column::new("out", chrome.radar_column_out)
-                    .width(px(150.))
-                    .text_right(),
-                Column::new("verdict", chrome.radar_column_verdict).width(px(150.)),
-                Column::new("light", chrome.radar_column_light).width(px(110.)),
-                Column::new("risks", chrome.radar_column_risks).width(px(260.)),
-            ],
-            rows,
-            language,
-            drawn,
-        }
+impl CountingTable {
+    fn new(inner: RadarTable, drawn: Rc<Cell<usize>>) -> Self {
+        Self { inner, drawn }
     }
 }
 
-impl TableDelegate for RadarTable {
-    fn columns_count(&self, _: &App) -> usize {
-        self.columns.len()
+impl TableDelegate for CountingTable {
+    fn columns_count(&self, cx: &App) -> usize {
+        self.inner.columns_count(cx)
     }
 
-    fn rows_count(&self, _: &App) -> usize {
-        self.rows.len()
+    fn rows_count(&self, cx: &App) -> usize {
+        self.inner.rows_count(cx)
     }
 
-    fn column(&self, col_ix: usize, _: &App) -> &Column {
-        &self.columns[col_ix]
+    fn column(&self, col_ix: usize, cx: &App) -> &Column {
+        self.inner.column(col_ix, cx)
     }
 
     fn render_td(
         &mut self,
         row_ix: usize,
         col_ix: usize,
-        _window: &mut Window,
-        _cx: &mut Context<TableState<Self>>,
+        window: &mut Window,
+        cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement {
         self.drawn.set(self.drawn.get() + 1);
-        let language = self.language;
-        let row = &self.rows[row_ix];
-        let item = &row.item;
-        let cell = |body: gpui::Div| body.h_flex().items_center().size_full();
-
-        match col_ix {
-            0 => cell(div().text_size(fs(FS_11_5)))
-                .child(report_text::radar_item_kind(language, item.kind))
-                .into_any_element(),
-            1 => cell(
-                mono(
-                    item.path_asset_ids
-                        .iter()
-                        .map(MarketAssetId::as_str)
-                        .collect::<Vec<_>>()
-                        .join(" → "),
-                )
-                .text_size(fs(FS_11_5)),
-            )
-            .into_any_element(),
-            2 => {
-                let (label, colour) = item.value_basis_points.map_or_else(
-                    || (report_text::report(language).unpriced.to_owned(), TEXT_META),
-                    |points| {
-                        (
-                            format!("{}.{:02}%", points / 100, (points % 100).abs()),
-                            if points >= 0 { ACCENT_TEXT } else { DANGER },
-                        )
-                    },
-                );
-                cell(
-                    mono(label)
-                        .text_size(fs(FS_11_5))
-                        .text_color(c(colour))
-                        .justify_end(),
-                )
-                .into_any_element()
-            }
-            3 => cell(
-                mono(format!(
-                    "{} {}",
-                    item.amount_out.quanta,
-                    item.path_asset_ids
-                        .last()
-                        .map_or("?", MarketAssetId::as_str)
-                ))
-                .text_size(fs(FS_11_5))
-                .justify_end(),
-            )
-            .into_any_element(),
-            4 => cell(div())
-                .child(chip(
-                    actionability_kind(item.category),
-                    report_text::actionability(language, item.category),
-                ))
-                .into_any_element(),
-            5 => match row.light {
-                Some(status) => cell(div().gap_2())
-                    .child(status_dot(freshness_kind(status)))
-                    .child(
-                        div()
-                            .text_size(fs(FS_10_5))
-                            .text_color(c(TEXT_SECONDARY))
-                            .child(report_text::freshness_light(language, status)),
-                    )
-                    .into_any_element(),
-                None => cell(div().text_size(fs(FS_10_5)).text_color(c(TEXT_DISABLED)))
-                    .child("—")
-                    .into_any_element(),
-            },
-            _ => cell(div())
-                .child(chips(
-                    StatusKind::Warning,
-                    &item
-                        .blocking_risks
-                        .iter()
-                        .map(|risk| report_text::execution_risk(language, *risk).to_owned())
-                        .collect::<Vec<_>>(),
-                    2,
-                ))
-                .into_any_element(),
-        }
-    }
-}
-
-/// Execution category → status colour.
-///
-/// "Executable now" is the only green: the other three are all "not yet", and
-/// colouring them apart would suggest a ranking the ladder does not have.
-fn actionability_kind(category: Actionability) -> StatusKind {
-    match category {
-        Actionability::InstantExecutable => StatusKind::Monitoring,
-        Actionability::MakerTheoretical | Actionability::ProbeRequired => StatusKind::Warning,
-        Actionability::SuspiciousOutlier => StatusKind::Error,
+        // `Context` derefs to `App`, which is all a cell needs.
+        self.inner.render_cell(row_ix, col_ix, window, cx)
     }
 }
 
@@ -298,7 +184,7 @@ enum Tab {
 struct Gallery {
     tab: Tab,
     language: UiLanguage,
-    table: Entity<TableState<RadarTable>>,
+    table: Entity<TableState<CountingTable>>,
     drawn: Rc<Cell<usize>>,
     /// Cells drawn at the moment the counter was last read, so the reading
     /// survives the frames that rendering the reading itself causes.
@@ -309,7 +195,8 @@ impl Gallery {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let drawn = Rc::new(Cell::new(0));
         let rows = density_rows(DENSITY_ROWS);
-        let delegate = RadarTable::new(rows, UiLanguage::English, drawn.clone());
+        let delegate =
+            CountingTable::new(RadarTable::new(rows, UiLanguage::English), drawn.clone());
         let table = cx.new(|cx| {
             TableState::new(delegate, window, cx)
                 .row_selectable(true)
@@ -355,7 +242,7 @@ impl Gallery {
     fn rebuild(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let drawn = self.drawn.clone();
         let rows = density_rows(DENSITY_ROWS);
-        let delegate = RadarTable::new(rows, self.language, drawn);
+        let delegate = CountingTable::new(RadarTable::new(rows, self.language), drawn);
         self.table = cx.new(|cx| {
             TableState::new(delegate, window, cx)
                 .row_selectable(true)

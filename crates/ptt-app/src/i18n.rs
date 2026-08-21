@@ -46,6 +46,18 @@ pub const fn native_label(language: UiLanguage) -> &'static str {
     }
 }
 
+/// The label for one leg of a route.
+///
+/// A function rather than a field: English counts before the noun and Chinese
+/// after it, so no single template with one slot fits both.
+#[must_use]
+pub fn leg_label(language: UiLanguage, index: usize) -> String {
+    match language {
+        UiLanguage::English => format!("leg {index}"),
+        UiLanguage::Chinese => format!("第 {index} 腿"),
+    }
+}
+
 /// Every string the interface draws.
 pub struct Text {
     // -- status strip --
@@ -80,6 +92,16 @@ pub struct Text {
     pub pinned_label: &'static str,
     pub pin_label: &'static str,
     pub unpin_label: &'static str,
+
+    // -- route detail panel --
+    pub detail_header: &'static str,
+    pub detail_route: &'static str,
+    pub detail_stake: &'static str,
+    pub detail_return: &'static str,
+    pub detail_leg: &'static str,
+    pub detail_capture: &'static str,
+    pub detail_risks: &'static str,
+    pub detail_reasons: &'static str,
     pub load_screenshot: &'static str,
     pub zoom_in: &'static str,
     pub zoom_out: &'static str,
@@ -171,6 +193,14 @@ impl Text {
             ("pinned_label", self.pinned_label),
             ("pin_label", self.pin_label),
             ("unpin_label", self.unpin_label),
+            ("detail_header", self.detail_header),
+            ("detail_route", self.detail_route),
+            ("detail_stake", self.detail_stake),
+            ("detail_return", self.detail_return),
+            ("detail_leg", self.detail_leg),
+            ("detail_capture", self.detail_capture),
+            ("detail_risks", self.detail_risks),
+            ("detail_reasons", self.detail_reasons),
             ("load_screenshot", self.load_screenshot),
             ("zoom_in", self.zoom_in),
             ("zoom_out", self.zoom_out),
@@ -249,6 +279,14 @@ pub static ENGLISH: Text = Text {
     pinned_label: "pinned",
     pin_label: "pin",
     unpin_label: "remove",
+    detail_header: "route detail",
+    detail_route: "route",
+    detail_stake: "stake",
+    detail_return: "return",
+    detail_leg: "leg",
+    detail_capture: "captured",
+    detail_risks: "risks",
+    detail_reasons: "why",
     load_screenshot: "Load screenshot",
     zoom_in: "Zoom in",
     zoom_out: "Zoom out",
@@ -329,6 +367,14 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     pinned_label: "已排队",
     pin_label: "排队",
     unpin_label: "移除",
+    detail_header: "路线明细",
+    detail_route: "路径",
+    detail_stake: "投入",
+    detail_return: "得到",
+    detail_leg: "第",
+    detail_capture: "抓取",
+    detail_risks: "风险",
+    detail_reasons: "依据",
     load_screenshot: "载入截图",
     zoom_in: "放大",
     zoom_out: "缩小",
@@ -447,6 +493,14 @@ mod tests {
                 ("pinned_label", text.pinned_label),
                 ("pin_label", text.pin_label),
                 ("unpin_label", text.unpin_label),
+                ("detail_header", text.detail_header),
+                ("detail_route", text.detail_route),
+                ("detail_stake", text.detail_stake),
+                ("detail_return", text.detail_return),
+                ("detail_leg", text.detail_leg),
+                ("detail_capture", text.detail_capture),
+                ("detail_risks", text.detail_risks),
+                ("detail_reasons", text.detail_reasons),
                 ("load_screenshot", text.load_screenshot),
                 ("zoom_in", text.zoom_in),
                 ("zoom_out", text.zoom_out),

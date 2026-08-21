@@ -5,4 +5,5 @@
 //! separate view would spend its whole existence proxying.
 
 pub(super) mod calibrate;
+pub mod opportunities;
 pub(super) mod settings;
