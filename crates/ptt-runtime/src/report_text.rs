@@ -606,8 +606,6 @@ pub const fn radar_item_kind(language: UiLanguage, value: RadarItemKind) -> &'st
     }
 }
 
-/// Whether a radar row can be acted on now.
-#[must_use]
 /// Why a radar row is on the list.
 #[must_use]
 pub const fn radar_reason(language: UiLanguage, value: RadarReason) -> &'static str {
