@@ -69,6 +69,8 @@ pub struct ReportText {
     pub maker_over_taker: &'static str,
     pub listings_note: &'static str,
     pub nothing_current: &'static str,
+    pub radar_probe_header: &'static str,
+    pub focus_suggestion: &'static str,
     pub freshness_config_invalid: &'static str,
     pub freshness_light_line: &'static str,
     pub settlement_config_invalid: &'static str,
@@ -132,6 +134,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_over_taker: "maker over taker: {}bp",
     listings_note: "  (listings)",
     nothing_current: "nothing current - this is history, not a price",
+    radar_probe_header: "to firm these up, go flip:",
+    focus_suggestion: "consider adding {} to focus - {} snapshots in this window",
     freshness_config_invalid: "freshness thresholds in settings are invalid - using defaults",
     freshness_light_line: "data freshness: {}",
     settlement_config_invalid: "settlement currencies in settings are invalid - using defaults",
@@ -187,6 +191,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_over_taker: "挂单高于吃单：{}bp",
     listings_note: "  （挂单）",
     nothing_current: "没有当前报价 — 这是历史，不是价格",
+    radar_probe_header: "要坐实这些机会，去翻：",
+    focus_suggestion: "建议把 {} 加入关注 — 本窗口内抓到 {} 个盘口",
     freshness_config_invalid: "设置里的新鲜度阈值无效 — 已回落到默认",
     freshness_light_line: "数据新鲜度：{}",
     settlement_config_invalid: "设置里的结算通货无效 — 已回落到默认",
@@ -235,6 +241,16 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
+        (
+            "radar_probe_header",
+            REPORT_ENGLISH.radar_probe_header,
+            REPORT_CHINESE.radar_probe_header,
+        ),
+        (
+            "focus_suggestion",
+            REPORT_ENGLISH.focus_suggestion,
+            REPORT_CHINESE.focus_suggestion,
+        ),
         (
             "freshness_config_invalid",
             REPORT_ENGLISH.freshness_config_invalid,

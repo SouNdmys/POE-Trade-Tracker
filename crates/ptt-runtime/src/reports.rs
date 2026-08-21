@@ -451,6 +451,58 @@ fn market_policy_from(
     (policy, warning)
 }
 
+/// A currency must show up in at least this many distinct snapshots in the
+/// window before the watchlist suggests promoting it into the focus list —
+/// below that, "the user keeps flipping it" is one accidental hover.
+const FOCUS_SUGGESTION_MIN_SNAPSHOTS: usize = 3;
+
+/// Currencies the user keeps capturing but has not put in the focus list.
+///
+/// Counted as distinct snapshots per asset from the loaded window — the
+/// storage index makes this cheap and the report window bounds it. Only
+/// meaningful when a focus list exists: with no list configured, every seen
+/// asset is already a target and there is nothing to promote it into.
+fn focus_suggestions(
+    observations: &[MarketEdgeObservation],
+    policy: &MarketPolicy,
+    tuning: &MarketTuning,
+) -> Vec<(MarketAssetId, usize)> {
+    if tuning.focus_assets.is_empty() {
+        return Vec::new();
+    }
+    let configured: std::collections::BTreeSet<MarketAssetId> = tuning
+        .focus_assets
+        .iter()
+        .chain(&tuning.bridge_assets)
+        .chain(&tuning.watch_only_assets)
+        .filter_map(|id| MarketAssetId::try_new(id).ok())
+        .collect();
+    let mut snapshots_by_asset: BTreeMap<MarketAssetId, std::collections::BTreeSet<&str>> =
+        BTreeMap::new();
+    for observation in observations {
+        for asset in [
+            &observation.edge.from_asset_id,
+            &observation.edge.to_asset_id,
+        ] {
+            if policy.is_core_liquidity(asset) || configured.contains(asset) {
+                continue;
+            }
+            snapshots_by_asset
+                .entry(asset.clone())
+                .or_default()
+                .insert(observation.edge.snapshot_id.as_str());
+        }
+    }
+    let mut suggestions: Vec<(MarketAssetId, usize)> = snapshots_by_asset
+        .into_iter()
+        .map(|(asset, snapshots)| (asset, snapshots.len()))
+        .filter(|(_, count)| *count >= FOCUS_SUGGESTION_MIN_SNAPSHOTS)
+        .collect();
+    suggestions.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    suggestions.truncate(4);
+    suggestions
+}
+
 /// The focus items the reports scope over: the settlement currencies as
 /// anchors, then the user's configured lists — or, when no focus list is
 /// configured, every asset seen in the window, which is the pre-P7 behavior.
@@ -576,6 +628,13 @@ pub fn watchlist_report(
     ) {
         Ok(gap_lines) => lines.extend(gap_lines),
         Err(reason) => lines.push(fill(text.coverage_unavailable, &[&reason])),
+    }
+
+    for (asset, count) in focus_suggestions(observations, &policy, tuning) {
+        lines.push(fill(
+            text.focus_suggestion,
+            &[asset.as_str(), &count.to_string()],
+        ));
     }
 
     for recommendation in recommend_liquidity_anchors(&market.selected, &policy) {
@@ -733,6 +792,24 @@ pub fn opportunities_report(
             ],
         ));
     }
+    // The radar's own probe suggestions — the pairs whose absence or
+    // staleness limited what it could claim. Computed since P4, rendered
+    // never until now; shown whether or not any item survived, because an
+    // empty page is exactly when "go flip X" matters most.
+    let mut probe_lines = Vec::new();
+    if !result.probe_candidates.is_empty() {
+        probe_lines.push(text.radar_probe_header.to_owned());
+        for candidate in result.probe_candidates.iter().take(4) {
+            probe_lines.push(format!(
+                "  {}  {} {} -> {}   ({})",
+                crate::report_text::probe_priority(language, candidate.priority),
+                text.flip,
+                candidate.from_asset_id.as_str(),
+                candidate.to_asset_id.as_str(),
+                crate::report_text::probe_reason(language, candidate.reason),
+            ));
+        }
+    }
     if result.items.is_empty() {
         lines.push(text.nothing_beats_holding.to_owned());
         if result.diagnostics.missing_conversion_count > 0 {
@@ -741,6 +818,7 @@ pub fn opportunities_report(
                 result.diagnostics.missing_conversion_count
             ));
         }
+        lines.extend(probe_lines);
         return Ok(lines);
     }
 
@@ -765,6 +843,7 @@ pub fn opportunities_report(
             });
         lines.extend(radar_item_lines(item, light, language));
     }
+    lines.extend(probe_lines);
     Ok(lines)
 }
 
@@ -1469,6 +1548,79 @@ mod settlement_tests {
                 .iter()
                 .any(|line| line.contains("core liquidity: divine-orb")),
             "and the shipped default must carry the page: {lines:?}"
+        );
+    }
+
+    /// A focus asset the book has never priced becomes a probe suggestion
+    /// on the radar page — the loop that sends the user into the game to
+    /// close the gap — instead of an engine error or a silent omission.
+    #[test]
+    fn a_never_captured_focus_asset_becomes_a_probe_suggestion() {
+        let observations = vec![taker("divine-orb", "chaos-orb", (100, 1), 1_000)];
+        let tuning = MarketTuning {
+            focus_assets: vec!["perfect-chaos-orb".to_owned()],
+            ..Default::default()
+        };
+        let lines = opportunities_report(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &tuning,
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join(
+            "
+",
+        );
+        assert!(
+            joined.contains("flip divine-orb -> perfect-chaos-orb"),
+            "the missing pair must be a suggestion, not an error: {joined}"
+        );
+        assert!(
+            joined.contains("no forward quote"),
+            "with its typed reason: {joined}"
+        );
+    }
+
+    /// A currency captured repeatedly but absent from the focus list gets a
+    /// promotion suggestion; focus members and settlement currencies do not.
+    #[test]
+    fn a_frequently_captured_outsider_is_suggested_for_focus() {
+        let observations = vec![
+            taker("divine-orb", "chaos-orb", (100, 1), 1_000),
+            taker("vaal-orb", "divine-orb", (1, 50), 1_000),
+            taker("vaal-orb", "chaos-orb", (2, 1), 1_000),
+            taker("chaos-orb", "vaal-orb", (1, 2), 1_000),
+            taker("exalted-orb", "chaos-orb", (1, 3), 1_000),
+        ];
+        let tuning = MarketTuning {
+            focus_assets: vec!["exalted-orb".to_owned()],
+            ..Default::default()
+        };
+        let lines = watchlist_report(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &tuning,
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join(
+            "
+",
+        );
+        assert!(
+            joined.contains("consider adding vaal-orb to focus - 3 snapshots"),
+            "three distinct snapshots must earn the suggestion: {joined}"
+        );
+        assert!(
+            !joined.contains("consider adding exalted-orb"),
+            "a focus member needs no promotion: {joined}"
+        );
+        assert!(
+            !joined.contains("consider adding divine-orb"),
+            "settlement currencies need no promotion: {joined}"
         );
     }
 

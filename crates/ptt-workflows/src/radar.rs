@@ -255,6 +255,20 @@ pub fn run_opportunity_radar(
             completed_units: scanned_conversion_count,
             total_units,
         });
+        // A target the book has never priced has no unit yet; the engine
+        // rightly refuses to route to it. That is not an error — it is the
+        // definition of a missing pair, so it becomes the probe suggestion
+        // that sends the user to capture it.
+        if !units.contains(target) {
+            scanned_conversion_count = scanned_conversion_count
+                .checked_add(1)
+                .ok_or(WorkflowError::NumericOverflow)?;
+            missing_conversion_count = missing_conversion_count
+                .checked_add(1)
+                .ok_or(WorkflowError::NumericOverflow)?;
+            probe_candidates.push(missing_conversion_probe(start, target));
+            continue;
+        }
         let result = find_best_conversion(
             &index,
             &ConversionRequest {
