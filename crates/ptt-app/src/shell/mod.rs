@@ -231,6 +231,8 @@ pub struct AppShell {
     /// whatever the user was in the middle of doing.
     convert_have: pages::convert::AssetSelect,
     convert_need: pages::convert::AssetSelect,
+    /// The settings page's picker for adding a settlement currency.
+    settlement_select: pages::convert::AssetSelect,
     holdings_input: gpui::Entity<gpui_component::input::InputState>,
     /// What the pickers were last filled for: the catalogue in play and the
     /// language its labels were written in. Rebuilding a thousand-entry list
@@ -350,6 +352,7 @@ impl AppShell {
         };
         let convert_have = Self::new_asset_select(window, cx);
         let convert_need = Self::new_asset_select(window, cx);
+        let settlement_select = Self::new_asset_select(window, cx);
         let holdings_input = Self::new_holdings_input(window, cx);
         // A picked currency or a typed holding is a new question, so the page
         // is rebuilt; the read itself is backgrounded, so this stays cheap.
@@ -391,6 +394,7 @@ impl AppShell {
             radar_table,
             convert_have,
             convert_need,
+            settlement_select,
             holdings_input,
             convert_choices_key: None,
             convert_choices: Vec::new(),
@@ -751,7 +755,7 @@ impl AppShell {
         let language = self.language();
         let mut body = div().p_3().flex().flex_col().gap_1();
 
-        for entry in self.probe_queue.entries() {
+        for (row, entry) in self.probe_queue.entries().iter().enumerate() {
             let (from, to) = (entry.from_asset_id.clone(), entry.to_asset_id.clone());
             body = body.child(
                 div()
@@ -770,12 +774,16 @@ impl AppShell {
                             .text_color(c(TEXT_META)),
                     )
                     .child(
-                        button("probe-unpin", LedgerButton::Quiet, text.unpin_label, cx).on_click(
-                            cx.listener(move |this, _, _, cx| {
-                                this.unpin_probe(&from, &to);
-                                cx.notify();
-                            }),
-                        ),
+                        button(
+                            ("probe-unpin", row),
+                            LedgerButton::Quiet,
+                            text.unpin_label,
+                            cx,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.unpin_probe(&from, &to);
+                            cx.notify();
+                        })),
                     ),
             );
         }
@@ -796,7 +804,7 @@ impl AppShell {
                 if self.probe_queue.entries().is_empty() && candidates.is_empty() {
                     body = body.child(mono(text.nothing_yet).text_size(fs(FS_12)));
                 }
-                for candidate in candidates {
+                for (row, candidate) in candidates.into_iter().enumerate() {
                     let from = candidate.from_asset_id.as_str().to_owned();
                     let to = candidate.to_asset_id.as_str().to_owned();
                     let reason = ptt_runtime::report_text::probe_reason(language, candidate.reason);
@@ -814,7 +822,7 @@ impl AppShell {
                             )
                             .child(mono(reason).text_size(fs(FS_10_5)).text_color(c(TEXT_META)))
                             .child(
-                                button("probe-pin", LedgerButton::Quiet, text.pin_label, cx)
+                                button(("probe-pin", row), LedgerButton::Quiet, text.pin_label, cx)
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.pin_probe(&pin_from, &pin_to, &pin_reason);
                                         cx.notify();

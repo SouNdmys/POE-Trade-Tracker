@@ -167,7 +167,7 @@ impl AppShell {
         if model.valuations.is_empty() {
             body = body.child(empty_state(report_text::report(language).no_price_capture));
         }
-        for entry in &model.valuations {
+        for (row, entry) in model.valuations.iter().enumerate() {
             let asset = entry.asset_id.as_str().to_owned();
             let value = match (&entry.valuation.value, entry.valuation.status) {
                 (Some(value), ValuationStatus::TwoSided) => {
@@ -186,7 +186,9 @@ impl AppShell {
                 let target = asset.clone();
                 let active = option == choice;
                 let mut cell = div()
-                    .id((option.element_id(), index))
+                    // Per row, not per option: keyed only by which of the
+                    // four it is, every row after the first was inert.
+                    .id((option.element_id(), row))
                     .h(px(H_ROW))
                     .px(px(SP_6))
                     .flex()
@@ -232,7 +234,7 @@ impl AppShell {
         }
 
         // Currencies the user keeps flipping but has never put in the list.
-        for suggestion in &model.suggestions {
+        for (row, suggestion) in model.suggestions.iter().enumerate() {
             let asset = suggestion.asset_id.as_str().to_owned();
             let adopt = asset.clone();
             body = body.child(
@@ -251,12 +253,17 @@ impl AppShell {
                         .flex_grow(),
                     )
                     .child(
-                        button("focus-adopt", LedgerButton::Secondary, text.adopt_label, cx)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                #[cfg(windows)]
-                                this.set_focus_choice(&adopt, FocusChoice::Target);
-                                cx.notify();
-                            })),
+                        button(
+                            ("focus-adopt", row),
+                            LedgerButton::Secondary,
+                            text.adopt_label,
+                            cx,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            #[cfg(windows)]
+                            this.set_focus_choice(&adopt, FocusChoice::Target);
+                            cx.notify();
+                        })),
                     ),
             );
         }
@@ -328,7 +335,7 @@ impl AppShell {
                             )),
                     );
                 }
-                for candidate in coverage.candidates.iter().take(8) {
+                for (row, candidate) in coverage.candidates.iter().take(8).enumerate() {
                     let from = candidate.from_asset_id.as_str().to_owned();
                     let to = candidate.to_asset_id.as_str().to_owned();
                     let reason = report_text::probe_reason(language, candidate.reason).to_owned();
@@ -346,7 +353,7 @@ impl AppShell {
                             } else {
                                 div().child(
                                     button(
-                                        "watch-probe-pin",
+                                        ("watch-probe-pin", row),
                                         LedgerButton::Quiet,
                                         text.pin_label,
                                         cx,

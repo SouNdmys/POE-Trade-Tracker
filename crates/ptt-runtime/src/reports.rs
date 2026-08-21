@@ -753,17 +753,17 @@ const FOCUS_SUGGESTION_MIN_SNAPSHOTS: usize = 3;
 /// Currencies the user keeps capturing but has not put in the focus list.
 ///
 /// Counted as distinct snapshots per asset from the loaded window — the
-/// storage index makes this cheap and the report window bounds it. Only
-/// meaningful when a focus list exists: with no list configured, every seen
-/// asset is already a target and there is nothing to promote it into.
+/// storage index makes this cheap and the report window bounds it.
+///
+/// Offered from the first session rather than only once a list exists. The
+/// list is meant to be built out of what the user turns out to trade, and a
+/// feature that suggests nothing until you have already used it cannot start
+/// that.
 fn focus_suggestions(
     observations: &[MarketEdgeObservation],
     policy: &MarketPolicy,
     tuning: &MarketTuning,
 ) -> Vec<(MarketAssetId, usize)> {
-    if tuning.focus_assets.is_empty() {
-        return Vec::new();
-    }
     let configured: std::collections::BTreeSet<MarketAssetId> = tuning
         .focus_assets
         .iter()
@@ -797,15 +797,46 @@ fn focus_suggestions(
     suggestions
 }
 
+/// What a scope is being built to answer.
+///
+/// The two answers differ, and that difference is the point of having a focus
+/// list at all. Arbitrage is arithmetic: a currency the window can price is
+/// worth checking whether or not anyone declared an interest in it, and
+/// refusing to price it because it is off a list throws away a real
+/// opportunity the data already contains. Attention is a choice: coverage and
+/// probe suggestions measure what the user says they trade, and measuring
+/// them against everything the watcher happened to see buries that answer
+/// under currencies nobody asked about.
+///
+/// Conflating them meant the moment a user curated a list — the feature
+/// working as intended — everything they had captured but not listed silently
+/// stopped being scanned.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FocusPurpose {
+    /// The list, and everything else the window can price.
+    Arbitrage,
+    /// The list. Or, with no list configured, everything seen: a scope of
+    /// nothing would report perfect coverage of no pairs.
+    Attention,
+}
+
 /// The focus items the reports scope over: the settlement currencies as
-/// anchors, then the user's configured lists — or, when no focus list is
-/// configured, every asset seen in the window, which is the pre-P7 behavior.
-/// Watch-only and bridge lists apply in both modes, and watch-only wins over
-/// target so a demoted asset cannot sneak back in through "seen".
+/// anchors, then the user's configured lists, then — for arbitrage — every
+/// other asset seen in the window.
+///
+/// Watch-only and bridge are pushed first and win over target, so a currency
+/// the user has explicitly demoted cannot come back in through "seen". That
+/// is the one exclusion a focus list still performs, and it is deliberate:
+/// watch-only means "price it, never route through it".
+///
+/// Listed targets come before seen ones because the radar divides its budget
+/// among targets in order, so the list decides who gets scanned first when
+/// there is not enough budget for everyone.
 fn focus_items_from(
     policy: &MarketPolicy,
     tuning: &MarketTuning,
     seen: &[MarketAssetId],
+    purpose: FocusPurpose,
 ) -> Vec<FocusGroupItem> {
     let mut taken = std::collections::BTreeSet::new();
     let mut items = Vec::new();
@@ -833,15 +864,15 @@ fn focus_items_from(
             }
         }
     }
-    if tuning.focus_assets.is_empty() {
+    for id in &tuning.focus_assets {
+        if let Ok(asset) = MarketAssetId::try_new(id) {
+            push(asset, FocusRole::Target, &mut taken, &mut items);
+        }
+    }
+    let include_seen = purpose == FocusPurpose::Arbitrage || tuning.focus_assets.is_empty();
+    if include_seen {
         for asset in seen {
             push(asset.clone(), FocusRole::Target, &mut taken, &mut items);
-        }
-    } else {
-        for id in &tuning.focus_assets {
-            if let Ok(asset) = MarketAssetId::try_new(id) {
-                push(asset, FocusRole::Target, &mut taken, &mut items);
-            }
         }
     }
     items
@@ -1075,7 +1106,7 @@ pub fn opportunities_model(
     }
     let market = build_market(observations, context_key, tuning, language)?;
 
-    let items = focus_items_from(&policy, tuning, &seen);
+    let items = focus_items_from(&policy, tuning, &seen, FocusPurpose::Arbitrage);
     let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
         .map_err(|error| format!("scope: {error}"))?;
 
@@ -1611,7 +1642,7 @@ fn focus_coverage(
     ),
     String,
 > {
-    let items = focus_items_from(policy, tuning, seen);
+    let items = focus_items_from(policy, tuning, seen, FocusPurpose::Attention);
     let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
         .map_err(|error| format!("{error}"))?;
 
@@ -1684,6 +1715,102 @@ fn render_coverage(coverage: &CoverageModel, language: UiLanguage) -> Vec<String
         ));
     }
     lines
+}
+
+#[cfg(test)]
+mod focus_scope_tests {
+    use super::*;
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn tuning(focus: &[&str], watch_only: &[&str]) -> MarketTuning {
+        MarketTuning {
+            focus_assets: focus.iter().map(|id| (*id).to_owned()).collect(),
+            watch_only_assets: watch_only.iter().map(|id| (*id).to_owned()).collect(),
+            ..MarketTuning::default()
+        }
+    }
+
+    fn role_of(items: &[FocusGroupItem], id: &str) -> Option<FocusRole> {
+        items
+            .iter()
+            .find(|item| item.asset_id.as_str() == id)
+            .map(|item| item.role)
+    }
+
+    /// A currency the user has not listed is still worth arbitrage.
+    ///
+    /// Curating a focus list used to silence every other captured currency:
+    /// the moment the feature was used as intended, opportunities the data
+    /// already contained stopped being looked for. Being on the list buys
+    /// priority and attention, not permission to be priced.
+    #[test]
+    fn an_unlisted_but_captured_currency_is_still_an_arbitrage_target() {
+        let policy = MarketPolicy::default_for("test-league");
+        let tuning = tuning(&["omen-of-light"], &[]);
+        let seen = vec![asset("omen-of-light"), asset("fracturing-orb")];
+
+        let arbitrage = focus_items_from(&policy, &tuning, &seen, FocusPurpose::Arbitrage);
+        assert_eq!(
+            role_of(&arbitrage, "fracturing-orb"),
+            Some(FocusRole::Target),
+            "a captured currency is arithmetic, not a preference"
+        );
+
+        // The other half of the split: attention stays where the user put it.
+        let attention = focus_items_from(&policy, &tuning, &seen, FocusPurpose::Attention);
+        assert_eq!(role_of(&attention, "fracturing-orb"), None);
+        assert_eq!(
+            role_of(&attention, "omen-of-light"),
+            Some(FocusRole::Target)
+        );
+    }
+
+    /// The list decides the order, and the order decides the budget.
+    #[test]
+    fn listed_targets_come_before_captured_ones() {
+        let policy = MarketPolicy::default_for("test-league");
+        let tuning = tuning(&["omen-of-light"], &[]);
+        let seen = vec![asset("fracturing-orb"), asset("omen-of-light")];
+        let items = focus_items_from(&policy, &tuning, &seen, FocusPurpose::Arbitrage);
+        let targets: Vec<&str> = items
+            .iter()
+            .filter(|item| item.role == FocusRole::Target)
+            .map(|item| item.asset_id.as_str())
+            .collect();
+        assert_eq!(targets.first(), Some(&"omen-of-light"));
+    }
+
+    /// Watch-only is the one exclusion a list still performs.
+    #[test]
+    fn watch_only_survives_being_captured() {
+        let policy = MarketPolicy::default_for("test-league");
+        let tuning = tuning(&["omen-of-light"], &["fracturing-orb"]);
+        let seen = vec![asset("fracturing-orb")];
+        for purpose in [FocusPurpose::Arbitrage, FocusPurpose::Attention] {
+            let items = focus_items_from(&policy, &tuning, &seen, purpose);
+            assert_eq!(
+                role_of(&items, "fracturing-orb"),
+                Some(FocusRole::WatchOnly),
+                "{purpose:?} must not promote a demoted currency"
+            );
+        }
+    }
+
+    /// With nothing configured, both answers are "everything seen" -- the
+    /// behaviour before the split, unchanged.
+    #[test]
+    fn an_empty_list_scopes_over_everything_seen() {
+        let policy = MarketPolicy::default_for("test-league");
+        let tuning = tuning(&[], &[]);
+        let seen = vec![asset("fracturing-orb")];
+        for purpose in [FocusPurpose::Arbitrage, FocusPurpose::Attention] {
+            let items = focus_items_from(&policy, &tuning, &seen, purpose);
+            assert_eq!(role_of(&items, "fracturing-orb"), Some(FocusRole::Target));
+        }
+    }
 }
 
 #[cfg(test)]

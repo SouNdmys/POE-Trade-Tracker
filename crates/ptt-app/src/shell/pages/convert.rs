@@ -201,7 +201,11 @@ impl AppShell {
         if self.convert_choices_key != Some(key) {
             self.convert_choices_key = Some(key);
             self.convert_choices = self.catalog_choices();
-            for select in [self.convert_have.clone(), self.convert_need.clone()] {
+            for select in [
+                self.convert_have.clone(),
+                self.convert_need.clone(),
+                self.settlement_select.clone(),
+            ] {
                 let items = AssetList::new(self.convert_choices.clone());
                 select.update(cx, |state, cx| state.set_items(items, window, cx));
             }
@@ -636,12 +640,16 @@ impl AppShell {
                 chip(StatusKind::Monitoring, text.pinned_label)
             } else {
                 div().child(
-                    button("convert-pin", LedgerButton::Secondary, text.pin_label, cx).on_click(
-                        cx.listener(move |this, _, _, cx| {
-                            this.pin_probe(&from, &to, &reason);
-                            cx.notify();
-                        }),
-                    ),
+                    button(
+                        ("convert-pin", usize::try_from(size).unwrap_or(usize::MAX)),
+                        LedgerButton::Secondary,
+                        text.pin_label,
+                        cx,
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.pin_probe(&from, &to, &reason);
+                        cx.notify();
+                    })),
                 )
             })
     }

@@ -561,7 +561,7 @@ impl AppShell {
         let language = self.language();
         let text = self.text();
         let mut row = div().h_flex().items_center().gap_2().flex_wrap();
-        for candidate in candidates.into_iter().take(4) {
+        for (index, candidate) in candidates.into_iter().take(4).enumerate() {
             let from = candidate.from_asset_id.as_str().to_owned();
             let to = candidate.to_asset_id.as_str().to_owned();
             let reason = report_text::probe_reason(language, candidate.reason).to_owned();
@@ -571,7 +571,7 @@ impl AppShell {
                     .h_flex()
                     .items_center()
                     .gap_1()
-                    .child(mono(format!("{from} → {to}")).text_size(fs(FS_11_5)))
+                    .child(mono(self.pair_label(&from, &to)).text_size(fs(FS_11_5)))
                     .child(
                         mono(reason.clone())
                             .text_size(fs(FS_10_5))
@@ -581,11 +581,18 @@ impl AppShell {
                         chip(StatusKind::Monitoring, text.pinned_label)
                     } else {
                         div().child(
-                            button("radar-probe-pin", LedgerButton::Quiet, text.pin_label, cx)
-                                .on_click(cx.listener(move |this, _, _, cx| {
+                            button(
+                                ("radar-probe-pin", index),
+                                LedgerButton::Quiet,
+                                text.pin_label,
+                                cx,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
                                     this.pin_probe(&from, &to, &reason);
                                     cx.notify();
-                                })),
+                                },
+                            )),
                         )
                     }),
             );

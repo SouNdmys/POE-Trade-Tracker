@@ -254,7 +254,14 @@ pub enum LedgerButton {
 
 /// 构造 Ledger 风格按钮(基于 gpui-component Button:保留焦点环/键盘/禁用逻辑,
 /// 颜色与几何全部覆盖为 token)。
-pub fn button(id: &'static str, kind: LedgerButton, label: &str, cx: &App) -> Button {
+/// A Ledger button.
+///
+/// The id takes anything an [`gpui::ElementId`] can be made from, tuples
+/// included, because a button drawn inside a loop needs one per row: GPUI
+/// keys interaction state by id, so a whole column of buttons sharing one
+/// static string leaves only the first row clickable and the rest inert with
+/// nothing on screen to say so.
+pub fn button(id: impl Into<gpui::ElementId>, kind: LedgerButton, label: &str, cx: &App) -> Button {
     use gpui_component::ActiveTheme as _;
     let _ = cx.theme();
     let (variant, height) = match kind {

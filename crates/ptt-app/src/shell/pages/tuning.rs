@@ -7,10 +7,14 @@
 //! the runtime would reject is refused here, in place, instead of being
 //! written and silently ignored.
 
-use gpui::{AppContext as _, Context, Entity, ParentElement, Styled, div, px};
+use gpui::{
+    AppContext as _, Context, Entity, InteractiveElement as _, ParentElement,
+    StatefulInteractiveElement as _, Styled, div, px,
+};
 use gpui_component::{
     Sizable, Size, StyledExt as _,
     input::{Input, InputState},
+    select::Select,
 };
 
 use crate::shell::AppShell;
@@ -103,6 +107,54 @@ impl AppShell {
             thin_stock: make(tuning.risk.thin_liquidity_stock.to_string()),
             outlier_factor: make(tuning.risk.top_book_outlier_factor.to_string()),
             window_hours: make(tuning.report_window_hours.to_string()),
+        }
+    }
+
+    /// Adds whatever the settlement picker names.
+    #[cfg(windows)]
+    pub(crate) fn add_settlement(&mut self, cx: &gpui::App) {
+        let Some(asset) = self
+            .settlement_select
+            .read(cx)
+            .selected_value()
+            .map(std::string::ToString::to_string)
+        else {
+            return;
+        };
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            if tuning.settlement_assets.contains(&asset) {
+                return;
+            }
+            tuning.settlement_assets.push(asset);
+            tuning.settlement_assets.sort();
+        }
+        self.save_tuning();
+    }
+
+    /// Drops one settlement currency. Never the last.
+    #[cfg(windows)]
+    pub(crate) fn remove_settlement(&mut self, asset: &str) {
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            if tuning.settlement_assets.len() <= 1 {
+                return;
+            }
+            tuning.settlement_assets.retain(|held| held != asset);
+        }
+        self.save_tuning();
+    }
+
+    /// Writes the settings and marks the answer on screen out of date.
+    #[cfg(windows)]
+    fn save_tuning(&mut self) {
+        match self.settings_store.save(&self.settings) {
+            // Every page prices against the settlement set, so all of them
+            // are now describing a market that no longer exists.
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
         }
     }
 
@@ -247,12 +299,64 @@ impl AppShell {
                 )
         };
 
-        // Settlement is shown, not edited inline: changing the numéraire
-        // changes what every number on every page means, so it is a
-        // deliberate act rather than a click beside a row.
+        // Editable here and nowhere else. Changing the numéraire changes
+        // what every number on every page means, so it belongs on the settings
+        // screen rather than as a click beside a row on a page of results.
+        let removable = tuning.settlement_assets.len() > 1;
         let mut settlement = div().h_flex().items_center().gap_2().flex_wrap();
-        for asset in &tuning.settlement_assets {
-            settlement = settlement.child(chip(StatusKind::Monitoring, &self.display_name(asset)));
+        for (index, asset) in tuning.settlement_assets.iter().enumerate() {
+            let held = asset.clone();
+            let mut tag = div()
+                .id(("settlement-chip", index))
+                .h_flex()
+                .items_center()
+                .gap_1()
+                .child(chip(StatusKind::Monitoring, &self.display_name(asset)));
+            if removable {
+                tag = tag
+                    .cursor_pointer()
+                    .child(
+                        div()
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_DISABLED))
+                            .child("×"),
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.remove_settlement(&held);
+                        cx.notify();
+                    }));
+            }
+            settlement = settlement.child(tag);
+        }
+        settlement = settlement
+            .child(
+                div().w(px(170.)).child(
+                    Select::new(&self.settlement_select)
+                        .placeholder(text.convert_pick)
+                        .with_size(Size::Small),
+                ),
+            )
+            .child(
+                button(
+                    "settlement-add",
+                    LedgerButton::Secondary,
+                    text.settlement_add,
+                    cx,
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.add_settlement(cx);
+                    cx.notify();
+                })),
+            );
+        // Stated rather than left to a disabled control: a market with nothing
+        // to price against is not a configuration, and silence would read as a
+        // broken button.
+        if !removable {
+            settlement = settlement.child(
+                mono(text.settlement_last)
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED)),
+            );
         }
 
         panel().child(panel_header(text.tuning_header)).child(
