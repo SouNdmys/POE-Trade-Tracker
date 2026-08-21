@@ -96,6 +96,28 @@ pub struct MakerWall {
     pub queue_index: usize,
 }
 
+/// Why a competing listing was kept out of the queue math.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MakerQueueExclusion {
+    /// The book flagged the rate as a price outlier. A malicious listing
+    /// fronts its side by construction, so left in it becomes exactly the
+    /// row Opportunity would undercut — and it inflates visible depth and
+    /// the suggested order size on the way.
+    PriceOutlier,
+}
+
+/// A listing the panel shows but this module refuses to price against.
+/// Kept visible with its reason: exclusion is a judgement, not a deletion.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MakerExcludedListing {
+    pub edge_id: String,
+    pub rate: Ratio,
+    pub stock: u64,
+    pub reason: MakerQueueExclusion,
+}
+
 /// What to list, at what rate, and what it costs in risk.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,8 +154,10 @@ pub struct MakerStrategy {
     pub from_asset_id: MarketAssetId,
     pub to_asset_id: MarketAssetId,
     pub amount_in: AssetAmount,
-    /// The competing listings, front of queue first.
+    /// The competing listings admitted to the math, front of queue first.
     pub queue: Vec<MakerQueueLevel>,
+    /// Listings kept out of every number above, each with its reason.
+    pub excluded: Vec<MakerExcludedListing>,
     /// Total visible listing depth, in the `from` asset.
     pub visible_depth_from: Option<AssetAmount>,
     /// Depth held by the front of the queue.
@@ -142,8 +166,12 @@ pub struct MakerStrategy {
     pub front_level_count: usize,
     pub wall: Option<MakerWall>,
     pub instant_rate: Option<Ratio>,
+    /// The front of the competing queue: the first rate a new listing has to
+    /// beat.
     pub best_competing_rate: Option<Ratio>,
-    /// Spread of the best listing over the instant price, in basis points.
+    /// Spread of the competing front over the instant price, in basis
+    /// points — the reward a maker at the head of the queue earns over just
+    /// taking (docs/CORE-TRADING-MODEL.md defines the spread this way).
     pub spread_basis_points: Option<i64>,
     /// Requested size as a fraction of visible depth, in basis points.
     pub size_to_depth_basis_points: Option<i64>,
@@ -328,6 +356,35 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
         .collect();
     listings.sort_by(|left, right| queue_order(left, right));
 
+    // Partition before any arithmetic: a price-outlier row is exactly the
+    // row a mode would otherwise price against, and it inflates visible
+    // depth and the suggested order size on the way. The judgement is
+    // evidence-based — the book's own outlier flags — not selection-based:
+    // under an Instant selection every maker-reference row is "rejected"
+    // for the wrong execution type, which says nothing about honesty.
+    let mut excluded = Vec::new();
+    let mut admitted: Vec<&EvaluatedQuoteEdge> = Vec::with_capacity(listings.len());
+    for evaluated in listings {
+        let edge = &evaluated.observation.edge;
+        let is_outlier = evaluated.risk_flags.iter().any(|flag| {
+            matches!(
+                flag,
+                QuoteRiskFlag::PriceOutlier | QuoteRiskFlag::OutsideTopBookBand
+            )
+        });
+        if is_outlier {
+            excluded.push(MakerExcludedListing {
+                edge_id: edge.edge_id.clone(),
+                rate: edge.rate.clone(),
+                stock: edge.stock,
+                reason: MakerQueueExclusion::PriceOutlier,
+            });
+        } else {
+            admitted.push(evaluated);
+        }
+    }
+    let listings = admitted;
+
     let to_unit = request
         .instant
         .map_or(request.amount_in.unit, |fill| fill.gross_amount_out.unit);
@@ -368,7 +425,8 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
     let wall = detect_wall(&queue);
 
     let instant_rate = request.instant.and_then(instant_rate_of);
-    let best_competing_rate = queue.last().map(|level| level.rate.clone());
+    // The front, not the greediest: what a new listing competes with first.
+    let best_competing_rate = queue.first().map(|level| level.rate.clone());
     let spread_basis_points = match (&instant_rate, &best_competing_rate) {
         (Some(instant), Some(best)) => {
             match (rational_from_ratio(best), rational_from_ratio(instant)) {
@@ -412,6 +470,11 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
         // Listing is always a maker act, whatever the book looks like.
         book_risks.insert(ExecutionRisk::MakerReference);
     }
+    if listings.len() == 1 {
+        // One admitted listing prices the whole queue; nothing corroborates
+        // the rate both modes would list against.
+        book_risks.insert(ExecutionRisk::SingleListingBook);
+    }
     if split_order_recommended {
         book_risks.insert(ExecutionRisk::MakerDepthExceeded);
     }
@@ -438,13 +501,20 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
         })
         .collect::<Vec<_>>();
 
+    // The pair-level picture names the rows it refused to price against;
+    // the recommendations stay clean because their math never saw them.
+    let mut strategy_risks = book_risks;
+    if !excluded.is_empty() {
+        strategy_risks.insert(ExecutionRisk::PriceOutlier);
+        strategy_risks.insert(ExecutionRisk::OutsideTopBookBand);
+    }
     let assessment = RiskAssessment {
         actionability: Actionability::safest(
             recommendations
                 .iter()
                 .map(|item| item.assessment.actionability),
         ),
-        risks: book_risks,
+        risks: strategy_risks,
         caveats,
     };
 
@@ -453,6 +523,7 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
         to_asset_id: request.to_asset_id.clone(),
         amount_in: request.amount_in.clone(),
         queue,
+        excluded,
         visible_depth_from,
         front_depth_from,
         front_level_count: listings.len().min(FRONT_LEVEL_COUNT),

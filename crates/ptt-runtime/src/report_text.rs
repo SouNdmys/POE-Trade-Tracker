@@ -20,7 +20,10 @@
 
 use ptt_settings::UiLanguage;
 
-use ptt_strategy::{Actionability, AnchorAction, AnomalySeverity, ExecutionRisk, PriceAnomalyKind};
+use ptt_strategy::{
+    Actionability, AnchorAction, AnomalySeverity, ExecutionRisk, MakerQueueExclusion,
+    PriceAnomalyKind,
+};
 use ptt_trade_engine::ExecutionRiskFlag;
 use ptt_workflows::{
     FocusCoverageStatus, ProbePriority, ProbeReason, RadarCategory, RadarItemKind, RadarReason,
@@ -67,6 +70,18 @@ pub struct ReportText {
     pub maker_over_taker: &'static str,
     pub listings_note: &'static str,
     pub nothing_current: &'static str,
+    pub maker_header: &'static str,
+    pub maker_instant: &'static str,
+    pub maker_no_instant: &'static str,
+    pub maker_no_book: &'static str,
+    pub maker_undercut: &'static str,
+    pub maker_match: &'static str,
+    pub maker_greedy: &'static str,
+    pub maker_improvement: &'static str,
+    pub maker_not_worth: &'static str,
+    pub maker_spread: &'static str,
+    pub maker_depth: &'static str,
+    pub maker_excluded: &'static str,
     pub risks: &'static str,
     pub probe: &'static str,
     pub flip: &'static str,
@@ -114,6 +129,18 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_over_taker: "maker over taker: {}bp",
     listings_note: "  (listings)",
     nothing_current: "nothing current - this is history, not a price",
+    maker_header: "listing strategy {} -> {} at size {}",
+    maker_instant: "take now at {}",
+    maker_no_instant: "no instant fill - the taker side is empty",
+    maker_no_book: "no competing listings - probe this pair first",
+    maker_undercut: "undercut, list at {}",
+    maker_match: "match the front, list at {} - queues behind it",
+    maker_greedy: "greedy, list at {} - bets on drift",
+    maker_improvement: "+{} {} vs taking ({}bp)",
+    maker_not_worth: "no better than taking - trade instead",
+    maker_spread: "front over instant: {}bp",
+    maker_depth: "visible depth {} {}, max single order {} {}",
+    maker_excluded: "excluded listing at {} (stock {}): {}",
     risks: "risks",
     probe: "probe",
     flip: "flip",
@@ -153,6 +180,18 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_over_taker: "挂单高于吃单：{}bp",
     listings_note: "  （挂单）",
     nothing_current: "没有当前报价 — 这是历史，不是价格",
+    maker_header: "挂单策略 {} → {}（规模 {}）",
+    maker_instant: "立即成交价 {}",
+    maker_no_instant: "无法立即成交 — 可用侧没有挂单",
+    maker_no_book: "竞争侧没有挂单 — 先补采集这一对",
+    maker_undercut: "机会（压一档），挂 {}",
+    maker_match: "跟价，挂 {} — 排在原单之后",
+    maker_greedy: "贪婪，挂 {} — 赌行情走势",
+    maker_improvement: "比立即成交多 {} {}（{}bp）",
+    maker_not_worth: "不比立即成交好 — 不如直接吃单",
+    maker_spread: "队首高出立即成交 {}bp",
+    maker_depth: "可见深度 {} {}，单笔建议不超过 {} {}",
+    maker_excluded: "已排除挂单 {}（库存 {}）：{}",
     risks: "风险",
     probe: "建议采集",
     flip: "翻",
@@ -185,6 +224,66 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
+        (
+            "maker_header",
+            REPORT_ENGLISH.maker_header,
+            REPORT_CHINESE.maker_header,
+        ),
+        (
+            "maker_instant",
+            REPORT_ENGLISH.maker_instant,
+            REPORT_CHINESE.maker_instant,
+        ),
+        (
+            "maker_no_instant",
+            REPORT_ENGLISH.maker_no_instant,
+            REPORT_CHINESE.maker_no_instant,
+        ),
+        (
+            "maker_no_book",
+            REPORT_ENGLISH.maker_no_book,
+            REPORT_CHINESE.maker_no_book,
+        ),
+        (
+            "maker_undercut",
+            REPORT_ENGLISH.maker_undercut,
+            REPORT_CHINESE.maker_undercut,
+        ),
+        (
+            "maker_match",
+            REPORT_ENGLISH.maker_match,
+            REPORT_CHINESE.maker_match,
+        ),
+        (
+            "maker_greedy",
+            REPORT_ENGLISH.maker_greedy,
+            REPORT_CHINESE.maker_greedy,
+        ),
+        (
+            "maker_improvement",
+            REPORT_ENGLISH.maker_improvement,
+            REPORT_CHINESE.maker_improvement,
+        ),
+        (
+            "maker_not_worth",
+            REPORT_ENGLISH.maker_not_worth,
+            REPORT_CHINESE.maker_not_worth,
+        ),
+        (
+            "maker_spread",
+            REPORT_ENGLISH.maker_spread,
+            REPORT_CHINESE.maker_spread,
+        ),
+        (
+            "maker_depth",
+            REPORT_ENGLISH.maker_depth,
+            REPORT_CHINESE.maker_depth,
+        ),
+        (
+            "maker_excluded",
+            REPORT_ENGLISH.maker_excluded,
+            REPORT_CHINESE.maker_excluded,
+        ),
         (
             "tier_closed",
             REPORT_ENGLISH.tier_closed,
@@ -390,6 +489,9 @@ pub const fn execution_risk(language: UiLanguage, value: ExecutionRisk) -> &'sta
         }
         ExecutionRisk::LowConfidence => pick(language, "low confidence", "置信度低"),
         ExecutionRisk::ThinLiquidity => pick(language, "thin liquidity", "流动性薄"),
+        ExecutionRisk::SingleListingBook => {
+            pick(language, "only one listing on this side", "该侧仅一条挂单")
+        }
         ExecutionRisk::LiquidityCapped => pick(language, "capped by liquidity", "受流动性限制"),
         ExecutionRisk::PartialRoute => pick(language, "partial route", "路径不完整"),
         ExecutionRisk::ResidualInventory => pick(language, "residual inventory", "有零头库存"),
@@ -398,6 +500,14 @@ pub const fn execution_risk(language: UiLanguage, value: ExecutionRisk) -> &'sta
         ExecutionRisk::OutsideTopBookBand => pick(language, "off the top of book", "偏离盘口首档"),
         ExecutionRisk::UnsupportedRecord => pick(language, "unsupported record", "记录格式不支持"),
         ExecutionRisk::NeedsProbe => pick(language, "needs a probe", "需要补采集"),
+    }
+}
+
+/// Why a listing was kept out of the maker queue math.
+#[must_use]
+pub const fn maker_exclusion(language: UiLanguage, value: MakerQueueExclusion) -> &'static str {
+    match value {
+        MakerQueueExclusion::PriceOutlier => pick(language, "price outlier", "价格离群"),
     }
 }
 
@@ -414,6 +524,9 @@ pub const fn execution_risk_flag(language: UiLanguage, value: ExecutionRiskFlag)
             pick(language, "beyond maker depth", "超出挂单深度")
         }
         ExecutionRiskFlag::LiquidityCapped => pick(language, "capped by liquidity", "受流动性限制"),
+        ExecutionRiskFlag::SingleListingBook => {
+            pick(language, "only one listing on this side", "该侧仅一条挂单")
+        }
         ExecutionRiskFlag::BelowMinimumOutput => {
             pick(language, "below minimum output", "低于最小产出")
         }
@@ -624,6 +737,7 @@ mod tests {
                 Actionability::SuspiciousOutlier,
             ]
         );
+        check!(maker_exclusion, [MakerQueueExclusion::PriceOutlier]);
         check!(
             execution_risk,
             [
@@ -636,6 +750,7 @@ mod tests {
                 ExecutionRisk::CaptureSkewExceeded,
                 ExecutionRisk::LowConfidence,
                 ExecutionRisk::ThinLiquidity,
+                ExecutionRisk::SingleListingBook,
                 ExecutionRisk::LiquidityCapped,
                 ExecutionRisk::PartialRoute,
                 ExecutionRisk::ResidualInventory,
@@ -654,6 +769,7 @@ mod tests {
                 ExecutionRiskFlag::FillNotGuaranteed,
                 ExecutionRiskFlag::MakerDepthExceeded,
                 ExecutionRiskFlag::LiquidityCapped,
+                ExecutionRiskFlag::SingleListingBook,
                 ExecutionRiskFlag::BelowMinimumOutput,
                 ExecutionRiskFlag::CapacityRoundedToUnit,
                 ExecutionRiskFlag::UnknownFee,

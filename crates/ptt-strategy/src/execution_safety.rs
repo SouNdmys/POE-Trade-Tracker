@@ -52,6 +52,9 @@ pub enum ExecutionRisk {
     LowConfidence,
     /// Visible stock on a leg is positive but small.
     ThinLiquidity,
+    /// The side a leg priced against holds exactly one listing, so nothing
+    /// corroborates the rate — the case a median outlier band cannot judge.
+    SingleListingBook,
     /// Visible depth ran out before the requested amount was filled.
     LiquidityCapped,
     /// The route completed only partially.
@@ -88,6 +91,7 @@ impl ExecutionRisk {
             | Self::CaptureSkewExceeded
             | Self::LowConfidence
             | Self::ThinLiquidity
+            | Self::SingleListingBook
             | Self::LiquidityCapped
             | Self::PartialRoute
             | Self::ResidualInventory
@@ -282,6 +286,9 @@ fn absorb_execution_flag(
         }
         ExecutionRiskFlag::LiquidityCapped | ExecutionRiskFlag::BelowMinimumOutput => {
             risks.insert(ExecutionRisk::LiquidityCapped);
+        }
+        ExecutionRiskFlag::SingleListingBook => {
+            risks.insert(ExecutionRisk::SingleListingBook);
         }
         ExecutionRiskFlag::PartialRoute => {
             risks.insert(ExecutionRisk::PartialRoute);

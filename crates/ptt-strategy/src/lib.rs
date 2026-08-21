@@ -23,8 +23,8 @@ pub use execution_safety::{
     assess_steps, assess_triangle,
 };
 pub use maker_strategy::{
-    MakerMode, MakerQueueLevel, MakerRecommendation, MakerRequest, MakerStrategy, MakerWall,
-    calculate_maker_strategy,
+    MakerExcludedListing, MakerMode, MakerQueueExclusion, MakerQueueLevel, MakerRecommendation,
+    MakerRequest, MakerStrategy, MakerWall, calculate_maker_strategy,
 };
 pub use market_policy::{
     AnchorAction, AnchorEvidence, AnchorRecommendation, DEFAULT_CORE_LIQUIDITY, MarketPolicy,

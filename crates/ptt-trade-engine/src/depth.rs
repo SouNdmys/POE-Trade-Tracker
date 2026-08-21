@@ -20,6 +20,10 @@ pub enum ExecutionRiskFlag {
     FillNotGuaranteed,
     MakerDepthExceeded,
     LiquidityCapped,
+    /// The side this fill priced against holds exactly one listing: there is
+    /// no second quote to corroborate the price, so the row that a median
+    /// band cannot judge is named instead of trusted silently.
+    SingleListingBook,
     BelowMinimumOutput,
     CapacityRoundedToUnit,
     UnknownFee,
@@ -305,6 +309,9 @@ impl MarketDepthIndex {
         if fee_policy.is_unknown() {
             risks.insert(ExecutionRiskFlag::UnknownFee);
         }
+        if levels.len() == 1 {
+            risks.insert(ExecutionRiskFlag::SingleListingBook);
+        }
 
         for level in levels {
             if remaining_quanta == 0 {
@@ -463,6 +470,16 @@ impl MarketDepthIndex {
             ExecutionRiskFlag::MakerReference,
             ExecutionRiskFlag::FillNotGuaranteed,
         ]);
+        let reference_count = depth
+            .levels
+            .iter()
+            .filter(|candidate| {
+                candidate.observation.edge.execution_type == ExecutionType::MakerReference
+            })
+            .count();
+        if reference_count == 1 {
+            risks.insert(ExecutionRiskFlag::SingleListingBook);
+        }
         if input.quanta > visible_reference_quanta {
             risks.insert(ExecutionRiskFlag::MakerDepthExceeded);
         }

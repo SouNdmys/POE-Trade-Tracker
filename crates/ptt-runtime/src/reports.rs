@@ -81,8 +81,10 @@ fn build_market(
                 &edge.observation.edge.to_asset_id,
                 edge.observation.edge.rate.clone(),
             );
-            selected.push(edge.clone());
         }
+        // The selected edge is one of the candidates, so the candidates alone
+        // carry it — pushing it separately double-counted every selected edge
+        // in valuations and price histories.
         selected.extend(entry.candidate_edges.iter().cloned());
     }
 
@@ -226,8 +228,168 @@ pub fn convert_report(
 
     if lines.is_empty() {
         lines.push(text.nothing_to_convert.to_owned());
+        return Ok(lines);
     }
+    lines.extend(maker_section(&market, have, need, language));
     Ok(lines)
+}
+
+/// The listing-strategy section of the Convert page: the trader's three ways
+/// to act on this pair as a maker — undercut the competing front, match it,
+/// or list greedily — each priced against taking the instant fill now.
+///
+/// Returns nothing rather than erroring: the section is advisory, and a pair
+/// with no maker picture still has a working convert report above it.
+fn maker_section(
+    market: &Market,
+    have: &MarketAssetId,
+    need: &MarketAssetId,
+    language: UiLanguage,
+) -> Vec<String> {
+    use crate::report_text::fill;
+    use ptt_strategy::{MakerMode, MakerRecommendation, MakerRequest, calculate_maker_strategy};
+
+    let text = crate::report_text::report(language);
+    // The middle configured size, so this section and the radar (which also
+    // stakes the middle) describe the same market.
+    let size = CONVERT_SIZES[CONVERT_SIZES.len() / 2];
+    let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
+        return Vec::new();
+    };
+    let instant = market
+        .index
+        .fill_pair(&amount_in, need, FeePolicy::None)
+        .ok()
+        .flatten()
+        .filter(|fill| fill.consumed_input.quanta > 0);
+    let base = MakerRequest {
+        from_asset_id: have,
+        to_asset_id: need,
+        amount_in: &amount_in,
+        competing: &market.selected,
+        instant: instant.as_ref(),
+        match_front: false,
+        thresholds: ptt_strategy::RiskThresholds::default(),
+    };
+    let Ok(strategy) = calculate_maker_strategy(base) else {
+        return Vec::new();
+    };
+
+    let mut lines = vec![fill(
+        text.maker_header,
+        &[have.as_str(), need.as_str(), &size.to_string()],
+    )];
+    match &strategy.instant_rate {
+        Some(rate) => lines.push(format!("     {}", fill(text.maker_instant, &[&rate.text]))),
+        None => lines.push(format!("     {}", text.maker_no_instant)),
+    }
+    if strategy.queue.is_empty() {
+        lines.push(format!("     {}", text.maker_no_book));
+        return lines;
+    }
+
+    let mode_line = |template: &str, recommendation: &MakerRecommendation| -> Vec<String> {
+        let mut block = vec![format!(
+            "     {}",
+            fill(template, &[&recommendation.rate.text])
+        )];
+        let verdict = if recommendation.beats_instant {
+            match (
+                &recommendation.improvement_over_instant,
+                recommendation.improvement_basis_points,
+            ) {
+                (Some(delta), Some(points)) => Some(fill(
+                    text.maker_improvement,
+                    &[
+                        &delta.quanta.to_string(),
+                        need.as_str(),
+                        &points.to_string(),
+                    ],
+                )),
+                _ => None,
+            }
+        } else {
+            Some(text.maker_not_worth.to_owned())
+        };
+        if let Some(verdict) = verdict {
+            block.push(format!("        {verdict}"));
+        }
+        let blocking = recommendation.assessment.blocking();
+        if !blocking.is_empty() {
+            block.push(format!(
+                "        {} {}",
+                risks_label(language),
+                crate::report_text::join(language, &blocking, crate::report_text::execution_risk)
+            ));
+        }
+        block
+    };
+
+    let undercut = strategy
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Opportunity);
+    if let Some(recommendation) = undercut {
+        lines.extend(mode_line(text.maker_undercut, recommendation));
+    }
+    // The match-front variant is the same Opportunity mode priced at the
+    // front instead of below it; a second call keeps that trade-off visible
+    // without a third mode existing anywhere.
+    if let Ok(matched) = calculate_maker_strategy(MakerRequest {
+        match_front: true,
+        ..base
+    }) && let Some(recommendation) = matched
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Opportunity)
+    {
+        lines.extend(mode_line(text.maker_match, recommendation));
+    }
+    if let Some(recommendation) = strategy
+        .recommendations
+        .iter()
+        .find(|item| item.mode == MakerMode::Greedy)
+    {
+        lines.extend(mode_line(text.maker_greedy, recommendation));
+    }
+
+    if let Some(spread) = strategy.spread_basis_points {
+        lines.push(format!(
+            "     {}",
+            fill(text.maker_spread, &[&spread.to_string()])
+        ));
+    }
+    if let (Some(depth), Some(cap)) = (
+        &strategy.visible_depth_from,
+        &strategy.suggested_max_single_order,
+    ) {
+        lines.push(format!(
+            "     {}",
+            fill(
+                text.maker_depth,
+                &[
+                    &depth.quanta.to_string(),
+                    have.as_str(),
+                    &cap.quanta.to_string(),
+                    have.as_str(),
+                ],
+            )
+        ));
+    }
+    for excluded in &strategy.excluded {
+        lines.push(format!(
+            "     {}",
+            fill(
+                text.maker_excluded,
+                &[
+                    &excluded.rate.text,
+                    &excluded.stock.to_string(),
+                    crate::report_text::maker_exclusion(language, excluded.reason),
+                ],
+            )
+        ));
+    }
+    lines
 }
 
 /// "Is what I am watching healthy": coverage, valuations, and what to go
@@ -907,5 +1069,141 @@ mod radar_tests {
         let lines =
             opportunities_report(&[], CONTEXT, "test-league", UiLanguage::English).expect("report");
         assert!(!lines.is_empty(), "the radar must always say something");
+    }
+}
+
+#[cfg(test)]
+mod convert_tests {
+    use super::*;
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    const CONTEXT: &str = "convert-test-context";
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn observation(
+        edge_id: &str,
+        side: QuoteSide,
+        role: QuoteEdgeRole,
+        execution: ExecutionType,
+        row: u8,
+        rate: (u64, u64),
+        stock: u64,
+    ) -> MarketEdgeObservation {
+        let captured = Utc::now() - chrono::Duration::minutes(1);
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: edge_id.to_owned(),
+                snapshot_id: "snapshot-1".to_owned(),
+                quote_id: format!("quote-{edge_id}"),
+                context_key: CONTEXT.to_owned(),
+                from_asset_id: asset("divine-orb"),
+                to_asset_id: asset("chaos-orb"),
+                rate: Ratio::from_parts(rate.0, rate.1).expect("rate"),
+                source_side: side,
+                execution_type: execution,
+                role,
+                stock,
+                original_need_asset_id: asset("chaos-orb"),
+                original_have_asset_id: asset("divine-orb"),
+                original_row_index: row,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(990_000),
+                captured_at: captured,
+                confirmed_at: captured,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    fn taker(edge_id: &str, row: u8, rate: (u64, u64), stock: u64) -> MarketEdgeObservation {
+        observation(
+            edge_id,
+            QuoteSide::Available,
+            QuoteEdgeRole::AvailableTaker,
+            ExecutionType::Taker,
+            row,
+            rate,
+            stock,
+        )
+    }
+
+    fn competing(edge_id: &str, row: u8, rate: (u64, u64), stock: u64) -> MarketEdgeObservation {
+        observation(
+            edge_id,
+            QuoteSide::Competing,
+            QuoteEdgeRole::CompetingMakerReference,
+            ExecutionType::MakerReference,
+            row,
+            rate,
+            stock,
+        )
+    }
+
+    /// The Convert page's maker section, end to end from raw observations:
+    /// the bait listing on the competing side is flagged by the book's
+    /// median band, excluded from the queue math, and rendered with its
+    /// reason — while the undercut prices against the honest front.
+    #[test]
+    fn the_maker_section_excludes_the_bait_and_prices_the_honest_front() {
+        let observations = vec![
+            taker("take-700", 0, (700, 1), 100_000),
+            competing("bait", 0, (100, 1), 500),
+            competing("front", 1, (784, 1), 40),
+            competing("second", 2, (785, 1), 60),
+            competing("back", 3, (795, 1), 80),
+        ];
+        let lines = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join("\n");
+
+        assert!(
+            joined.contains("listing strategy divine-orb -> chaos-orb"),
+            "the maker section is missing: {joined}"
+        );
+        assert!(
+            joined.contains("take now at 700:1"),
+            "the instant reference is missing: {joined}"
+        );
+        assert!(
+            joined.contains("undercut, list at 783:1"),
+            "the undercut must price one tick below the honest front: {joined}"
+        );
+        assert!(
+            joined.contains("excluded listing at 100:1 (stock 500): price outlier"),
+            "the bait must be visible with its reason: {joined}"
+        );
+        assert!(
+            !joined.contains("list at 99:1"),
+            "nothing may price against the bait: {joined}"
+        );
+
+        // The same section for a Chinese reader, and the exclusion reason
+        // with it.
+        let chinese = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            UiLanguage::Chinese,
+        )
+        .expect("report")
+        .join("\n");
+        assert!(chinese.contains("挂单策略"), "{chinese}");
+        assert!(chinese.contains("价格离群"), "{chinese}");
     }
 }
