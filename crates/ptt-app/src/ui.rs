@@ -254,6 +254,18 @@ pub enum LedgerButton {
 
 /// 构造 Ledger 风格按钮(基于 gpui-component Button:保留焦点环/键盘/禁用逻辑,
 /// 颜色与几何全部覆盖为 token)。
+/// Makes a panel body scroll instead of running off the bottom.
+///
+/// Every list in this app was drawn eagerly into whatever height it happened
+/// to get, so a window that was not maximised simply hid the rest with no
+/// indication there was more. The id is what gpui keys the scroll position by,
+/// so it has to be unique per panel; `min_h(0)` is what lets a flex child be
+/// shorter than its content in the first place.
+pub fn scrollable(body: gpui::Div, id: &'static str) -> gpui::Stateful<gpui::Div> {
+    use gpui::{InteractiveElement as _, StatefulInteractiveElement as _, Styled as _};
+    body.flex_1().min_h(px(0.)).id(id).overflow_y_scroll()
+}
+
 /// A Ledger button.
 ///
 /// The id takes anything an [`gpui::ElementId`] can be made from, tuples

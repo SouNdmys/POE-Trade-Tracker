@@ -369,17 +369,19 @@ impl AppShell {
             .child(
                 div()
                     .flex_1()
+                    .min_h(px(0.))
                     .flex()
                     .gap_3()
                     .overflow_hidden()
                     .child(
                         panel()
                             .flex_1()
+                            .min_h(px(0.))
                             .flex()
                             .flex_col()
                             .overflow_hidden()
                             .child(panel_header(text.page_convert))
-                            .child(routes),
+                            .child(crate::ui::scrollable(routes, "convert-routes")),
                     )
                     .children(
                         model

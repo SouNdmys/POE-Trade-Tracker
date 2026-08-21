@@ -1398,8 +1398,19 @@ impl Render for AppShell {
             )
             .child(
                 // Body: navigation rail plus the active page.
-                div().flex_grow().flex().child(self.nav_rail(cx)).child(
-                    if self.page == Page::Settings {
+                //
+                // `min_h(0)` all the way down, because a flex item's automatic
+                // minimum height is its content: without it a long list makes
+                // its panel taller than the window instead of scrolling inside
+                // it, and `overflow_y_scroll` further in never has anything to
+                // clip.
+                div()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .flex()
+                    .overflow_hidden()
+                    .child(self.nav_rail(cx))
+                    .child(if self.page == Page::Settings {
                         div()
                             .flex_grow()
                             .flex()
@@ -1492,8 +1503,7 @@ impl Render for AppShell {
                                 .text_color(c(TEXT_META)),
                             )
                             .child(self.report_panel(cx))
-                    },
-                ),
+                    }),
             )
             .child(
                 // Footer: fault or recent log line.

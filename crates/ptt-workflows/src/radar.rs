@@ -201,6 +201,17 @@ pub fn run_opportunity_radar(
         request.fee_policy = FeePolicy::Unknown;
     }
     let restricted = restrict_selection(selection, scope);
+    // Only what the book can actually price. The scope names currencies the
+    // user chose, and a chosen currency the window has never seen has no unit
+    // yet — the engine rejects the whole search rather than the one asset, so
+    // an unreachable name in the intermediate list would silence the radar
+    // entirely. It stays a target, which is how it becomes a probe suggestion.
+    let routable: Vec<MarketAssetId> = scope
+        .intermediate_asset_ids
+        .iter()
+        .filter(|asset| units.contains(asset))
+        .cloned()
+        .collect();
     let index = MarketDepthIndex::try_from_selection(&restricted, units.clone())
         .map_err(|_| WorkflowError::InvalidMarketSelection)?;
     // One scan unit per (settlement start, target) pair, so the budget math
@@ -279,7 +290,7 @@ pub fn run_opportunity_radar(
                 max_paths: request.max_paths_per_target,
                 max_expansions: per_target_budget,
                 alternative_limit: 0,
-                allowed_intermediate_asset_ids: Some(scope.intermediate_asset_ids.clone()),
+                allowed_intermediate_asset_ids: Some(routable.clone()),
                 fee_policy: request.fee_policy,
             },
             cancellation,

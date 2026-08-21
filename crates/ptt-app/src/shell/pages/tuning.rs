@@ -110,6 +110,20 @@ impl AppShell {
         }
     }
 
+    /// Flips whether routes may pass through a focus target.
+    #[cfg(windows)]
+    pub(crate) fn set_route_through_targets(&mut self, allow: bool) {
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            if tuning.route_through_targets == allow {
+                return;
+            }
+            tuning.route_through_targets = allow;
+        }
+        self.save_tuning();
+    }
+
     /// Adds whatever the settlement picker names.
     #[cfg(windows)]
     pub(crate) fn add_settlement(&mut self, cx: &gpui::App) {
@@ -379,6 +393,59 @@ impl AppShell {
                                 .child(text.settlement_label),
                         )
                         .child(settlement),
+                )
+                .child(
+                    div()
+                        .h_flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(150.))
+                                .flex_none()
+                                .text_size(fs(FS_11_5))
+                                .text_color(c(TEXT_META))
+                                .child(text.route_through_targets),
+                        )
+                        .child({
+                            let allow = tuning.route_through_targets;
+                            let mut cells = div()
+                                .h_flex()
+                                .items_center()
+                                .flex_none()
+                                .border_1()
+                                .border_color(c(HAIRLINE));
+                            for (index, (label, value)) in
+                                [(text.toggle_on, true), (text.toggle_off, false)]
+                                    .into_iter()
+                                    .enumerate()
+                            {
+                                let mut cell = div()
+                                    .id(("route-through", index))
+                                    .h(px(H_ROW))
+                                    .px(px(10.))
+                                    .flex()
+                                    .items_center()
+                                    .text_size(fs(FS_11_5))
+                                    .whitespace_nowrap()
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.set_route_through_targets(value);
+                                        cx.notify();
+                                    }));
+                                if index > 0 {
+                                    cell = cell.border_l_1().border_color(c(HAIRLINE));
+                                }
+                                cell = if value == allow {
+                                    cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
+                                } else {
+                                    cell.bg(c(PANEL))
+                                        .text_color(c(TEXT_SECONDARY))
+                                        .hover(|style| style.bg(c(HOVER)))
+                                };
+                                cells = cells.child(cell.child(label));
+                            }
+                            cells
+                        }),
                 )
                 .child(row(text.tuning_fresh, &inputs.fresh, "7200".to_owned()))
                 .child(row(text.tuning_usable, &inputs.usable, "21600".to_owned()))

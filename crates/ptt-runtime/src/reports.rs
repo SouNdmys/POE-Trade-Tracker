@@ -799,6 +799,15 @@ fn focus_suggestions(
         .map(|(asset, snapshots)| (asset, snapshots.len()))
         .filter(|(_, count)| *count >= FOCUS_SUGGESTION_MIN_SNAPSHOTS)
         .collect();
+    // Dismissals are held until the currency becomes twice the fact it was.
+    suggestions.retain(|(asset, count)| {
+        let count = u64::try_from(*count).unwrap_or(u64::MAX);
+        tuning
+            .ignored_suggestions
+            .iter()
+            .find(|ignored| ignored.asset_id == asset.as_str())
+            .is_none_or(|ignored| ignored.is_due_again(count))
+    });
     suggestions.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
     suggestions.truncate(4);
     suggestions
@@ -1115,8 +1124,17 @@ pub fn opportunities_model(
     let market = build_market(observations, context_key, tuning, language)?;
 
     let items = focus_items_from(&policy, tuning, &seen, FocusPurpose::Arbitrage);
-    let scope = FocusScope::try_new(&items, FocusScopePolicy::default())
-        .map_err(|error| format!("scope: {error}"))?;
+    // Routing is the one place the setting applies. Coverage keeps the plain
+    // policy below: target-to-target pairs would square the list the reader
+    // is meant to work through, and that list is about attention.
+    let scope = FocusScope::try_new(
+        &items,
+        FocusScopePolicy {
+            allow_target_interconnect: tuning.route_through_targets,
+            ..FocusScopePolicy::default()
+        },
+    )
+    .map_err(|error| format!("scope: {error}"))?;
 
     // One start per settlement currency the book can actually stake — a
     // configured settlement asset the window has never seen has no unit yet

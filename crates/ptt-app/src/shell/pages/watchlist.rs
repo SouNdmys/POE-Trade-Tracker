@@ -132,6 +132,35 @@ impl AppShell {
         }
     }
 
+    /// Stops a currency being suggested again.
+    ///
+    /// Its own list rather than watch-only: "do not ask me about this" is not
+    /// the same statement as "never route through this", and folding the first
+    /// into the second would quietly change what the engine may do.
+    #[cfg(windows)]
+    pub(crate) fn ignore_suggestion(&mut self, asset: &str, snapshots: u64) {
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            tuning
+                .ignored_suggestions
+                .retain(|held| held.asset_id != asset);
+            tuning
+                .ignored_suggestions
+                .push(ptt_settings::IgnoredSuggestion {
+                    asset_id: asset.to_owned(),
+                    snapshots_when_ignored: snapshots,
+                });
+            tuning
+                .ignored_suggestions
+                .sort_by(|left, right| left.asset_id.cmp(&right.asset_id));
+        }
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
+    }
+
     /// The watchlist page.
     pub(crate) fn render_watchlist(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         let language = self.language();
@@ -148,7 +177,8 @@ impl AppShell {
         let model: WatchlistModel = (**model).clone();
 
         div()
-            .flex_grow()
+            .flex_1()
+            .min_h(px(0.))
             .flex()
             .gap_3()
             .p_3()
@@ -262,6 +292,8 @@ impl AppShell {
         for (row, suggestion) in model.suggestions.iter().enumerate() {
             let asset = suggestion.asset_id.as_str().to_owned();
             let adopt = asset.clone();
+            let ignore = asset.clone();
+            let seen_count = u64::try_from(suggestion.snapshot_count).unwrap_or(u64::MAX);
             body = body.child(
                 div()
                     .h_flex()
@@ -289,17 +321,31 @@ impl AppShell {
                             this.set_focus_choice(&adopt, FocusChoice::Target);
                             cx.notify();
                         })),
+                    )
+                    .child(
+                        button(
+                            ("focus-ignore", row),
+                            LedgerButton::Quiet,
+                            text.ignore_label,
+                            cx,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            #[cfg(windows)]
+                            this.ignore_suggestion(&ignore, seen_count);
+                            cx.notify();
+                        })),
                     ),
             );
         }
 
         panel()
             .flex_1()
+            .min_h(px(0.))
             .flex()
             .flex_col()
             .overflow_hidden()
             .child(panel_header(text.page_watchlist))
-            .child(body)
+            .child(crate::ui::scrollable(body, "watchlist-focus"))
     }
 
     /// The gaps, and the probes that would close them.
@@ -423,10 +469,11 @@ impl AppShell {
         panel()
             .w(px(440.))
             .flex_none()
+            .min_h(px(0.))
             .flex()
             .flex_col()
             .overflow_hidden()
             .child(panel_header(text.coverage_header))
-            .child(body)
+            .child(crate::ui::scrollable(body, "watchlist-coverage"))
     }
 }

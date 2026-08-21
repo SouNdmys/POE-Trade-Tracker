@@ -109,6 +109,29 @@ pub struct MarketTuning {
     /// Currencies tracked for price only, excluded from every route.
     #[serde(default)]
     pub watch_only_assets: Vec<String>,
+    /// Suggestions the user has dismissed, and how prominent each was when
+    /// they did.
+    ///
+    /// A capture is not always an intention: a few frames taken while testing
+    /// are enough to put a currency at the top of "you keep flipping this",
+    /// and with no way to say otherwise it stays there. Separate from
+    /// `watch_only_assets`, which is a statement about routing rather than
+    /// about being asked again.
+    ///
+    /// The count is what keeps a dismissal from being a life sentence — see
+    /// [`IgnoredSuggestion`].
+    #[serde(default)]
+    pub ignored_suggestions: Vec<IgnoredSuggestion>,
+    /// Whether a route may pass through a focus target.
+    ///
+    /// Bridges say "route through me, I am not a destination". Nothing said
+    /// the reverse — that a destination cannot also be passed through — and
+    /// with it off, a user who lists everything they trade has told the search
+    /// it may only ever route through the settlement currencies. Default on;
+    /// the search is bounded by `radar.max_total_expansions` either way and
+    /// reports when that bound is what stopped it.
+    #[serde(default = "default_route_through_targets")]
+    pub route_through_targets: bool,
     #[serde(default)]
     pub freshness: FreshnessTuning,
     #[serde(default)]
@@ -124,12 +147,53 @@ pub struct MarketTuning {
     pub report_window_hours: u64,
 }
 
+/// A dismissed suggestion.
+///
+/// Dismissing is "not this, not now", not "never". A currency that goes on to
+/// be captured twice as often as it was when it was waved away has become a
+/// different fact about how the user trades, and it is offered again; a
+/// mis-click therefore costs one more click later rather than burying the
+/// currency for good. Each dismissal records the count afresh, so the bar
+/// rises rather than resetting.
+///
+/// The count is snapshots inside the report window, which is what the
+/// suggestion itself is counted from — "twice as prominent as it was", not
+/// "twice as many times ever".
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IgnoredSuggestion {
+    pub asset_id: String,
+    #[serde(default)]
+    pub snapshots_when_ignored: u64,
+}
+
+impl IgnoredSuggestion {
+    /// Whether a currency at this many snapshots should be offered again.
+    #[must_use]
+    pub const fn is_due_again(&self, snapshots_now: u64) -> bool {
+        let bar = match self.snapshots_when_ignored.checked_mul(2) {
+            // Dismissed at nothing, which only a hand-edited file produces:
+            // the next capture asks again rather than never.
+            Some(0) => 1,
+            // Dismissed at an absurd count. The bar is simply out of reach,
+            // which is the honest reading of what the file says.
+            None => u64::MAX,
+            Some(bar) => bar,
+        };
+        snapshots_now >= bar
+    }
+}
+
 fn default_settlement_assets() -> Vec<String> {
     vec!["divine-orb".to_owned(), "chaos-orb".to_owned()]
 }
 
 fn default_report_window_hours() -> u64 {
     24
+}
+
+const fn default_route_through_targets() -> bool {
+    true
 }
 
 impl Default for MarketTuning {
@@ -139,6 +203,8 @@ impl Default for MarketTuning {
             focus_assets: Vec::new(),
             bridge_assets: Vec::new(),
             watch_only_assets: Vec::new(),
+            ignored_suggestions: Vec::new(),
+            route_through_targets: default_route_through_targets(),
             freshness: FreshnessTuning::default(),
             convert: ConvertTuning::default(),
             radar: RadarTuning::default(),
@@ -642,5 +708,42 @@ mod tests {
             store.save(&AppSettings::default()),
             Err(SaveError::SchemaTooNew { detected: 99, .. })
         ));
+    }
+}
+
+#[cfg(test)]
+mod ignored_suggestion_tests {
+    use super::IgnoredSuggestion;
+
+    fn dismissed_at(count: u64) -> IgnoredSuggestion {
+        IgnoredSuggestion {
+            asset_id: "omen-of-light".to_owned(),
+            snapshots_when_ignored: count,
+        }
+    }
+
+    /// Dismissing is "not now". A currency that becomes twice the fact it was
+    /// is a different answer to the same question, and gets asked again.
+    #[test]
+    fn a_dismissal_lapses_once_the_currency_doubles() {
+        let ignored = dismissed_at(5);
+        assert!(!ignored.is_due_again(5));
+        assert!(!ignored.is_due_again(9));
+        assert!(ignored.is_due_again(10));
+    }
+
+    /// A dismissal recorded at nothing must not silence the currency forever.
+    /// Only a hand-edited file can record one, and it must not bury the
+    /// currency: the next capture asks again.
+    #[test]
+    fn a_zero_count_is_not_a_life_sentence() {
+        assert!(!dismissed_at(0).is_due_again(0));
+        assert!(dismissed_at(0).is_due_again(1));
+    }
+
+    /// The bar cannot overflow into being trivially met.
+    #[test]
+    fn an_absurd_count_does_not_wrap() {
+        assert!(!dismissed_at(u64::MAX).is_due_again(1));
     }
 }
