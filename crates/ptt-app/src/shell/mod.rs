@@ -201,6 +201,9 @@ pub struct AppShell {
     report_generation: u64,
     /// Pairs the user asked to be reminded about, newest first.
     probe_queue: crate::state::ProbeQueue,
+    /// The market tuning boxes on the settings page.
+    #[cfg(windows)]
+    tuning_inputs: pages::tuning::TuningInputs,
     /// The convert page's currency pickers and holdings box.
     ///
     /// Entities rather than values because a select owns its open menu and an
@@ -312,6 +315,11 @@ impl AppShell {
         #[cfg(not(windows))]
         let language = ptt_settings::UiLanguage::English;
         let radar_table = Self::new_radar_table(window, cx, language);
+        #[cfg(windows)]
+        let tuning_inputs = {
+            let tuning = settings.market_tuning(settings.active_profile.game);
+            Self::new_tuning_inputs(window, cx, &tuning)
+        };
         let convert_have = Self::new_asset_select(window, cx);
         let convert_need = Self::new_asset_select(window, cx);
         let holdings_input = Self::new_holdings_input(window, cx);
@@ -351,6 +359,8 @@ impl AppShell {
 
         Self {
             focus_handle: cx.focus_handle(),
+            #[cfg(windows)]
+            tuning_inputs,
             radar_table,
             convert_have,
             convert_need,
@@ -1267,6 +1277,7 @@ impl Render for AppShell {
                             .gap_3()
                             .p_3()
                             .child(self.settings_panel(cx))
+                            .child(self.tuning_panel(cx))
                     } else if self.page == Page::Monitor {
                         div()
                             .flex_grow()

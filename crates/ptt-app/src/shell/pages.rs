@@ -9,4 +9,5 @@ pub(super) mod convert;
 pub(super) mod history;
 pub mod opportunities;
 pub(super) mod settings;
+pub(super) mod tuning;
 pub(super) mod watchlist;
