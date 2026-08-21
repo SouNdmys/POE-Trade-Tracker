@@ -39,9 +39,13 @@ const HUD_SIZE: (i32, i32) = (420, 310);
 /// Twelve rows plus pair, spacer and verdict.
 const HUD_BODY_LINES: usize = 16;
 
-/// How far back the pages read. Matches the analysis window the watch loop
-/// uses, so a page and the live line never describe different books.
-const REPORT_WINDOW_HOURS: i64 = 2;
+/// The report window when settings hold nonsense. The real value comes from
+/// `MarketTuning::report_window_hours` — wide enough to load the data the
+/// yellow and red freshness lights exist to warn about. (The watch loop's own
+/// 2h analysis window stays narrow deliberately: it runs inside the capture
+/// loop under a latency budget, and the pair it describes was captured
+/// seconds ago — always green.)
+const FALLBACK_REPORT_WINDOW_HOURS: i64 = 24;
 
 /// The pages of the app. Monitor answers "is the watcher healthy", the rest
 /// answer questions about what it has collected.
@@ -1627,10 +1631,19 @@ impl AppShell {
         let context = live_context(self.settings.active_profile, LIVE_LEAGUE)
             .map_err(|error| format!("{error:?}"))?;
         let context_key = context.stable_key();
+        // Clamped to a year: the window only bounds how much history a page
+        // loads, and anything past that is the whole database anyway.
+        let window_hours = i64::try_from(
+            self.settings
+                .market_tuning(self.settings.active_profile.game)
+                .report_window_hours,
+        )
+        .unwrap_or(FALLBACK_REPORT_WINDOW_HOURS)
+        .clamp(1, 24 * 365);
         let observations = store
             .load_observations(
                 &context_key,
-                Some(chrono::Utc::now() - chrono::Duration::hours(REPORT_WINDOW_HOURS)),
+                Some(chrono::Utc::now() - chrono::Duration::hours(window_hours)),
             )
             .map_err(|error| format!("load: {error}"))?;
         Ok((context_key, observations))
