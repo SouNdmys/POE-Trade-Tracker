@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use gpui::{Context, FocusHandle, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use gpui::{
+    Context, FocusHandle, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, px,
+};
 use gpui_component::StyledExt as _;
 
 use crate::theme::*;
@@ -180,6 +182,8 @@ pub struct AppShell {
     last_skip: Option<String>,
     last_header: Option<String>,
     last_rows: Vec<String>,
+    /// The same rows with their fields intact.
+    last_order_rows: Vec<ptt_runtime::pipeline::BookRow>,
     last_analysis: Vec<String>,
     log: VecDeque<String>,
     fault: Option<String>,
@@ -379,6 +383,7 @@ impl AppShell {
             last_skip: None,
             last_header: None,
             last_rows: Vec::new(),
+            last_order_rows: Vec::new(),
             last_analysis: Vec::new(),
             log: VecDeque::new(),
             fault: None,
@@ -437,12 +442,14 @@ impl AppShell {
                         need_asset_id,
                         have_asset_id,
                         rows,
+                        order_rows,
                         analysis,
                     } => {
                         self.accepted += 1;
                         self.push_log(header.clone());
                         self.last_header = Some(header);
                         self.last_rows = rows;
+                        self.last_order_rows = order_rows;
                         self.last_analysis = analysis;
                         // A pair the user picked by hand outranks whatever
                         // panel happens to be open in game.
@@ -791,6 +798,61 @@ impl AppShell {
     #[cfg(not(windows))]
     fn probe_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
         panel()
+    }
+
+    /// The most recent accepted book, as the panel showed it.
+    ///
+    /// Twelve rows at most, so nothing here needs virtualising; the columns
+    /// exist so a rate can be read without reading the sentence around it,
+    /// and so the aggregate row — which restates a tier as "this and
+    /// everything worse" — is visibly not a listing of its own.
+    fn last_book_panel(&self) -> gpui::Div {
+        let text = self.text();
+        let Some(header) = &self.last_header else {
+            return div()
+                .p_3()
+                .child(mono(text.waiting_for_book).text_size(fs(FS_12)));
+        };
+        let mut body = div().p_3().flex().flex_col().gap_1().child(
+            mono(header.clone())
+                .text_size(fs(FS_11_5))
+                .text_color(c(TEXT_META)),
+        );
+        for row in &self.last_order_rows {
+            body = body.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .h(px(H_ROW))
+                    .text_size(fs(FS_11_5))
+                    .child(
+                        div()
+                            .w(px(78.))
+                            .flex_none()
+                            .text_color(c(TEXT_META))
+                            .child(SharedString::from(row.side.to_owned())),
+                    )
+                    .child(
+                        mono(format!("#{}", row.row_index))
+                            .w(px(30.))
+                            .flex_none()
+                            .text_color(c(TEXT_DISABLED)),
+                    )
+                    .child(mono(row.rate.clone()).w(px(110.)).flex_none())
+                    .child(
+                        mono(row.stock.to_string())
+                            .w(px(70.))
+                            .flex_none()
+                            .text_color(c(TEXT_SECONDARY)),
+                    )
+                    .children(
+                        row.aggregate
+                            .then(|| chip(StatusKind::Idle, text.aggregate_row)),
+                    ),
+            );
+        }
+        body
     }
 
     fn report_body(&self) -> Vec<String> {
@@ -1216,17 +1278,7 @@ impl Render for AppShell {
                                     .flex_grow()
                                     .overflow_hidden()
                                     .child(panel_header(text.panel_last_book))
-                                    .child(
-                                        div().p_3().flex().flex_col().gap_1().children(
-                                            std::iter::once(
-                                                self.last_header.clone().unwrap_or_else(|| {
-                                                    text.waiting_for_book.to_owned()
-                                                }),
-                                            )
-                                            .chain(self.last_rows.iter().cloned())
-                                            .map(|line| mono(line).text_size(fs(FS_12))),
-                                        ),
-                                    ),
+                                    .child(self.last_book_panel()),
                             )
                             .child(
                                 div()

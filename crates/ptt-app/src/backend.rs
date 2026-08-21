@@ -138,7 +138,10 @@ mod windows_backend {
             /// without re-parsing the header line.
             need_asset_id: String,
             have_asset_id: String,
+            /// Rendered lines, for the overlay card.
             rows: Vec<String>,
+            /// The same rows with their fields intact, for the monitor.
+            order_rows: Vec<ptt_runtime::pipeline::BookRow>,
             analysis: Vec<String>,
         },
         Skipped(String),
@@ -246,6 +249,7 @@ mod windows_backend {
                         need_asset_id: book.need_asset_id,
                         have_asset_id: book.have_asset_id,
                         rows: book.rows,
+                        order_rows: book.order_rows,
                         analysis: book.analysis,
                     });
                 }

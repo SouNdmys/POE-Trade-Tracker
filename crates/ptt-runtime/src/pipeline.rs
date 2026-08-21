@@ -36,6 +36,26 @@ pub const LIVE_LEAGUE: &str = "live-league";
 /// with the season and eventually stalls recognition.
 const ANALYSIS_WINDOW_HOURS: i64 = 2;
 
+/// One order row of an accepted book.
+///
+/// The panel's own fields rather than a sentence about them, so the interface
+/// can put each in its own column and colour the ones that matter. The
+/// rendered lines beside it are what the overlay card paints, where a single
+/// column of text is the whole point.
+#[derive(Clone, Debug)]
+pub struct BookRow {
+    /// Which table the row came from, by the side's own stable key.
+    pub side: &'static str,
+    /// 0-based position within its table, top to bottom.
+    pub row_index: u8,
+    /// The rate exactly as the panel showed it.
+    pub rate: String,
+    /// True for the aggregate row, which restates the tier as "this and
+    /// everything worse" rather than quoting a single listing.
+    pub aggregate: bool,
+    pub stock: u64,
+}
+
 /// A book that was recognised, confirmed, and durably stored.
 #[derive(Clone, Debug)]
 pub struct AcceptedBook {
@@ -43,8 +63,11 @@ pub struct AcceptedBook {
     pub sequence: u64,
     pub need_asset_id: String,
     pub have_asset_id: String,
-    /// One display line per order row, in panel order.
+    /// One display line per order row, in panel order. Painted by the
+    /// overlay card, which has one column and no room for anything else.
     pub rows: Vec<String>,
+    /// The same rows with their fields intact, for the monitor's table.
+    pub order_rows: Vec<BookRow>,
     /// Time from the first capture to the confirmed result.
     pub elapsed: Duration,
     /// Conversion and cycle lines for this pair, or the reason there are none.
@@ -271,6 +294,18 @@ impl LivePipeline {
                             )
                         })
                         .collect::<Vec<_>>();
+                    let order_rows = book
+                        .observation
+                        .rows
+                        .iter()
+                        .map(|row| BookRow {
+                            side: row.side.as_str(),
+                            row_index: row.row_index,
+                            rate: row.ratio.normalized.clone(),
+                            aggregate: row.ratio.comparator != ptt_recognition::Comparator::Exact,
+                            stock: row.stock,
+                        })
+                        .collect::<Vec<_>>();
 
                     // A book counts as accepted only once it is durably
                     // stored; a write failure is a fault, not a quiet loss.
@@ -305,6 +340,7 @@ impl LivePipeline {
                         need_asset_id: need_id,
                         have_asset_id: have_id,
                         rows,
+                        order_rows,
                         elapsed,
                         analysis,
                     })));
