@@ -37,13 +37,16 @@ use super::opportunities::actionability_kind;
 pub struct AssetChoice {
     id: gpui::SharedString,
     label: gpui::SharedString,
+    /// Folded forms of both names, the id and any aliases.
+    keys: Vec<String>,
 }
 
 impl AssetChoice {
-    pub fn new(id: String, label: String) -> Self {
+    pub fn new(id: String, label: String, keys: Vec<String>) -> Self {
         Self {
             id: id.into(),
             label: label.into(),
+            keys,
         }
     }
 
@@ -64,15 +67,16 @@ impl gpui_component::select::SelectItem for AssetChoice {
         &self.id
     }
 
-    /// Matches the name and the id both.
+    /// Matches any of the currency's names, its id or an alias.
     ///
-    /// The name is what the list shows, so it has to match. The id matches too
-    /// because a reader who has seen one in a log, or who knows the English
-    /// key while running a Chinese interface, should not be told the currency
-    /// does not exist.
+    /// The list shows one name, but a person searching has whichever one they
+    /// happen to know: someone running a Chinese interface still thinks
+    /// "Divine Orb" from the wiki or a trade whisper, and typing `div` should
+    /// find 神聖石 rather than nothing. Punctuation and case are folded away
+    /// on both sides, so `divine orb` finds `divine-orb`.
     fn matches(&self, query: &str) -> bool {
-        let query = query.to_lowercase();
-        self.label.to_lowercase().contains(&query) || self.id.to_lowercase().contains(&query)
+        let query = crate::names::fold_query(query);
+        query.is_empty() || self.keys.iter().any(|key| key.contains(&query))
     }
 }
 
@@ -181,6 +185,21 @@ impl AppShell {
             return;
         }
         self.report_pair = Some((have, need));
+        self.pair_chosen_by_user = true;
+        self.report_stale = true;
+    }
+
+    /// Turns the pair around.
+    ///
+    /// "What does the other direction look like" is the question that follows
+    /// almost every answer this page gives — the two rates are not reciprocals,
+    /// they are separate sides of a real book — and re-typing both currencies
+    /// to ask it is the kind of friction that stops people asking.
+    pub(crate) fn swap_pair(&mut self) {
+        let Some((have, need)) = self.report_pair.clone() else {
+            return;
+        };
+        self.report_pair = Some((need, have));
         self.pair_chosen_by_user = true;
         self.report_stale = true;
     }
@@ -300,6 +319,16 @@ impl AppShell {
                         .placeholder(text.convert_pick)
                         .with_size(Size::Small),
                 ),
+            )
+            .child(
+                // A glyph rather than a word: it is the same arrow in both
+                // interface languages, and the bar has no room for a sentence.
+                button("convert-swap", LedgerButton::Quiet, "⇄", cx).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.swap_pair();
+                        cx.notify();
+                    },
+                )),
             )
             .child(
                 div()

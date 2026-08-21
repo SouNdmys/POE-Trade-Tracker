@@ -851,7 +851,14 @@ impl AppShell {
             .assets()
             .iter()
             .map(|asset| {
-                pages::convert::AssetChoice::new(asset.id.clone(), self.display_name(&asset.id))
+                // The domain's spelling, because the choice becomes the pair
+                // the report is asked for, and `MarketAssetId` rejects the
+                // catalogue's underscores — a picked currency would be
+                // filtered out on the way to the store rather than refused.
+                let id = ptt_runtime::live::domain_asset_id(&asset.id)
+                    .map_or_else(|_| asset.id.clone(), |id| id.as_str().to_owned());
+                let label = self.display_name(&id);
+                pages::convert::AssetChoice::new(id, label, crate::names::search_keys(asset))
             })
             .collect();
         // By what the reader sees, so the list reads alphabetically to them
