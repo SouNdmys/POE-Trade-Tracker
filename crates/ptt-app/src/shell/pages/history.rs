@@ -56,7 +56,10 @@ impl AppShell {
                     .child(panel_header(text.page_history))
                     .child(empty_state(&report_text::fill(
                         report_text::report(language).no_history_yet,
-                        &[model.have.as_str(), model.need.as_str()],
+                        &[
+                            &self.display_name(model.have.as_str()),
+                            &self.display_name(model.need.as_str()),
+                        ],
                     ))),
             );
         };
@@ -72,7 +75,7 @@ impl AppShell {
             .flex_col()
             .child(kv_row(
                 text.history_pair,
-                &format!("{} → {}", model.have, model.need),
+                &self.pair_label(model.have.as_str(), model.need.as_str()),
             ))
             .child(kv_row(text.history_latest, &rate(&summary.latest_rate)))
             .child(kv_row(

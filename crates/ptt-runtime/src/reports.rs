@@ -57,12 +57,6 @@ pub struct ConvertModel {
     pub notes: Notes,
     pub have: MarketAssetId,
     pub need: MarketAssetId,
-    /// Every asset the window has seen, sorted.
-    ///
-    /// "I hold X and want Y" is only answerable for the assets the book knows
-    /// about, so which ones those are is part of the page's answer rather
-    /// than something the interface has to work out for itself.
-    pub assets: Vec<MarketAssetId>,
     /// One entry per size that could be priced at all. A size the unit
     /// catalogue cannot express is absent rather than present-and-empty.
     pub sizes: Vec<SizeRoute>,
@@ -379,6 +373,24 @@ pub fn convert_model(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<ConvertModel, String> {
+    // "X into X" is not a route question. The engine says so with
+    // `InvalidAnalysisRequest`, which is correct of it — that is a caller
+    // that should have known better — but propagating it turns a reader
+    // setting both pickers to the same currency into a page-wide fault with
+    // no way back out. The one useful sentence, said here, instead.
+    if have == need {
+        return Ok(ConvertModel {
+            notes: vec![
+                crate::report_text::report(language)
+                    .same_currency
+                    .to_owned(),
+            ],
+            have: have.clone(),
+            need: need.clone(),
+            sizes: Vec::new(),
+            maker: None,
+        });
+    }
     let market = build_market(observations, context_key, tuning, language)?;
     let sizes = convert_sizes(holdings, tuning);
     let max_hops = u8::try_from(tuning.convert.max_hops.clamp(1, 4)).unwrap_or(3);
@@ -435,23 +447,10 @@ pub fn convert_model(
         .then(|| maker_model(&market, have, need, sizes[sizes.len() / 2]))
         .flatten();
 
-    let mut assets: Vec<MarketAssetId> = observations
-        .iter()
-        .flat_map(|observation| {
-            [
-                observation.edge.from_asset_id.clone(),
-                observation.edge.to_asset_id.clone(),
-            ]
-        })
-        .collect();
-    assets.sort_by(|left, right| left.as_str().cmp(right.as_str()));
-    assets.dedup();
-
     Ok(ConvertModel {
         notes: market.notes,
         have: have.clone(),
         need: need.clone(),
-        assets,
         sizes: routes,
         maker,
     })

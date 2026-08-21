@@ -133,9 +133,15 @@ mod windows_backend {
     #[derive(Debug)]
     pub enum UiEvent {
         Accepted {
-            header: String,
-            /// The pair as the panel showed it, so pages can report on it
-            /// without re-parsing the header line.
+            /// Position in this run, and how long the read took.
+            ///
+            /// Carried as numbers rather than pre-formatted into a sentence:
+            /// the sentence has to name currencies, and only the interface
+            /// knows which language to name them in. A backend that formats
+            /// is a backend that shipped `chaos-orb` to a Chinese window.
+            sequence: u64,
+            elapsed_ms: u64,
+            /// The pair as the panel showed it.
             need_asset_id: String,
             have_asset_id: String,
             /// Rendered lines, for the overlay card.
@@ -235,17 +241,10 @@ mod windows_backend {
             cancel,
             |event| match event {
                 PipelineEvent::Accepted(book) => {
-                    let header = format!(
-                        "#{} [{:.0}ms] {} -> {} ({} rows)",
-                        book.sequence,
-                        book.elapsed.as_secs_f64() * 1e3,
-                        book.need_asset_id,
-                        book.have_asset_id,
-                        book.rows.len(),
-                    );
                     let book = *book;
                     let _ = sender.send(UiEvent::Accepted {
-                        header,
+                        sequence: book.sequence,
+                        elapsed_ms: book.elapsed.as_millis().min(u128::from(u64::MAX)) as u64,
                         need_asset_id: book.need_asset_id,
                         have_asset_id: book.have_asset_id,
                         rows: book.rows,

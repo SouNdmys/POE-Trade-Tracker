@@ -26,11 +26,58 @@ use crate::ui::{
 
 use super::opportunities::actionability_kind;
 
-/// The currency picker's items.
+/// One row of a currency picker: what the reader sees, and what is picked.
 ///
-/// Plain strings because that is what the catalogue's ids are; the select
-/// searches them as typed.
-pub type AssetSelect = Entity<SelectState<gpui_component::select::SearchableVec<String>>>;
+/// The two are different strings on purpose. Every layer under the interface
+/// speaks catalogue ids, and the interface should never show one — `chaos-orb`
+/// is a database key, and a person reading it has to translate before they can
+/// act. Carrying both means the translation happens once, here, instead of at
+/// every call site remembering to do it.
+#[derive(Clone)]
+pub struct AssetChoice {
+    id: gpui::SharedString,
+    label: gpui::SharedString,
+}
+
+impl AssetChoice {
+    pub fn new(id: String, label: String) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+}
+
+impl gpui_component::select::SelectItem for AssetChoice {
+    type Value = gpui::SharedString;
+
+    fn title(&self) -> gpui::SharedString {
+        self.label.clone()
+    }
+
+    fn value(&self) -> &Self::Value {
+        &self.id
+    }
+
+    /// Matches the name and the id both.
+    ///
+    /// The name is what the list shows, so it has to match. The id matches too
+    /// because a reader who has seen one in a log, or who knows the English
+    /// key while running a Chinese interface, should not be told the currency
+    /// does not exist.
+    fn matches(&self, query: &str) -> bool {
+        let query = query.to_lowercase();
+        self.label.to_lowercase().contains(&query) || self.id.to_lowercase().contains(&query)
+    }
+}
+
+/// The currency picker's items.
+pub type AssetSelect = Entity<SelectState<gpui_component::select::SearchableVec<AssetChoice>>>;
 
 impl AppShell {
     /// One currency picker.
@@ -40,7 +87,7 @@ impl AppShell {
     ) -> AssetSelect {
         cx.new(|cx| {
             SelectState::new(
-                gpui_component::select::SearchableVec::new(Vec::<String>::new()),
+                gpui_component::select::SearchableVec::new(Vec::<AssetChoice>::new()),
                 None,
                 window,
                 cx,
@@ -68,40 +115,44 @@ impl AppShell {
         })
     }
 
-    /// Keeps the pickers offering what the book actually knows.
+    /// Fills the pickers from the catalogue.
     ///
-    /// Rebuilt only when the set of assets changes: replacing the delegate
-    /// closes an open menu, and the set changes rarely while a session runs.
+    /// Every currency the game has, not the ones already captured. Offering
+    /// only what the book has seen made the page unusable until a panel had
+    /// been flipped, and it answered the wrong question besides: "which pairs
+    /// do I have data for" is the page's job to report, not the picker's job
+    /// to enforce.
+    ///
+    /// Rebuilt only when the list or the selection changes: replacing the
+    /// delegate closes an open menu, and neither changes often.
     pub(crate) fn sync_convert_selects(
         &mut self,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
-        let PageData::Convert(model) = &self.report else {
-            return;
-        };
-        let assets: Vec<String> = model
-            .assets
+        let choices = self.catalog_choices();
+        let (have, need) = self
+            .report_pair
+            .clone()
+            .unwrap_or_else(|| (String::new(), String::new()));
+        let signature: Vec<String> = choices
             .iter()
-            .map(|asset| asset.as_str().to_owned())
+            .map(|choice| choice.id.to_string())
+            .chain([have.clone(), need.clone()])
             .collect();
-        if assets == self.convert_assets {
+        if signature == self.convert_assets {
             return;
         }
-        self.convert_assets = assets.clone();
-        let (have, need) = (
-            model.have.as_str().to_owned(),
-            model.need.as_str().to_owned(),
-        );
+        self.convert_assets = signature;
         for (select, chosen) in [
             (self.convert_have.clone(), have),
             (self.convert_need.clone(), need),
         ] {
-            let items = assets.clone();
+            let items = choices.clone();
             select.update(cx, |state, cx| {
                 let index = items
                     .iter()
-                    .position(|asset| *asset == chosen)
+                    .position(|choice| choice.id == chosen)
                     .map(gpui_component::IndexPath::new);
                 *state = SelectState::new(
                     gpui_component::select::SearchableVec::new(items),
@@ -150,14 +201,30 @@ impl AppShell {
         let text = self.text();
         let language = self.language();
 
+        // The bar is chrome, not part of the answer. It used to be built
+        // inside the branch that had a model, so a page that could not price
+        // the pair — nothing captured yet, or both pickers on the same
+        // currency — dropped the pickers along with the answer, leaving the
+        // reader staring at a message with no way to change the question that
+        // produced it.
+        let bar = self.convert_bar(cx);
+
         let PageData::Convert(model) = &self.report else {
-            return div().flex_grow().flex().flex_col().gap_3().p_3().child(
-                panel()
-                    .flex_1()
-                    .flex()
-                    .flex_col()
-                    .child(empty_state(&self.report_body().join("  "))),
-            );
+            return div()
+                .flex_grow()
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .child(bar)
+                .child(
+                    div().flex_1().flex().flex_col().gap_3().p_3().child(
+                        panel()
+                            .flex_1()
+                            .flex()
+                            .flex_col()
+                            .child(empty_state(&self.report_body().join("  "))),
+                    ),
+                );
         };
         let model: ConvertModel = (**model).clone();
 
@@ -186,7 +253,7 @@ impl AppShell {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .child(self.convert_bar(cx))
+            .child(bar)
             .child(
                 div()
                     .flex_1()
@@ -283,7 +350,7 @@ impl AppShell {
         let route = accounting
             .route_asset_ids
             .iter()
-            .map(ptt_trade_domain::MarketAssetId::as_str)
+            .map(|asset| self.display_name(asset.as_str()))
             .collect::<Vec<_>>()
             .join(" → ");
 
@@ -330,7 +397,7 @@ impl AppShell {
                     report.size_down_to,
                     &[
                         &accounting.recommended_input.quanta.to_string(),
-                        accounting.requested_input.asset_id.as_str(),
+                        &self.display_name(accounting.requested_input.asset_id.as_str()),
                     ],
                 ),
             ));
@@ -424,7 +491,12 @@ impl AppShell {
             model.need.as_str().to_owned(),
         );
         let pinned = self.probe_queue.is_pinned(&from, &to);
-        let reason = report_text::report(language).no_route_for_pair;
+        // The sentence names the currencies the way the reader knows them;
+        // `from`/`to` stay ids because they are the probe queue's key.
+        let reason = report_text::fill(
+            report_text::report(language).no_route_for_pair,
+            &[&self.display_name(&from), &self.display_name(&to)],
+        );
         div()
             .h_flex()
             .items_center()
@@ -433,7 +505,7 @@ impl AppShell {
             .border_1()
             .border_color(c(HAIRLINE_SOFT))
             .child(
-                mono(report_text::fill(reason, &[&from, &to]))
+                mono(reason.clone())
                     .text_size(fs(FS_11_5))
                     .text_color(c(TEXT_META)),
             )
@@ -442,7 +514,6 @@ impl AppShell {
             .child(if pinned {
                 chip(StatusKind::Monitoring, text.pinned_label)
             } else {
-                let reason = report_text::fill(reason, &[&from, &to]);
                 div().child(
                     button("convert-pin", LedgerButton::Secondary, text.pin_label, cx).on_click(
                         cx.listener(move |this, _, _, cx| {
@@ -510,7 +581,7 @@ impl AppShell {
                         report.maker_improvement,
                         &[
                             &delta.quanta.to_string(),
-                            strategy.to_asset_id.as_str(),
+                            &self.display_name(strategy.to_asset_id.as_str()),
                             &points.to_string(),
                         ],
                     ),

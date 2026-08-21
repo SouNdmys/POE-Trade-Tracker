@@ -146,8 +146,9 @@ impl Page {
 /// no card at all. Arriving and being replaced as one value leaves nothing to
 /// drift.
 struct LastBook {
-    /// The log line: pair, timing and row count.
-    header: String,
+    /// Position in the run, and how long the read took.
+    sequence: u64,
+    elapsed_ms: u64,
     /// The panel's own two slots, never overridden by a page's selection.
     have: String,
     need: String,
@@ -333,7 +334,10 @@ impl AppShell {
         let language = settings.ui_language;
         #[cfg(not(windows))]
         let language = ptt_settings::UiLanguage::English;
-        let radar_table = Self::new_radar_table(window, cx, language);
+        let radar_table = {
+            let (layout, _) = ptt_runtime::pipeline::route_for(settings.active_profile);
+            Self::new_radar_table(window, cx, language, (layout.catalog)())
+        };
         #[cfg(windows)]
         let tuning_inputs = {
             let tuning = settings.market_tuning(settings.active_profile.game);
@@ -350,9 +354,9 @@ impl AppShell {
                     return;
                 };
                 if is_have {
-                    this.choose_pair(Some(value.clone()), None);
+                    this.choose_pair(Some(value.to_string()), None);
                 } else {
-                    this.choose_pair(None, Some(value.clone()));
+                    this.choose_pair(None, Some(value.to_string()));
                 }
                 cx.notify();
             })
@@ -464,7 +468,8 @@ impl AppShell {
             for event in events {
                 match event {
                     UiEvent::Accepted {
-                        header,
+                        sequence,
+                        elapsed_ms,
                         need_asset_id,
                         have_asset_id,
                         rows,
@@ -472,7 +477,6 @@ impl AppShell {
                         analysis,
                     } => {
                         self.accepted += 1;
-                        self.push_log(header.clone());
                         // A pair the user picked by hand outranks whatever
                         // panel happens to be open in game — for the report
                         // pages, which answer a question the user asked. The
@@ -481,13 +485,17 @@ impl AppShell {
                             self.report_pair = Some((have_asset_id.clone(), need_asset_id.clone()));
                         }
                         self.last_book = Some(LastBook {
-                            header,
+                            sequence,
+                            elapsed_ms,
                             have: have_asset_id,
                             need: need_asset_id,
                             rows,
                             order_rows,
                             analysis,
                         });
+                        if let Some(line) = self.book_headline() {
+                            self.push_log(line);
+                        }
                         self.report_stale = true;
                         self.last_skip = None;
                     }
@@ -572,20 +580,18 @@ impl AppShell {
     /// profile the watcher is running.
     #[cfg(windows)]
     fn display_name(&self, asset_id: &str) -> String {
-        let profile = self.settings.active_profile;
-        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
-        let Some(asset) = (layout.catalog)().by_id(asset_id) else {
-            return asset_id.to_owned();
-        };
-        let name = match language {
-            ptt_recognition::profiles::ProfileLanguage::TraditionalChinese => &asset.name_zh_tw,
-            ptt_recognition::profiles::ProfileLanguage::English => &asset.name_en,
-        };
-        if name.trim().is_empty() {
-            asset_id.to_owned()
-        } else {
-            name.clone()
-        }
+        crate::names::asset_name(self.catalog(), self.language(), asset_id)
+    }
+
+    /// A pair, named the way the reader knows it.
+    fn pair_label(&self, from: &str, to: &str) -> String {
+        crate::names::pair_name(self.catalog(), self.language(), from, to)
+    }
+
+    /// The catalogue for the game being watched.
+    fn catalog(&self) -> &'static ptt_runtime::domain::Catalog {
+        let (layout, _) = ptt_runtime::pipeline::route_for(self.settings.active_profile);
+        (layout.catalog)()
     }
 }
 
@@ -749,7 +755,7 @@ impl AppShell {
                     .gap_2()
                     .child(chip(StatusKind::Monitoring, text.pinned_label))
                     .child(
-                        mono(format!("{from} -> {to}"))
+                        mono(self.pair_label(&from, &to))
                             .text_size(fs(FS_12))
                             .flex_grow(),
                     )
@@ -797,7 +803,7 @@ impl AppShell {
                             .items_center()
                             .gap_2()
                             .child(
-                                mono(format!("{from} -> {to}"))
+                                mono(self.pair_label(&from, &to))
                                     .text_size(fs(FS_12))
                                     .flex_grow(),
                             )
@@ -830,6 +836,46 @@ impl AppShell {
     #[cfg(not(windows))]
     fn probe_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
         panel()
+    }
+
+    /// Every currency the catalogue holds, as pickable choices.
+    ///
+    /// The catalogue rather than what has been captured: a picker that only
+    /// offers pairs already seen cannot be used to ask about the pair you have
+    /// not looked at yet, which is the question a person actually arrives
+    /// with. Whether there is data for a choice is the page's answer, not the
+    /// picker's business.
+    fn catalog_choices(&self) -> Vec<pages::convert::AssetChoice> {
+        let mut choices: Vec<pages::convert::AssetChoice> = self
+            .catalog()
+            .assets()
+            .iter()
+            .map(|asset| {
+                pages::convert::AssetChoice::new(asset.id.clone(), self.display_name(&asset.id))
+            })
+            .collect();
+        // By what the reader sees, so the list reads alphabetically to them
+        // rather than to the database.
+        choices.sort_by(|left, right| left.label().cmp(right.label()));
+        choices
+    }
+
+    /// One line naming the last accepted book.
+    ///
+    /// Composed here rather than on the backend thread because it names
+    /// currencies, and the name depends on the interface's language.
+    fn book_headline(&self) -> Option<String> {
+        let book = self.last_book.as_ref()?;
+        Some(format!(
+            "#{} [{}ms] {} ({})",
+            book.sequence,
+            book.elapsed_ms,
+            self.pair_label(&book.have, &book.need),
+            ptt_runtime::report_text::fill(
+                self.text().book_rows,
+                &[&book.order_rows.len().to_string()]
+            ),
+        ))
     }
 
     /// The last book's analysis lines, empty until one lands.
@@ -877,13 +923,18 @@ impl AppShell {
     /// everything worse" — is visibly not a listing of its own.
     fn last_book_panel(&self) -> gpui::Div {
         let text = self.text();
+        let Some(headline) = self.book_headline() else {
+            return div()
+                .p_3()
+                .child(mono(text.waiting_for_book).text_size(fs(FS_12)));
+        };
         let Some(book) = &self.last_book else {
             return div()
                 .p_3()
                 .child(mono(text.waiting_for_book).text_size(fs(FS_12)));
         };
         let mut body = div().p_3().flex().flex_col().gap_1().child(
-            mono(book.header.clone())
+            mono(headline)
                 .text_size(fs(FS_11_5))
                 .text_color(c(TEXT_META)),
         );

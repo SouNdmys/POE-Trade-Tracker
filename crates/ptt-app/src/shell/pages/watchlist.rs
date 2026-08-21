@@ -159,7 +159,7 @@ impl AppShell {
             &model
                 .core_liquidity
                 .iter()
-                .map(ptt_trade_domain::MarketAssetId::as_str)
+                .map(|asset| self.display_name(asset.as_str()))
                 .collect::<Vec<_>>()
                 .join(", "),
         ));
@@ -216,7 +216,11 @@ impl AppShell {
                     .h_flex()
                     .items_center()
                     .gap_2()
-                    .child(mono(asset).text_size(fs(FS_11_5)).w(px(180.)))
+                    .child(
+                        mono(self.display_name(&asset))
+                            .text_size(fs(FS_11_5))
+                            .w(px(180.)),
+                    )
                     .child(
                         mono(value)
                             .text_size(fs(FS_11_5))
@@ -238,9 +242,13 @@ impl AppShell {
                     .gap_2()
                     .child(chip(StatusKind::Warning, text.suggestion_label))
                     .child(
-                        mono(format!("{asset}   ×{}", suggestion.snapshot_count))
-                            .text_size(fs(FS_11_5))
-                            .flex_grow(),
+                        mono(format!(
+                            "{}   ×{}",
+                            self.display_name(&asset),
+                            suggestion.snapshot_count
+                        ))
+                        .text_size(fs(FS_11_5))
+                        .flex_grow(),
                     )
                     .child(
                         button("focus-adopt", LedgerButton::Secondary, text.adopt_label, cx)
@@ -308,10 +316,9 @@ impl AppShell {
                             .gap_2()
                             .text_size(fs(FS_10_5))
                             .child(
-                                mono(format!(
-                                    "{} → {}",
+                                mono(self.pair_label(
                                     entry.from_asset_id.as_str(),
-                                    entry.to_asset_id.as_str()
+                                    entry.to_asset_id.as_str(),
                                 ))
                                 .flex_grow(),
                             )
@@ -332,7 +339,7 @@ impl AppShell {
                             .items_center()
                             .gap_2()
                             .text_size(fs(FS_10_5))
-                            .child(mono(format!("{from} → {to}")).flex_grow())
+                            .child(mono(self.pair_label(&from, &to)).flex_grow())
                             .child(mono(reason.clone()).text_color(c(TEXT_META)))
                             .child(if pinned {
                                 chip(StatusKind::Monitoring, text.pinned_label)
@@ -362,7 +369,7 @@ impl AppShell {
                 report_text::anchor_action(language, recommendation.action),
                 &format!(
                     "{}   {}.{}   {} / {}",
-                    recommendation.asset_id.as_str(),
+                    self.display_name(recommendation.asset_id.as_str()),
                     recommendation.score_tenths / 10,
                     recommendation.score_tenths % 10,
                     recommendation.pair_coverage_count,

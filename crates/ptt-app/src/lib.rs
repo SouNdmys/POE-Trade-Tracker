@@ -10,6 +10,7 @@
 pub mod backend;
 pub mod calibrate;
 pub mod i18n;
+pub mod names;
 pub mod shell;
 pub mod state;
 pub mod theme;

@@ -48,11 +48,12 @@ pub fn actionability_kind(category: Actionability) -> StatusKind {
 
 /// The route, as the game names it.
 #[must_use]
-pub fn route_text(path: &[MarketAssetId]) -> String {
-    path.iter()
-        .map(MarketAssetId::as_str)
-        .collect::<Vec<_>>()
-        .join(" → ")
+pub fn route_text(
+    catalog: &ptt_runtime::domain::Catalog,
+    language: UiLanguage,
+    path: &[MarketAssetId],
+) -> String {
+    crate::names::route_name(catalog, language, path)
 }
 
 /// The profit column: a signed percentage, or the fact that there is none.
@@ -77,11 +78,18 @@ pub struct RadarTable {
     columns: Vec<Column>,
     rows: Vec<OpportunityRow>,
     language: UiLanguage,
+    /// Held rather than looked up: the delegate renders currency names and
+    /// has no route back to the shell's settings.
+    catalog: &'static ptt_runtime::domain::Catalog,
 }
 
 impl RadarTable {
     #[must_use]
-    pub fn new(rows: Vec<OpportunityRow>, language: UiLanguage) -> Self {
+    pub fn new(
+        rows: Vec<OpportunityRow>,
+        language: UiLanguage,
+        catalog: &'static ptt_runtime::domain::Catalog,
+    ) -> Self {
         let chrome = i18n::text(language);
         Self {
             columns: vec![
@@ -100,6 +108,7 @@ impl RadarTable {
             ],
             rows,
             language,
+            catalog,
         }
     }
 
@@ -108,9 +117,16 @@ impl RadarTable {
     /// The table owns the scroll position and the selection, so rebuilding it
     /// on every accepted book would throw the reader back to the top of the
     /// list every few seconds.
-    pub fn set_rows(&mut self, rows: Vec<OpportunityRow>, language: UiLanguage) {
-        if language != self.language {
-            *self = Self::new(rows, language);
+    pub fn set_rows(
+        &mut self,
+        rows: Vec<OpportunityRow>,
+        language: UiLanguage,
+        catalog: &'static ptt_runtime::domain::Catalog,
+    ) {
+        // The catalogue changes with the game, and both it and the language
+        // are baked into the built columns, so either one moving is a rebuild.
+        if language != self.language || !std::ptr::eq(catalog, self.catalog) {
+            *self = Self::new(rows, language, catalog);
             return;
         }
         self.rows = rows;
@@ -171,7 +187,7 @@ impl RadarTable {
                 .child(report_text::radar_item_kind(language, item.kind))
                 .into_any_element(),
             1 => cell(
-                mono(route_text(&item.path_asset_ids))
+                mono(route_text(self.catalog, language, &item.path_asset_ids))
                     .text_size(fs(FS_11_5))
                     .whitespace_nowrap()
                     .overflow_hidden(),
@@ -191,9 +207,10 @@ impl RadarTable {
                 mono(format!(
                     "{} {}",
                     item.amount_out.quanta,
-                    item.path_asset_ids
-                        .last()
-                        .map_or("?", MarketAssetId::as_str)
+                    item.path_asset_ids.last().map_or_else(
+                        || "?".to_owned(),
+                        |asset| crate::names::asset_name(self.catalog, language, asset.as_str())
+                    )
                 ))
                 .text_size(fs(FS_11_5))
                 .justify_end(),
@@ -241,9 +258,10 @@ impl AppShell {
         window: &mut Window,
         cx: &mut Context<Self>,
         language: UiLanguage,
+        catalog: &'static ptt_runtime::domain::Catalog,
     ) -> Entity<TableState<RadarTable>> {
         cx.new(|cx| {
-            TableState::new(RadarTable::new(Vec::new(), language), window, cx)
+            TableState::new(RadarTable::new(Vec::new(), language, catalog), window, cx)
                 .row_selectable(true)
                 .col_selectable(false)
         })
@@ -259,9 +277,10 @@ impl AppShell {
             RadarScan::Unavailable(_) => Vec::new(),
         };
         let language = self.language();
+        let catalog = self.catalog();
         let table = self.radar_table.clone();
         table.update(cx, |state, cx| {
-            state.delegate_mut().set_rows(rows, language);
+            state.delegate_mut().set_rows(rows, language, catalog);
             state.refresh(cx);
         });
     }
@@ -432,14 +451,21 @@ impl AppShell {
             .p_3()
             .flex()
             .flex_col()
-            .child(kv_row(text.detail_route, &route_text(&item.path_asset_ids)))
+            .child(kv_row(
+                text.detail_route,
+                &route_text(self.catalog(), language, &item.path_asset_ids),
+            ))
             .child(kv_row(
                 text.detail_stake,
                 &format!("{} {}", item.amount_in.quanta, item.amount_in.asset_id),
             ))
             .child(kv_row(
                 text.detail_return,
-                &format!("{} {}", item.amount_out.quanta, item.amount_out.asset_id),
+                &format!(
+                    "{} {}",
+                    item.amount_out.quanta,
+                    self.display_name(item.amount_out.asset_id.as_str())
+                ),
             ));
 
         // Per leg, because a route is only as good as the leg that fails.
@@ -447,9 +473,8 @@ impl AppShell {
             inner = inner.child(kv_row(
                 &crate::i18n::leg_label(language, index + 1),
                 &format!(
-                    "{} → {}   {} → {}",
-                    step.from_asset_id.as_str(),
-                    step.to_asset_id.as_str(),
+                    "{}   {} → {}",
+                    self.pair_label(step.from_asset_id.as_str(), step.to_asset_id.as_str()),
                     step.consumed_input.quanta,
                     step.gross_amount_out.quanta,
                 ),

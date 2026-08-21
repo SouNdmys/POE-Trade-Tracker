@@ -25,6 +25,9 @@ pub mod reports;
 /// variant fails to compile instead of reaching a screen as a Rust
 /// identifier.
 pub mod domain {
+    /// The name behind an id. Every layer under the interface speaks ids; the
+    /// interface has to speak names, and this is where it looks them up.
+    pub use ptt_catalog::{Catalog, CatalogAsset, poe1 as poe1_catalog, poe2 as poe2_catalog};
     pub use ptt_market_book::{
         FreshnessAssessment, FreshnessPolicy, FreshnessStatus, QuoteRiskFlag, QuoteSelectionPolicy,
         QuoteSelectionStrategy,

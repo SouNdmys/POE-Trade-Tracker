@@ -48,6 +48,10 @@ pub struct ReportText {
     pub no_cost_basis: &'static str,
     pub break_even_at: &'static str,
     pub nothing_to_convert: &'static str,
+    /// Both pickers on one currency. Not a failure — a question with no
+    /// content, which the page has to say plainly so the reader knows to
+    /// change one of them rather than wonder what broke.
+    pub same_currency: &'static str,
     pub core_liquidity: &'static str,
     pub no_price_capture: &'static str,
     pub coverage_unavailable: &'static str,
@@ -120,6 +124,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     no_cost_basis: "no cost basis",
     break_even_at: "break even at 1 : {}",
     nothing_to_convert: "nothing to convert yet - capture a book first",
+    same_currency: "have and want are the same currency - pick two different ones",
     core_liquidity: "core liquidity: {}",
     no_price_capture: "no price - capture this pair",
     coverage_unavailable: "coverage unavailable: {}",
@@ -184,6 +189,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     no_cost_basis: "没有成本基准",
     break_even_at: "保本价 1 : {}",
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
+    same_currency: "拥有和想要是同一种通货 — 请选两种不同的",
     core_liquidity: "核心流通币：{}",
     no_price_capture: "没有价格 — 去翻这一对",
     coverage_unavailable: "覆盖情况读不出来：{}",
@@ -448,6 +454,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "nothing_to_convert",
             REPORT_ENGLISH.nothing_to_convert,
             REPORT_CHINESE.nothing_to_convert,
+        ),
+        (
+            "same_currency",
+            REPORT_ENGLISH.same_currency,
+            REPORT_CHINESE.same_currency,
         ),
         (
             "core_liquidity",

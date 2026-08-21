@@ -195,8 +195,14 @@ impl Gallery {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let drawn = Rc::new(Cell::new(0));
         let rows = density_rows(DENSITY_ROWS);
-        let delegate =
-            CountingTable::new(RadarTable::new(rows, UiLanguage::English), drawn.clone());
+        let delegate = CountingTable::new(
+            RadarTable::new(
+                rows,
+                UiLanguage::English,
+                ptt_runtime::domain::poe2_catalog(),
+            ),
+            drawn.clone(),
+        );
         let table = cx.new(|cx| {
             TableState::new(delegate, window, cx)
                 .row_selectable(true)
@@ -242,7 +248,10 @@ impl Gallery {
     fn rebuild(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let drawn = self.drawn.clone();
         let rows = density_rows(DENSITY_ROWS);
-        let delegate = CountingTable::new(RadarTable::new(rows, self.language), drawn);
+        let delegate = CountingTable::new(
+            RadarTable::new(rows, self.language, ptt_runtime::domain::poe2_catalog()),
+            drawn,
+        );
         self.table = cx.new(|cx| {
             TableState::new(delegate, window, cx)
                 .row_selectable(true)

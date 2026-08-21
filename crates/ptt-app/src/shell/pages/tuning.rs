@@ -252,7 +252,7 @@ impl AppShell {
         // deliberate act rather than a click beside a row.
         let mut settlement = div().h_flex().items_center().gap_2().flex_wrap();
         for asset in &tuning.settlement_assets {
-            settlement = settlement.child(chip(StatusKind::Monitoring, asset));
+            settlement = settlement.child(chip(StatusKind::Monitoring, &self.display_name(asset)));
         }
 
         panel().child(panel_header(text.tuning_header)).child(
