@@ -715,25 +715,39 @@ fn whole_units_to_quanta_floor(
 
 /// Which side of a quote the panel's stock column counts.
 ///
-/// The engine currently assumes stock is denominated in **what the lister
-/// pays out**: the to-asset on a taker row (the lister owns what the route
-/// wants), the from-asset on a maker-reference row (the competing lister owns
-/// what the route holds). Real-machine verification is pending — TASK-50.
-/// Should it rule the other way, flip [`STOCK_DENOMINATION`]: every depth
-/// computation funnels through [`stock_input_capacity`], and the
-/// `stock_denomination_tests` module pins what each interpretation computes,
-/// so the flip changes exactly the documented set of numbers.
+/// Stock counts **what the lister pays out**: the to-asset on a taker row (the
+/// lister owns what the route wants), the from-asset on a maker-reference row
+/// (the competing lister owns what the route holds).
+///
+/// Settled by observation, TASK-50, on a POE2 chaos → volatile-vaal panel: the
+/// available rows counted single-digit orbs (1, 1, 4, 4, 9) while the competing
+/// rows counted thousands (5755, 2300, 1100, 8584, 1072). Both sides are the
+/// payout — available listers hand over the orb, competing listers hand over
+/// chaos — and the arithmetic seals it: every competing stock is an exact
+/// multiple of its own ratio (5755 = 5×1151, 2300 = 2×1150, 8584 = 8×1073).
+/// Orders are placed in whole orbs, so the chaos they pay out lands on a
+/// multiple of the rate; nothing about the receive-side reading would make five
+/// separate listings divide evenly.
+///
+/// Observed on POE2. POE1's exchange panel is the same feature and is assumed
+/// to match; a POE1 book whose depth reads a hundredfold wrong is the symptom
+/// that would say otherwise.
+///
+/// The enum and its four-quadrant tests stay as the executable statement of
+/// what the column means. Every depth computation funnels through
+/// [`stock_input_capacity`], so the contrast is what would catch a silent
+/// drift back to the other reading.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StockDenomination {
-    /// The asset the lister hands over. Current assumption everywhere.
+    /// The asset the lister hands over. The verified reading, used everywhere.
     ListerPayout,
-    /// The asset the lister asks to receive. Unreachable until TASK-50 says
-    /// otherwise; kept so the verdict is an enum edit, not a rewrite.
+    /// The asset the lister asks to receive. Ruled out by TASK-50; kept so the
+    /// tests below can state what it would have computed.
     #[allow(dead_code)]
     ListerReceives,
 }
 
-/// TASK-50: the single switch the real-machine verdict flips.
+/// The single place the interpretation is chosen.
 const STOCK_DENOMINATION: StockDenomination = StockDenomination::ListerPayout;
 
 /// How much input (from-asset quanta) one level's stock allows, plus whether
@@ -873,8 +887,8 @@ mod stock_denomination_tests {
 
     /// Ten stock at a 1→2 rate, whole units on both sides. Which side the
     /// ten caps decides whether the input capacity is 10 or 5, so each of
-    /// the four combinations pins one number — the TASK-50 flip must break
-    /// exactly the two `lister_payout` tests and nothing else.
+    /// the four combinations pins one number — and the two `lister_receives`
+    /// tests keep the ruled-out reading legible next to the shipped one.
     fn capacity(denomination: StockDenomination, execution_type: ExecutionType) -> u64 {
         let doubles = ConversionScale {
             numerator: 2,
@@ -934,9 +948,9 @@ mod stock_denomination_tests {
         );
     }
 
-    /// The shipped switch is the payout interpretation — the one every
-    /// engine test's end-to-end numbers assume. TASK-50 flips this constant
-    /// and this test together, deliberately.
+    /// The shipped switch is the payout interpretation — verified on a real
+    /// panel (TASK-50) and the one every engine test's end-to-end numbers
+    /// assume. Changing the constant has to break this test on the way.
     #[test]
     fn the_shipped_interpretation_is_lister_payout() {
         assert_eq!(STOCK_DENOMINATION, StockDenomination::ListerPayout);
