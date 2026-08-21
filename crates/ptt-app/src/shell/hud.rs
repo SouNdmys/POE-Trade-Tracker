@@ -125,10 +125,12 @@ impl AppShell {
         // rows read off it, and whether the last frame landed. Anything else
         // belongs in the window, which they can alt-tab to; this is for the
         // moment when they cannot.
-        let pair = self.report_pair.as_ref().map_or_else(
-            || self.text().no_pair_yet.to_owned(),
-            |(have, need)| format!("{} -> {}", self.display_name(have), self.display_name(need)),
-        );
+        //
+        // Both halves come from the last accepted book. Not `report_pair`:
+        // that follows the convert page's pickers, so it would title the panel
+        // in front of the user with whichever currency they last asked the
+        // report about.
+        let pair = self.last_book_pair();
         // Stated either way — "nothing since the last book" and "the watcher
         // died" look identical on a card that only reports success.
         let verdict = match (&self.fault, &self.last_skip) {
@@ -145,7 +147,7 @@ impl AppShell {
         };
         let lines = hud_lines(
             &pair,
-            &self.last_rows,
+            self.last_book_rows(),
             self.text().waiting_for_book,
             &verdict,
         );

@@ -136,6 +136,28 @@ impl Page {
     }
 }
 
+/// Everything one accepted book said, kept as a single value.
+///
+/// These fields are only meaningful together, and keeping them apart cost a
+/// real wrong reading: the card titled its rows with [`AppShell::report_pair`],
+/// which was the same thing until the convert page grew its own pickers.
+/// After that, picking a pair by hand relabelled a live panel with a currency
+/// it was not showing — correct rows under a wrong name, which is worse than
+/// no card at all. Arriving and being replaced as one value leaves nothing to
+/// drift.
+struct LastBook {
+    /// The log line: pair, timing and row count.
+    header: String,
+    /// The panel's own two slots, never overridden by a page's selection.
+    have: String,
+    need: String,
+    /// The rows as sentences, for the card.
+    rows: Vec<String>,
+    /// The same rows with their fields intact, for the window.
+    order_rows: Vec<ptt_runtime::pipeline::BookRow>,
+    analysis: Vec<String>,
+}
+
 pub struct AppShell {
     pub focus_handle: FocusHandle,
     #[cfg(windows)]
@@ -180,11 +202,8 @@ pub struct AppShell {
     /// answer "did *that* one land", and a skip with no reason on screen is
     /// indistinguishable from the watcher having stopped.
     last_skip: Option<String>,
-    last_header: Option<String>,
-    last_rows: Vec<String>,
-    /// The same rows with their fields intact.
-    last_order_rows: Vec<ptt_runtime::pipeline::BookRow>,
-    last_analysis: Vec<String>,
+    /// The last accepted book, whole. `None` until the first one lands.
+    last_book: Option<LastBook>,
     log: VecDeque<String>,
     fault: Option<String>,
     page: Page,
@@ -391,10 +410,7 @@ impl AppShell {
             accepted: 0,
             skips: BTreeMap::new(),
             last_skip: None,
-            last_header: None,
-            last_rows: Vec::new(),
-            last_order_rows: Vec::new(),
-            last_analysis: Vec::new(),
+            last_book: None,
             log: VecDeque::new(),
             fault: None,
             page: Page::Monitor,
@@ -457,15 +473,21 @@ impl AppShell {
                     } => {
                         self.accepted += 1;
                         self.push_log(header.clone());
-                        self.last_header = Some(header);
-                        self.last_rows = rows;
-                        self.last_order_rows = order_rows;
-                        self.last_analysis = analysis;
                         // A pair the user picked by hand outranks whatever
-                        // panel happens to be open in game.
+                        // panel happens to be open in game — for the report
+                        // pages, which answer a question the user asked. The
+                        // card over the panel keeps describing the panel.
                         if !self.pair_chosen_by_user {
-                            self.report_pair = Some((have_asset_id, need_asset_id));
+                            self.report_pair = Some((have_asset_id.clone(), need_asset_id.clone()));
                         }
+                        self.last_book = Some(LastBook {
+                            header,
+                            have: have_asset_id,
+                            need: need_asset_id,
+                            rows,
+                            order_rows,
+                            analysis,
+                        });
                         self.report_stale = true;
                         self.last_skip = None;
                     }
@@ -810,6 +832,43 @@ impl AppShell {
         panel()
     }
 
+    /// The last book's analysis lines, empty until one lands.
+    fn analysis_lines(&self) -> &[String] {
+        match &self.last_book {
+            Some(book) => &book.analysis,
+            None => &[],
+        }
+    }
+
+    /// The rows the card prints, empty until a book lands.
+    ///
+    /// Returned beside [`Self::last_book_pair`] so the two are read from the
+    /// same place; a caller that titles these rows with anything else is
+    /// repeating the bug this pairing exists to prevent.
+    #[cfg(windows)]
+    pub(crate) fn last_book_rows(&self) -> &[String] {
+        match &self.last_book {
+            Some(book) => &book.rows,
+            None => &[],
+        }
+    }
+
+    /// The pair the last accepted book was read off, as display names.
+    ///
+    /// The panel's own two slots — never [`Self::report_pair`], which the
+    /// convert page can point somewhere else entirely.
+    #[cfg(windows)]
+    pub(crate) fn last_book_pair(&self) -> String {
+        match &self.last_book {
+            Some(book) => format!(
+                "{} -> {}",
+                self.display_name(&book.have),
+                self.display_name(&book.need)
+            ),
+            None => self.text().no_pair_yet.to_owned(),
+        }
+    }
+
     /// The most recent accepted book, as the panel showed it.
     ///
     /// Twelve rows at most, so nothing here needs virtualising; the columns
@@ -818,17 +877,17 @@ impl AppShell {
     /// everything worse" — is visibly not a listing of its own.
     fn last_book_panel(&self) -> gpui::Div {
         let text = self.text();
-        let Some(header) = &self.last_header else {
+        let Some(book) = &self.last_book else {
             return div()
                 .p_3()
                 .child(mono(text.waiting_for_book).text_size(fs(FS_12)));
         };
         let mut body = div().p_3().flex().flex_col().gap_1().child(
-            mono(header.clone())
+            mono(book.header.clone())
                 .text_size(fs(FS_11_5))
                 .text_color(c(TEXT_META)),
         );
-        for row in &self.last_order_rows {
+        for row in &book.order_rows {
             body = body.child(
                 div()
                     .h_flex()
@@ -1302,12 +1361,12 @@ impl Render for AppShell {
                                             .overflow_hidden()
                                             .child(panel_header(text.panel_opportunities))
                                             .child(div().p_3().flex().flex_col().gap_1().children(
-                                                if self.last_analysis.is_empty() {
+                                                if self.analysis_lines().is_empty() {
                                                     vec![
                                                         mono(text.nothing_yet).text_size(fs(FS_12)),
                                                     ]
                                                 } else {
-                                                    self.last_analysis
+                                                    self.analysis_lines()
                                                         .iter()
                                                         .map(|line| {
                                                             mono(line.clone()).text_size(fs(FS_12))
