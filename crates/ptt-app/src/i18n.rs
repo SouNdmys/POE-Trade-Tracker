@@ -123,6 +123,17 @@ pub struct Text {
     pub role_watch_only: &'static str,
     pub role_unlisted: &'static str,
     pub settlement_label: &'static str,
+    /// What settlement currencies are for, said where they are shown.
+    ///
+    /// The four role buttons are named for intent and act on mechanics,
+    /// and the two only sometimes coincide. Left unsaid, a reader
+    /// reasonably concludes that a currency they did not list is a
+    /// currency the program ignores, which has never been true.
+    pub settlement_hint: &'static str,
+    /// What each of the four roles actually changes, one line each, in
+    /// the order the buttons sit in. Newline separated so the page can
+    /// lay them out as rows without four catalogue fields to keep aligned.
+    pub roles_legend: &'static str,
     /// Adds the picked currency to the settlement set.
     pub settlement_add: &'static str,
     /// Why the last settlement currency cannot be removed.
@@ -288,6 +299,8 @@ impl Text {
             ("role_watch_only", self.role_watch_only),
             ("role_unlisted", self.role_unlisted),
             ("settlement_label", self.settlement_label),
+            ("settlement_hint", self.settlement_hint),
+            ("roles_legend", self.roles_legend),
             ("settlement_add", self.settlement_add),
             ("settlement_last", self.settlement_last),
             ("valuation_two_sided", self.valuation_two_sided),
@@ -430,6 +443,16 @@ pub static ENGLISH: Text = Text {
     role_watch_only: "watch",
     role_unlisted: "off",
     settlement_label: "settlement",
+    settlement_hint: "profit is measured in these, and every cycle starts and ends here - change them on the settings page",
+    roles_legend: concat!(
+        "target  ·  keeps watching its gaps even when nothing has been captured lately
+",
+        "bridge  ·  routed through, never a destination
+",
+        "price only  ·  priced, never routed
+",
+        "off  ·  not watched - but anything captured is still used for arbitrage",
+    ),
     settlement_add: "add",
     settlement_last: "the last one cannot be removed - everything is priced against it",
     valuation_two_sided: "both sides",
@@ -574,6 +597,16 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     role_watch_only: "仅观察",
     role_unlisted: "不关注",
     settlement_label: "结算通货",
+    settlement_hint: "利润以它计价，套利从它出发并回到它 — 在设置页更改",
+    roles_legend: concat!(
+        "目标  ·  即使最近没翻到，也持续盯它缺哪些数据
+",
+        "桥梁  ·  只当中转，不作为终点
+",
+        "仅观察  ·  只看价格，永不路过
+",
+        "不关注  ·  不盯它 — 但抓到过的照样算套利",
+    ),
     settlement_add: "添加",
     settlement_last: "最后一种不能移除 — 所有价格都以它为基准",
     valuation_two_sided: "两侧",
@@ -756,6 +789,8 @@ mod tests {
                 ("role_watch_only", text.role_watch_only),
                 ("role_unlisted", text.role_unlisted),
                 ("settlement_label", text.settlement_label),
+                ("settlement_hint", text.settlement_hint),
+                ("roles_legend", text.roles_legend),
                 ("valuation_two_sided", text.valuation_two_sided),
                 ("valuation_one_sided", text.valuation_one_sided),
                 ("suggestion_label", text.suggestion_label),

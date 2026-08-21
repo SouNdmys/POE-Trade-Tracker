@@ -210,6 +210,31 @@ impl AppShell {
                 .join(", "),
         ));
 
+        // Said here rather than in a document nobody opens: this is the
+        // screen where the choice is made, and the choice reads as being about
+        // how much the reader cares while it acts on what the engine may do.
+        body = body
+            .child(
+                div()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED))
+                    .child(text.settlement_hint),
+            )
+            .child(
+                div()
+                    .pt_1()
+                    .pb_1()
+                    .flex()
+                    .flex_col()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED))
+                    .children(
+                        text.roles_legend
+                            .lines()
+                            .map(|line| div().child(gpui::SharedString::from(line))),
+                    ),
+            );
+
         if model.valuations.is_empty() {
             body = body.child(empty_state(report_text::report(language).no_price_capture));
         }
