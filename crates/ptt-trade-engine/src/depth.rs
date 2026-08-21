@@ -312,12 +312,17 @@ impl MarketDepthIndex {
             }
             let edge = &level.observation.edge;
             let scale = conversion_scale(input.unit, &edge.rate, self.units.unit(to_asset_id)?)?;
-            let (stock_quanta, capacity_rounded) =
-                whole_units_to_quanta_floor(edge.stock, self.units.unit(to_asset_id)?)?;
+            let (capacity_from_quanta, capacity_rounded) = stock_input_capacity(
+                STOCK_DENOMINATION,
+                edge.stock,
+                ExecutionType::Taker,
+                input.unit,
+                self.units.unit(to_asset_id)?,
+                scale,
+            )?;
             if capacity_rounded {
                 risks.insert(ExecutionRiskFlag::CapacityRoundedToUnit);
             }
-            let capacity_from_quanta = max_input_for_target_cap(stock_quanta, scale)?;
             let use_quanta = remaining_quanta.min(capacity_from_quanta);
             if use_quanta == 0 {
                 continue;
@@ -446,8 +451,14 @@ impl MarketDepthIndex {
         let scale = conversion_scale(input.unit, &edge.rate, self.units.unit(to_asset_id)?)?;
         let gross_quanta = floor_scaled(input.quanta, scale)?;
         let net_quanta = fee_policy.apply_to_quanta(gross_quanta)?;
-        let (visible_reference_quanta, capacity_rounded) =
-            whole_units_to_quanta_floor(edge.stock, input.unit)?;
+        let (visible_reference_quanta, capacity_rounded) = stock_input_capacity(
+            STOCK_DENOMINATION,
+            edge.stock,
+            ExecutionType::MakerReference,
+            input.unit,
+            self.units.unit(to_asset_id)?,
+            scale,
+        )?;
         let mut risks = BTreeSet::from([
             ExecutionRiskFlag::MakerReference,
             ExecutionRiskFlag::FillNotGuaranteed,
@@ -685,6 +696,56 @@ fn whole_units_to_quanta_floor(
     ))
 }
 
+/// Which side of a quote the panel's stock column counts.
+///
+/// The engine currently assumes stock is denominated in **what the lister
+/// pays out**: the to-asset on a taker row (the lister owns what the route
+/// wants), the from-asset on a maker-reference row (the competing lister owns
+/// what the route holds). Real-machine verification is pending — TASK-50.
+/// Should it rule the other way, flip [`STOCK_DENOMINATION`]: every depth
+/// computation funnels through [`stock_input_capacity`], and the
+/// `stock_denomination_tests` module pins what each interpretation computes,
+/// so the flip changes exactly the documented set of numbers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StockDenomination {
+    /// The asset the lister hands over. Current assumption everywhere.
+    ListerPayout,
+    /// The asset the lister asks to receive. Unreachable until TASK-50 says
+    /// otherwise; kept so the verdict is an enum edit, not a rewrite.
+    #[allow(dead_code)]
+    ListerReceives,
+}
+
+/// TASK-50: the single switch the real-machine verdict flips.
+const STOCK_DENOMINATION: StockDenomination = StockDenomination::ListerPayout;
+
+/// How much input (from-asset quanta) one level's stock allows, plus whether
+/// unit conversion had to round. When the stock counts the output side it is
+/// inverted through the level's rate; when it counts the input side it is the
+/// cap directly.
+fn stock_input_capacity(
+    denomination: StockDenomination,
+    stock: u64,
+    execution_type: ExecutionType,
+    input_unit: AssetUnit,
+    output_unit: AssetUnit,
+    scale: ConversionScale,
+) -> Result<(u64, bool), EngineError> {
+    // On a taker row the lister pays out the route's target; on a
+    // maker-reference row the competing lister pays out the route's input.
+    let payout_is_output = matches!(execution_type, ExecutionType::Taker);
+    let stock_counts_output = match denomination {
+        StockDenomination::ListerPayout => payout_is_output,
+        StockDenomination::ListerReceives => !payout_is_output,
+    };
+    if stock_counts_output {
+        let (output_cap, rounded) = whole_units_to_quanta_floor(stock, output_unit)?;
+        Ok((max_input_for_target_cap(output_cap, scale)?, rounded))
+    } else {
+        whole_units_to_quanta_floor(stock, input_unit)
+    }
+}
+
 fn compare_taker_levels(left: &EvaluatedQuoteEdge, right: &EvaluatedQuoteEdge) -> Ordering {
     right
         .observation
@@ -786,5 +847,81 @@ mod capture_skew_tests {
         let mut risks = BTreeSet::new();
         assert!(apply_capture_skew_safety(&mut risks, Some(inside), 3));
         assert!(risks.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod stock_denomination_tests {
+    use super::*;
+
+    /// Ten stock at a 1→2 rate, whole units on both sides. Which side the
+    /// ten caps decides whether the input capacity is 10 or 5, so each of
+    /// the four combinations pins one number — the TASK-50 flip must break
+    /// exactly the two `lister_payout` tests and nothing else.
+    fn capacity(denomination: StockDenomination, execution_type: ExecutionType) -> u64 {
+        let doubles = ConversionScale {
+            numerator: 2,
+            denominator: 1,
+        };
+        let (quanta, rounded) = stock_input_capacity(
+            denomination,
+            10,
+            execution_type,
+            AssetUnit::whole(),
+            AssetUnit::whole(),
+            doubles,
+        )
+        .expect("whole units cannot overflow");
+        assert!(!rounded, "whole units never round");
+        quanta
+    }
+
+    #[test]
+    fn lister_payout_on_a_taker_row_caps_the_output_side() {
+        // The lister pays out the target: 10 target units back through the
+        // 1→2 rate is 5 input units.
+        assert_eq!(
+            capacity(StockDenomination::ListerPayout, ExecutionType::Taker),
+            5
+        );
+    }
+
+    #[test]
+    fn lister_payout_on_a_maker_row_caps_the_input_side() {
+        // The competing lister pays out the route's own input asset.
+        assert_eq!(
+            capacity(
+                StockDenomination::ListerPayout,
+                ExecutionType::MakerReference
+            ),
+            10
+        );
+    }
+
+    #[test]
+    fn lister_receives_on_a_taker_row_caps_the_input_side() {
+        assert_eq!(
+            capacity(StockDenomination::ListerReceives, ExecutionType::Taker),
+            10
+        );
+    }
+
+    #[test]
+    fn lister_receives_on_a_maker_row_caps_the_output_side() {
+        assert_eq!(
+            capacity(
+                StockDenomination::ListerReceives,
+                ExecutionType::MakerReference
+            ),
+            5
+        );
+    }
+
+    /// The shipped switch is the payout interpretation — the one every
+    /// engine test's end-to-end numbers assume. TASK-50 flips this constant
+    /// and this test together, deliberately.
+    #[test]
+    fn the_shipped_interpretation_is_lister_payout() {
+        assert_eq!(STOCK_DENOMINATION, StockDenomination::ListerPayout);
     }
 }
