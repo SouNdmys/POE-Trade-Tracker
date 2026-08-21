@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use ptt_market_book::{QuoteSelectionPolicy, QuoteSelectionResult, QuoteSelectionStrategy};
+use ptt_strategy::{Actionability, ExecutionRisk, RiskThresholds, assess_path, assess_triangle};
 use ptt_trade_domain::MarketAssetId;
 use ptt_trade_engine::{
     AssetAmount, AssetUnitCatalog, ComparisonDirection, ConversionComparisonStatus, ConversionPath,
@@ -31,14 +32,6 @@ pub struct RadarProgress {
     pub stage: RadarStage,
     pub completed_units: u32,
     pub total_units: u32,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RadarCategory {
-    Executable,
-    Theoretical,
-    ProbeRequired,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -97,6 +90,8 @@ pub struct RadarRequest {
     pub max_triangle_evaluations: u32,
     pub max_results: u16,
     pub fee_policy: FeePolicy,
+    /// Thresholds for the strategy risk ladder every item is assessed with.
+    pub thresholds: RiskThresholds,
 }
 
 /// How much search one radar run may spend.
@@ -144,13 +139,17 @@ impl RadarBudget {
 pub struct RadarItem {
     pub item_id: String,
     pub kind: RadarItemKind,
-    pub category: RadarCategory,
+    /// The strategy ladder's verdict — the same one the Convert page shows,
+    /// so a route never reads as two different risks on two pages.
+    pub category: Actionability,
     pub path_asset_ids: Vec<MarketAssetId>,
     pub amount_in: AssetAmount,
     pub amount_out: AssetAmount,
     pub value_basis_points: Option<i64>,
     pub reasons: Vec<RadarReason>,
     pub risk_flags: Vec<ExecutionRiskFlag>,
+    /// The typed risks that keep this item off the instant rung.
+    pub blocking_risks: Vec<ExecutionRisk>,
     pub conversion_path: Option<ConversionPath>,
     pub triangle: Option<TriangleEvaluation>,
 }
@@ -315,6 +314,7 @@ pub fn run_opportunity_radar(
                 best,
                 result.comparison.status,
                 result.comparison.basis_points,
+                request.thresholds,
             ));
         }
     }
@@ -387,7 +387,7 @@ pub fn run_opportunity_radar(
                 });
             }
         }
-        items.push(triangle_item(items.len(), triangle));
+        items.push(triangle_item(items.len(), triangle, request.thresholds));
     }
     progress(RadarProgress {
         stage: RadarStage::Ranking,
@@ -492,8 +492,9 @@ fn conversion_item(
     path: ConversionPath,
     comparison_status: ConversionComparisonStatus,
     basis_points: Option<i64>,
+    thresholds: RiskThresholds,
 ) -> RadarItem {
-    let category = category_for_path(&path);
+    let assessment = assess_path(&path, thresholds, false);
     let mut reasons = Vec::new();
     if matches!(
         comparison_status,
@@ -514,28 +515,25 @@ fn conversion_item(
                 .join("-")
         ),
         kind: RadarItemKind::BestConversion,
-        category,
+        category: assessment.actionability,
         path_asset_ids: path.path_asset_ids.clone(),
         amount_in: path.requested_input.clone(),
         amount_out: path.amount_out.clone(),
         value_basis_points: basis_points,
         reasons,
         risk_flags: path.risk_flags.clone(),
+        blocking_risks: assessment.blocking(),
         conversion_path: Some(path),
         triangle: None,
     }
 }
 
-fn triangle_item(index: usize, triangle: TriangleEvaluation) -> RadarItem {
-    let category = if has_capture_skew_risk(&triangle.risk_flags) {
-        RadarCategory::ProbeRequired
-    } else if triangle.execution_eligible {
-        RadarCategory::Executable
-    } else if triangle.is_fully_filled {
-        RadarCategory::Theoretical
-    } else {
-        RadarCategory::ProbeRequired
-    };
+fn triangle_item(
+    index: usize,
+    triangle: TriangleEvaluation,
+    thresholds: RiskThresholds,
+) -> RadarItem {
+    let assessment = assess_triangle(&triangle, thresholds, false);
     let mut reasons = vec![RadarReason::TriangleReturn];
     if !triangle.execution_eligible {
         reasons.push(RadarReason::GrossTheoryOnly);
@@ -555,33 +553,17 @@ fn triangle_item(index: usize, triangle: TriangleEvaluation) -> RadarItem {
                 .join("-")
         ),
         kind: RadarItemKind::Triangle,
-        category,
+        category: assessment.actionability,
         path_asset_ids: triangle.cycle_asset_ids.clone(),
         amount_in: triangle.amount_in.clone(),
         amount_out: triangle.amount_out.clone(),
         value_basis_points: triangle.profit_basis_points,
         reasons,
         risk_flags: triangle.risk_flags.clone(),
+        blocking_risks: assessment.blocking(),
         conversion_path: None,
         triangle: Some(triangle),
     }
-}
-
-fn category_for_path(path: &ConversionPath) -> RadarCategory {
-    if has_capture_skew_risk(&path.risk_flags) {
-        RadarCategory::ProbeRequired
-    } else if path.execution_eligible {
-        RadarCategory::Executable
-    } else if path.is_fully_filled {
-        RadarCategory::Theoretical
-    } else {
-        RadarCategory::ProbeRequired
-    }
-}
-
-fn has_capture_skew_risk(risks: &[ExecutionRiskFlag]) -> bool {
-    risks.contains(&ExecutionRiskFlag::CaptureSkewUnverified)
-        || risks.contains(&ExecutionRiskFlag::CaptureSkewExceeded)
 }
 
 fn append_path_reasons(path: &ConversionPath, reasons: &mut Vec<RadarReason>) {
@@ -665,9 +647,21 @@ fn deduplicate_probe_candidates(candidates: &mut Vec<ProbeCandidate>) {
     });
 }
 
+/// Ordering for the ladder in a list: cleanest verdicts first, suspicious
+/// last. Local because `Actionability` deliberately does not implement `Ord`
+/// — "worse risk" is a radar-sorting concern, not a property of the type.
+const fn category_rank(value: Actionability) -> u8 {
+    match value {
+        Actionability::InstantExecutable => 0,
+        Actionability::MakerTheoretical => 1,
+        Actionability::ProbeRequired => 2,
+        Actionability::SuspiciousOutlier => 3,
+    }
+}
+
 fn compare_items(left: &RadarItem, right: &RadarItem) -> Ordering {
-    left.category
-        .cmp(&right.category)
+    category_rank(left.category)
+        .cmp(&category_rank(right.category))
         .then_with(|| {
             right
                 .value_basis_points

@@ -20,8 +20,8 @@ pub use probe::{
     ProbeSuggestion, derive_focus_probe_candidates,
 };
 pub use radar::{
-    RadarBudget, RadarCategory, RadarDiagnostics, RadarItem, RadarItemKind, RadarProgress,
-    RadarReason, RadarRequest, RadarResult, RadarStage, RadarStart, run_opportunity_radar,
+    RadarBudget, RadarDiagnostics, RadarItem, RadarItemKind, RadarProgress, RadarReason,
+    RadarRequest, RadarResult, RadarStage, RadarStart, run_opportunity_radar,
 };
 pub use watch::{
     WatchHealth, WatchItem, WatchItemDraft, WatchItemStatus, WatchPriority, WatchTarget,

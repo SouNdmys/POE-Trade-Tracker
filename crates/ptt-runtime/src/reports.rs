@@ -653,6 +653,9 @@ pub fn opportunities_report(
         max_results,
         // Gross by product decision: no monetary fee is modelled.
         fee_policy: FeePolicy::None,
+        thresholds: ptt_strategy::RiskThresholds {
+            thin_liquidity_stock: tuning.risk.thin_liquidity_stock,
+        },
     };
     let result = run_opportunity_radar(
         &market.instant_selection,
@@ -738,7 +741,7 @@ fn radar_item_lines(item: &ptt_workflows::RadarItem, language: UiLanguage) -> Ve
         || "unpriced".to_owned(),
         |points| format!("{}.{:02}%", points / 100, (points % 100).abs()),
     );
-    let category = crate::report_text::radar_category(language, item.category);
+    let category = crate::report_text::actionability(language, item.category);
     let mut lines = vec![
         format!(
             "{edge:>8}  {}  {route}",
@@ -752,14 +755,14 @@ fn radar_item_lines(item: &ptt_workflows::RadarItem, language: UiLanguage) -> Ve
                 .map_or("?", MarketAssetId::as_str),
         ),
     ];
-    if !item.risk_flags.is_empty() {
+    if !item.blocking_risks.is_empty() {
         lines.push(format!(
             "          {} {}",
             risks_label(language),
             crate::report_text::join(
                 language,
-                &item.risk_flags,
-                crate::report_text::execution_risk_flag
+                &item.blocking_risks,
+                crate::report_text::execution_risk
             )
         ));
     }
@@ -1042,7 +1045,7 @@ mod radar_tests {
         let item = ptt_workflows::RadarItem {
             item_id: "test-item".to_owned(),
             kind: ptt_workflows::RadarItemKind::BestConversion,
-            category: ptt_workflows::RadarCategory::Executable,
+            category: ptt_strategy::Actionability::InstantExecutable,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 4000, &units)
@@ -1050,6 +1053,7 @@ mod radar_tests {
             value_basis_points: Some(30_012),
             reasons: vec![ptt_workflows::RadarReason::BetterThanDirect],
             risk_flags: Vec::new(),
+            blocking_risks: Vec::new(),
             conversion_path: None,
             triangle: None,
         };
@@ -1122,7 +1126,7 @@ mod radar_tests {
         let item = ptt_workflows::RadarItem {
             item_id: "unpriced".to_owned(),
             kind: ptt_workflows::RadarItemKind::Triangle,
-            category: ptt_workflows::RadarCategory::ProbeRequired,
+            category: ptt_strategy::Actionability::ProbeRequired,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 11, &units)
@@ -1130,6 +1134,7 @@ mod radar_tests {
             value_basis_points: None,
             reasons: Vec::new(),
             risk_flags: Vec::new(),
+            blocking_risks: Vec::new(),
             conversion_path: None,
             triangle: None,
         };
@@ -1138,12 +1143,12 @@ mod radar_tests {
 ",
         );
         assert!(joined.contains("unpriced"), "{joined}");
-        assert!(joined.contains("capture more first"), "{joined}");
+        assert!(joined.contains("capture more before trusting"), "{joined}");
         let chinese = radar_item_lines(&item, UiLanguage::Chinese).join(
             "
 ",
         );
-        assert!(chinese.contains("先多抓几次"), "{chinese}");
+        assert!(chinese.contains("数据不够，先多抓几次"), "{chinese}");
     }
 
     /// A book with nothing in it must say so rather than error.
@@ -1253,6 +1258,50 @@ mod settlement_tests {
         assert!(
             joined.contains("100.00%"),
             "the loop doubles holdings — 10000bp: {joined}"
+        );
+    }
+
+    /// The risk ladder the radar shows is the strategy ladder, thresholds
+    /// included: raising the thin-liquidity bar above every stock in the
+    /// book must flag every leg — with the typed reason, not a category
+    /// downgrade alone.
+    #[test]
+    fn the_thin_liquidity_threshold_comes_from_settings() {
+        let observations = vec![
+            taker("divine-orb", "chaos-orb", (100, 1), 10_000_000),
+            taker("chaos-orb", "exalted-orb", (2, 1), 10_000_000),
+            taker("exalted-orb", "divine-orb", (1, 100), 10_000_000),
+        ];
+        let tuning = MarketTuning {
+            radar: ptt_settings::RadarTuning {
+                stake: 1_000,
+                ..Default::default()
+            },
+            risk: ptt_settings::RiskTuning {
+                thin_liquidity_stock: 20_000_000,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = opportunities_report(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &tuning,
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join(
+            "
+",
+        );
+        assert!(
+            joined.contains("thin liquidity"),
+            "every stock sits below the configured bar: {joined}"
+        );
+        assert!(
+            joined.contains("capture more before trusting"),
+            "a blocked item carries the ladder's verdict: {joined}"
         );
     }
 

@@ -25,9 +25,7 @@ use ptt_strategy::{
     PriceAnomalyKind,
 };
 use ptt_trade_engine::ExecutionRiskFlag;
-use ptt_workflows::{
-    FocusCoverageStatus, ProbePriority, ProbeReason, RadarCategory, RadarItemKind, RadarReason,
-};
+use ptt_workflows::{FocusCoverageStatus, ProbePriority, ProbeReason, RadarItemKind, RadarReason};
 
 /// Prose the reports assemble, in both interface languages.
 ///
@@ -610,14 +608,6 @@ pub const fn radar_item_kind(language: UiLanguage, value: RadarItemKind) -> &'st
 
 /// Whether a radar row can be acted on now.
 #[must_use]
-pub const fn radar_category(language: UiLanguage, value: RadarCategory) -> &'static str {
-    match value {
-        RadarCategory::Executable => pick(language, "executable now", "现在就能成交"),
-        RadarCategory::Theoretical => pick(language, "needs a taker", "要等人吃单"),
-        RadarCategory::ProbeRequired => pick(language, "capture more first", "先多抓几次"),
-    }
-}
-
 /// Why a radar row is on the list.
 #[must_use]
 pub const fn radar_reason(language: UiLanguage, value: RadarReason) -> &'static str {
@@ -824,14 +814,6 @@ mod tests {
         check!(
             radar_item_kind,
             [RadarItemKind::BestConversion, RadarItemKind::Triangle]
-        );
-        check!(
-            radar_category,
-            [
-                RadarCategory::Executable,
-                RadarCategory::Theoretical,
-                RadarCategory::ProbeRequired,
-            ]
         );
         check!(
             radar_reason,
