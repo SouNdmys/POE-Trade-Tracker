@@ -102,6 +102,18 @@ pub struct PairFill {
 struct PairDepth {
     primary: Option<EvaluatedQuoteEdge>,
     levels: Vec<EvaluatedQuoteEdge>,
+    /// Everything the panel listed on this side, rows the depth walk refuses
+    /// included.
+    ///
+    /// A separate number from `levels` because it answers a separate
+    /// question. `levels` is what a trade may be priced against, and the
+    /// aggregate row -- "this rate and everything past it" -- is rightly kept
+    /// out of it, since its rate is unknown. But that row is usually where
+    /// most of the currency is, and how much of a currency is on the market
+    /// is exactly what an opportunity has to be judged on. Reading liquidity
+    /// off the top level alone measures the thinnest row in the book: on a
+    /// live panel, 72 against the 2,831 actually listed.
+    listed_stock: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -163,10 +175,25 @@ impl MarketDepthIndex {
                         && candidate.observation.edge.context_key == selection.context_key
                 })
                 .cloned();
+            // Summed over every row the panel showed, not just the priceable
+            // ones: the listings a trade cannot be priced against are still
+            // currency sitting on the market, and the book refills behind
+            // them as other players list against the same rate.
+            let listed_stock = selected
+                .candidate_edges
+                .iter()
+                .filter(|candidate| candidate.observation.edge.context_key == selection.context_key)
+                .fold(0_u64, |total, candidate| {
+                    total.saturating_add(candidate.observation.edge.stock)
+                });
             if !levels.is_empty() {
                 pairs.insert(
                     (selected.from_asset_id.clone(), selected.to_asset_id.clone()),
-                    PairDepth { primary, levels },
+                    PairDepth {
+                        primary,
+                        levels,
+                        listed_stock,
+                    },
                 );
             }
         }
@@ -225,6 +252,17 @@ impl MarketDepthIndex {
             .filter(|(candidate, _)| candidate == from)
             .map(|(_, to)| to.clone())
             .collect()
+    }
+
+    /// Everything this pair has listed, across every row the panel showed.
+    ///
+    /// The market's own answer to "how much of this is going around", which
+    /// is what an opportunity is worth judging by. Deliberately not a
+    /// ceiling: listings are replaced as they are taken, and the reader's own
+    /// holdings are not this layer's business either.
+    #[must_use]
+    pub fn listed_liquidity(&self, from: &MarketAssetId, to: &MarketAssetId) -> Option<u64> {
+        Some(self.pairs.get(&(from.clone(), to.clone()))?.listed_stock)
     }
 
     /// The best rate this pair is showing, and the stock behind it.

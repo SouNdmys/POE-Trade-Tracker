@@ -39,7 +39,10 @@ pub struct RateLeg {
     pub from_asset_id: MarketAssetId,
     pub to_asset_id: MarketAssetId,
     pub rate: Ratio,
+    /// What the best row alone is showing.
     pub top_stock: u64,
+    /// What the whole side is showing, aggregate row included.
+    pub listed_stock: u64,
 }
 
 /// A path's rates, multiplied out exactly.
@@ -85,17 +88,47 @@ impl RateChain {
         self.numerator > self.denominator
     }
 
-    /// How much of the start asset the thinnest leg supports, in whole units.
+    /// How liquid this route is, in whole units of its start asset.
     ///
-    /// The market's own answer to "how far does this go", carried back to the
-    /// start through the rates ahead of it. It bounds the trade the same way
-    /// the panel does — by what is listed — and says nothing about what the
-    /// reader can afford, which is not this layer's business.
+    /// The thinnest leg decides, because a loop moves no more freely than its
+    /// narrowest currency, and each leg is measured by everything its side
+    /// has listed rather than by its best row alone. The best row is the
+    /// thinnest part of any book — a seller at the front of the queue is
+    /// giving up margin for speed and rarely has much to give up — so reading
+    /// liquidity there measures impatience, not circulation. Capturing all
+    /// six rows is what makes the difference visible: on one live panel the
+    /// front row showed 72 against 2,831 listed behind it.
+    ///
+    /// Not a ceiling on the trade. Listings are replaced as they are taken,
+    /// and other players list against the same rates, so this is an estimate
+    /// of how much of the currency is going around — the thing that decides
+    /// whether an edge is worth acting on — rather than a limit on size.
     ///
     /// `None` when the arithmetic would overflow, which is a market deeper
     /// than any trade rather than a failure to answer.
     #[must_use]
+    pub fn liquidity(&self) -> Option<u64> {
+        self.thinnest_leg(|leg| leg.listed_stock)
+    }
+
+    /// The largest input that stays on the rates this chain was priced from,
+    /// in whole units of the start asset.
+    ///
+    /// A size, which [`Self::liquidity`] deliberately is not. Judging an
+    /// opportunity and sizing a walk of it are different questions and the
+    /// same number cannot answer both: circulation counts every listing on
+    /// the side, including the aggregate row whose rate is unknown, so a walk
+    /// sized from it runs off the end of the prices it was told about and
+    /// comes back a partial fill. This counts only the front row, which is
+    /// exactly as far as the quoted rate is good for.
+    #[must_use]
     pub fn top_of_book_capacity(&self) -> Option<u64> {
+        self.thinnest_leg(|leg| leg.top_stock)
+    }
+
+    /// The binding leg under one measure of a leg's stock, carried back to
+    /// the start asset through the rates ahead of it.
+    fn thinnest_leg(&self, stock_of: impl Fn(&RateLeg) -> u64) -> Option<u64> {
         let mut capacity: Option<u128> = None;
         // Rate product from the start up to (not including) this leg, so a
         // leg's stock can be converted back into start-asset units.
@@ -106,7 +139,7 @@ impl RateChain {
             // one unit of its input buys `rate` of -- so the input it can
             // absorb is `stock * rate.denominator / rate.numerator`, and the
             // start-asset amount that reaches it inverts the prefix.
-            let leg_input = u128::from(leg.top_stock)
+            let leg_input = u128::from(stock_of(leg))
                 .checked_mul(u128::from(leg.rate.denominator))?
                 / u128::from(leg.rate.numerator).max(1);
             let at_start = leg_input.checked_mul(denominator)? / numerator.max(1);
@@ -125,9 +158,9 @@ impl RateChain {
 ///
 /// Every leg is the top of its book, because that is the rate a trade would
 /// actually get: the exchange fills against the best listing available, not
-/// against the one the trader named. Depth beyond the top level changes how
-/// *much* can be done, not whether an edge exists, and it is reported
-/// separately by [`RateChain::top_of_book_capacity`].
+/// against the one the trader named. How much of the currency is going around
+/// is a separate question from what it costs, and it is reported
+/// separately by [`RateChain::liquidity`].
 pub fn chain_rates(
     index: &MarketDepthIndex,
     path: &[MarketAssetId],
@@ -159,6 +192,7 @@ pub fn chain_rates(
         let Some((rate, top_stock)) = index.top_of_book(from, to) else {
             return Ok(None);
         };
+        let listed_stock = index.listed_liquidity(from, to).unwrap_or(top_stock);
         numerator = numerator
             .checked_mul(u128::from(rate.numerator))
             .and_then(|value| value.checked_mul(fee_retained))
@@ -178,6 +212,7 @@ pub fn chain_rates(
             to_asset_id: to.clone(),
             rate,
             top_stock,
+            listed_stock,
         });
     }
     Ok(Some(RateChain {
@@ -216,6 +251,7 @@ mod tests {
                     to_asset_id: MarketAssetId::try_new(format!("a{}", index + 1)).expect("asset"),
                     rate: Ratio::from_parts(*rate_numerator, *rate_denominator).expect("rate"),
                     top_stock: *stock,
+                    listed_stock: *stock,
                 }
             })
             .collect();
@@ -263,21 +299,43 @@ mod tests {
         assert_eq!(cycle.basis_points(), -5_000);
     }
 
+    /// Judging a route and sizing a walk of it are different measurements.
+    ///
+    /// The regression this pins, in miniature: liquidity counts every listing
+    /// on the side — most of a panel's currency sits in the aggregate row,
+    /// whose rate is unknown — while the walk may only use the front row's
+    /// stock, because that is as far as the quoted rate is good for. Sizing
+    /// the walk from liquidity ran every cycle off the end of its own prices
+    /// and turned nine opportunities into none.
+    #[test]
+    fn liquidity_counts_the_whole_side_and_the_walk_size_only_the_front_row() {
+        let mut path = chain(&[(1, 1), (1, 1)], &[10, 10]);
+        // The front row is thin and the rest of the side is deep, which is
+        // the usual shape: a seller at the front of the queue is trading
+        // margin for speed and has little to trade.
+        for leg in &mut path.legs {
+            leg.top_stock = 10;
+            leg.listed_stock = 2_831;
+        }
+        assert_eq!(path.top_of_book_capacity(), Some(10));
+        assert_eq!(path.liquidity(), Some(2_831));
+    }
+
     /// Capacity is the thinnest leg, carried back to the start asset.
     ///
     /// A market fact — how far the listed rates go — and deliberately not a
     /// statement about the reader's holdings, which this layer never sees.
     #[test]
-    fn capacity_is_the_thinnest_leg_expressed_in_the_start_asset() {
+    fn liquidity_is_the_thinnest_leg_expressed_in_the_start_asset() {
         // Leg one doubles and shows 100 of its payout, so it absorbs 50 of
         // the start. Leg two shows 40 of its payout at 1:1, so it absorbs 40
         // of leg one's output -- which is 20 of the start, and the binding
         // constraint.
         let path = chain(&[(2, 1), (1, 1)], &[100, 40]);
-        assert_eq!(path.top_of_book_capacity(), Some(20));
+        assert_eq!(path.liquidity(), Some(20));
 
         // Widen the second leg and the first one binds instead.
         let wider = chain(&[(2, 1), (1, 1)], &[100, 400]);
-        assert_eq!(wider.top_of_book_capacity(), Some(50));
+        assert_eq!(wider.liquidity(), Some(50));
     }
 }

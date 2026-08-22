@@ -52,8 +52,10 @@ pub struct TriangleEvaluation {
     /// at every size and none of them is the market's. See
     /// [`crate::rate_space`].
     pub rate_chain: Option<RateChain>,
-    /// How much of the start asset the shown rates support, in whole units.
-    /// A fact about the panel, never about the reader's holdings.
+    /// How much of this loop's currencies the market is showing, in whole
+    /// units of the start asset, measured across every listed row rather than
+    /// the front one. An estimate of circulation, not a ceiling on the trade:
+    /// listings are replaced as they are taken.
     pub liquidity_capacity: Option<u64>,
     pub status: TriangleEvaluationStatus,
     pub risk_flags: Vec<ExecutionRiskFlag>,
@@ -286,6 +288,12 @@ fn evaluate_cycle(
     let cycle_asset_ids = closed_path(nodes);
     let liquidity_capacity = rate_chain
         .as_ref()
+        .and_then(crate::rate_space::RateChain::liquidity);
+    // Sized by what the quoted rates cover, judged by what is circulating.
+    // The two are different numbers and using the second as the first walks
+    // the cycle past the prices it was priced from.
+    let executable = rate_chain
+        .as_ref()
         .and_then(crate::rate_space::RateChain::top_of_book_capacity);
     // Sized from the book when the caller named no size: as far as the
     // thinnest leg goes and no further, so the walk stays on the rates the
@@ -294,7 +302,7 @@ fn evaluate_cycle(
         Some(amount_in) => amount_in.clone(),
         None => AssetAmount::from_whole_units(
             request.start_asset_id.clone(),
-            liquidity_capacity.unwrap_or(0).max(1),
+            executable.unwrap_or(0).max(1),
             index.units(),
         )?,
     };

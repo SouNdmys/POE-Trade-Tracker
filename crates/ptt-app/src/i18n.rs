@@ -242,8 +242,10 @@ pub struct Text {
     pub radar_column_route: &'static str,
     pub radar_column_edge: &'static str,
     pub radar_column_out: &'static str,
-    /// How much of the settlement anchor the shown rates support. The list's
-    /// primary sort key, so it has to be on screen.
+    /// How much of the route's currencies the market is showing, in the
+    /// settlement anchor. The list's primary sort key, so it has to be on
+    /// screen — and named for circulation rather than for a ceiling, because
+    /// listings are replaced as they are taken.
     pub radar_column_depth: &'static str,
     pub radar_column_verdict: &'static str,
     pub radar_column_light: &'static str,
@@ -559,7 +561,7 @@ pub static ENGLISH: Text = Text {
     radar_column_route: "route",
     radar_column_edge: "edge",
     radar_column_out: "out",
-    radar_column_depth: "depth",
+    radar_column_depth: "liquidity",
     radar_column_verdict: "verdict",
     radar_column_light: "data",
     radar_column_risks: "risks",
@@ -718,7 +720,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     radar_column_route: "路径",
     radar_column_edge: "收益",
     radar_column_out: "得到",
-    radar_column_depth: "可成交",
+    radar_column_depth: "流动性",
     radar_column_verdict: "可执行性",
     radar_column_light: "数据",
     radar_column_risks: "风险",

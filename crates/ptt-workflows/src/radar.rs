@@ -157,13 +157,15 @@ pub struct RadarItem {
     pub amount_in: AssetAmount,
     pub amount_out: AssetAmount,
     pub value_basis_points: Option<i64>,
-    /// How much of the settlement anchor this route's shown rates support.
+    /// How much of this route's currencies the market is showing, in the
+    /// settlement anchor.
     ///
     /// Expressed in the anchor rather than in each route's own start asset so
     /// that rows are comparable: ten divine and ten chaos are not the same
-    /// depth, and a list sorted on the raw numbers puts every chaos-started
-    /// row above every divine-started one for no reason but the unit. A fact
-    /// about the panel; nothing here knows what the reader owns.
+    /// liquidity, and a list sorted on the raw numbers puts every
+    /// chaos-started row above every divine-started one for no reason but the
+    /// unit. An estimate of what is circulating, not a limit on the trade;
+    /// nothing here knows what the reader owns.
     pub liquidity_capacity: Option<u64>,
     pub reasons: Vec<RadarReason>,
     pub risk_flags: Vec<ExecutionRiskFlag>,
@@ -628,15 +630,15 @@ fn restrict_selection(
     restricted
 }
 
-/// A path's top-of-book depth, restated in the settlement anchor.
+/// A path's liquidity, restated in the settlement anchor.
 ///
-/// Depth is what decides between two profitable rows, so it has to be one
+/// Liquidity is what decides between two profitable rows, so it has to be one
 /// number in one currency. Measured in each path's own start asset it is not:
 /// the same trade reads eleven times larger started from chaos than from
 /// divine, and a list sorted on that ranks by unit rather than by market.
 ///
 /// `None` when the chain or the conversion to the anchor cannot be formed,
-/// which sorts last — an unknown depth is not a deep one.
+/// which sorts last — an unknown liquidity is not a deep one.
 fn anchor_capacity(
     index: &MarketDepthIndex,
     path: &[MarketAssetId],
@@ -646,7 +648,7 @@ fn anchor_capacity(
     let capacity = chain_rates(index, path, fee_policy)
         .ok()
         .flatten()?
-        .top_of_book_capacity()?;
+        .liquidity()?;
     let start = path.first()?;
     if start == anchor {
         return Some(capacity);
