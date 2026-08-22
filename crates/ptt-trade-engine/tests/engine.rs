@@ -399,6 +399,7 @@ fn none_fee_keeps_gross_theory_and_armed_skew_gate_passes_zero_skew() {
             start_asset_id: asset("a"),
             amount_in: Some(amount("a", 100, &catalog)),
             minimum_profit_basis_points: 1,
+            max_cycle_length: 4,
             max_results: 10,
             max_evaluations: 10,
             fee_policy: FeePolicy::None,
@@ -822,6 +823,7 @@ fn triangle_reuses_multi_level_depth_for_all_three_legs() {
             start_asset_id: asset("a"),
             amount_in: Some(amount("a", 10, &catalog)),
             minimum_profit_basis_points: 100,
+            max_cycle_length: 4,
             max_results: 10,
             max_evaluations: 100,
             fee_policy: FeePolicy::None,
@@ -880,6 +882,7 @@ fn partial_triangle_reports_residuals_and_never_claims_profit() {
             start_asset_id: asset("a"),
             amount_in: Some(amount("a", 10, &catalog)),
             minimum_profit_basis_points: 1,
+            max_cycle_length: 4,
             max_results: 10,
             max_evaluations: 10,
             fee_policy: FeePolicy::None,
@@ -937,6 +940,7 @@ fn unknown_fee_triangle_is_labeled_gross_theory_not_net_execution() {
             start_asset_id: asset("a"),
             amount_in: Some(amount("a", 100, &catalog)),
             minimum_profit_basis_points: 1,
+            max_cycle_length: 4,
             max_results: 10,
             max_evaluations: 10,
             fee_policy: FeePolicy::Unknown,
@@ -996,6 +1000,7 @@ fn known_per_leg_fee_can_erase_a_gross_triangle_opportunity() {
             start_asset_id: asset("a"),
             amount_in: Some(amount("a", 100, &catalog)),
             minimum_profit_basis_points: 1,
+            max_cycle_length: 4,
             max_results: 10,
             max_evaluations: 10,
             fee_policy: FeePolicy::OutputFraction {
@@ -1059,6 +1064,7 @@ fn cancelled_triangle_search_stops_before_evaluation() {
                 start_asset_id: asset("a"),
                 amount_in: Some(amount("a", 1, &catalog)),
                 minimum_profit_basis_points: 1,
+                max_cycle_length: 4,
                 max_results: 10,
                 max_evaluations: 10,
                 fee_policy: FeePolicy::None,
@@ -1264,5 +1270,80 @@ fn a_priced_chain_is_reachable_whatever_the_stake_and_a_fenced_one_is_not() {
     assert!(
         !index.is_priced_route(&asset("a"), &asset("d"), None, 3),
         "nothing quotes d at all"
+    );
+}
+
+/// A four-asset loop is found, and a shorter one is preferred over it.
+///
+/// The program's subject is the closed loop, whatever its length: `a -> b ->
+/// c -> a` and `a -> b -> c -> d -> a` are the same kind of thing and only
+/// one of them used to be looked for. Length still matters to the ranking
+/// though, and in the opposite direction to the search: each extra leg is
+/// another trade to place by hand and another interval for the rates to move,
+/// so between two otherwise equal loops the shorter one wins.
+#[test]
+fn a_four_asset_loop_is_found_and_a_shorter_equal_one_outranks_it() {
+    let catalog = whole_catalog(&["a", "b", "c", "d"]);
+    let pair = |from: &'static str, to: &'static str, rate: &'static str, stock: u64| PairSpec {
+        from,
+        to,
+        levels: vec![LevelSpec {
+            id: Box::leak(format!("edge-{from}-{to}").into_boxed_str()),
+            rate,
+            stock,
+        }],
+    };
+    // Only b -> c -> d -> a closes the long way; there is no c -> a, so the
+    // loop cannot be found at all unless four-asset cycles are enumerated.
+    let index = index(
+        QuoteSelectionStrategy::Instant,
+        catalog,
+        vec![
+            pair("a", "b", "2:1", 10_000),
+            pair("b", "c", "2:1", 10_000),
+            pair("c", "d", "2:1", 10_000),
+            pair("d", "a", "1:6", 10_000),
+        ],
+    );
+    let result = find_triangle_opportunities(
+        &index,
+        &TriangleRequest {
+            start_asset_id: asset("a"),
+            amount_in: None,
+            minimum_profit_basis_points: 1,
+            max_cycle_length: 4,
+            max_results: 10,
+            max_evaluations: 1_000,
+            fee_policy: FeePolicy::None,
+        },
+        &SearchCancellation::default(),
+    )
+    .expect("cycles");
+    let found = result
+        .opportunities
+        .iter()
+        .find(|cycle| cycle.cycle_asset_ids.len() == 5)
+        .expect("the four-asset loop");
+    // 2 x 2 x 2 x 1/6 = 4/3, a third up on the way round.
+    assert_eq!(found.edge_basis_points(), 3_333);
+
+    // Held to three, the same book yields nothing: the loop is four long.
+    let short = find_triangle_opportunities(
+        &index,
+        &TriangleRequest {
+            start_asset_id: asset("a"),
+            amount_in: None,
+            minimum_profit_basis_points: 1,
+            max_cycle_length: 3,
+            max_results: 10,
+            max_evaluations: 1_000,
+            fee_policy: FeePolicy::None,
+        },
+        &SearchCancellation::default(),
+    )
+    .expect("cycles");
+    assert!(
+        short.opportunities.is_empty(),
+        "no three-asset loop exists in this book"
     );
 }

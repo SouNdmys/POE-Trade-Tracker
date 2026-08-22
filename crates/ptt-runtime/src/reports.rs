@@ -2193,7 +2193,7 @@ mod radar_tests {
         .expect("units");
         let item = ptt_workflows::RadarItem {
             item_id: "unpriced".to_owned(),
-            kind: ptt_workflows::RadarItemKind::Triangle,
+            kind: ptt_workflows::RadarItemKind::Loop,
             category: ptt_strategy::Actionability::ProbeRequired,
             path_asset_ids: path.clone(),
             amount_in: AssetAmount::from_whole_units(asset("divine-orb"), 10, &units).expect("in"),
@@ -2337,13 +2337,13 @@ mod settlement_tests {
             joined.contains("staking 1000 divine-orb, chaos-orb"),
             "both settlement currencies must be scanned from: {joined}"
         );
-        // The kind column, not the word: reason lines also say "triangle".
-        let triangle_lines = lines
+        // The kind column, not the word: reason lines also say "loop".
+        let loop_lines = lines
             .iter()
-            .filter(|line| line.contains("  triangle  "))
+            .filter(|line| line.contains("  loop  "))
             .count();
         assert_eq!(
-            triangle_lines, 1,
+            loop_lines, 1,
             "one physical loop must appear exactly once: {joined}"
         );
         assert!(

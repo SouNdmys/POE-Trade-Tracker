@@ -106,7 +106,7 @@ fn density_rows(count: usize) -> Vec<OpportunityRow> {
                 item: RadarItem {
                     item_id: format!("preview-{index}"),
                     kind: if triangle {
-                        RadarItemKind::Triangle
+                        RadarItemKind::Loop
                     } else {
                         RadarItemKind::BestConversion
                     },
@@ -121,7 +121,7 @@ fn density_rows(count: usize) -> Vec<OpportunityRow> {
                     // is visible in the gallery rather than only in a test.
                     liquidity_capacity: (index % 5 != 4).then(|| (index as u64 % 17) * 250 + 5),
                     reasons: if triangle {
-                        vec![RadarReason::TriangleReturn]
+                        vec![RadarReason::LoopReturn]
                     } else {
                         vec![RadarReason::BetterThanDirect]
                     },

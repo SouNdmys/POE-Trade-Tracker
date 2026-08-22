@@ -86,6 +86,15 @@ pub struct TriangleRequest {
     /// cycle is walked exactly as far as its own thinnest leg allows.
     pub amount_in: Option<AssetAmount>,
     pub minimum_profit_basis_points: u32,
+    /// The most assets one cycle may pass through, the start included.
+    ///
+    /// Three is a triangle; four adds the `a -> b -> c -> d -> a` shape, and
+    /// so on. Longer is not automatically better — every extra leg is another
+    /// trade to place by hand and another interval for the rates to move —
+    /// which is why leg count is part of the ranking rather than only of the
+    /// search. Values below three are raised to three; the enumeration is
+    /// bounded by `max_evaluations` regardless.
+    pub max_cycle_length: u8,
     pub max_results: u16,
     pub max_evaluations: u32,
     pub fee_policy: FeePolicy,
@@ -112,35 +121,53 @@ pub fn find_triangle_opportunities(
     request.fee_policy = index.effective_fee_policy(request.fee_policy);
     let mut evaluations = Vec::new();
     let mut truncated = false;
-    'outer: for middle_a in index.neighbors(&request.start_asset_id) {
+    let budget =
+        usize::try_from(request.max_evaluations).map_err(|_| EngineError::NumericOverflow)?;
+    let mut considered = 0_usize;
+    // Depth-first over the priced graph, closing back onto the start, for
+    // cycles of any length up to `max_cycle_length`. The graph is what a
+    // person captured rather than a whole market, so it is sparse -- around
+    // three onward pairs per asset on a live book -- and the walk stays small
+    // enough that every closed cycle can be evaluated in full. Skipping the
+    // unprofitable ones would buy little and would cost the rejection list
+    // its reasons, which is what makes a scan auditable.
+    let mut path: Vec<MarketAssetId> = vec![request.start_asset_id.clone()];
+    // An explicit stack rather than recursion, so the cycle length is a
+    // number rather than a nesting depth in the source.
+    let mut pending: Vec<Vec<MarketAssetId>> = vec![index.neighbors(&request.start_asset_id)];
+    'outer: while let Some(candidates) = pending.last_mut() {
+        let Some(next) = candidates.pop() else {
+            pending.pop();
+            path.pop();
+            continue;
+        };
         if cancellation.is_cancelled() {
             return Err(EngineError::Cancelled);
         }
-        if middle_a == request.start_asset_id {
+        if path.contains(&next) {
             continue;
         }
-        for middle_b in index.neighbors(&middle_a) {
-            if cancellation.is_cancelled() {
-                return Err(EngineError::Cancelled);
-            }
-            if middle_b == request.start_asset_id || middle_b == middle_a {
-                continue;
-            }
-            if !index.contains_pair(&middle_b, &request.start_asset_id) {
-                continue;
-            }
-            if evaluations.len()
-                >= usize::try_from(request.max_evaluations)
-                    .map_err(|_| EngineError::NumericOverflow)?
-            {
+        path.push(next);
+        let hops = path.len();
+        if hops >= 3
+            && index.contains_pair(path.last().expect("pushed above"), &request.start_asset_id)
+        {
+            considered += 1;
+            if considered > budget {
                 truncated = true;
                 break 'outer;
             }
-            evaluations.push(evaluate_cycle(
-                index,
-                &request,
-                [&request.start_asset_id, &middle_a, &middle_b],
-            )?);
+            let nodes: Vec<&MarketAssetId> = path.iter().collect();
+            let closed = closed_path(&nodes);
+            // Priced once here and handed to the walk, which needs it for the
+            // verdict and must not compute it twice.
+            let rate_chain = crate::rate_space::chain_rates(index, &closed, request.fee_policy)?;
+            evaluations.push(evaluate_cycle(index, &request, &nodes, rate_chain)?);
+        }
+        if hops < usize::from(request.max_cycle_length.max(3)) {
+            pending.push(index.neighbors(path.last().expect("pushed above")));
+        } else {
+            path.pop();
         }
     }
 
@@ -240,20 +267,23 @@ impl TriangleEvaluation {
     }
 }
 
+/// The nodes of a cycle written out as a closed path: the distinct assets in
+/// order, with the start repeated at the end.
+fn closed_path(nodes: &[&MarketAssetId]) -> Vec<MarketAssetId> {
+    let mut path: Vec<MarketAssetId> = nodes.iter().map(|node| (*node).clone()).collect();
+    if let Some(start) = nodes.first() {
+        path.push((*start).clone());
+    }
+    path
+}
+
 fn evaluate_cycle(
     index: &MarketDepthIndex,
     request: &TriangleRequest,
-    nodes: [&MarketAssetId; 3],
+    nodes: &[&MarketAssetId],
+    rate_chain: Option<RateChain>,
 ) -> Result<TriangleEvaluation, EngineError> {
-    let cycle_asset_ids = vec![
-        nodes[0].clone(),
-        nodes[1].clone(),
-        nodes[2].clone(),
-        nodes[0].clone(),
-    ];
-    // The rates first, exactly, with nothing to do with size — this is the
-    // verdict. The walk below only puts numbers and risks on it.
-    let rate_chain = crate::rate_space::chain_rates(index, &cycle_asset_ids, request.fee_policy)?;
+    let cycle_asset_ids = closed_path(nodes);
     let liquidity_capacity = rate_chain
         .as_ref()
         .and_then(crate::rate_space::RateChain::top_of_book_capacity);
@@ -269,9 +299,11 @@ fn evaluate_cycle(
         )?,
     };
     let mut current = amount_in.clone();
-    let mut steps = Vec::with_capacity(3);
+    let mut steps = Vec::with_capacity(nodes.len());
     let mut residuals = Vec::new();
-    for (index_of_step, target) in [nodes[1], nodes[2], nodes[0]].into_iter().enumerate() {
+    // Each hop in turn, closing back onto the start.
+    let hops: Vec<&MarketAssetId> = cycle_asset_ids.iter().skip(1).collect();
+    for (index_of_step, target) in hops.into_iter().enumerate() {
         let fill = index
             .fill_pair(&current, target, request.fee_policy)?
             .ok_or(EngineError::InvalidQuoteSelection)?;
@@ -291,7 +323,8 @@ fn evaluate_cycle(
             break;
         }
     }
-    let is_fully_filled = steps.len() == 3 && steps.iter().all(|step| step.is_fully_filled);
+    let is_fully_filled =
+        steps.len() == nodes.len() && steps.iter().all(|step| step.is_fully_filled);
     let mut risks = steps
         .iter()
         .flat_map(|step| step.risk_flags.iter().copied())
@@ -432,6 +465,9 @@ fn compare_evaluations(left: &TriangleEvaluation, right: &TriangleEvaluation) ->
                 .cmp(&left.liquidity_capacity.unwrap_or(0))
         })
         .then_with(|| right.edge_basis_points().cmp(&left.edge_basis_points()))
+        // Fewer legs when the rest is level: every extra hop is another trade
+        // to place by hand and another interval in which the rates can move.
+        .then_with(|| left.cycle_asset_ids.len().cmp(&right.cycle_asset_ids.len()))
         .then_with(|| right.amount_out.quanta.cmp(&left.amount_out.quanta))
         .then_with(|| left.cycle_asset_ids.cmp(&right.cycle_asset_ids))
 }

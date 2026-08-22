@@ -85,6 +85,7 @@ pub fn pair_analysis_lines(
                 &unit_catalog,
             )?),
             minimum_profit_basis_points: 10,
+            max_cycle_length: 4,
             max_results: 3,
             max_evaluations: 50_000,
             fee_policy: FeePolicy::None,

@@ -38,7 +38,11 @@ pub struct RadarProgress {
 #[serde(rename_all = "snake_case")]
 pub enum RadarItemKind {
     BestConversion,
-    Triangle,
+    /// A closed loop back to the currency it started from, of any length.
+    /// Named for what it is rather than for how many corners it has: three
+    /// and four asset loops are the same kind of opportunity and only the
+    /// leg count differs.
+    Loop,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -46,7 +50,8 @@ pub enum RadarItemKind {
 pub enum RadarReason {
     BetterThanDirect,
     NoDirectBaseline,
-    TriangleReturn,
+    /// The route ends where it started, whatever its length.
+    LoopReturn,
     GrossTheoryOnly,
     ResidualInventory,
     MakerReference,
@@ -445,6 +450,7 @@ pub fn run_opportunity_radar(
                 // Each cycle takes its own size from its thinnest leg.
                 amount_in: None,
                 minimum_profit_basis_points: request.minimum_triangle_profit_basis_points,
+                max_cycle_length: 4,
                 max_results: request.max_results,
                 max_evaluations: per_start_evaluations,
                 fee_policy: request.fee_policy,
@@ -688,7 +694,7 @@ fn triangle_item(
     liquidity_capacity: Option<u64>,
 ) -> RadarItem {
     let assessment = assess_triangle(&triangle, thresholds, false);
-    let mut reasons = vec![RadarReason::TriangleReturn];
+    let mut reasons = vec![RadarReason::LoopReturn];
     if !triangle.execution_eligible {
         reasons.push(RadarReason::GrossTheoryOnly);
     }
@@ -706,7 +712,7 @@ fn triangle_item(
                 .collect::<Vec<_>>()
                 .join("-")
         ),
-        kind: RadarItemKind::Triangle,
+        kind: RadarItemKind::Loop,
         category: assessment.actionability,
         path_asset_ids: triangle.cycle_asset_ids.clone(),
         amount_in: triangle.amount_in.clone(),

@@ -356,6 +356,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 start_asset_id: start.clone(),
                 amount_in: Some(AssetAmount::from_whole_units(start.clone(), 10, &units)?),
                 minimum_profit_basis_points: 1,
+                max_cycle_length: 4,
                 max_results: 10,
                 max_evaluations: 100_000,
                 fee_policy: FeePolicy::None,

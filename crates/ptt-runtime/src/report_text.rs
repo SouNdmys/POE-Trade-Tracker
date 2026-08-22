@@ -749,7 +749,7 @@ pub const fn probe_reason(language: UiLanguage, value: ProbeReason) -> &'static 
 pub const fn radar_item_kind(language: UiLanguage, value: RadarItemKind) -> &'static str {
     match value {
         RadarItemKind::BestConversion => pick(language, "best conversion", "最优兑换"),
-        RadarItemKind::Triangle => pick(language, "triangle", "三角环"),
+        RadarItemKind::Loop => pick(language, "loop", "闭环"),
     }
 }
 
@@ -759,7 +759,7 @@ pub const fn radar_reason(language: UiLanguage, value: RadarReason) -> &'static 
     match value {
         RadarReason::BetterThanDirect => pick(language, "better than direct", "优于直兑"),
         RadarReason::NoDirectBaseline => pick(language, "no direct baseline", "没有直兑基准"),
-        RadarReason::TriangleReturn => pick(language, "triangle return", "三角回环收益"),
+        RadarReason::LoopReturn => pick(language, "loop return", "闭环收益"),
         RadarReason::GrossTheoryOnly => pick(language, "gross theory only", "仅理论毛利"),
         RadarReason::ResidualInventory => pick(language, "residual inventory", "有零头库存"),
         RadarReason::MakerReference => pick(language, "maker reference", "挂单参考价"),
@@ -970,14 +970,14 @@ mod tests {
         );
         check!(
             radar_item_kind,
-            [RadarItemKind::BestConversion, RadarItemKind::Triangle]
+            [RadarItemKind::BestConversion, RadarItemKind::Loop]
         );
         check!(
             radar_reason,
             [
                 RadarReason::BetterThanDirect,
                 RadarReason::NoDirectBaseline,
-                RadarReason::TriangleReturn,
+                RadarReason::LoopReturn,
                 RadarReason::GrossTheoryOnly,
                 RadarReason::ResidualInventory,
                 RadarReason::MakerReference,
