@@ -1170,12 +1170,16 @@ pub fn opportunities_model(
     let budget_expansions =
         u32::try_from(tuning.radar.max_total_expansions.clamp(1, 1_000_000)).unwrap_or(60_000);
     let max_results = u16::try_from(tuning.radar.max_results.clamp(1, 500)).unwrap_or(12);
+    // Three is the shortest loop that exists; past that the graph limits the
+    // walk long before the bound does.
+    let max_cycle_length = u8::try_from(tuning.radar.max_cycle_length.clamp(3, 12)).unwrap_or(6);
     let request = RadarRequest {
         context_key: context_key.to_owned(),
         starts,
         minimum_conversion_improvement_basis_points: minimum_bps,
         minimum_triangle_profit_basis_points: minimum_bps,
         max_hops: 3,
+        max_cycle_length,
         max_paths_per_target: 32,
         max_expansions_per_target: 4_000,
         budget: RadarBudget {
@@ -1858,6 +1862,51 @@ pub fn debug_radar(
                 target.as_str(),
                 market.units.contains(target),
                 scope.intermediate_asset_ids.contains(target),
+            );
+        }
+    }
+
+    // How the cycle walk actually grows with its length bound, on this book
+    // rather than in the abstract. The captured graph is hub-and-spoke --
+    // most currencies are only ever priced against the settlement pair -- so
+    // the exponent that a complete market would carry is not the one here,
+    // and the only way to know where the knee is is to walk it.
+    {
+        let index =
+            MarketDepthIndex::try_from_selection(&market.instant_selection, market.units.clone())
+                .map_err(|error| format!("index: {error:?}"))?;
+        for length in 3..=7u8 {
+            let started = std::time::Instant::now();
+            let mut found = 0usize;
+            let mut profitable = 0usize;
+            for start in &policy.core_liquidity {
+                let result = ptt_trade_engine::find_triangle_opportunities(
+                    &index,
+                    &ptt_trade_engine::TriangleRequest {
+                        start_asset_id: start.clone(),
+                        amount_in: None,
+                        minimum_profit_basis_points: 100,
+                        max_cycle_length: length,
+                        max_results: 500,
+                        max_evaluations: 1_000_000,
+                        fee_policy: FeePolicy::None,
+                    },
+                    &SearchCancellation::default(),
+                );
+                match result {
+                    Ok(result) => {
+                        found += result.diagnostics.evaluated_cycle_count as usize;
+                        profitable += result.opportunities.len();
+                    }
+                    Err(error) => {
+                        println!("  length {length}: {error:?}");
+                        break;
+                    }
+                }
+            }
+            println!(
+                "cycle length <= {length}: {found} cycles walked, {profitable} profitable, {:.0}ms",
+                started.elapsed().as_secs_f64() * 1e3
             );
         }
     }

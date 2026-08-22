@@ -314,6 +314,21 @@ pub struct RadarTuning {
     /// Opportunities below this margin are reported as rejections, not items.
     #[serde(default = "default_minimum_profit_basis_points")]
     pub minimum_profit_basis_points: u64,
+    /// The most currencies one closed loop may pass through.
+    ///
+    /// Six rather than four because the graph, not the bound, is what limits
+    /// this: a captured book is hub-and-spoke -- on a live one, 78% of pairs
+    /// touch a settlement currency and 43 of 60 assets have two onward pairs
+    /// or fewer -- so a loop has to alternate between the handful of hubs and
+    /// cannot keep going. Measured on that book, lengths five, six and seven
+    /// walk exactly the same 420 cycles as four does, in the same 7ms. The
+    /// headroom costs nothing today and is there for a denser book.
+    #[serde(default = "default_radar_max_cycle_length")]
+    pub max_cycle_length: u64,
+}
+
+fn default_radar_max_cycle_length() -> u64 {
+    6
 }
 
 fn default_radar_stake() -> u64 {
@@ -336,6 +351,7 @@ impl Default for RadarTuning {
             max_total_expansions: default_radar_expansions(),
             max_results: default_radar_results(),
             minimum_profit_basis_points: default_minimum_profit_basis_points(),
+            max_cycle_length: default_radar_max_cycle_length(),
         }
     }
 }

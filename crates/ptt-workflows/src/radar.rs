@@ -84,6 +84,8 @@ pub struct RadarRequest {
     pub minimum_conversion_improvement_basis_points: u32,
     pub minimum_triangle_profit_basis_points: u32,
     pub max_hops: u8,
+    /// The most currencies one closed loop may pass through.
+    pub max_cycle_length: u8,
     pub max_paths_per_target: u32,
     /// Ceiling on the search each single target may consume.
     pub max_expansions_per_target: u32,
@@ -184,6 +186,14 @@ pub struct RadarDiagnostics {
     /// one is "go capture that pair" and to the other is "trade bigger".
     pub unfillable_conversion_count: u32,
     pub triangle_evaluation_count: u32,
+    /// Closed loops that clear the profit floor.
+    ///
+    /// Reported whether or not they fit in `max_results`, and independent of
+    /// anything the reader owns: "there are nine loops worth doing" is the
+    /// answer to a question the ranked list alone cannot give, because the
+    /// list is cut to a page and the reader is choosing how much of their own
+    /// money to commit.
+    pub profitable_loop_count: u32,
     pub item_count_before_limit: u32,
     /// State expansions the conversion scan consumed.
     pub expansions_used: u32,
@@ -450,7 +460,7 @@ pub fn run_opportunity_radar(
                 // Each cycle takes its own size from its thinnest leg.
                 amount_in: None,
                 minimum_profit_basis_points: request.minimum_triangle_profit_basis_points,
-                max_cycle_length: 4,
+                max_cycle_length: request.max_cycle_length,
                 max_results: request.max_results,
                 max_evaluations: per_start_evaluations,
                 fee_policy: request.fee_policy,
@@ -516,6 +526,14 @@ pub fn run_opportunity_radar(
         total_units,
     });
     items.sort_by(compare_items);
+    // Counted before the page limit, because the count is the part a reader
+    // deciding how much to commit actually needs.
+    let profitable_loop_count = count(
+        items
+            .iter()
+            .filter(|item| item.kind == RadarItemKind::Loop)
+            .count(),
+    )?;
     let item_count_before_limit = count(items.len())?;
     let result_limit = usize::from(request.max_results);
     let results_truncated = items.len() > result_limit;
@@ -543,6 +561,7 @@ pub fn run_opportunity_radar(
             missing_conversion_count,
             unfillable_conversion_count,
             triangle_evaluation_count,
+            profitable_loop_count,
             item_count_before_limit,
             expansions_used,
             skipped_target_count,

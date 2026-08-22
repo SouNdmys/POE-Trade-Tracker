@@ -390,6 +390,7 @@ impl AppShell {
                     &scan.diagnostics.unfillable_conversion_count.to_string(),
                     &scan.diagnostics.missing_conversion_count.to_string(),
                     &scan.diagnostics.triangle_evaluation_count.to_string(),
+                    &scan.diagnostics.profitable_loop_count.to_string(),
                     &self
                         .settings_tuning()
                         .radar

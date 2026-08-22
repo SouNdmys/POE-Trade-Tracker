@@ -129,6 +129,7 @@ fn request(start: &str, stake: u64, units: &AssetUnitCatalog) -> RadarRequest {
         minimum_conversion_improvement_basis_points: 100,
         minimum_triangle_profit_basis_points: 100,
         max_hops: 3,
+        max_cycle_length: 6,
         max_paths_per_target: 32,
         max_expansions_per_target: 4_000,
         budget: RadarBudget {
