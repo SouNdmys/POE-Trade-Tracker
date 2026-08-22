@@ -21,7 +21,8 @@ probe boost 的两条（不重排、Monitor 未接 pulse）已修，见 `0039c20
 **正确写法已经存在**：`crates/ptt-runtime/src/bin/analytics_probe.rs:80-94`
 遍历 `rollup::game_context_keys(&store, game)`，用 `load_observations_between`
 把今天所有 context 的观测并起来，注释写着"a release today must not hide the
-morning"。生产路径的 `load_pulse` 没有这段迭代，两边漂了。修的时候镜像它即可。
+morning"。生产路径的 `load_pulse`（`crates/ptt-app/src/shell/mod.rs:1293`，
+就在 `load_window` 下面）没有这段迭代，两边漂了。修的时候镜像它即可。
 
 ## 2. radar 探针优先级恒为 High（设计问题，待讨论，不是 bug）
 
