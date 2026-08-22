@@ -1204,12 +1204,14 @@ fn load_probe_queue(
     use ptt_runtime::pipeline::LIVE_LEAGUE;
 
     let (context_key, observations) = load_window(request)?;
+    let analytics = load_pulse(request, &observations);
     ptt_runtime::reports::probe_queue_model(
         &observations,
         &context_key,
         LIVE_LEAGUE,
         &request.tuning,
         request.language,
+        analytics.as_ref().map(|model| &model.pulse),
     )
 }
 

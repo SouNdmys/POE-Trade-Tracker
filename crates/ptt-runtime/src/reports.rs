@@ -1528,7 +1528,7 @@ pub fn probe_queue(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let model = probe_queue_model(observations, context_key, league, tuning, language)?;
+    let model = probe_queue_model(observations, context_key, league, tuning, language, None)?;
     Ok(render_probe_queue(&model, language))
 }
 
@@ -1539,6 +1539,7 @@ pub fn probe_queue_model(
     league: &str,
     tuning: &MarketTuning,
     language: UiLanguage,
+    pulse: Option<&ptt_strategy::MarketPulse>,
 ) -> Result<ProbeQueueModel, String> {
     let (policy, _policy_warning) = market_policy_from(tuning, league, language);
     let mut seen: Vec<MarketAssetId> = observations
@@ -1561,8 +1562,9 @@ pub fn probe_queue_model(
         });
     }
 
-    let (_status, coverage, candidates) =
+    let (_status, coverage, mut candidates) =
         focus_coverage(observations, context_key, &policy, tuning, &seen, None)?;
+    boost_probe_candidates(&mut candidates, pulse);
     let missing = coverage
         .iter()
         .filter(|entry| entry.status != ptt_workflows::FocusCoverageStatus::Complete)
@@ -3188,6 +3190,132 @@ mod structural_tests {
             position < 4,
             "the scarce pair is {priority:?} but sits at index {position}, past the four \
              candidates Opportunities shows — the raise never reordered the queue"
+        );
+    }
+
+    /// Monitor reads the queue through `probe_queue_model`, which had no pulse
+    /// at all: the gaps that jumped the queue on Watchlist sat unmoved on the
+    /// page that is on screen permanently. A pulse has to raise and reorder
+    /// here too, raise nothing that does not touch the scarce currency, and
+    /// no pulse has to leave the queue exactly as it was.
+    #[test]
+    fn the_monitor_queue_boosts_only_when_it_is_given_a_pulse() {
+        use ptt_trade_domain::{
+            Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio,
+            SnapshotRecordStatus,
+        };
+
+        const CONTEXT: &str = "monitor-queue-test";
+
+        let edge = |need: &str, have: &str, stock: u64| {
+            let captured = Utc::now() - chrono::Duration::minutes(1);
+            MarketEdgeObservation {
+                edge: QuoteEdge {
+                    edge_id: format!("{need}-{have}-{stock}"),
+                    snapshot_id: format!("snapshot-{need}-{have}"),
+                    quote_id: format!("quote-{need}-{have}"),
+                    context_key: CONTEXT.to_owned(),
+                    from_asset_id: asset(have),
+                    to_asset_id: asset(need),
+                    rate: Ratio::from_parts(1, 5).expect("rate"),
+                    source_side: QuoteSide::Available,
+                    execution_type: ExecutionType::Taker,
+                    role: QuoteEdgeRole::AvailableTaker,
+                    stock,
+                    original_need_asset_id: asset(need),
+                    original_have_asset_id: asset(have),
+                    original_row_index: 0,
+                    comparator: Comparator::Exact,
+                    user_edited: false,
+                    machine_confidence_ppm: Some(990_000),
+                    captured_at: captured,
+                    confirmed_at: captured,
+                },
+                snapshot_complete: true,
+                record_status: SnapshotRecordStatus::Active,
+                record_revision: 1,
+                record_reason: None,
+            }
+        };
+
+        // Taker side only, so every pair is missing something and the queue
+        // has candidates to order.
+        let observations = vec![
+            edge("chaos-orb", "divine-orb", 100),
+            edge("exalted-orb", "divine-orb", 50),
+            edge("mirror-of-kalandra", "divine-orb", 1),
+        ];
+        let pulse = ptt_strategy::MarketPulse {
+            as_of_day: Some("2026-08-22".to_owned()),
+            anchor_asset_id: Some(asset("divine-orb")),
+            anchor_health: None,
+            assets: vec![pulse_asset(
+                "mirror-of-kalandra",
+                ptt_strategy::LiquidityClass::Scarce,
+            )],
+        };
+        let tuning = MarketTuning::default();
+
+        let queue = |market_pulse: Option<&ptt_strategy::MarketPulse>| {
+            let model = probe_queue_model(
+                &observations,
+                CONTEXT,
+                "test-league",
+                &tuning,
+                UiLanguage::English,
+                market_pulse,
+            )
+            .expect("probe queue");
+            model
+                .candidates
+                .iter()
+                .map(|entry| {
+                    (
+                        (
+                            entry.from_asset_id.as_str().to_owned(),
+                            entry.to_asset_id.as_str().to_owned(),
+                            entry.reason,
+                        ),
+                        entry.priority,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+
+        let before: std::collections::BTreeMap<_, _> = queue(None).into_iter().collect();
+        let after = queue(Some(&pulse));
+        assert!(
+            !after.is_empty(),
+            "the fixture has to produce candidates for this test to mean anything"
+        );
+
+        let mut raised = Vec::new();
+        for (key, priority) in &after {
+            let was = before
+                .get(key)
+                .copied()
+                .expect("the boost must not invent candidates");
+            if *priority != was {
+                assert!(
+                    *priority < was,
+                    "the boost may only raise: {key:?} went {was:?} -> {priority:?}"
+                );
+                raised.push(key.clone());
+            }
+        }
+        assert!(
+            !raised.is_empty(),
+            "the pulse never reached the boost — Monitor is still unwired"
+        );
+        assert!(
+            raised.iter().all(|(from, to, _)| {
+                from.as_str() == "mirror-of-kalandra" || to.as_str() == "mirror-of-kalandra"
+            }),
+            "only gaps touching the scarce currency may be raised: {raised:?}"
+        );
+        assert!(
+            after.windows(2).all(|pair| pair[0].1 <= pair[1].1),
+            "the queue Monitor slices is not in priority order: {after:?}"
         );
     }
 }
