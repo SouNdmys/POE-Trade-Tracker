@@ -149,6 +149,8 @@ pub struct MarketTuning {
     pub radar: RadarTuning,
     #[serde(default)]
     pub risk: RiskTuning,
+    #[serde(default)]
+    pub analytics: AnalyticsTuning,
     /// How much history each report page loads, in hours. Must reach past the
     /// red freshness band: a window shorter than `usable_seconds` can never
     /// even load the data the yellow and red lights exist to warn about.
@@ -219,6 +221,7 @@ impl Default for MarketTuning {
             convert: ConvertTuning::default(),
             radar: RadarTuning::default(),
             risk: RiskTuning::default(),
+            analytics: AnalyticsTuning::default(),
             report_window_hours: default_report_window_hours(),
         }
     }
@@ -380,6 +383,82 @@ impl Default for RiskTuning {
         Self {
             thin_liquidity_stock: default_thin_liquidity_stock(),
             top_book_outlier_factor: default_outlier_factor(),
+        }
+    }
+}
+
+/// Knobs for the market analytics page (value trends, supply/demand pressure,
+/// anchor health) and the raw-data retention that feeds it. All first-pass
+/// defaults awaiting live calibration; consumers validate before use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnalyticsTuning {
+    /// Days in the "recent" trend window (the numerator of a trend verdict).
+    #[serde(default = "default_trend_recent_days")]
+    pub trend_recent_days: u64,
+    /// Days in the baseline trend window the recent one is compared against.
+    #[serde(default = "default_trend_window_days")]
+    pub trend_window_days: u64,
+    /// Percentage of trending assets that must move the same way against the
+    /// primary settlement currency before the move is read as the anchor
+    /// itself inflating or deflating rather than the market moving.
+    #[serde(default = "default_breadth_threshold_percent")]
+    pub breadth_threshold_percent: u64,
+    /// Market-relative trend beyond ±this many basis points is a verdict
+    /// (appreciating / depreciating); inside it, holding.
+    #[serde(default = "default_verdict_threshold_bps")]
+    pub verdict_threshold_bps: u64,
+    /// Demand at or above this percent of supply (or vice versa) classifies a
+    /// currency as scarce (or oversupplied). 300 = a 3x imbalance.
+    #[serde(default = "default_scarce_ratio_percent")]
+    pub scarce_ratio_percent: u64,
+    /// Below this many anchor units on both sides, a market is quiet rather
+    /// than imbalanced — too little on either side to read a direction.
+    #[serde(default = "default_quiet_floor_anchor_units")]
+    pub quiet_floor_anchor_units: u64,
+    /// Thin-liquidity threshold as a percent of a currency's own median daily
+    /// circulation, replacing the global stock constant once history exists.
+    #[serde(default = "default_thin_norm_percent")]
+    pub thin_norm_percent: u64,
+    /// Days of raw captures kept once their daily rollups are persisted.
+    /// 0 disables pruning entirely (the shipped default): nothing is ever
+    /// deleted unless the user turns retention on or purges from Settings.
+    #[serde(default)]
+    pub raw_retention_days: u64,
+}
+
+fn default_trend_recent_days() -> u64 {
+    2
+}
+fn default_trend_window_days() -> u64 {
+    7
+}
+fn default_breadth_threshold_percent() -> u64 {
+    70
+}
+fn default_verdict_threshold_bps() -> u64 {
+    500
+}
+fn default_scarce_ratio_percent() -> u64 {
+    300
+}
+fn default_quiet_floor_anchor_units() -> u64 {
+    10
+}
+fn default_thin_norm_percent() -> u64 {
+    25
+}
+
+impl Default for AnalyticsTuning {
+    fn default() -> Self {
+        Self {
+            trend_recent_days: default_trend_recent_days(),
+            trend_window_days: default_trend_window_days(),
+            breadth_threshold_percent: default_breadth_threshold_percent(),
+            verdict_threshold_bps: default_verdict_threshold_bps(),
+            scarce_ratio_percent: default_scarce_ratio_percent(),
+            quiet_floor_anchor_units: default_quiet_floor_anchor_units(),
+            thin_norm_percent: default_thin_norm_percent(),
+            raw_retention_days: 0,
         }
     }
 }
