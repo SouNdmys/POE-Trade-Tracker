@@ -79,19 +79,8 @@ fn main() -> Result<(), String> {
 
         // Today's live fold reads across every context of the game, exactly
         // like the rollup builder: a release today must not hide the morning.
-        let today_start = now
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .expect("midnight")
-            .and_utc();
-        let mut window = Vec::new();
-        for key in rollup::game_context_keys(&store, game)? {
-            window.extend(
-                store
-                    .load_observations_between(&key, today_start, now + chrono::Duration::hours(1))
-                    .map_err(|error| format!("today: {error}"))?,
-            );
-        }
+        // The app reads the same function, so the probe cannot drift from it.
+        let window = rollup::today_window(&store, game, now)?;
 
         println!(
             "pulse: rollup-rows={} today-edges={} season={}",
