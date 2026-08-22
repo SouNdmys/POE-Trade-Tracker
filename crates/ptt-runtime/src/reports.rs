@@ -101,11 +101,18 @@ pub struct AssetValuation {
     pub valuation: ptt_strategy::Valuation,
 }
 
-/// A currency the user keeps capturing that is not in the focus list.
+/// A currency with real buy pressure that is not in the focus list.
+///
+/// The evidence is the listed quantities on the two book sides, valued in
+/// the primary settlement currency — capture frequency proves only that the
+/// user looked, not that anyone wants the thing (user-adjudicated 2026-08-22).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FocusSuggestion {
     pub asset_id: MarketAssetId,
-    pub snapshot_count: usize,
+    /// Anchor-valued demand-side listings in the window: the buy pressure.
+    pub demand_anchor: u64,
+    /// Anchor-valued supply-side listings, for the same window.
+    pub supply_anchor: u64,
 }
 
 /// Coverage is a third view of the book and can fail on its own; the page
@@ -771,25 +778,24 @@ fn market_policy_from(
     (policy, warning)
 }
 
-/// A currency must show up in at least this many distinct snapshots in the
-/// window before the watchlist suggests promoting it into the focus list —
-/// below that, "the user keeps flipping it" is one accidental hover.
-const FOCUS_SUGGESTION_MIN_SNAPSHOTS: usize = 3;
-
-/// Currencies the user keeps capturing but has not put in the focus list.
+/// Currencies with real buy pressure the user has not put in the focus list.
 ///
-/// Counted as distinct snapshots per asset from the loaded window — the
-/// storage index makes this cheap and the report window bounds it.
+/// The window's books are folded as one pseudo-day and run through the
+/// market pulse, so the evidence is anchor-valued listed quantities on both
+/// sides — never how often a book was captured. An asset the user flips all
+/// day with nothing on its demand side is not suggested; an asset seen once
+/// with heavy buy pressure is. The pulse's quiet floor is the offer bar: no
+/// direction can be read below it.
 ///
 /// Offered from the first session rather than only once a list exists. The
-/// list is meant to be built out of what the user turns out to trade, and a
+/// list is meant to be built out of what the market turns out to want, and a
 /// feature that suggests nothing until you have already used it cannot start
 /// that.
 fn focus_suggestions(
     observations: &[MarketEdgeObservation],
     policy: &MarketPolicy,
     tuning: &MarketTuning,
-) -> Vec<(MarketAssetId, usize)> {
+) -> Vec<FocusSuggestion> {
     let configured: std::collections::BTreeSet<MarketAssetId> = tuning
         .focus_assets
         .iter()
@@ -797,37 +803,41 @@ fn focus_suggestions(
         .chain(&tuning.watch_only_assets)
         .filter_map(|id| MarketAssetId::try_new(id).ok())
         .collect();
-    let mut snapshots_by_asset: BTreeMap<MarketAssetId, std::collections::BTreeSet<&str>> =
-        BTreeMap::new();
-    for observation in observations {
-        for asset in [
-            &observation.edge.from_asset_id,
-            &observation.edge.to_asset_id,
-        ] {
-            if policy.is_core_liquidity(asset) || configured.contains(asset) {
-                continue;
-            }
-            snapshots_by_asset
-                .entry(asset.clone())
-                .or_default()
-                .insert(observation.edge.snapshot_id.as_str());
+    let day_key = Utc::now().format("%Y-%m-%d").to_string();
+    let stats = crate::rollup::fold_window_stats(observations, &day_key);
+    let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
+    let pulse = ptt_strategy::market_pulse(&stats, &policy.core_liquidity, &thresholds);
+
+    let mut suggestions = Vec::new();
+    // pulse.assets arrive sorted by demand pressure descending.
+    for asset in &pulse.assets {
+        if policy.is_core_liquidity(&asset.asset_id) || configured.contains(&asset.asset_id) {
+            continue;
         }
-    }
-    let mut suggestions: Vec<(MarketAssetId, usize)> = snapshots_by_asset
-        .into_iter()
-        .map(|(asset, snapshots)| (asset, snapshots.len()))
-        .filter(|(_, count)| *count >= FOCUS_SUGGESTION_MIN_SNAPSHOTS)
-        .collect();
-    // Dismissals are held until the currency becomes twice the fact it was.
-    suggestions.retain(|(asset, count)| {
-        let count = u64::try_from(*count).unwrap_or(u64::MAX);
-        tuning
+        // Unvalued demand cannot be compared across assets; below the quiet
+        // floor there is no direction to read at all.
+        let Some(demand) = asset.demand_anchor else {
+            continue;
+        };
+        if demand < thresholds.quiet_floor_anchor_units {
+            continue;
+        }
+        let demand = u64::try_from(demand).unwrap_or(u64::MAX);
+        // Dismissals are held until the pressure doubles what it was.
+        let due = tuning
             .ignored_suggestions
             .iter()
-            .find(|ignored| ignored.asset_id == asset.as_str())
-            .is_none_or(|ignored| ignored.is_due_again(count))
-    });
-    suggestions.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+            .find(|ignored| ignored.asset_id == asset.asset_id.as_str())
+            .is_none_or(|ignored| ignored.is_due_again(demand));
+        if !due {
+            continue;
+        }
+        suggestions.push(FocusSuggestion {
+            asset_id: asset.asset_id.clone(),
+            demand_anchor: demand,
+            supply_anchor: u64::try_from(asset.supply_anchor.unwrap_or(0)).unwrap_or(u64::MAX),
+        });
+    }
     suggestions.truncate(4);
     suggestions
 }
@@ -996,13 +1006,7 @@ pub fn watchlist_model(
         Err(reason) => CoverageOutcome::Failed(reason),
     };
 
-    let suggestions = focus_suggestions(observations, &policy, tuning)
-        .into_iter()
-        .map(|(asset_id, snapshot_count)| FocusSuggestion {
-            asset_id,
-            snapshot_count,
-        })
-        .collect();
+    let suggestions = focus_suggestions(observations, &policy, tuning);
     let anchors = recommend_liquidity_anchors(&market.selected, &policy);
 
     Ok(WatchlistModel {
@@ -1055,7 +1059,8 @@ fn render_watchlist(model: &WatchlistModel, language: UiLanguage) -> Vec<String>
             text.focus_suggestion,
             &[
                 suggestion.asset_id.as_str(),
-                &suggestion.snapshot_count.to_string(),
+                &suggestion.demand_anchor.to_string(),
+                &suggestion.supply_anchor.to_string(),
             ],
         ));
     }
@@ -2815,6 +2820,143 @@ mod settlement_tests {
                 .iter()
                 .any(|line| line.contains("data freshness: green - fresh")),
             "the default bands must still classify: {lines:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod suggestion_tests {
+    use super::*;
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// One panel-orientation edge of a (need, have) book.
+    fn book_edge(
+        snapshot: &str,
+        need: &str,
+        have: &str,
+        side: QuoteSide,
+        rate: (u64, u64),
+        stock: u64,
+    ) -> MarketEdgeObservation {
+        let captured = Utc::now() - chrono::Duration::minutes(1);
+        let (role, execution) = match side {
+            QuoteSide::Available => (QuoteEdgeRole::AvailableTaker, ExecutionType::Taker),
+            QuoteSide::Competing => (
+                QuoteEdgeRole::CompetingMakerReference,
+                ExecutionType::MakerReference,
+            ),
+        };
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: format!("{snapshot}-{need}-{have}-{side:?}-{stock}"),
+                snapshot_id: snapshot.to_owned(),
+                quote_id: format!("quote-{snapshot}-{stock}"),
+                context_key: "suggestion-test-context".to_owned(),
+                from_asset_id: asset(have),
+                to_asset_id: asset(need),
+                rate: Ratio::from_parts(rate.0, rate.1).expect("rate"),
+                source_side: side,
+                execution_type: execution,
+                role,
+                stock,
+                original_need_asset_id: asset(need),
+                original_have_asset_id: asset(have),
+                original_row_index: 0,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(990_000),
+                captured_at: captured,
+                confirmed_at: captured,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    /// The user-adjudicated evidence rule: capture frequency proves only
+    /// attention. An asset captured five times with nothing on its demand
+    /// side is never suggested; an asset seen once with real buy pressure is.
+    #[test]
+    fn suggestions_follow_buy_pressure_not_capture_frequency() {
+        let mut observations = Vec::new();
+        // Flipped five times, supply only: nobody is buying it.
+        for snapshot in 0..5 {
+            observations.push(book_edge(
+                &format!("shiny-{snapshot}"),
+                "shiny-bauble",
+                "divine-orb",
+                QuoteSide::Available,
+                (10, 1),
+                500,
+            ));
+        }
+        // Seen once, with 400 divine of standing buy pressure: the book
+        // (need=wanted, have=divine) prices it at 5 divine each and its
+        // competing side holds 400 divine seeking it.
+        observations.push(book_edge(
+            "wanted-1",
+            "wanted-orb",
+            "divine-orb",
+            QuoteSide::Available,
+            (1, 5),
+            20,
+        ));
+        observations.push(book_edge(
+            "wanted-1",
+            "wanted-orb",
+            "divine-orb",
+            QuoteSide::Competing,
+            (1, 5),
+            400,
+        ));
+
+        let tuning = MarketTuning::default();
+        let (policy, _) = market_policy_from(&tuning, "test-league", UiLanguage::English);
+        let suggestions = focus_suggestions(&observations, &policy, &tuning);
+
+        assert!(
+            suggestions
+                .iter()
+                .any(|suggestion| suggestion.asset_id.as_str() == "wanted-orb"),
+            "real buy pressure must be suggested: {suggestions:?}"
+        );
+        assert!(
+            suggestions
+                .iter()
+                .all(|suggestion| suggestion.asset_id.as_str() != "shiny-bauble"),
+            "capture frequency alone must never be evidence: {suggestions:?}"
+        );
+        let wanted = suggestions
+            .iter()
+            .find(|suggestion| suggestion.asset_id.as_str() == "wanted-orb")
+            .expect("wanted-orb");
+        assert_eq!(
+            wanted.demand_anchor, 400,
+            "400 divine paid out by the competing side, anchor-valued"
+        );
+
+        // A dismissal at this prominence holds until the pressure doubles.
+        let mut dismissed = tuning.clone();
+        dismissed
+            .ignored_suggestions
+            .push(ptt_settings::IgnoredSuggestion {
+                asset_id: "wanted-orb".to_owned(),
+                snapshots_when_ignored: wanted.demand_anchor,
+            });
+        let after = focus_suggestions(&observations, &policy, &dismissed);
+        assert!(
+            after
+                .iter()
+                .all(|suggestion| suggestion.asset_id.as_str() != "wanted-orb"),
+            "a dismissed suggestion stays down until it doubles: {after:?}"
         );
     }
 }

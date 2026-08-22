@@ -160,28 +160,31 @@ pub struct MarketTuning {
 
 /// A dismissed suggestion.
 ///
-/// Dismissing is "not this, not now", not "never". A currency that goes on to
-/// be captured twice as often as it was when it was waved away has become a
-/// different fact about how the user trades, and it is offered again; a
-/// mis-click therefore costs one more click later rather than burying the
-/// currency for good. Each dismissal records the count afresh, so the bar
-/// rises rather than resetting.
+/// Dismissing is "not this, not now", not "never". A currency whose evidence
+/// doubles what it was when it was waved away has become a different fact
+/// about the market, and it is offered again; a mis-click therefore costs
+/// one more click later rather than burying the currency for good. Each
+/// dismissal records the prominence afresh, so the bar rises rather than
+/// resetting.
 ///
-/// The count is snapshots inside the report window, which is what the
-/// suggestion itself is counted from — "twice as prominent as it was", not
-/// "twice as many times ever".
+/// The prominence is whatever the suggestion itself is ranked by — since the
+/// evidence rewrite (P10) that is anchor-valued buy pressure in the report
+/// window, not a capture count. The serde field keeps its historical name so
+/// older settings files read cleanly; an old snapshot-count value just makes
+/// the currency due again sooner, which errs on the side of asking.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoredSuggestion {
     pub asset_id: String,
+    /// The suggestion's prominence at dismissal (buy pressure, anchor units).
     #[serde(default)]
     pub snapshots_when_ignored: u64,
 }
 
 impl IgnoredSuggestion {
-    /// Whether a currency at this many snapshots should be offered again.
+    /// Whether a currency at this prominence should be offered again.
     #[must_use]
-    pub const fn is_due_again(&self, snapshots_now: u64) -> bool {
+    pub const fn is_due_again(&self, prominence_now: u64) -> bool {
         let bar = match self.snapshots_when_ignored.checked_mul(2) {
             // Dismissed at nothing, which only a hand-edited file produces:
             // the next capture asks again rather than never.
@@ -191,7 +194,7 @@ impl IgnoredSuggestion {
             None => u64::MAX,
             Some(bar) => bar,
         };
-        snapshots_now >= bar
+        prominence_now >= bar
     }
 }
 

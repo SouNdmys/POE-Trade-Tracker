@@ -407,12 +407,13 @@ impl AppShell {
             );
         }
 
-        // Currencies the user keeps flipping but has never put in the list.
+        // Currencies the market shows real buy pressure for that are not in
+        // the list — the evidence is listed quantities, never capture counts.
         for (row, suggestion) in model.suggestions.iter().enumerate() {
             let asset = suggestion.asset_id.as_str().to_owned();
             let adopt = asset.clone();
             let ignore = asset.clone();
-            let seen_count = u64::try_from(suggestion.snapshot_count).unwrap_or(u64::MAX);
+            let seen_count = suggestion.demand_anchor;
             body = body.child(
                 div()
                     .h_flex()
@@ -421,9 +422,12 @@ impl AppShell {
                     .child(chip(StatusKind::Warning, text.suggestion_label))
                     .child(
                         mono(format!(
-                            "{}   ×{}",
+                            "{}   {} {} / {} {}",
                             self.display_name(&asset),
-                            suggestion.snapshot_count
+                            text.suggestion_demand_label,
+                            suggestion.demand_anchor,
+                            text.suggestion_supply_label,
+                            suggestion.supply_anchor,
                         ))
                         .text_size(fs(FS_11_5))
                         .flex_grow(),

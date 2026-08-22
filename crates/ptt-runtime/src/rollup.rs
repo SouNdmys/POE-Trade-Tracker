@@ -293,10 +293,21 @@ pub fn today_stats(
         .filter(|observation| observation.edge.captured_at >= start)
         .cloned()
         .collect();
-    let day_key = today.format("%Y-%m-%d").to_string();
-    build_pair_day_rollups(&todays)
+    fold_window_stats(&todays, &today.format("%Y-%m-%d").to_string())
+}
+
+/// A whole observation window folded as one pseudo-day: median across every
+/// snapshot in it, orientation dedup left to the pulse. The right grain for
+/// window-scoped evidence (focus suggestions) where day boundaries add
+/// nothing.
+#[must_use]
+pub fn fold_window_stats(
+    observations: &[MarketEdgeObservation],
+    day_key: &str,
+) -> Vec<DailyPairStat> {
+    build_pair_day_rollups(observations)
         .into_iter()
-        .map(|rollup| stat_from_rollup(&day_key, &rollup))
+        .map(|rollup| stat_from_rollup(day_key, &rollup))
         .collect()
 }
 
