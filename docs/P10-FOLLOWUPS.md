@@ -3,26 +3,20 @@
 云端评审（main → p10-base）之后剩下的东西，给下一个接手的会话。
 probe boost 的两条（不重排、Monitor 未接 pulse）已修，见 `0039c20`、`95e5a63`。
 
-## 1. 今日折叠只读单个 context_key（未修，bug）
+## 1. 今日折叠只读单个 context_key（已修 2026-08-22，见 `1749d2a`、`115a7ba`）
 
-`load_window`（`crates/ptt-app/src/shell/mod.rs:1224`）只取 `live_context(...).stable_key()`
-这一个 context 的观测。而 `game_ui_build` 是 stable key 材料的一部分
-（`crates/ptt-trade-domain/src/lib.rs:259`），客户端版本一变 key 就轮换。
+`game_ui_build` 是 stable key 的材料（`crates/ptt-trade-domain/src/lib.rs:259`），
+客户端版本一变 key 就轮换。`load_pulse` 当时折叠的是页面窗口，而页面窗口只有一个
+context，所以升级当天上午的抓取被今日折叠排除在外 —— Analytics 的"今日"列、以及
+Convert/Opportunities/Watchlist 上读同一份 pulse 的结构注记都少算，直到下一个 UTC
+午夜的 rollup 把两个 context 合起来自愈。
 
-后果：升级当天，上午的抓取落在旧 key 下，被 `load_pulse` →
-`analytics_model` → `today_stats` 的今日折叠排除在外。Analytics 页面的"今日"
-列、以及 Convert/Opportunities/Watchlist 上读同一份 pulse 的结构注记，都会
-少算，直到下一个 UTC 午夜的 rollup 把两个 context 合起来自愈
-（`ensure_daily_rollups` 按构造排除今天，所以只有今日折叠有这个洞）。
+修法：把"跨 context 取今天"抽成 `ptt_runtime::rollup::today_window`，`load_pulse`
+改成自己读这个窗口而不是借页面的；`analytics_probe` 那份内联副本也改成调同一个
+函数，两条路径不会再漂。回归测试 `today_window_reads_every_context_of_the_game`
+（`crates/ptt-runtime/tests/rollup.rs`）。
 
-影响有界：不丢数据，旧 key 的行都在库里，第二天照常出现。发布日对正在
-交易的人是几小时的降级建议，其余时间不可见。
-
-**正确写法已经存在**：`crates/ptt-runtime/src/bin/analytics_probe.rs:80-94`
-遍历 `rollup::game_context_keys(&store, game)`，用 `load_observations_between`
-把今天所有 context 的观测并起来，注释写着"a release today must not hide the
-morning"。生产路径的 `load_pulse`（`crates/ptt-app/src/shell/mod.rs:1293`，
-就在 `load_window` 下面）没有这段迭代，两边漂了。修的时候镜像它即可。
+页面窗口本身没动：一本书必须自洽，所以它继续只读一个 context。
 
 ## 2. radar 探针优先级恒为 High（设计问题，待讨论，不是 bug）
 
@@ -70,7 +64,7 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 长期持有者。7 个开库点：
 
 - `crates/ptt-app/src/shell/mod.rs`：1230 `load_window`、1269 `load_analytics`、
-  1299 `load_pulse`
+  1300 `load_pulse`
 - `crates/ptt-app/src/shell/pages/season.rs`：112 `ensure_season_info`、
   151 `start_new_season`、176 `purge_old_season`、204 `vacuum_store`
 
