@@ -141,6 +141,7 @@ fn request(start: &str, stake: u64, units: &AssetUnitCatalog) -> RadarRequest {
         fee_policy: FeePolicy::None,
         thresholds: RiskThresholds {
             thin_liquidity_stock: 100,
+            asset_thin_thresholds: std::collections::BTreeMap::new(),
         },
     }
 }

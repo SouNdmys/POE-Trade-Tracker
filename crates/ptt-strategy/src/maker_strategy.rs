@@ -183,7 +183,7 @@ pub struct MakerStrategy {
 }
 
 /// Inputs for [`calculate_maker_strategy`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct MakerRequest<'a> {
     pub from_asset_id: &'a MarketAssetId,
     pub to_asset_id: &'a MarketAssetId,
@@ -478,9 +478,14 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
     if split_order_recommended {
         book_risks.insert(ExecutionRisk::MakerDepthExceeded);
     }
+    // Maker depth is denominated in the input asset (TASK-50 payout side),
+    // so the thin bar is that currency's own norm when one exists.
     if let Some(depth) = &visible_depth_from
         && depth.quanta > 0
-        && depth.quanta < request.thresholds.thin_liquidity_stock
+        && depth.quanta
+            < request
+                .thresholds
+                .thin_threshold_for(request.from_asset_id.as_str())
     {
         book_risks.insert(ExecutionRisk::ThinLiquidity);
     }
@@ -493,7 +498,7 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
                 &queue,
                 instant_rate.as_ref(),
                 wall.as_ref(),
-                request,
+                &request,
                 &to_reference,
                 &book_risks,
                 &caveats,
@@ -593,7 +598,7 @@ fn recommendation(
     queue: &[MakerQueueLevel],
     instant_rate: Option<&Ratio>,
     wall: Option<&MakerWall>,
-    request: MakerRequest<'_>,
+    request: &MakerRequest<'_>,
     to_reference: &AssetAmount,
     book_risks: &BTreeSet<ExecutionRisk>,
     caveats: &BTreeSet<ModelCaveat>,

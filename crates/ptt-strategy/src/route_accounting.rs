@@ -158,7 +158,7 @@ pub struct RouteAccounting {
 }
 
 /// Inputs for [`derive_route_accounting`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct RouteAccountingRequest<'a> {
     pub path: &'a ConversionPath,
     /// The one-hop alternative, when the book has one.
@@ -311,7 +311,7 @@ pub fn derive_route_accounting(
         output_reference.clone()
     };
 
-    let mut assessment = assess_path(path, request.thresholds, request.needs_probe);
+    let mut assessment = assess_path(path, &request.thresholds, request.needs_probe);
 
     let (capacity_quanta, capacity_is_lower_bound) =
         closed_capacity(path).ok_or(StrategyError::UnusableRoute)?;

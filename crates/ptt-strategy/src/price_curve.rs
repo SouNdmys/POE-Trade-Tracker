@@ -145,15 +145,35 @@ pub struct PriceAnomaly {
     pub basis_points: Option<i64>,
 }
 
-/// A move of this size against the median reads as a spike or a drop.
-const SPIKE_BASIS_POINTS: i64 = 2_000;
-/// ...and this much is high severity.
-const SEVERE_SPIKE_BASIS_POINTS: i64 = 5_000;
-/// A maker/taker spread wider than this is worth explaining.
-const WIDE_SPREAD_BASIS_POINTS: i64 = 1_000;
-const SEVERE_SPREAD_BASIS_POINTS: i64 = 2_000;
-/// Stock below this on the newest point is thin.
-const THIN_STOCK: u64 = 10;
+/// The bars anomaly detection judges against. Previously five hardcoded
+/// constants while every other thin-liquidity site read settings — the same
+/// number should mean the same thing everywhere, so these now arrive from
+/// the caller with the shipped values as the default.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AnomalyThresholds {
+    /// A move of this size against the median reads as a spike or a drop.
+    pub spike_basis_points: i64,
+    /// ...and this much is high severity.
+    pub severe_spike_basis_points: i64,
+    /// A maker/taker spread wider than this is worth explaining.
+    pub wide_spread_basis_points: i64,
+    pub severe_spread_basis_points: i64,
+    /// Stock below this on the newest point is thin.
+    pub thin_stock: u64,
+}
+
+impl Default for AnomalyThresholds {
+    fn default() -> Self {
+        Self {
+            spike_basis_points: 2_000,
+            severe_spike_basis_points: 5_000,
+            wide_spread_basis_points: 1_000,
+            severe_spread_basis_points: 2_000,
+            // Unified with RiskThresholds' global bar (was a divergent 10).
+            thin_stock: 100,
+        }
+    }
+}
 
 /// Turn selected edges for one direction into a time-ordered series.
 ///
@@ -375,7 +395,11 @@ pub fn summarize(
 
 /// Find what looks wrong with the newest end of the series.
 #[must_use]
-pub fn anomalies(summary: &PriceSummary, points: &[PricePoint]) -> Vec<PriceAnomaly> {
+pub fn anomalies(
+    summary: &PriceSummary,
+    points: &[PricePoint],
+    thresholds: &AnomalyThresholds,
+) -> Vec<PriceAnomaly> {
     let mut found = Vec::new();
     let Some(latest) = points.last() else {
         return found;
@@ -398,20 +422,20 @@ pub fn anomalies(summary: &PriceSummary, points: &[PricePoint]) -> Vec<PriceAnom
         )
         && let Some(deviation) = basis_points(latest_rate, median_rate)
     {
-        if deviation >= SPIKE_BASIS_POINTS {
+        if deviation >= thresholds.spike_basis_points {
             found.push(PriceAnomaly {
                 kind: PriceAnomalyKind::RateSpike,
-                severity: if deviation >= SEVERE_SPIKE_BASIS_POINTS {
+                severity: if deviation >= thresholds.severe_spike_basis_points {
                     AnomalySeverity::High
                 } else {
                     AnomalySeverity::Medium
                 },
                 basis_points: Some(deviation),
             });
-        } else if deviation <= -SPIKE_BASIS_POINTS {
+        } else if deviation <= -thresholds.spike_basis_points {
             found.push(PriceAnomaly {
                 kind: PriceAnomalyKind::RateDrop,
-                severity: if deviation <= -SEVERE_SPIKE_BASIS_POINTS {
+                severity: if deviation <= -thresholds.severe_spike_basis_points {
                     AnomalySeverity::High
                 } else {
                     AnomalySeverity::Medium
@@ -422,11 +446,11 @@ pub fn anomalies(summary: &PriceSummary, points: &[PricePoint]) -> Vec<PriceAnom
     }
 
     if let Some(spread) = summary.spread_basis_points
-        && spread > WIDE_SPREAD_BASIS_POINTS
+        && spread > thresholds.wide_spread_basis_points
     {
         found.push(PriceAnomaly {
             kind: PriceAnomalyKind::SpreadWidened,
-            severity: if spread > SEVERE_SPREAD_BASIS_POINTS {
+            severity: if spread > thresholds.severe_spread_basis_points {
                 AnomalySeverity::High
             } else {
                 AnomalySeverity::Medium
@@ -435,7 +459,7 @@ pub fn anomalies(summary: &PriceSummary, points: &[PricePoint]) -> Vec<PriceAnom
         });
     }
 
-    if latest.stock > 0 && latest.stock < THIN_STOCK {
+    if latest.stock > 0 && latest.stock < thresholds.thin_stock {
         found.push(PriceAnomaly {
             kind: PriceAnomalyKind::ThinLiquidity,
             severity: AnomalySeverity::Low,

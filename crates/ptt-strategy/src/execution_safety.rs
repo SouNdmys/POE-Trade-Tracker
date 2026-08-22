@@ -191,21 +191,45 @@ impl Actionability {
 }
 
 /// Tunables for the hazards that are a matter of degree rather than kind.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RiskThresholds {
-    /// Visible stock at or below this counts as thin.
+    /// Visible stock at or below this counts as thin — the global fallback.
+    #[serde(default = "default_thin_liquidity_stock")]
     pub thin_liquidity_stock: u64,
+    /// Per-currency thin thresholds derived from each one's own circulation
+    /// norm (median daily supply × the configured percent). A hundred
+    /// mirrors is a deep book and a hundred chaos is nothing: one constant
+    /// cannot say both, a norm can. Absent entries fall back to the global.
+    #[serde(default)]
+    pub asset_thin_thresholds: std::collections::BTreeMap<String, u64>,
+}
+
+fn default_thin_liquidity_stock() -> u64 {
+    // The panel routinely shows single-digit stock rows next to five-figure
+    // ones; a hundred orbs is the point below which one competing fill
+    // empties the level.
+    100
 }
 
 impl Default for RiskThresholds {
     fn default() -> Self {
-        // The panel routinely shows single-digit stock rows next to
-        // five-figure ones; a hundred orbs is the point below which one
-        // competing fill empties the level.
         Self {
-            thin_liquidity_stock: 100,
+            thin_liquidity_stock: default_thin_liquidity_stock(),
+            asset_thin_thresholds: std::collections::BTreeMap::new(),
         }
+    }
+}
+
+impl RiskThresholds {
+    /// The thin bar for one currency: its own norm when history has
+    /// established one, the global constant otherwise.
+    #[must_use]
+    pub fn thin_threshold_for(&self, asset_id: &str) -> u64 {
+        self.asset_thin_thresholds
+            .get(asset_id)
+            .copied()
+            .unwrap_or(self.thin_liquidity_stock)
     }
 }
 
@@ -354,7 +378,7 @@ fn absorb_quote_flag(flag: QuoteRiskFlag, risks: &mut BTreeSet<ExecutionRisk>) {
 
 fn absorb_step(
     step: &PairFill,
-    thresholds: RiskThresholds,
+    thresholds: &RiskThresholds,
     risks: &mut BTreeSet<ExecutionRisk>,
     caveats: &mut BTreeSet<ModelCaveat>,
 ) {
@@ -367,11 +391,20 @@ fn absorb_step(
     for flag in &step.risk_flags {
         absorb_execution_flag(*flag, risks, caveats);
     }
+    // Stock is denominated on the lister-payout side (TASK-50): taker fills
+    // carry it in the to-asset, maker-theory fills in the from-asset. The
+    // thin bar follows the currency the number is actually counted in.
+    let stock_asset = if step.kind == FillKind::MakerTheory {
+        step.from_asset_id.as_str()
+    } else {
+        step.to_asset_id.as_str()
+    };
+    let thin_bar = thresholds.thin_threshold_for(stock_asset);
     for fill in &step.fills {
         for flag in &fill.quote_risk_flags {
             absorb_quote_flag(*flag, risks);
         }
-        if fill.stock > 0 && fill.stock < thresholds.thin_liquidity_stock {
+        if fill.stock > 0 && fill.stock < thin_bar {
             risks.insert(ExecutionRisk::ThinLiquidity);
         }
     }
@@ -386,7 +419,7 @@ fn absorb_step(
 #[must_use]
 pub fn assess_steps(
     steps: &[PairFill],
-    thresholds: RiskThresholds,
+    thresholds: &RiskThresholds,
     needs_probe: bool,
 ) -> RiskAssessment {
     let mut risks = BTreeSet::new();
@@ -405,7 +438,7 @@ pub fn assess_steps(
 #[must_use]
 pub fn assess_path(
     path: &ConversionPath,
-    thresholds: RiskThresholds,
+    thresholds: &RiskThresholds,
     needs_probe: bool,
 ) -> RiskAssessment {
     let mut assessment = assess_steps(&path.steps, thresholds, needs_probe);
@@ -426,7 +459,7 @@ pub fn assess_path(
 #[must_use]
 pub fn assess_triangle(
     evaluation: &TriangleEvaluation,
-    thresholds: RiskThresholds,
+    thresholds: &RiskThresholds,
     needs_probe: bool,
 ) -> RiskAssessment {
     let mut assessment = assess_steps(&evaluation.steps, thresholds, needs_probe);
@@ -542,7 +575,7 @@ mod tests {
 
     #[test]
     fn no_steps_means_probe_required_not_clean() {
-        let assessment = assess_steps(&[], RiskThresholds::default(), false);
+        let assessment = assess_steps(&[], &RiskThresholds::default(), false);
         assert_eq!(assessment.actionability, Actionability::ProbeRequired);
         assert!(assessment.contains(ExecutionRisk::NeedsProbe));
     }

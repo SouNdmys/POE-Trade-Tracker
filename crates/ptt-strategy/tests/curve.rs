@@ -134,7 +134,11 @@ fn a_series_with_nothing_current_is_labelled_history() {
     let summary = summarize(&points, &asset("divine-orb"), &asset("chaos-orb"));
 
     assert!(summary.historical_only);
-    let found = anomalies(&summary, &points);
+    let found = anomalies(
+        &summary,
+        &points,
+        &ptt_strategy::AnomalyThresholds::default(),
+    );
     assert!(
         found
             .iter()
@@ -154,7 +158,11 @@ fn a_future_capture_is_an_anomaly_not_the_freshest_price() {
     ];
     let points = price_points(&edges, &asset("divine-orb"), &asset("chaos-orb"));
     let summary = summarize(&points, &asset("divine-orb"), &asset("chaos-orb"));
-    let found = anomalies(&summary, &points);
+    let found = anomalies(
+        &summary,
+        &points,
+        &ptt_strategy::AnomalyThresholds::default(),
+    );
 
     assert!(
         found
@@ -172,12 +180,50 @@ fn thin_stock_on_the_newest_point_is_flagged() {
     ];
     let points = price_points(&edges, &asset("divine-orb"), &asset("chaos-orb"));
     let summary = summarize(&points, &asset("divine-orb"), &asset("chaos-orb"));
-    let found = anomalies(&summary, &points);
+    let found = anomalies(
+        &summary,
+        &points,
+        &ptt_strategy::AnomalyThresholds::default(),
+    );
 
     assert!(
         found
             .iter()
             .any(|item| item.kind == PriceAnomalyKind::ThinLiquidity)
+    );
+}
+
+#[test]
+fn anomaly_bars_come_from_the_caller_not_private_constants() {
+    // A 15% jump: quiet under the shipped 20% bar, a spike once the caller
+    // tightens the bar — the same knob every other risk site reads.
+    let edges = vec![
+        EdgeSpec::new("steady-1", 1_000, 0).build(),
+        EdgeSpec::new("steady-2", 1_000, 1).build(),
+        EdgeSpec::new("jump", 1_150, 2).build(),
+    ];
+    let points = price_points(&edges, &asset("divine-orb"), &asset("chaos-orb"));
+    let summary = summarize(&points, &asset("divine-orb"), &asset("chaos-orb"));
+
+    let default_bars = ptt_strategy::AnomalyThresholds::default();
+    let quiet = anomalies(&summary, &points, &default_bars);
+    assert!(
+        quiet
+            .iter()
+            .all(|item| item.kind != PriceAnomalyKind::RateSpike),
+        "15% is inside the shipped 20% band: {quiet:?}"
+    );
+
+    let tightened = ptt_strategy::AnomalyThresholds {
+        spike_basis_points: 1_000,
+        ..default_bars
+    };
+    let flagged = anomalies(&summary, &points, &tightened);
+    assert!(
+        flagged
+            .iter()
+            .any(|item| item.kind == PriceAnomalyKind::RateSpike),
+        "the tightened bar must flag the same move: {flagged:?}"
     );
 }
 

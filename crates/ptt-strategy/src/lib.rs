@@ -38,8 +38,8 @@ pub use market_policy::{
     MarketRole, RoleCapabilities, recommend_liquidity_anchors,
 };
 pub use price_curve::{
-    AnomalySeverity, BucketSize, PriceAnomaly, PriceAnomalyKind, PriceCandle, PricePoint,
-    PriceSummary, anomalies, candles, price_points, summarize,
+    AnomalySeverity, AnomalyThresholds, BucketSize, PriceAnomaly, PriceAnomalyKind, PriceCandle,
+    PricePoint, PriceSummary, anomalies, candles, price_points, summarize,
 };
 pub use route_accounting::{
     MarkRateSource, MarkRateTable, ProfitTier, ResidualPosition, RouteAccounting,

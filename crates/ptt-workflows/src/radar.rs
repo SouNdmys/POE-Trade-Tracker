@@ -431,7 +431,7 @@ pub fn run_opportunity_radar(
                 best,
                 result.comparison.status,
                 result.comparison.basis_points,
-                request.thresholds,
+                &request.thresholds,
                 stake_raised,
                 capacity,
             ));
@@ -518,7 +518,7 @@ pub fn run_opportunity_radar(
         items.push(triangle_item(
             items.len(),
             triangle,
-            request.thresholds,
+            &request.thresholds,
             capacity,
         ));
     }
@@ -666,7 +666,7 @@ fn conversion_item(
     path: ConversionPath,
     comparison_status: ConversionComparisonStatus,
     basis_points: Option<i64>,
-    thresholds: RiskThresholds,
+    thresholds: &RiskThresholds,
     stake_raised: bool,
     liquidity_capacity: Option<u64>,
 ) -> RadarItem {
@@ -711,7 +711,7 @@ fn conversion_item(
 fn triangle_item(
     index: usize,
     triangle: TriangleEvaluation,
-    thresholds: RiskThresholds,
+    thresholds: &RiskThresholds,
     liquidity_capacity: Option<u64>,
 ) -> RadarItem {
     let assessment = assess_triangle(&triangle, thresholds, false);

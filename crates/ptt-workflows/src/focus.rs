@@ -23,6 +23,19 @@ pub enum ProbePriority {
     Low,
 }
 
+impl ProbePriority {
+    /// One step more urgent. Used when a gap touches a currency the market
+    /// pulse marks as scarce or high-turnover: the pairs that cost the most
+    /// to leave unprobed.
+    #[must_use]
+    pub const fn raised(self) -> Self {
+        match self {
+            Self::Low => Self::Medium,
+            Self::Medium | Self::High => Self::High,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FocusPairRelation {

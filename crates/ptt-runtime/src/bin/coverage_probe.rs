@@ -62,6 +62,7 @@ fn main() -> Result<(), String> {
         LIVE_LEAGUE,
         &tuning,
         ptt_settings::UiLanguage::English,
+        None,
     )
     .map_err(|error| format!("watchlist: {error}"))?;
     match &model.coverage {

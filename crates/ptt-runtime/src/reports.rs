@@ -670,7 +670,7 @@ fn maker_model(
         match_front: false,
         thresholds: ptt_strategy::RiskThresholds::default(),
     };
-    let strategy = calculate_maker_strategy(base).ok()?;
+    let strategy = calculate_maker_strategy(base.clone()).ok()?;
     // The match-front variant is the same Opportunity mode priced at the
     // front instead of below it; a second evaluation keeps that trade-off
     // visible without a third mode existing anywhere. Skipped with no queue,
@@ -1001,7 +1001,7 @@ pub fn watchlist_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let model = watchlist_model(observations, context_key, league, tuning, language)?;
+    let model = watchlist_model(observations, context_key, league, tuning, language, None)?;
     Ok(render_watchlist(&model, language))
 }
 
@@ -1013,6 +1013,7 @@ pub fn watchlist_model(
     league: &str,
     tuning: &MarketTuning,
     language: UiLanguage,
+    pulse: Option<&ptt_strategy::MarketPulse>,
 ) -> Result<WatchlistModel, String> {
     let market = build_market(observations, context_key, tuning, language)?;
     let (policy, policy_warning) = market_policy_from(tuning, league, language);
@@ -1058,7 +1059,8 @@ pub fn watchlist_model(
         .collect();
 
     // Typed coverage gaps for the pairs this focus group cares about, and
-    // the probes that would close them.
+    // the probes that would close them. Gaps touching scarce or high-turnover
+    // currencies jump the queue.
     let coverage = match focus_coverage(
         observations,
         context_key,
@@ -1067,11 +1069,14 @@ pub fn watchlist_model(
         &seen,
         Some(&market),
     ) {
-        Ok((status, entries, candidates)) => CoverageOutcome::Ready(CoverageModel {
-            status,
-            entries,
-            candidates,
-        }),
+        Ok((status, entries, mut candidates)) => {
+            boost_probe_candidates(&mut candidates, pulse);
+            CoverageOutcome::Ready(CoverageModel {
+                status,
+                entries,
+                candidates,
+            })
+        }
         Err(reason) => CoverageOutcome::Failed(reason),
     };
 
@@ -1284,9 +1289,7 @@ pub fn opportunities_model(
         max_results,
         // Gross by product decision: no monetary fee is modelled.
         fee_policy: FeePolicy::None,
-        thresholds: ptt_strategy::RiskThresholds {
-            thin_liquidity_stock: tuning.risk.thin_liquidity_stock,
-        },
+        thresholds: risk_thresholds_from(tuning, pulse),
     };
     let result = run_opportunity_radar(
         &market.instant_selection,
@@ -1332,13 +1335,16 @@ pub fn opportunities_model(
         })
         .collect();
 
+    let mut probe_candidates = result.probe_candidates;
+    boost_probe_candidates(&mut probe_candidates, pulse);
+
     Ok(OpportunitiesModel {
         notes,
         scan: RadarScan::Ran(Box::new(RadarScanResult {
             stake,
             starts: start_names,
             items,
-            probe_candidates: result.probe_candidates,
+            probe_candidates,
             diagnostics: result.diagnostics,
         })),
     })
@@ -1653,7 +1659,7 @@ pub fn history_model(
                 .classify(newest, Utc::now())
                 .status
         });
-    let anomalies = anomalies(&summary, &points);
+    let anomalies = anomalies(&summary, &points, &anomaly_thresholds_from(tuning));
     Ok(HistoryModel {
         notes: market.notes,
         have: have.clone(),
@@ -2181,6 +2187,79 @@ pub fn analytics_model(
         }),
         data_days,
         pulse,
+    }
+}
+
+/// Raises a candidate one priority step when either side of its pair is a
+/// scarce or high-turnover currency in the market pulse — the gaps that
+/// cost the most to leave unprobed go to the front of the queue.
+fn boost_probe_candidates(
+    candidates: &mut [ptt_workflows::ProbeCandidate],
+    pulse: Option<&ptt_strategy::MarketPulse>,
+) {
+    let Some(pulse) = pulse else {
+        return;
+    };
+    let hot: std::collections::BTreeSet<&str> = pulse
+        .assets
+        .iter()
+        .filter(|asset| asset.class == ptt_strategy::LiquidityClass::Scarce || asset.high_turnover)
+        .map(|asset| asset.asset_id.as_str())
+        .collect();
+    for candidate in candidates {
+        if hot.contains(candidate.from_asset_id.as_str())
+            || hot.contains(candidate.to_asset_id.as_str())
+        {
+            candidate.priority = candidate.priority.raised();
+        }
+    }
+}
+
+/// Risk thresholds from settings, plus each currency's own thin bar when the
+/// market pulse has established a circulation norm: bar = norm × the
+/// configured percent. A hundred mirrors is a deep book and a hundred chaos
+/// is nothing — the norm says which, one constant cannot.
+fn risk_thresholds_from(
+    tuning: &MarketTuning,
+    pulse: Option<&ptt_strategy::MarketPulse>,
+) -> ptt_strategy::RiskThresholds {
+    let mut thresholds = ptt_strategy::RiskThresholds {
+        thin_liquidity_stock: tuning.risk.thin_liquidity_stock,
+        asset_thin_thresholds: std::collections::BTreeMap::new(),
+    };
+    let Some(pulse) = pulse else {
+        return thresholds;
+    };
+    let percent = u128::from(tuning.analytics.thin_norm_percent.min(100));
+    if percent == 0 {
+        return thresholds;
+    }
+    for asset in &pulse.assets {
+        if let Some(norm) = asset.circulation_norm_units {
+            // Floor division; a bar of zero would mark nothing thin, so it
+            // falls back to the global constant instead.
+            let bar = norm.saturating_mul(percent) / 100;
+            if bar > 0 {
+                thresholds.asset_thin_thresholds.insert(
+                    asset.asset_id.as_str().to_owned(),
+                    u64::try_from(bar).unwrap_or(u64::MAX),
+                );
+            }
+        }
+    }
+    thresholds
+}
+
+/// Anomaly bars from settings — the same numbers every other risk site
+/// reads, ending price_curve's private constants.
+fn anomaly_thresholds_from(tuning: &MarketTuning) -> ptt_strategy::AnomalyThresholds {
+    let bps = |value: u64| i64::try_from(value).unwrap_or(i64::MAX);
+    ptt_strategy::AnomalyThresholds {
+        spike_basis_points: bps(tuning.risk.spike_basis_points),
+        severe_spike_basis_points: bps(tuning.risk.severe_spike_basis_points),
+        wide_spread_basis_points: bps(tuning.risk.wide_spread_basis_points),
+        severe_spread_basis_points: bps(tuning.risk.severe_spread_basis_points),
+        thin_stock: tuning.risk.thin_liquidity_stock,
     }
 }
 
@@ -2792,14 +2871,19 @@ mod settlement_tests {
         );
     }
 
-    /// A currency captured repeatedly but absent from the focus list gets a
-    /// promotion suggestion; focus members and settlement currencies do not.
+    /// A currency with real buy pressure that is absent from the focus list
+    /// gets a promotion suggestion carrying the evidence; focus members and
+    /// settlement currencies do not. (Rewritten with the P10 evidence rule:
+    /// what earns the suggestion is demand, never capture frequency.)
     #[test]
-    fn a_frequently_captured_outsider_is_suggested_for_focus() {
+    fn an_outsider_with_buy_pressure_is_suggested_for_focus() {
         let observations = vec![
             taker("divine-orb", "chaos-orb", (100, 1), 1_000),
+            // The divine-for-vaal book prices vaal at 1/50 divine and its
+            // available side pays out 1000 divine seeking 50000 vaal: buy
+            // pressure 50000 vaal = 1000 divine. The vaal-supply book lists
+            // 1000 vaal = 20 divine. Demand-heavy, so it earns the row.
             taker("vaal-orb", "divine-orb", (1, 50), 1_000),
-            taker("vaal-orb", "chaos-orb", (2, 1), 1_000),
             taker("chaos-orb", "vaal-orb", (1, 2), 1_000),
             taker("exalted-orb", "chaos-orb", (1, 3), 1_000),
         ];
@@ -2820,8 +2904,8 @@ mod settlement_tests {
 ",
         );
         assert!(
-            joined.contains("consider adding vaal-orb to focus - 3 snapshots"),
-            "three distinct snapshots must earn the suggestion: {joined}"
+            joined.contains("consider adding vaal-orb to focus - buy pressure 1000 vs listed 20"),
+            "the anchor-valued evidence must earn and label the suggestion: {joined}"
         );
         assert!(
             !joined.contains("consider adding exalted-orb"),
@@ -2967,6 +3051,80 @@ mod structural_tests {
         assert!(
             structural_notes_for(&path, None).is_empty(),
             "no pulse, no notes, no page change"
+        );
+    }
+
+    /// Each currency's thin bar is its own norm: 25% of a mirror's median
+    /// daily supply is a different number from 25% of chaos's, and a
+    /// currency without history keeps the global constant.
+    #[test]
+    fn thin_liquidity_follows_each_currency_s_own_norm() {
+        let mut mirror = pulse_asset("mirror-of-kalandra", ptt_strategy::LiquidityClass::Scarce);
+        mirror.circulation_norm_units = Some(8); // 25% -> bar of 2
+        let mut chaos = pulse_asset("chaos-orb", ptt_strategy::LiquidityClass::Balanced);
+        chaos.circulation_norm_units = Some(4_000); // 25% -> bar of 1000
+        let pulse = ptt_strategy::MarketPulse {
+            as_of_day: Some("2026-08-22".to_owned()),
+            anchor_asset_id: Some(asset("divine-orb")),
+            anchor_health: None,
+            assets: vec![mirror, chaos],
+        };
+
+        let thresholds = risk_thresholds_from(&MarketTuning::default(), Some(&pulse));
+        assert_eq!(thresholds.thin_threshold_for("mirror-of-kalandra"), 2);
+        assert_eq!(thresholds.thin_threshold_for("chaos-orb"), 1_000);
+        assert_eq!(
+            thresholds.thin_threshold_for("never-seen-orb"),
+            100,
+            "no norm falls back to the global constant"
+        );
+
+        let without_pulse = risk_thresholds_from(&MarketTuning::default(), None);
+        assert!(
+            without_pulse.asset_thin_thresholds.is_empty(),
+            "no history, no norms, existing behavior"
+        );
+    }
+
+    /// A gap touching a scarce or high-turnover currency jumps the probe
+    /// queue one step; everything else keeps its priority.
+    #[test]
+    fn scarce_and_high_turnover_gaps_probe_first() {
+        let pulse = ptt_strategy::MarketPulse {
+            as_of_day: Some("2026-08-22".to_owned()),
+            anchor_asset_id: Some(asset("divine-orb")),
+            anchor_health: None,
+            assets: vec![pulse_asset(
+                "mirror-of-kalandra",
+                ptt_strategy::LiquidityClass::Scarce,
+            )],
+        };
+        let candidate = |from: &str, to: &str| ptt_workflows::ProbeCandidate {
+            from_asset_id: asset(from),
+            to_asset_id: asset(to),
+            reason: ptt_workflows::ProbeReason::MissingForwardQuote,
+            source: ptt_workflows::ProbeSource::FocusGroup,
+            priority: ptt_workflows::ProbePriority::Low,
+            related_focus_group_id: None,
+            last_seen_at: None,
+            freshness_status: None,
+            expected_value_hint: None,
+            notes: None,
+        };
+        let mut candidates = vec![
+            candidate("divine-orb", "mirror-of-kalandra"),
+            candidate("divine-orb", "chaos-orb"),
+        ];
+        boost_probe_candidates(&mut candidates, Some(&pulse));
+        assert_eq!(
+            candidates[0].priority,
+            ptt_workflows::ProbePriority::Medium,
+            "the scarce pair moved up one step"
+        );
+        assert_eq!(
+            candidates[1].priority,
+            ptt_workflows::ProbePriority::Low,
+            "unrelated pairs keep their place"
         );
     }
 }

@@ -372,6 +372,17 @@ pub struct RiskTuning {
     /// factor is a price outlier. The book enforces its own minimum of 2.
     #[serde(default = "default_outlier_factor")]
     pub top_book_outlier_factor: u64,
+    /// A latest rate this far from the median (basis points) is a spike/drop.
+    #[serde(default = "default_spike_basis_points")]
+    pub spike_basis_points: u64,
+    /// ...and this far is high severity.
+    #[serde(default = "default_severe_spike_basis_points")]
+    pub severe_spike_basis_points: u64,
+    /// A maker/taker spread wider than this (basis points) is an anomaly.
+    #[serde(default = "default_wide_spread_basis_points")]
+    pub wide_spread_basis_points: u64,
+    #[serde(default = "default_severe_spread_basis_points")]
+    pub severe_spread_basis_points: u64,
 }
 
 fn default_thin_liquidity_stock() -> u64 {
@@ -380,12 +391,28 @@ fn default_thin_liquidity_stock() -> u64 {
 fn default_outlier_factor() -> u64 {
     3
 }
+fn default_spike_basis_points() -> u64 {
+    2_000
+}
+fn default_severe_spike_basis_points() -> u64 {
+    5_000
+}
+fn default_wide_spread_basis_points() -> u64 {
+    1_000
+}
+fn default_severe_spread_basis_points() -> u64 {
+    2_000
+}
 
 impl Default for RiskTuning {
     fn default() -> Self {
         Self {
             thin_liquidity_stock: default_thin_liquidity_stock(),
             top_book_outlier_factor: default_outlier_factor(),
+            spike_basis_points: default_spike_basis_points(),
+            severe_spike_basis_points: default_severe_spike_basis_points(),
+            wide_spread_basis_points: default_wide_spread_basis_points(),
+            severe_spread_basis_points: default_severe_spread_basis_points(),
         }
     }
 }
