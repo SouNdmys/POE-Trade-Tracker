@@ -304,10 +304,7 @@ fn radar_probes_rank_confirmation_above_missing_data() {
         .collect();
     assert_eq!(
         graded.get("divine"),
-        Some(&(
-            ProbeReason::OpportunityConfirmation,
-            ProbePriority::Medium
-        )),
+        Some(&(ProbeReason::OpportunityConfirmation, ProbePriority::Medium)),
         "a partial fill is one capture away from a trade"
     );
     assert_eq!(

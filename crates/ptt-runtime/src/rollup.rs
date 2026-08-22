@@ -79,7 +79,10 @@ pub fn today_window(
     game: &str,
     now: DateTime<Utc>,
 ) -> Result<Vec<MarketEdgeObservation>, String> {
-    let (from, to) = (day_start(now.date_naive()), now + chrono::Duration::hours(1));
+    let (from, to) = (
+        day_start(now.date_naive()),
+        now + chrono::Duration::hours(1),
+    );
     let mut window = Vec::new();
     for key in game_context_keys(store, game)? {
         window.extend(
