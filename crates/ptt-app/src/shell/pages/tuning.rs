@@ -380,7 +380,13 @@ impl AppShell {
             .market_tuning(self.settings.active_profile.game);
         let inputs = &self.tuning_inputs;
 
-        let row = |label: &'static str, input: &Entity<InputState>, hint: String| {
+        // Label, box, the shipped default, then what the number is *for*.
+        // Without the last one the page is two dozen boxes of digits whose
+        // only clue is a label short enough to fit a column.
+        let row = |label: &'static str,
+                   input: &Entity<InputState>,
+                   default: &'static str,
+                   note: &'static str| {
             div()
                 .h_flex()
                 .items_center()
@@ -400,9 +406,17 @@ impl AppShell {
                         .child(Input::new(input).with_size(Size::Small)),
                 )
                 .child(
-                    mono(hint)
+                    mono(default)
+                        .w(px(84.))
+                        .flex_none()
                         .text_size(fs(FS_10_5))
                         .text_color(c(TEXT_DISABLED)),
+                )
+                .child(
+                    div()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(note),
                 )
         };
 
@@ -540,90 +554,155 @@ impl AppShell {
                             cells
                         }),
                 )
-                .child(row(text.tuning_fresh, &inputs.fresh, "7200".to_owned()))
-                .child(row(text.tuning_usable, &inputs.usable, "21600".to_owned()))
-                .child(row(text.tuning_stale, &inputs.stale, "86400".to_owned()))
-                .child(row(text.tuning_skew, &inputs.skew, "3600".to_owned()))
+                .child(row(
+                    text.tuning_fresh,
+                    &inputs.fresh,
+                    "7200",
+                    text.tuning_fresh_note,
+                ))
+                .child(row(
+                    text.tuning_usable,
+                    &inputs.usable,
+                    "21600",
+                    text.tuning_usable_note,
+                ))
+                .child(row(
+                    text.tuning_stale,
+                    &inputs.stale,
+                    "86400",
+                    text.tuning_stale_note,
+                ))
+                .child(row(
+                    text.tuning_skew,
+                    &inputs.skew,
+                    "3600",
+                    text.tuning_skew_note,
+                ))
                 .child(row(
                     text.tuning_sizes,
                     &inputs.sizes,
-                    "1, 10, 100".to_owned(),
+                    "1, 10, 100",
+                    text.tuning_sizes_note,
                 ))
-                .child(row(text.tuning_max_hops, &inputs.max_hops, "3".to_owned()))
-                .child(row(text.tuning_stake, &inputs.stake, "10".to_owned()))
+                .child(row(
+                    text.tuning_max_hops,
+                    &inputs.max_hops,
+                    "3",
+                    text.tuning_max_hops_note,
+                ))
+                .child(row(
+                    text.tuning_stake,
+                    &inputs.stake,
+                    "10",
+                    text.tuning_stake_note,
+                ))
                 .child(row(
                     text.tuning_results,
                     &inputs.max_results,
-                    "12".to_owned(),
+                    "12",
+                    text.tuning_results_note,
                 ))
                 .child(row(
                     text.tuning_min_bps,
                     &inputs.min_basis_points,
-                    "100".to_owned(),
+                    "100",
+                    text.tuning_min_bps_note,
                 ))
                 .child(row(
                     text.tuning_expansions,
                     &inputs.expansions,
-                    "60000".to_owned(),
+                    "60000",
+                    text.tuning_expansions_note,
                 ))
-                .child(row(text.tuning_thin, &inputs.thin_stock, "100".to_owned()))
+                .child(row(
+                    text.tuning_thin,
+                    &inputs.thin_stock,
+                    "100",
+                    text.tuning_thin_note,
+                ))
                 .child(row(
                     text.tuning_outlier,
                     &inputs.outlier_factor,
-                    "3".to_owned(),
+                    "3",
+                    text.tuning_outlier_note,
                 ))
                 .child(row(
                     text.tuning_window,
                     &inputs.window_hours,
-                    "24".to_owned(),
+                    "24",
+                    text.tuning_window_note,
                 ))
                 .child(row(
                     text.tuning_trend_recent,
                     &inputs.trend_recent,
-                    "2".to_owned(),
+                    "2",
+                    text.tuning_trend_recent_note,
                 ))
                 .child(row(
                     text.tuning_trend_window,
                     &inputs.trend_window,
-                    "7".to_owned(),
+                    "7",
+                    text.tuning_trend_window_note,
                 ))
-                .child(row(text.tuning_breadth, &inputs.breadth, "70".to_owned()))
+                .child(row(
+                    text.tuning_breadth,
+                    &inputs.breadth,
+                    "70",
+                    text.tuning_breadth_note,
+                ))
                 .child(row(
                     text.tuning_verdict,
                     &inputs.verdict_bps,
-                    "500".to_owned(),
+                    "500",
+                    text.tuning_verdict_note,
                 ))
                 .child(row(
                     text.tuning_scarce,
                     &inputs.scarce_ratio,
-                    "300".to_owned(),
+                    "300",
+                    text.tuning_scarce_note,
                 ))
-                .child(row(text.tuning_quiet, &inputs.quiet_floor, "10".to_owned()))
+                .child(row(
+                    text.tuning_quiet,
+                    &inputs.quiet_floor,
+                    "10",
+                    text.tuning_quiet_note,
+                ))
                 .child(row(
                     text.tuning_thin_norm,
                     &inputs.thin_norm,
-                    "25".to_owned(),
+                    "25",
+                    text.tuning_thin_norm_note,
                 ))
                 .child(row(
                     text.tuning_retention,
                     &inputs.retention_days,
-                    "0".to_owned(),
+                    "0",
+                    text.tuning_retention_note,
                 ))
-                .child(row(text.tuning_spike, &inputs.spike, "2000".to_owned()))
+                .child(row(
+                    text.tuning_spike,
+                    &inputs.spike,
+                    "2000",
+                    text.tuning_spike_note,
+                ))
                 .child(row(
                     text.tuning_severe_spike,
                     &inputs.severe_spike,
-                    "5000".to_owned(),
+                    "5000",
+                    text.tuning_severe_spike_note,
                 ))
                 .child(row(
                     text.tuning_wide_spread,
                     &inputs.wide_spread,
-                    "1000".to_owned(),
+                    "1000",
+                    text.tuning_wide_spread_note,
                 ))
                 .child(row(
                     text.tuning_severe_spread,
                     &inputs.severe_spread,
-                    "2000".to_owned(),
+                    "2000",
+                    text.tuning_severe_spread_note,
                 ))
                 .child(
                     div()
