@@ -48,3 +48,15 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 收益最大的一个点。同一模式散布在 `load_analytics`、`load_window`、
 `load_pulse` 和 `shell/pages/season.rs` 的四处。改动跑在 background executor
 上，不阻塞 UI 线程，所以不紧急。
+
+## 4. ptt-runtime 的 Cargo.toml description 已过时（小事，记一笔）
+
+`crates/ptt-runtime/Cargo.toml:8` 现在写的是：
+
+> "Background actor runtime for POE Trade Tracker (skeleton; full port lands in P2)"
+
+早就不是骨架了。这个 crate 现在装的是页面模型与报表（`reports.rs`）、采集管道、
+日 rollup，以及 `src/bin/*_probe.rs` 那批验证探针。
+
+过时的描述比没有描述更坑人 —— 它会让人以为这里没什么东西，从而不去读。
+顺手改的时候一起修掉即可。
