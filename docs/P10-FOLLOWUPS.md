@@ -18,20 +18,15 @@ Convert/Opportunities/Watchlist 上读同一份 pulse 的结构注记都少算�
 
 页面窗口本身没动：一本书必须自洽，所以它继续只读一个 context。
 
-## 2. radar 探针优先级恒为 High（设计问题，待讨论，不是 bug）
+## 2. radar 探针优先级恒为 High（已裁定并实施 2026-08-23，见 `93b018c`）
 
-radar 的 4 个 push 点全部硬写 `ProbePriority::High`：
-`crates/ptt-workflows/src/radar.rs` 的 322、398、406（经
-`missing_conversion_probe`/`confirm_conversion_probe`）和 499 的内联构造。
+四个 push 点原本全写 `High`，于是 `raised()` 无处可升、全同级列表也无序可排，
+机会页那四条实际是字母序前四条。裁定：**待确认 = Medium，缺价 = Low**，两者都
+不占顶格，稀缺/高流转加权才有空间。理由与完整表格在
+`CORE-TRADING-MODEL.md`「探针分级」。
 
-因为 `raised()` 是 `High → High`，`boost_probe_candidates` 在 Opportunities
-路径上是可证明的空操作 —— 排序也是（全同级，稳定排序原样保留字母序）。
-priority 这个字段在这条路径上不携带任何信息，UI 上四个探针都标 High。
-
-云端评审把这条路径也算进了 probe boost 的影响面，那是错的。
-
-要不要给 radar 探针分级（比如 missing path 比 confirmation 更急）是产品判断，
-不是修 bug。在决定之前，reports.rs:1340 那个 boost 调用留着无害。
+（云端评审把这条路径算进了 probe boost 的影响面，那是错的 —— 当时它在这条路上
+确实是空操作。现在不是了。）
 
 ## 3. Monitor 刷新新增一次开库（本次改动引入的代价）
 
