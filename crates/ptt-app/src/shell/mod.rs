@@ -1204,7 +1204,7 @@ fn load_probe_queue(
     use ptt_runtime::pipeline::LIVE_LEAGUE;
 
     let (context_key, observations) = load_window(request)?;
-    let analytics = load_pulse(request, &observations);
+    let analytics = load_pulse(request);
     ptt_runtime::reports::probe_queue_model(
         &observations,
         &context_key,
@@ -1281,33 +1281,36 @@ fn load_analytics(request: &PageRequest) -> Result<ptt_runtime::reports::Analyti
     }
     drop(store);
 
-    let (_, observations) = load_window(request)?;
-    load_pulse(request, &observations).ok_or_else(|| "analytics unavailable".to_owned())
+    load_pulse(request).ok_or_else(|| "analytics unavailable".to_owned())
 }
 
 /// The market pulse the structural annotations read: persisted day rollups
-/// (season-clamped) plus a live fold of the window's current day. `None`
-/// when the store cannot answer — annotations simply stay absent, the page
-/// itself is unaffected.
+/// (season-clamped) plus a live fold of today, read across every context of
+/// the game. `None` when the store cannot answer — annotations simply stay
+/// absent, the page itself is unaffected.
+///
+/// It loads its own window rather than taking the page's: the page reads one
+/// context key by design (a book must be self-consistent), and on a release
+/// day that key rotates at midday, which would drop the morning out of the
+/// fold.
 #[cfg(windows)]
-fn load_pulse(
-    request: &PageRequest,
-    observations: &[ptt_trade_domain::MarketEdgeObservation],
-) -> Option<ptt_runtime::reports::AnalyticsModel> {
+fn load_pulse(request: &PageRequest) -> Option<ptt_runtime::reports::AnalyticsModel> {
     use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
 
     let store = ptt_storage::MarketStore::open(default_database_path()).ok()?;
     let game = request.profile.game.as_str();
     let season = store.active_season(game).ok().flatten();
+    let now = chrono::Utc::now();
     let from_day = season.as_ref().map_or_else(
         || "0001-01-01".to_owned(),
         |row| row.started_at.format("%Y-%m-%d").to_string(),
     );
-    let to_day = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let to_day = now.format("%Y-%m-%d").to_string();
     let rollup_rows = store.load_rollups(game, &from_day, &to_day).ok()?;
+    let today = ptt_runtime::rollup::today_window(&store, game, now).ok()?;
     Some(ptt_runtime::reports::analytics_model(
         &rollup_rows,
-        observations,
+        &today,
         season.as_ref(),
         LIVE_LEAGUE,
         &request.tuning,
@@ -1323,7 +1326,7 @@ fn load_opportunities(
     use ptt_runtime::pipeline::LIVE_LEAGUE;
 
     let (context_key, observations) = load_window(request)?;
-    let analytics = load_pulse(request, &observations);
+    let analytics = load_pulse(request);
     ptt_runtime::reports::opportunities_model(
         &observations,
         &context_key,
@@ -1340,7 +1343,7 @@ fn load_watchlist(request: &PageRequest) -> Result<ptt_runtime::reports::Watchli
     use ptt_runtime::pipeline::LIVE_LEAGUE;
 
     let (context_key, observations) = load_window(request)?;
-    let analytics = load_pulse(request, &observations);
+    let analytics = load_pulse(request);
     ptt_runtime::reports::watchlist_model(
         &observations,
         &context_key,
@@ -1388,7 +1391,7 @@ fn load_convert(
     let (context_key, observations) = load_window(request)?;
     let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
     let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
-    let analytics = load_pulse(request, &observations);
+    let analytics = load_pulse(request);
     ptt_runtime::reports::convert_model(
         &observations,
         &context_key,

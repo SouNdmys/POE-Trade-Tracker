@@ -3,7 +3,7 @@
 use chrono::{DateTime, TimeZone, Utc};
 use ptt_runtime::rollup::{
     MAX_ROLLUP_DAYS_PER_RUN, clamp_to_season, ensure_daily_rollups, prune_raw_days,
-    purge_before_active_season,
+    purge_before_active_season, today_window,
 };
 use ptt_storage::MarketStore;
 use ptt_trade_domain::{
@@ -204,6 +204,44 @@ fn ensure_daily_rollups_aggregates_two_contexts_of_same_game() {
     assert_eq!(rows.len(), 1, "one market, not one per release");
     assert_eq!(rows[0].snapshot_count, 2);
     assert_eq!(rows[0].contexts_merged, 2);
+}
+
+// ----- today's live fold -----
+
+#[test]
+fn today_window_reads_every_context_of_the_game() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    // A release lands at midday: the morning's captures sit under the old
+    // build's context key, the afternoon's under the new one.
+    store
+        .persist_capture(&capture(at(22, 9), "0.10.3", default_rows()))
+        .expect("persist morning");
+    store
+        .persist_capture(&capture(at(22, 11), "0.10.4", default_rows()))
+        .expect("persist afternoon");
+
+    let window = today_window(&store, "poe2", now()).expect("window");
+    assert!(
+        window
+            .iter()
+            .any(|observation| observation.edge.captured_at == at(22, 9)),
+        "a release today must not hide the morning"
+    );
+    assert_eq!(window.len(), 8, "both contexts' edges, four each");
+}
+
+#[test]
+fn today_window_stops_at_midnight() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    store
+        .persist_capture(&capture(at(21, 23), "0.10.3", default_rows()))
+        .expect("persist yesterday");
+    store
+        .persist_capture(&capture(at(22, 9), "0.10.3", default_rows()))
+        .expect("persist today");
+
+    let window = today_window(&store, "poe2", now()).expect("window");
+    assert_eq!(window.len(), 4, "yesterday belongs to the rollup builder");
 }
 
 #[test]

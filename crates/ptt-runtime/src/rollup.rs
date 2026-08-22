@@ -67,6 +67,30 @@ pub fn game_context_keys(store: &MarketStore, game: &str) -> Result<Vec<String>,
         .collect())
 }
 
+/// Today's observations, read across every context of the game.
+///
+/// `ensure_daily_rollups` excludes today by construction, so the current day
+/// only ever exists as a live fold — and folding a single context key hides
+/// the morning of any day the client updated. Same union the builder reads
+/// for elapsed days, for the day still in progress. The hour of lookahead
+/// keeps a capture clock slightly ahead of ours inside today.
+pub fn today_window(
+    store: &MarketStore,
+    game: &str,
+    now: DateTime<Utc>,
+) -> Result<Vec<MarketEdgeObservation>, String> {
+    let (from, to) = (day_start(now.date_naive()), now + chrono::Duration::hours(1));
+    let mut window = Vec::new();
+    for key in game_context_keys(store, game)? {
+        window.extend(
+            store
+                .load_observations_between(&key, from, to)
+                .map_err(|error| format!("today: {error}"))?,
+        );
+    }
+    Ok(window)
+}
+
 /// Rolls up every fully-elapsed, not-yet-marked UTC day for the game, across
 /// all of its contexts. Today is structurally excluded (the candidate range
 /// ends yesterday); empty days get a zero mark and are never revisited;
