@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "profile": "poe1-zhtw",
+  "screenshot_dir": "test-screenshots/poe2/8.22.1",
+  "cases": [
+    {
+      "file": "Path of Exile Screenshot 2026.08.22 - 09.58.20.22.png",
+      "expect": "accept",
+      "need": "vaal-orb",
+      "have": "chaos-orb",
+      "rows": [
+        { "side": "available", "index": 0, "ratio": "1.51:1", "stock": 370 },
+        { "side": "available", "index": 1, "ratio": "1.51:1", "stock": 1356 },
+        { "side": "available", "index": 2, "ratio": "1.50:1", "stock": 2484 },
+        { "side": "available", "index": 3, "ratio": "1.07:1", "stock": 30 },
+        { "side": "available", "index": 4, "ratio": "1.01:1", "stock": 100 },
+        { "side": "available", "index": 5, "ratio": "<1.01:1", "stock": 17625 },
+        { "side": "competing", "index": 0, "ratio": "2:1", "stock": 805 },
+        { "side": "competing", "index": 1, "ratio": "2.50:1", "stock": 950 },
+        { "side": "competing", "index": 2, "ratio": "2.59:1", "stock": 1160 },
+        { "side": "competing", "index": 3, "ratio": "2.59:1", "stock": 1800 },
+        { "side": "competing", "index": 4, "ratio": "2.64:1", "stock": 76 },
+        { "side": "competing", "index": 5, "ratio": ">2.64:1", "stock": 19772 }
+      ]
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.22 - 09.58.22.70.png",
+      "expect": "skip",
+      "note": "the Traditional Chinese client's order-entry state (marked 市場比例 / 下訂單): the title strip reads the pair row's bare ratio instead of 可用交易, so the title gate refuses the frame before anything downstream can mistake that ratio for an order row."
+    }
+  ]
+}

@@ -70,6 +70,11 @@ pub fn skip_key(reason: &SkipReason) -> String {
         SkipReason::Ocr(_) => "ocr".into(),
         SkipReason::NeedNameUnresolved { .. } => "need-name".into(),
         SkipReason::HaveNameUnresolved { .. } => "have-name".into(),
+        // The panel's order-entry state: what the exchange shows whenever
+        // the cursor is off the market-ratio strip. Expected to dominate the
+        // skip histogram in a live watch, because it is on screen far more
+        // of the time than the book is.
+        SkipReason::BookNotOnScreen { .. } => "not-book-view".into(),
         SkipReason::Rows(reject) => format!("rows:{reject:?}")
             .split(' ')
             .next()

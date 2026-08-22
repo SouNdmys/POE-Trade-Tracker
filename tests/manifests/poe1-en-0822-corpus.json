@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "profile": "poe1-en",
+  "screenshot_dir": "test-screenshots/poe2/8.22.1",
+  "cases": [
+    {
+      "file": "Path of Exile Screenshot 2026.08.22 - 09.56.59.93.png",
+      "expect": "accept",
+      "need": "mirror-of-kalandra",
+      "have": "divine-orb",
+      "rows": [
+        { "side": "available", "index": 0, "ratio": "1:928", "stock": 1 },
+        { "side": "available", "index": 1, "ratio": "1:929", "stock": 2 },
+        { "side": "available", "index": 2, "ratio": "1:930", "stock": 3 },
+        { "side": "available", "index": 3, "ratio": "1:932", "stock": 1 },
+        { "side": "available", "index": 4, "ratio": "1:938", "stock": 1 },
+        { "side": "available", "index": 5, "ratio": "<1:938", "stock": 89 },
+        { "side": "competing", "index": 0, "ratio": "1:911", "stock": 911 },
+        { "side": "competing", "index": 1, "ratio": "1:910", "stock": 1820 },
+        { "side": "competing", "index": 2, "ratio": "1:909", "stock": 1818 },
+        { "side": "competing", "index": 3, "ratio": "1:908", "stock": 908 },
+        { "side": "competing", "index": 4, "ratio": "1:907", "stock": 907 },
+        { "side": "competing", "index": 5, "ratio": ">1:907", "stock": 44811 }
+      ]
+    },
+    {
+      "file": "Path of Exile Screenshot 2026.08.22 - 09.57.23.91.png",
+      "expect": "skip",
+      "note": "POE1's order-entry state (Market Ratio + Place Order): same two-state panel as POE2, so the title gate must hold here too. The title strip reads the ratio digits of the pair row instead of Available Trades."
+    }
+  ]
+}

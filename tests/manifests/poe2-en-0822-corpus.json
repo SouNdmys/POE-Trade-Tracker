@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "profile": "poe2-en",
+  "screenshot_dir": "test-screenshots/poe2/8.22.1",
+  "cases": [
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.22 - 09.49.17.13.png",
+      "expect": "accept",
+      "need": "perfect_chaos_orb",
+      "have": "chaos_orb",
+      "rows": [
+        { "side": "available", "index": 0, "ratio": "1:60", "stock": 5 },
+        { "side": "available", "index": 1, "ratio": "1:61", "stock": 5 },
+        { "side": "available", "index": 2, "ratio": "1:62", "stock": 5 },
+        { "side": "available", "index": 3, "ratio": "1:64", "stock": 1 },
+        { "side": "available", "index": 4, "ratio": "1:65", "stock": 12 },
+        { "side": "available", "index": 5, "ratio": "<1:65", "stock": 57 },
+        { "side": "competing", "index": 0, "ratio": "1:53", "stock": 212 },
+        { "side": "competing", "index": 1, "ratio": "1:52", "stock": 208 },
+        { "side": "competing", "index": 2, "ratio": "1:45", "stock": 90 },
+        { "side": "competing", "index": 3, "ratio": "1:25", "stock": 500 },
+        { "side": "competing", "index": 4, "ratio": "1:17", "stock": 170 },
+        { "side": "competing", "index": 5, "ratio": ">1:17", "stock": 624 }
+      ]
+    },
+    {
+      "file": "Path of Exile 2 Screenshot 2026.08.22 - 09.49.20.04.png",
+      "expect": "skip",
+      "note": "the order-entry state of the same pair, three seconds after the book frame: the moment the cursor leaves the market-ratio strip the tables are replaced by Market Ratio + Place Order, while the panel title and both identity slots stay. Before the title gate this was ACCEPTED as a one-row book - the ratio text plus the auto-filled amount box read as `1:60 stock=60` - and, being newer, it shadowed the full book on every flip. This frame is the torn-frame plague of task #76 in the flesh, and it must never parse again."
+    }
+  ]
+}

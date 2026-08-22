@@ -26,6 +26,23 @@ pub enum SkipReason {
     HaveNameUnresolved {
         text: String,
     },
+    /// The tables region does not open with the "Available Trades" title
+    /// bar, so the panel is not showing an order book at all.
+    ///
+    /// The exchange panel has two states sharing one screen position: the
+    /// order book (tables under an "Available Trades" / "Competing Trades"
+    /// title each) appears only while the cursor holds the market-ratio
+    /// strip; the moment it leaves — every Alt release, every currency
+    /// switch — the same pixels show the order-entry view instead: "Market
+    /// Ratio", two amount boxes and a Place Order button. Both states keep
+    /// the panel title and both identity slots, so every other gate passes,
+    /// and the ratio text plus the auto-filled amount box parse as one
+    /// clean order row: `1 : 60` beside `60` was accepted as a one-row book
+    /// and, being newer, shadowed the twelve-row book read seconds earlier.
+    /// That was the entire torn-frame plague (task #76).
+    BookNotOnScreen {
+        text: String,
+    },
     Rows(RowsReject),
     /// Identity and structure were fine but not a single row parsed.
     EmptyBook,
@@ -107,6 +124,83 @@ pub fn region_override(prefix: &str, name: &str) -> Option<RegionRect> {
 
 fn override_key(prefix: &str, name: &str) -> String {
     format!("{prefix}:{name}")
+}
+
+/// How much of the tables region's top holds the available table's title bar.
+///
+/// Measured on both games at 2560×1440: the title's ink sits at local y
+/// 13..34 (POE2), 15..34 (POE1 English) and 8..45 (POE1 Traditional Chinese,
+/// after the region's own zh-TW offset), all clear of the column heading
+/// below — the nearest heading ink starts at 47. Both games draw the same
+/// widget, which is why one constant serves them both.
+pub const BOOK_TITLE_STRIP_HEIGHT: usize = 48;
+
+/// Whether OCR text from the top of the tables region attests the available
+/// table's title bar — the one line that separates the panel's two states.
+///
+/// In the book view that strip reads "Available Trades" (可用交易 in either
+/// game's Traditional Chinese client); in the order-entry view the same
+/// pixels read "Market Ratio" / 市場比率, or a bare ratio where the pair row
+/// crosses the strip. Matching is by containment on a folded form —
+/// lowercase, alphanumeric only — so OCR spacing, case and stray marks
+/// (the table's close button, a clipped heading) cannot break it, while no
+/// order-entry reading can fake it.
+///
+/// Measured across every corpus frame before being allowed to skip anything:
+/// 21 of 21 English and 69 of 69 Traditional Chinese book-view frames read
+/// their title; all four order-entry fixtures and all seven transitional
+/// negatives do not.
+#[must_use]
+pub fn available_title_shown(text: &str, language: crate::profiles::ProfileLanguage) -> bool {
+    let folded: String = text
+        .chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect();
+    let expected = match language {
+        crate::profiles::ProfileLanguage::English => "availabletrades",
+        crate::profiles::ProfileLanguage::TraditionalChinese => "可用交易",
+    };
+    folded.contains(expected)
+}
+
+#[cfg(test)]
+mod title_tests {
+    use super::available_title_shown;
+    use crate::profiles::ProfileLanguage;
+
+    /// The readings the calibration probe actually returned, verbatim.
+    #[test]
+    fn the_book_view_titles_are_attested_and_the_order_entry_view_is_not() {
+        for (text, language) in [
+            ("AVAILABLE TRADES", ProfileLanguage::English),
+            ("Available Trades", ProfileLanguage::English),
+            ("可 用 交 易", ProfileLanguage::TraditionalChinese),
+            ("可用交易", ProfileLanguage::TraditionalChinese),
+        ] {
+            assert!(available_title_shown(text, language), "{text:?}");
+        }
+        for (text, language) in [
+            // The order-entry view's own header, in each client.
+            ("MARKET RATIO", ProfileLanguage::English),
+            ("MARI<ET RATIO", ProfileLanguage::TraditionalChinese),
+            ("市 場 比 率", ProfileLanguage::TraditionalChinese),
+            ("市 場 比 例", ProfileLanguage::TraditionalChinese),
+            // The pair row crossing the strip where the panel sits higher.
+            ("1 : 60", ProfileLanguage::English),
+            ("• 6.57", ProfileLanguage::English),
+            ("1 : 657\n46", ProfileLanguage::TraditionalChinese),
+            ("51 : 1", ProfileLanguage::TraditionalChinese),
+            // Transitional frames read nothing at all.
+            ("", ProfileLanguage::English),
+            ("", ProfileLanguage::TraditionalChinese),
+            // The right words in the wrong client are still a mismatch: the
+            // lexicon follows the profile, exactly as the identity slots do.
+            ("可用交易", ProfileLanguage::English),
+        ] {
+            assert!(!available_title_shown(text, language), "{text:?}");
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -1298,6 +1392,40 @@ mod windows_route {
             Ok((None, last_text))
         }
 
+        /// Confirms the available table's title bar is on screen, or names
+        /// what the title strip read instead.
+        ///
+        /// One OCR of the tables region's top strip through the profile's
+        /// own name lane, judged by [`super::available_title_shown`]. Runs
+        /// before every other gate: the order-entry state this rejects is
+        /// what the panel shows whenever the cursor leaves the market-ratio
+        /// strip, so in a live watch it is the most common frame there is.
+        fn book_view_attested(
+            &self,
+            tables_frame: &ptt_vision::CapturedFrame,
+        ) -> Result<(), SkipReason> {
+            let strip = ptt_vision::PixelRect::new(
+                0,
+                0,
+                tables_frame.width(),
+                super::BOOK_TITLE_STRIP_HEIGHT.min(tables_frame.height()),
+            )
+            .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
+            let recognition = self
+                .worker
+                .recognize(
+                    self.name_language(),
+                    Self::upscaled_frame_rect(tables_frame, strip, 2)?,
+                )
+                .map_err(|error| SkipReason::Ocr(format!("{error:?}")))?;
+            let text = recognition.text();
+            if super::available_title_shown(&text, self.language) {
+                Ok(())
+            } else {
+                Err(SkipReason::BookNotOnScreen { text })
+            }
+        }
+
         /// The three capture regions this profile reads (env overrides
         /// applied), for live capture callers.
         pub fn regions(&self) -> (CaptureRegion, CaptureRegion, CaptureRegion) {
@@ -1333,6 +1461,13 @@ mod windows_route {
             tables_frame: &ptt_vision::CapturedFrame,
         ) -> Result<RecognizedBook, SkipReason> {
             let catalog = (self.layout.catalog)();
+
+            // Before anything else: is the order book on screen at all? The
+            // panel's order-entry state passes every later gate and yields a
+            // clean-parsing fake row (see `SkipReason::BookNotOnScreen`), so
+            // the title bar is checked first — which also makes the common
+            // Alt-release frame the cheapest one to reject.
+            self.book_view_attested(tables_frame)?;
 
             let (need, need_text) = self.ocr_name_resolved(need_frame, "NEED", catalog)?;
             let need = need.ok_or(SkipReason::NeedNameUnresolved {
