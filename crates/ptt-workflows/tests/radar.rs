@@ -19,8 +19,8 @@ use ptt_trade_domain::{
 };
 use ptt_trade_engine::{AssetAmount, AssetUnit, AssetUnitCatalog, FeePolicy, SearchCancellation};
 use ptt_workflows::{
-    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarRequest, RadarStart,
-    run_opportunity_radar,
+    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, ProbePriority, ProbeReason,
+    RadarBudget, RadarRequest, RadarStart, run_opportunity_radar,
 };
 
 fn asset(value: &str) -> MarketAssetId {
@@ -247,4 +247,72 @@ fn a_stake_that_already_clears_the_minimum_lot_is_unaffected() {
     assert!(result.probe_candidates.is_empty());
     assert_eq!(result.diagnostics.complete_conversion_count, 1);
     assert_eq!(result.diagnostics.missing_conversion_count, 0);
+}
+
+/// Two suggestions, two urgencies.
+///
+/// The page shows four probes. When the radar files more than four, the ones
+/// that survive the cut should be the ones a single capture can turn into a
+/// trade: a partial fill is one capture from executable, a pair with no quotes
+/// at all is a guess. Neither starts at High — that would leave the
+/// scarce-currency boost nothing to raise, which is what made the whole field
+/// meaningless on this path.
+#[test]
+fn radar_probes_rank_confirmation_above_missing_data() {
+    let units = whole_catalog(&["chaos", "divine", "mirror"]);
+    // Priced, but only two divine on offer against a thousand-chaos stake:
+    // the path exists and cannot be filled.
+    let selection = selection(&[("chaos", "divine", "1:11", 2)]);
+    let scope = FocusScope::try_new(
+        &[
+            FocusGroupItem {
+                asset_id: asset("chaos"),
+                role: FocusRole::Anchor,
+            },
+            FocusGroupItem {
+                asset_id: asset("divine"),
+                role: FocusRole::Target,
+            },
+            FocusGroupItem {
+                asset_id: asset("mirror"),
+                role: FocusRole::Target,
+            },
+        ],
+        FocusScopePolicy::default(),
+    )
+    .expect("scope");
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &scope,
+        &request("chaos", 1_000, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    let graded: std::collections::BTreeMap<&str, (ProbeReason, ProbePriority)> = result
+        .probe_candidates
+        .iter()
+        .map(|candidate| {
+            (
+                candidate.to_asset_id.as_str(),
+                (candidate.reason, candidate.priority),
+            )
+        })
+        .collect();
+    assert_eq!(
+        graded.get("divine"),
+        Some(&(
+            ProbeReason::OpportunityConfirmation,
+            ProbePriority::Medium
+        )),
+        "a partial fill is one capture away from a trade"
+    );
+    assert_eq!(
+        graded.get("mirror"),
+        Some(&(ProbeReason::MissingForwardQuote, ProbePriority::Low)),
+        "an unpriced pair is exploratory, and must leave the boost room to raise it"
+    );
 }

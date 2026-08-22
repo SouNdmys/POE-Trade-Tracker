@@ -496,7 +496,7 @@ pub fn run_opportunity_radar(
                     to_asset_id: step.to_asset_id.clone(),
                     reason: ProbeReason::OpportunityConfirmation,
                     source: ProbeSource::OpportunityRadar,
-                    priority: ProbePriority::High,
+                    priority: ProbePriority::Medium,
                     related_focus_group_id: None,
                     last_seen_at: None,
                     freshness_status: None,
@@ -784,7 +784,10 @@ fn missing_conversion_probe(start: &RadarStart, target: &MarketAssetId) -> Probe
         to_asset_id: target.clone(),
         reason: ProbeReason::MissingForwardQuote,
         source: ProbeSource::OpportunityRadar,
-        priority: ProbePriority::High,
+        // Exploratory: the radar has no idea what is behind this pair. Ranked
+        // under confirmation, and low enough that the scarce-currency boost
+        // still has somewhere to raise it to.
+        priority: ProbePriority::Low,
         related_focus_group_id: None,
         last_seen_at: None,
         freshness_status: None,
@@ -803,7 +806,9 @@ fn confirm_conversion_probe(
         to_asset_id: target.clone(),
         reason: ProbeReason::OpportunityConfirmation,
         source: ProbeSource::OpportunityRadar,
-        priority: ProbePriority::High,
+        // One capture from a verdict: the path is already there and only the
+        // depth is in doubt.
+        priority: ProbePriority::Medium,
         related_focus_group_id: None,
         last_seen_at: None,
         freshness_status: None,
