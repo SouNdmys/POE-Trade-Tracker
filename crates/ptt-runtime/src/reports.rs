@@ -2207,13 +2207,17 @@ fn boost_probe_candidates(
         .filter(|asset| asset.class == ptt_strategy::LiquidityClass::Scarce || asset.high_turnover)
         .map(|asset| asset.asset_id.as_str())
         .collect();
-    for candidate in candidates {
+    for candidate in candidates.iter_mut() {
         if hot.contains(candidate.from_asset_id.as_str())
             || hot.contains(candidate.to_asset_id.as_str())
         {
             candidate.priority = candidate.priority.raised();
         }
     }
+    // Ascending, because `ProbePriority` declares High first and derives `Ord`
+    // from that order — High is the *smallest*. The sort is stable, so pairs
+    // sharing a priority keep the alphabetical order dedup left them in.
+    candidates.sort_by(|left, right| left.priority.cmp(&right.priority));
 }
 
 /// Risk thresholds from settings, plus each currency's own thin bar when the
@@ -3128,6 +3132,62 @@ mod structural_tests {
             candidates[1].priority,
             ptt_workflows::ProbePriority::Low,
             "unrelated pairs keep their place"
+        );
+    }
+
+    /// Raising the label is not enough: both pages slice the head of the
+    /// queue (four on Opportunities, eight on Watchlist), so a scarce gap
+    /// that sorts late alphabetically stays invisible unless the raise also
+    /// moves it.
+    #[test]
+    fn boosted_gaps_reach_the_displayed_head_of_the_queue() {
+        let pulse = ptt_strategy::MarketPulse {
+            as_of_day: Some("2026-08-22".to_owned()),
+            anchor_asset_id: Some(asset("divine-orb")),
+            anchor_health: None,
+            assets: vec![pulse_asset(
+                "mirror-of-kalandra",
+                ptt_strategy::LiquidityClass::Scarce,
+            )],
+        };
+        let candidate = |from: &str, to: &str| ptt_workflows::ProbeCandidate {
+            from_asset_id: asset(from),
+            to_asset_id: asset(to),
+            reason: ptt_workflows::ProbeReason::MissingForwardQuote,
+            source: ptt_workflows::ProbeSource::FocusGroup,
+            priority: ptt_workflows::ProbePriority::Low,
+            related_focus_group_id: None,
+            last_seen_at: None,
+            freshness_status: None,
+            expected_value_hint: None,
+            notes: None,
+        };
+        // Alphabetical, exactly as `deduplicate_probe_candidates` leaves them.
+        // The scarce pair sorts last and starts well past the display slice.
+        let mut candidates = vec![
+            candidate("alteration-orb", "chaos-orb"),
+            candidate("annulment-orb", "chaos-orb"),
+            candidate("blessed-orb", "chaos-orb"),
+            candidate("chance-orb", "chaos-orb"),
+            candidate("chaos-orb", "divine-orb"),
+            candidate("regal-orb", "mirror-of-kalandra"),
+        ];
+        boost_probe_candidates(&mut candidates, Some(&pulse));
+
+        let position = candidates
+            .iter()
+            .position(|entry| entry.to_asset_id.as_str() == "mirror-of-kalandra")
+            .expect("the scarce pair is still in the queue");
+        let priority = candidates[position].priority;
+        assert_eq!(
+            priority,
+            ptt_workflows::ProbePriority::Medium,
+            "the scarce pair was raised one step"
+        );
+        assert!(
+            position < 4,
+            "the scarce pair is {priority:?} but sits at index {position}, past the four \
+             candidates Opportunities shows — the raise never reordered the queue"
         );
     }
 }
