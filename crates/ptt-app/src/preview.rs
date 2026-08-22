@@ -133,22 +133,22 @@ fn density_rows(count: usize) -> Vec<OpportunityRow> {
                 light: LIGHTS[index % LIGHTS.len()],
                 // A third of the rows carry structural context, cycling the
                 // classes so every chip state renders in the gallery.
-                structural: (index % 3 == 0)
-                    .then(|| {
-                        use ptt_runtime::domain::LiquidityClass;
-                        vec![ptt_runtime::reports::StructuralNote {
-                            asset_id: asset(via),
-                            class: match index % 4 {
-                                0 => LiquidityClass::Scarce,
-                                1 => LiquidityClass::Oversupplied,
-                                2 => LiquidityClass::Quiet,
-                                _ => LiquidityClass::Balanced,
-                            },
-                            verdict: None,
-                            greedy_candidate: index % 4 == 0,
-                        }]
-                    })
-                    .unwrap_or_default(),
+                structural: if index % 3 == 0 {
+                    use ptt_runtime::domain::LiquidityClass;
+                    vec![ptt_runtime::reports::StructuralNote {
+                        asset_id: asset(via),
+                        class: match index % 4 {
+                            0 => LiquidityClass::Scarce,
+                            1 => LiquidityClass::Oversupplied,
+                            2 => LiquidityClass::Quiet,
+                            _ => LiquidityClass::Balanced,
+                        },
+                        verdict: None,
+                        greedy_candidate: index % 4 == 0,
+                    }]
+                } else {
+                    Vec::new()
+                },
             }
         })
         .collect()

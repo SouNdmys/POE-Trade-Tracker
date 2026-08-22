@@ -59,17 +59,19 @@ pub enum Page {
     Convert,
     Watchlist,
     History,
+    Analytics,
     Settings,
 }
 
 impl Page {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Monitor,
         Self::Calibrate,
         Self::Opportunities,
         Self::Convert,
         Self::Watchlist,
         Self::History,
+        Self::Analytics,
         Self::Settings,
     ];
 
@@ -81,6 +83,7 @@ impl Page {
             Self::Convert => text.page_convert,
             Self::Watchlist => text.page_watchlist,
             Self::History => text.page_history,
+            Self::Analytics => text.page_analytics,
             Self::Settings => text.page_settings,
         }
     }
@@ -100,6 +103,7 @@ impl Page {
             | Self::Opportunities
             | Self::Calibrate
             | Self::Watchlist
+            | Self::Analytics
             | Self::Settings => false,
             Self::Convert | Self::History => true,
         }
@@ -115,7 +119,8 @@ impl Page {
             | Self::Opportunities
             | Self::Convert
             | Self::Watchlist
-            | Self::History => true,
+            | Self::History
+            | Self::Analytics => true,
         }
     }
 
@@ -131,6 +136,7 @@ impl Page {
             Self::Convert => "page-convert",
             Self::Watchlist => "page-watchlist",
             Self::History => "page-history",
+            Self::Analytics => "page-analytics",
             Self::Settings => "page-settings",
         }
     }
@@ -210,6 +216,8 @@ pub struct AppShell {
     page: Page,
     /// The pair the report pages describe: the last book that was accepted.
     report_pair: Option<(String, String)>,
+    /// The currency whose day-by-day detail the Analytics page shows.
+    pub(crate) analytics_selected: Option<String>,
     /// What the visible page is showing.
     report: crate::state::PageData,
     /// Which request the displayed answer came from.
@@ -432,6 +440,7 @@ impl AppShell {
             fault: None,
             page: Page::Monitor,
             report_pair: None,
+            analytics_selected: None,
             report: crate::state::PageData::Empty,
             report_generation: 0,
             probe_queue: crate::state::ProbeQueue::default(),
@@ -1026,7 +1035,8 @@ impl AppShell {
             | PageData::Opportunities(_)
             | PageData::Convert(_)
             | PageData::Watchlist(_)
-            | PageData::History(_) => vec![text.nothing_yet.to_owned()],
+            | PageData::History(_)
+            | PageData::Analytics(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
             PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
@@ -1147,6 +1157,12 @@ fn build_page_data(request: &PageRequest) -> crate::state::PageData {
             Err(reason) => PageData::Failed(reason),
         };
     }
+    if request.page == Page::Analytics {
+        return match load_analytics(request) {
+            Ok(model) => PageData::Analytics(Box::new(model)),
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
     if request.page == Page::History {
         return match load_history(request) {
             Ok(Some(model)) => PageData::History(Box::new(model)),
@@ -1223,6 +1239,35 @@ fn load_window(
         .load_observations(&context_key, Some(since))
         .map_err(|error| format!("load: {error}"))?;
     Ok((context_key, observations))
+}
+
+/// The Analytics page: the same pulse the annotations read, with its notes
+/// and season banner attached. The builder runs first so yesterday's books
+/// are always rolled up by the time the page reads them.
+#[cfg(windows)]
+fn load_analytics(request: &PageRequest) -> Result<ptt_runtime::reports::AnalyticsModel, String> {
+    use ptt_runtime::pipeline::default_database_path;
+    use ptt_runtime::rollup;
+
+    // Lazily roll up any fully-elapsed days first (bounded per run). A
+    // failure here degrades to "less history", never to a failed page.
+    let mut store = ptt_storage::MarketStore::open(default_database_path())
+        .map_err(|error| format!("storage: {error}"))?;
+    let game = request.profile.game.as_str();
+    let now = chrono::Utc::now();
+    let _ = rollup::ensure_daily_rollups(&mut store, game, now, rollup::MAX_ROLLUP_DAYS_PER_RUN);
+    if request.tuning.analytics.raw_retention_days > 0 {
+        let _ = rollup::prune_raw_days(
+            &mut store,
+            game,
+            now,
+            request.tuning.analytics.raw_retention_days,
+        );
+    }
+    drop(store);
+
+    let (_, observations) = load_window(request)?;
+    load_pulse(request, &observations).ok_or_else(|| "analytics unavailable".to_owned())
 }
 
 /// The market pulse the structural annotations read: persisted day rollups
@@ -1362,6 +1407,8 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
         Page::Opportunities => Ok(Vec::new()),
         // Answered as a model by `load_watchlist`.
         Page::Watchlist => Ok(Vec::new()),
+        // Answered as a model by `load_analytics`.
+        Page::Analytics => Ok(Vec::new()),
         Page::Convert | Page::History => {
             let Some((have, need)) = &request.pair else {
                 return Ok(Vec::new());
@@ -1541,6 +1588,8 @@ impl Render for AppShell {
                         self.render_convert(cx)
                     } else if self.page == Page::Watchlist {
                         self.render_watchlist(cx)
+                    } else if self.page == Page::Analytics {
+                        self.render_analytics(cx)
                     } else if self.page == Page::History {
                         self.render_history(cx)
                     } else if self.page == Page::Calibrate {

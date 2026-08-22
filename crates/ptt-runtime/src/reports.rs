@@ -461,6 +461,7 @@ fn convert_sizes(holdings: Option<u64>, tuning: &MarketTuning) -> Vec<u64> {
 }
 
 /// Everything the Convert page knows, before anything decides how to draw it.
+#[allow(clippy::too_many_arguments)]
 pub fn convert_model(
     observations: &[MarketEdgeObservation],
     context_key: &str,
@@ -3007,6 +3008,8 @@ mod structural_tests {
             trend_bps_raw: None,
             trend_bps_relative: None,
             verdict: None,
+            value_by_day: Vec::new(),
+            supply_by_day: Vec::new(),
             class,
             high_turnover: false,
             greedy_candidate: class == ptt_strategy::LiquidityClass::Scarce,

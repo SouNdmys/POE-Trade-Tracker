@@ -187,6 +187,12 @@ pub struct AssetPulse {
     /// Move vs the market median move — the number verdicts are made of.
     pub trend_bps_relative: Option<i64>,
     pub verdict: Option<TrendVerdict>,
+    /// The day-by-day value series behind the trend (anchor per unit),
+    /// oldest first — what a detail view draws.
+    pub value_by_day: Vec<(String, Ratio)>,
+    /// The day-by-day supply attribution behind the circulation norm, in the
+    /// asset's own units, oldest first.
+    pub supply_by_day: Vec<(String, u128)>,
     pub class: LiquidityClass,
     /// Supply+demand anchor value in the market's upper quartile.
     pub high_turnover: bool,
@@ -426,6 +432,21 @@ pub fn market_pulse(
             let greedy_candidate = class == LiquidityClass::Scarce
                 && trend_bps_relative.is_some_and(|relative| relative >= 0);
             let rows = listing_rows.get(&asset).copied().unwrap_or(0);
+            let value_by_day = series
+                .get(&asset)
+                .map(|days| {
+                    days.iter()
+                        .map(|(day, rate)| (day.format("%Y-%m-%d").to_string(), rate.clone()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let supply_by_day = day_series
+                .map(|days| {
+                    days.iter()
+                        .map(|(day, units)| (day.format("%Y-%m-%d").to_string(), *units))
+                        .collect()
+                })
+                .unwrap_or_default();
             AssetPulse {
                 value_is_composed: composed_assets.contains(&asset),
                 asset_id: asset,
@@ -440,6 +461,8 @@ pub fn market_pulse(
                 trend_bps_raw,
                 trend_bps_relative,
                 verdict,
+                value_by_day,
+                supply_by_day,
                 class,
                 high_turnover: false, // filled below, needs the full set
                 greedy_candidate,

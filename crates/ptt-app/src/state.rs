@@ -35,6 +35,8 @@ pub enum PageData {
     Watchlist(Box<ptt_runtime::reports::WatchlistModel>),
     /// One pair's price series.
     History(Box<ptt_runtime::reports::HistoryModel>),
+    /// The season-scale market pulse: value, supply and demand, anchor health.
+    Analytics(Box<ptt_runtime::reports::AnalyticsModel>),
     Failed(String),
 }
 
@@ -48,7 +50,8 @@ impl PageData {
             | Self::Opportunities(_)
             | Self::Convert(_)
             | Self::Watchlist(_)
-            | Self::History(_) => true,
+            | Self::History(_)
+            | Self::Analytics(_) => true,
             _ => false,
         }
     }
