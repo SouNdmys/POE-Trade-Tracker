@@ -7,9 +7,11 @@
 //! types instead of `f64` and string flags.
 
 mod anchor_value;
+mod day_rollup;
 mod exact;
 mod execution_safety;
 mod maker_strategy;
+mod market_analytics;
 mod market_policy;
 mod price_curve;
 mod route_accounting;
@@ -18,6 +20,7 @@ mod units;
 pub use anchor_value::{
     Valuation, ValuationMode, ValuationRequest, ValuationStatus, value_against_anchor,
 };
+pub use day_rollup::{PairDayRollup, SnapshotPairFold, build_pair_day_rollups};
 pub use execution_safety::{
     Actionability, ExecutionRisk, ModelCaveat, RiskAssessment, RiskThresholds, assess_path,
     assess_steps, assess_triangle,
@@ -25,6 +28,10 @@ pub use execution_safety::{
 pub use maker_strategy::{
     MakerExcludedListing, MakerMode, MakerQueueExclusion, MakerQueueLevel, MakerRecommendation,
     MakerRequest, MakerStrategy, MakerWall, calculate_maker_strategy,
+};
+pub use market_analytics::{
+    AnalyticsThresholds, AnchorCross, AnchorDrift, AnchorHealth, AssetPulse, DailyPairStat,
+    LiquidityClass, MarketPulse, TrendVerdict, market_pulse,
 };
 pub use market_policy::{
     AnchorAction, AnchorEvidence, AnchorRecommendation, DEFAULT_CORE_LIQUIDITY, MarketPolicy,
