@@ -397,7 +397,7 @@ fn none_fee_keeps_gross_theory_and_armed_skew_gate_passes_zero_skew() {
         &index,
         &TriangleRequest {
             start_asset_id: asset("a"),
-            amount_in: amount("a", 100, &catalog),
+            amount_in: Some(amount("a", 100, &catalog)),
             minimum_profit_basis_points: 1,
             max_results: 10,
             max_evaluations: 10,
@@ -820,7 +820,7 @@ fn triangle_reuses_multi_level_depth_for_all_three_legs() {
         &index,
         &TriangleRequest {
             start_asset_id: asset("a"),
-            amount_in: amount("a", 10, &catalog),
+            amount_in: Some(amount("a", 10, &catalog)),
             minimum_profit_basis_points: 100,
             max_results: 10,
             max_evaluations: 100,
@@ -878,7 +878,7 @@ fn partial_triangle_reports_residuals_and_never_claims_profit() {
         &index,
         &TriangleRequest {
             start_asset_id: asset("a"),
-            amount_in: amount("a", 10, &catalog),
+            amount_in: Some(amount("a", 10, &catalog)),
             minimum_profit_basis_points: 1,
             max_results: 10,
             max_evaluations: 10,
@@ -935,7 +935,7 @@ fn unknown_fee_triangle_is_labeled_gross_theory_not_net_execution() {
         &index,
         &TriangleRequest {
             start_asset_id: asset("a"),
-            amount_in: amount("a", 100, &catalog),
+            amount_in: Some(amount("a", 100, &catalog)),
             minimum_profit_basis_points: 1,
             max_results: 10,
             max_evaluations: 10,
@@ -994,7 +994,7 @@ fn known_per_leg_fee_can_erase_a_gross_triangle_opportunity() {
         &index,
         &TriangleRequest {
             start_asset_id: asset("a"),
-            amount_in: amount("a", 100, &catalog),
+            amount_in: Some(amount("a", 100, &catalog)),
             minimum_profit_basis_points: 1,
             max_results: 10,
             max_evaluations: 10,
@@ -1057,7 +1057,7 @@ fn cancelled_triangle_search_stops_before_evaluation() {
             &index,
             &TriangleRequest {
                 start_asset_id: asset("a"),
-                amount_in: amount("a", 1, &catalog),
+                amount_in: Some(amount("a", 1, &catalog)),
                 minimum_profit_basis_points: 1,
                 max_results: 10,
                 max_evaluations: 10,

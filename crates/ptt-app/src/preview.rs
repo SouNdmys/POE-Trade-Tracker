@@ -117,6 +117,9 @@ fn density_rows(count: usize) -> Vec<OpportunityRow> {
                     // A quarter of the rows are unpriced, which is its own
                     // column state rather than a zero.
                     value_basis_points: (index % 4 != 3).then(|| (index as i64 % 900) * 13 - 400),
+                    // Spread across magnitudes so the liquidity-first ordering
+                    // is visible in the gallery rather than only in a test.
+                    liquidity_capacity: (index % 5 != 4).then(|| (index as u64 % 17) * 250 + 5),
                     reasons: if triangle {
                         vec![RadarReason::TriangleReturn]
                     } else {

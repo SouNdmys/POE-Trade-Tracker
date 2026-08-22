@@ -354,7 +354,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &index,
             &TriangleRequest {
                 start_asset_id: start.clone(),
-                amount_in: AssetAmount::from_whole_units(start.clone(), 10, &units)?,
+                amount_in: Some(AssetAmount::from_whole_units(start.clone(), 10, &units)?),
                 minimum_profit_basis_points: 1,
                 max_results: 10,
                 max_evaluations: 100_000,

@@ -99,8 +99,15 @@ impl RadarTable {
                     .width(px(90.))
                     .text_right()
                     .sortable(),
+                // Depth before amount: it is what the list is ordered by, and
+                // an order the reader cannot see is one they will read as
+                // wrong. The amount stays beside it because it is what the
+                // trade actually produces at that depth.
+                Column::new("depth", chrome.radar_column_depth)
+                    .width(px(110.))
+                    .text_right(),
                 Column::new("out", chrome.radar_column_out)
-                    .width(px(150.))
+                    .width(px(140.))
                     .text_right(),
                 Column::new("verdict", chrome.radar_column_verdict).width(px(150.)),
                 Column::new("light", chrome.radar_column_light).width(px(110.)),
@@ -203,7 +210,19 @@ impl RadarTable {
                 )
                 .into_any_element()
             }
+            // Depth, in the settlement anchor -- one currency for every row,
+            // because a column that is sorted on has to be comparable down
+            // its own length.
             3 => cell(
+                mono(
+                    item.liquidity_capacity
+                        .map_or_else(|| "-".to_owned(), |capacity| capacity.to_string()),
+                )
+                .text_size(fs(FS_11_5))
+                .justify_end(),
+            )
+            .into_any_element(),
+            4 => cell(
                 mono(format!(
                     "{} {}",
                     item.amount_out.quanta,
@@ -216,13 +235,13 @@ impl RadarTable {
                 .justify_end(),
             )
             .into_any_element(),
-            4 => cell(div())
+            5 => cell(div())
                 .child(chip(
                     actionability_kind(item.category),
                     report_text::actionability(language, item.category),
                 ))
                 .into_any_element(),
-            5 => match row.light {
+            6 => match row.light {
                 Some(status) => cell(div().gap_2())
                     .child(crate::ui::status_dot(freshness_kind(status)))
                     .child(

@@ -79,7 +79,11 @@ pub fn pair_analysis_lines(
         &index,
         &TriangleRequest {
             start_asset_id: have.clone(),
-            amount_in: AssetAmount::from_whole_units(have.clone(), 100, &unit_catalog)?,
+            amount_in: Some(AssetAmount::from_whole_units(
+                have.clone(),
+                100,
+                &unit_catalog,
+            )?),
             minimum_profit_basis_points: 10,
             max_results: 3,
             max_evaluations: 50_000,

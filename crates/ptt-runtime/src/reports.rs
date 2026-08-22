@@ -2118,6 +2118,7 @@ mod radar_tests {
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 4000, &units)
                 .expect("out"),
             value_basis_points: Some(30_012),
+            liquidity_capacity: None,
             reasons: vec![ptt_workflows::RadarReason::BetterThanDirect],
             risk_flags: Vec::new(),
             blocking_risks: Vec::new(),
@@ -2199,6 +2200,7 @@ mod radar_tests {
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 11, &units)
                 .expect("out"),
             value_basis_points: None,
+            liquidity_capacity: None,
             reasons: Vec::new(),
             risk_flags: Vec::new(),
             blocking_risks: Vec::new(),

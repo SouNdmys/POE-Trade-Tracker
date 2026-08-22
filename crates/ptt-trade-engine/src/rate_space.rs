@@ -1,0 +1,283 @@
+//! Arbitrage in rate space: exact rate products, no quantities at all.
+//!
+//! The question "is there an edge between these currencies" is a question
+//! about rates, and answering it with quantities gets it backwards. A
+//! quantity answer floors once per leg, so a small size loses the edge to
+//! rounding and a large one loses it to depth — and either way the size, a
+//! number that has nothing to do with the market, decides what the market is
+//! said to contain. That is how a scan staked at ten chaos concluded there
+//! were no opportunities: ten chaos cannot buy one of anything, so every
+//! product it computed was zero.
+//!
+//! What a trader actually does makes the quantity question moot as well.
+//! Nobody is bound to a listed rate: with the panel showing 11.33 bid against
+//! 11.67 ask, an order at 11.4 goes to the front of the queue and fills, so
+//! the trader picks their own rate and their own size. The listed rate's
+//! denominator constrains nothing. The edge — the thing worth finding — is
+//! the spread itself.
+//!
+//! So: multiply the legs' rates as exact rationals and compare the product
+//! against one. Whole-unit rounding never enters, no stake is assumed, and
+//! nothing here knows what the user owns. Sizing belongs downstream, where a
+//! person decides how much of their own money to commit.
+
+use ptt_trade_domain::{MarketAssetId, Ratio};
+use serde::{Deserialize, Serialize};
+
+use crate::EngineError;
+use crate::depth::MarketDepthIndex;
+use crate::quantity::FeePolicy;
+
+/// One leg of a rate chain: the top-of-book rate for a directed pair, and
+/// how much the market is showing at it.
+///
+/// `top_stock` is a fact about the panel, not about the reader's holdings —
+/// it says how far this rate goes before the next level takes over.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RateLeg {
+    pub from_asset_id: MarketAssetId,
+    pub to_asset_id: MarketAssetId,
+    pub rate: Ratio,
+    pub top_stock: u64,
+}
+
+/// A path's rates, multiplied out exactly.
+///
+/// `numerator / denominator` is how much of the end asset one unit of the
+/// start asset becomes, as an exact fraction in lowest terms. For a cycle the
+/// two assets are the same, so the fraction is the return and anything above
+/// one is arbitrage.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RateChain {
+    pub legs: Vec<RateLeg>,
+    pub numerator: u128,
+    pub denominator: u128,
+}
+
+impl RateChain {
+    /// The chain's return over its input, in basis points.
+    ///
+    /// `(numerator - denominator) / denominator`, scaled — exact, and
+    /// truncated toward zero only at the last step, where a whole number of
+    /// basis points has to be produced. A cycle at exactly break-even reads
+    /// zero rather than a rounding artefact either side of it.
+    #[must_use]
+    pub fn basis_points(&self) -> i64 {
+        let numerator = i128::try_from(self.numerator).unwrap_or(i128::MAX);
+        let denominator = i128::try_from(self.denominator).unwrap_or(i128::MAX);
+        if denominator == 0 {
+            return 0;
+        }
+        let Some(scaled) = numerator
+            .checked_sub(denominator)
+            .and_then(|difference| difference.checked_mul(10_000))
+        else {
+            return i64::MAX;
+        };
+        i64::try_from(scaled / denominator).unwrap_or(i64::MAX)
+    }
+
+    /// Whether the chain ends with more than it started.
+    #[must_use]
+    pub fn is_profitable(&self) -> bool {
+        self.numerator > self.denominator
+    }
+
+    /// How much of the start asset the thinnest leg supports, in whole units.
+    ///
+    /// The market's own answer to "how far does this go", carried back to the
+    /// start through the rates ahead of it. It bounds the trade the same way
+    /// the panel does — by what is listed — and says nothing about what the
+    /// reader can afford, which is not this layer's business.
+    ///
+    /// `None` when the arithmetic would overflow, which is a market deeper
+    /// than any trade rather than a failure to answer.
+    #[must_use]
+    pub fn top_of_book_capacity(&self) -> Option<u64> {
+        let mut capacity: Option<u128> = None;
+        // Rate product from the start up to (not including) this leg, so a
+        // leg's stock can be converted back into start-asset units.
+        let mut numerator: u128 = 1;
+        let mut denominator: u128 = 1;
+        for leg in &self.legs {
+            // This leg's stock is in units of what it pays out, which is what
+            // one unit of its input buys `rate` of -- so the input it can
+            // absorb is `stock * rate.denominator / rate.numerator`, and the
+            // start-asset amount that reaches it inverts the prefix.
+            let leg_input = u128::from(leg.top_stock)
+                .checked_mul(u128::from(leg.rate.denominator))?
+                / u128::from(leg.rate.numerator).max(1);
+            let at_start = leg_input.checked_mul(denominator)? / numerator.max(1);
+            capacity = Some(capacity.map_or(at_start, |held: u128| held.min(at_start)));
+            numerator = numerator.checked_mul(u128::from(leg.rate.numerator))?;
+            denominator = denominator.checked_mul(u128::from(leg.rate.denominator))?;
+            let divisor = greatest_common_divisor(numerator, denominator);
+            numerator /= divisor;
+            denominator /= divisor;
+        }
+        capacity.and_then(|value| u64::try_from(value).ok())
+    }
+}
+
+/// The rates along `path`, multiplied out — or `None` if any leg is unpriced.
+///
+/// Every leg is the top of its book, because that is the rate a trade would
+/// actually get: the exchange fills against the best listing available, not
+/// against the one the trader named. Depth beyond the top level changes how
+/// *much* can be done, not whether an edge exists, and it is reported
+/// separately by [`RateChain::top_of_book_capacity`].
+pub fn chain_rates(
+    index: &MarketDepthIndex,
+    path: &[MarketAssetId],
+    fee_policy: FeePolicy,
+) -> Result<Option<RateChain>, EngineError> {
+    fee_policy.validate()?;
+    // A per-leg fee is part of the rate a trade actually gets, so it belongs
+    // in the product rather than in a correction afterwards: a chain that
+    // multiplies gross rates reports edges the fees have already eaten, which
+    // is the same false positive in a new place.
+    let (fee_retained, fee_total) = match fee_policy {
+        FeePolicy::OutputFraction {
+            numerator,
+            denominator,
+        } => (u128::from(denominator - numerator), u128::from(denominator)),
+        FeePolicy::None | FeePolicy::Unknown => (1, 1),
+    };
+    if path.len() < 2 {
+        return Ok(None);
+    }
+    let mut legs = Vec::with_capacity(path.len() - 1);
+    let mut numerator: u128 = 1;
+    let mut denominator: u128 = 1;
+    for window in path.windows(2) {
+        let (from, to) = (&window[0], &window[1]);
+        if from == to {
+            return Ok(None);
+        }
+        let Some((rate, top_stock)) = index.top_of_book(from, to) else {
+            return Ok(None);
+        };
+        numerator = numerator
+            .checked_mul(u128::from(rate.numerator))
+            .and_then(|value| value.checked_mul(fee_retained))
+            .ok_or(EngineError::NumericOverflow)?;
+        denominator = denominator
+            .checked_mul(u128::from(rate.denominator))
+            .and_then(|value| value.checked_mul(fee_total))
+            .ok_or(EngineError::NumericOverflow)?;
+        // Reduced every step, not just at the end: three panel rates with
+        // two-decimal denominators reach 10^6 on their own, and a fourth leg
+        // would carry that into the range where the product stops fitting.
+        let divisor = greatest_common_divisor(numerator, denominator);
+        numerator /= divisor;
+        denominator /= divisor;
+        legs.push(RateLeg {
+            from_asset_id: from.clone(),
+            to_asset_id: to.clone(),
+            rate,
+            top_stock,
+        });
+    }
+    Ok(Some(RateChain {
+        legs,
+        numerator,
+        denominator,
+    }))
+}
+
+fn greatest_common_divisor(left: u128, right: u128) -> u128 {
+    let (mut left, mut right) = (left, right);
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left.max(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chain(rates: &[(u64, u64)], stocks: &[u64]) -> RateChain {
+        let mut numerator: u128 = 1;
+        let mut denominator: u128 = 1;
+        let legs = rates
+            .iter()
+            .zip(stocks)
+            .enumerate()
+            .map(|(index, ((rate_numerator, rate_denominator), stock))| {
+                numerator *= u128::from(*rate_numerator);
+                denominator *= u128::from(*rate_denominator);
+                RateLeg {
+                    from_asset_id: MarketAssetId::try_new(format!("a{index}")).expect("asset"),
+                    to_asset_id: MarketAssetId::try_new(format!("a{}", index + 1)).expect("asset"),
+                    rate: Ratio::from_parts(*rate_numerator, *rate_denominator).expect("rate"),
+                    top_stock: *stock,
+                }
+            })
+            .collect();
+        let divisor = greatest_common_divisor(numerator, denominator);
+        RateChain {
+            legs,
+            numerator: numerator / divisor,
+            denominator: denominator / divisor,
+        }
+    }
+
+    /// A cycle that returns exactly what it started with is not an edge.
+    ///
+    /// The boundary case a quantity walk cannot state: with flooring, a
+    /// break-even cycle reads as a loss at every size, and the size decides
+    /// how big a loss. In rate space it is zero, exactly.
+    #[test]
+    fn a_break_even_cycle_reads_zero_and_is_not_profitable() {
+        // 2 -> 3 -> 1/6 of the way back: 2 * 3 * 1/6 = 1.
+        let cycle = chain(&[(2, 1), (3, 1), (1, 6)], &[100, 100, 100]);
+        assert_eq!(cycle.numerator, cycle.denominator);
+        assert_eq!(cycle.basis_points(), 0);
+        assert!(!cycle.is_profitable());
+    }
+
+    /// The edge survives rates no whole number can express.
+    ///
+    /// Every rate here is a panel decimal — 11.15, 10.81 — whose whole-unit
+    /// lot would be twenty or a hundred units. In rate space the lot never
+    /// comes up: 1115/100 x 100/1081 x 1/1 is one exact fraction.
+    #[test]
+    fn two_decimal_panel_rates_multiply_exactly() {
+        // 11.15 out, then 1/10.81 back, then 1: a real 3.14% round trip.
+        let cycle = chain(&[(1115, 100), (100, 1081), (1, 1)], &[1_000, 1_000, 1_000]);
+        assert!(cycle.is_profitable());
+        // 1115/1081 = 1.031452...
+        assert_eq!(cycle.basis_points(), 314);
+    }
+
+    /// A loss is reported as a negative, not clamped or dropped.
+    #[test]
+    fn a_losing_cycle_reports_a_negative_edge() {
+        let cycle = chain(&[(1, 2), (1, 1), (1, 1)], &[10, 10, 10]);
+        assert!(!cycle.is_profitable());
+        assert_eq!(cycle.basis_points(), -5_000);
+    }
+
+    /// Capacity is the thinnest leg, carried back to the start asset.
+    ///
+    /// A market fact — how far the listed rates go — and deliberately not a
+    /// statement about the reader's holdings, which this layer never sees.
+    #[test]
+    fn capacity_is_the_thinnest_leg_expressed_in_the_start_asset() {
+        // Leg one doubles and shows 100 of its payout, so it absorbs 50 of
+        // the start. Leg two shows 40 of its payout at 1:1, so it absorbs 40
+        // of leg one's output -- which is 20 of the start, and the binding
+        // constraint.
+        let path = chain(&[(2, 1), (1, 1)], &[100, 40]);
+        assert_eq!(path.top_of_book_capacity(), Some(20));
+
+        // Widen the second leg and the first one binds instead.
+        let wider = chain(&[(2, 1), (1, 1)], &[100, 400]);
+        assert_eq!(wider.top_of_book_capacity(), Some(50));
+    }
+}

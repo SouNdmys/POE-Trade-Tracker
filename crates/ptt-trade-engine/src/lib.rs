@@ -1,5 +1,6 @@
 mod depth;
 mod quantity;
+mod rate_space;
 mod route;
 mod triangle;
 
@@ -8,6 +9,7 @@ pub use depth::{
     QuoteLevelFill,
 };
 pub use quantity::{AssetAmount, AssetUnit, AssetUnitCatalog, FeePolicy};
+pub use rate_space::{RateChain, RateLeg, chain_rates};
 pub use route::{
     ComparisonDirection, ConversionComparison, ConversionComparisonStatus, ConversionDiagnostics,
     ConversionPath, ConversionRequest, ConversionResult, ResidualAmount, SearchCancellation,

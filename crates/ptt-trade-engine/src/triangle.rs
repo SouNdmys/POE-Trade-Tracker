@@ -11,6 +11,7 @@ use crate::depth::{
     apply_capture_skew_safety,
 };
 use crate::quantity::{AssetAmount, FeePolicy};
+use crate::rate_space::RateChain;
 use crate::route::{ComparisonDirection, ResidualAmount, SearchCancellation};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -44,6 +45,16 @@ pub struct TriangleEvaluation {
     pub profit_direction: Option<ComparisonDirection>,
     pub profit_amount: Option<AssetAmount>,
     pub profit_basis_points: Option<i64>,
+    /// The cycle's rates multiplied out exactly, with no quantities involved.
+    ///
+    /// This, not `profit_basis_points`, is whether the edge exists: the
+    /// quantity figure floors once per leg, so it reports a different answer
+    /// at every size and none of them is the market's. See
+    /// [`crate::rate_space`].
+    pub rate_chain: Option<RateChain>,
+    /// How much of the start asset the shown rates support, in whole units.
+    /// A fact about the panel, never about the reader's holdings.
+    pub liquidity_capacity: Option<u64>,
     pub status: TriangleEvaluationStatus,
     pub risk_flags: Vec<ExecutionRiskFlag>,
 }
@@ -64,7 +75,16 @@ pub struct TriangleDiagnostics {
 #[serde(rename_all = "camelCase")]
 pub struct TriangleRequest {
     pub start_asset_id: MarketAssetId,
-    pub amount_in: AssetAmount,
+    /// How much to walk each cycle with, or `None` to let each cycle take
+    /// its own size from the market.
+    ///
+    /// `None` is what a scanner wants. A shared size cannot fit currencies
+    /// whose values differ by three orders of magnitude: pick it small and
+    /// every cycle floors to nothing, pick it large and every cycle runs past
+    /// the top of its book, and either way a number unrelated to the market
+    /// decides what the market is said to contain. Sized from the book, each
+    /// cycle is walked exactly as far as its own thinnest leg allows.
+    pub amount_in: Option<AssetAmount>,
     pub minimum_profit_basis_points: u32,
     pub max_results: u16,
     pub max_evaluations: u32,
@@ -185,9 +205,10 @@ fn validate_request(
     request: &TriangleRequest,
 ) -> Result<(), EngineError> {
     request.fee_policy.validate()?;
-    if request.amount_in.asset_id != request.start_asset_id
-        || request.amount_in.quanta == 0
-        || request.amount_in.unit != index.units().unit(&request.start_asset_id)?
+    if let Some(amount_in) = &request.amount_in
+        && (amount_in.asset_id != request.start_asset_id
+            || amount_in.quanta == 0
+            || amount_in.unit != index.units().unit(&request.start_asset_id)?)
     {
         return Err(EngineError::InvalidAnalysisRequest);
     }
@@ -202,6 +223,23 @@ fn validate_request(
     Ok(())
 }
 
+impl TriangleEvaluation {
+    /// The cycle's edge in basis points: the exact rate-space figure when the
+    /// rates could be chained, and the walked figure otherwise.
+    ///
+    /// Rate space first because it is the answer to the question actually
+    /// being asked. The walked number describes one particular size, and the
+    /// flooring it carries is an artefact of that size rather than a property
+    /// of the market.
+    #[must_use]
+    pub fn edge_basis_points(&self) -> i64 {
+        self.rate_chain.as_ref().map_or_else(
+            || self.profit_basis_points.unwrap_or(i64::MIN),
+            |chain| chain.basis_points(),
+        )
+    }
+}
+
 fn evaluate_cycle(
     index: &MarketDepthIndex,
     request: &TriangleRequest,
@@ -213,7 +251,24 @@ fn evaluate_cycle(
         nodes[2].clone(),
         nodes[0].clone(),
     ];
-    let mut current = request.amount_in.clone();
+    // The rates first, exactly, with nothing to do with size — this is the
+    // verdict. The walk below only puts numbers and risks on it.
+    let rate_chain = crate::rate_space::chain_rates(index, &cycle_asset_ids, request.fee_policy)?;
+    let liquidity_capacity = rate_chain
+        .as_ref()
+        .and_then(crate::rate_space::RateChain::top_of_book_capacity);
+    // Sized from the book when the caller named no size: as far as the
+    // thinnest leg goes and no further, so the walk stays on the rates the
+    // verdict was formed from.
+    let amount_in = match &request.amount_in {
+        Some(amount_in) => amount_in.clone(),
+        None => AssetAmount::from_whole_units(
+            request.start_asset_id.clone(),
+            liquidity_capacity.unwrap_or(0).max(1),
+            index.units(),
+        )?,
+    };
+    let mut current = amount_in.clone();
     let mut steps = Vec::with_capacity(3);
     let mut residuals = Vec::new();
     for (index_of_step, target) in [nodes[1], nodes[2], nodes[0]].into_iter().enumerate() {
@@ -284,15 +339,15 @@ fn evaluate_cycle(
                 None,
             )
         } else {
-            let (direction, magnitude) = match current.quanta.cmp(&request.amount_in.quanta) {
+            let (direction, magnitude) = match current.quanta.cmp(&amount_in.quanta) {
                 Ordering::Greater => (
                     ComparisonDirection::Improved,
-                    current.quanta - request.amount_in.quanta,
+                    current.quanta - amount_in.quanta,
                 ),
                 Ordering::Equal => (ComparisonDirection::Equal, 0),
                 Ordering::Less => (
                     ComparisonDirection::Worse,
-                    request.amount_in.quanta - current.quanta,
+                    amount_in.quanta - current.quanta,
                 ),
             };
             let signed = match direction {
@@ -303,12 +358,21 @@ fn evaluate_cycle(
             let basis_points = signed
                 .checked_mul(10_000)
                 .ok_or(EngineError::NumericOverflow)?
-                / i128::from(request.amount_in.quanta);
+                / i128::from(amount_in.quanta);
             let basis_points =
                 i64::try_from(basis_points).map_err(|_| EngineError::NumericOverflow)?;
-            let status = if direction == ComparisonDirection::Improved
-                && basis_points >= i64::from(request.minimum_profit_basis_points)
-            {
+            // Judged on the rates when they could be chained, because that is
+            // the market's own answer: the walked figure below carries one
+            // floor per leg, and at a size the caller chose rather than the
+            // book, so it says as much about the size as about the edge.
+            let edge = rate_chain
+                .as_ref()
+                .map_or(basis_points, RateChain::basis_points);
+            let improved = rate_chain.as_ref().map_or(
+                direction == ComparisonDirection::Improved,
+                RateChain::is_profitable,
+            );
+            let status = if improved && edge >= i64::from(request.minimum_profit_basis_points) {
                 TriangleEvaluationStatus::Profitable
             } else {
                 TriangleEvaluationStatus::BelowThreshold
@@ -332,7 +396,7 @@ fn evaluate_cycle(
 
     Ok(TriangleEvaluation {
         cycle_asset_ids,
-        amount_in: request.amount_in.clone(),
+        amount_in: amount_in.clone(),
         amount_out: current,
         steps,
         capture_time_evidence,
@@ -343,21 +407,31 @@ fn evaluate_cycle(
         profit_direction,
         profit_amount,
         profit_basis_points,
+        rate_chain,
+        liquidity_capacity,
         status,
         risk_flags: risks.into_iter().collect(),
     })
 }
 
+/// Deepest first, then most profitable.
+///
+/// Liquidity outranks profit deliberately: every cycle on this list already
+/// clears the profit floor, so the one worth doing is the one that can be
+/// done at size. A tenth of a percent across a thousand units beats fifty
+/// percent across two, and ordering by profit alone buries the first under
+/// the second.
 fn compare_evaluations(left: &TriangleEvaluation, right: &TriangleEvaluation) -> Ordering {
     right
         .execution_eligible
         .cmp(&left.execution_eligible)
         .then_with(|| {
             right
-                .profit_basis_points
-                .unwrap_or(i64::MIN)
-                .cmp(&left.profit_basis_points.unwrap_or(i64::MIN))
+                .liquidity_capacity
+                .unwrap_or(0)
+                .cmp(&left.liquidity_capacity.unwrap_or(0))
         })
+        .then_with(|| right.edge_basis_points().cmp(&left.edge_basis_points()))
         .then_with(|| right.amount_out.quanta.cmp(&left.amount_out.quanta))
         .then_with(|| left.cycle_asset_ids.cmp(&right.cycle_asset_ids))
 }

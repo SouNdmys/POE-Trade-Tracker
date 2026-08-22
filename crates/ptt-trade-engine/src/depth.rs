@@ -227,6 +227,43 @@ impl MarketDepthIndex {
             .collect()
     }
 
+    /// The best rate this pair is showing, and the stock behind it.
+    ///
+    /// "Best" by the same ordering the fill walks, so this is the rate a
+    /// trade would actually get — the exchange fills against the front of the
+    /// book regardless of what the trader named. Rate-space analysis reads
+    /// this instead of walking depth: the edge lives in the rate, and how far
+    /// it goes is the stock beside it.
+    #[must_use]
+    pub fn top_of_book(&self, from: &MarketAssetId, to: &MarketAssetId) -> Option<(Ratio, u64)> {
+        let depth = self.pairs.get(&(from.clone(), to.clone()))?;
+        let mut levels = depth
+            .levels
+            .iter()
+            .filter(|level| self.fills_with(level.observation.edge.execution_type))
+            .collect::<Vec<_>>();
+        levels.sort_by(|left, right| compare_taker_levels(left, right));
+        let best = levels.first()?;
+        Some((
+            best.observation.edge.rate.clone(),
+            best.observation.edge.stock,
+        ))
+    }
+
+    /// Whether a level of this execution type is one this index's strategy
+    /// would actually fill against.
+    const fn fills_with(&self, execution_type: ExecutionType) -> bool {
+        match self.strategy {
+            QuoteSelectionStrategy::Instant => matches!(execution_type, ExecutionType::Taker),
+            QuoteSelectionStrategy::FastMaker
+            | QuoteSelectionStrategy::BalancedMaker
+            | QuoteSelectionStrategy::GreedyMaker => {
+                matches!(execution_type, ExecutionType::MakerReference)
+            }
+            QuoteSelectionStrategy::Probe | QuoteSelectionStrategy::Historical => false,
+        }
+    }
+
     /// Whether priced pairs chain from `from` to `to` within `max_hops`,
     /// ignoring quantity entirely.
     ///

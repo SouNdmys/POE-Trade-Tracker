@@ -7,7 +7,7 @@ use ptt_trade_domain::MarketAssetId;
 use ptt_trade_engine::{
     AssetAmount, AssetUnitCatalog, ComparisonDirection, ConversionComparisonStatus, ConversionPath,
     ConversionRequest, EngineError, ExecutionRiskFlag, FeePolicy, MarketDepthIndex,
-    SearchCancellation, TriangleEvaluation, TriangleRequest, canonical_cycle_key,
+    SearchCancellation, TriangleEvaluation, TriangleRequest, canonical_cycle_key, chain_rates,
     find_best_conversion, find_triangle_opportunities,
 };
 use serde::{Deserialize, Serialize};
@@ -150,6 +150,14 @@ pub struct RadarItem {
     pub amount_in: AssetAmount,
     pub amount_out: AssetAmount,
     pub value_basis_points: Option<i64>,
+    /// How much of the settlement anchor this route's shown rates support.
+    ///
+    /// Expressed in the anchor rather than in each route's own start asset so
+    /// that rows are comparable: ten divine and ten chaos are not the same
+    /// depth, and a list sorted on the raw numbers puts every chaos-started
+    /// row above every divine-started one for no reason but the unit. A fact
+    /// about the panel; nothing here knows what the reader owns.
+    pub liquidity_capacity: Option<u64>,
     pub reasons: Vec<RadarReason>,
     pub risk_flags: Vec<ExecutionRiskFlag>,
     /// The typed risks that keep this item off the instant rung.
@@ -248,6 +256,13 @@ pub fn run_opportunity_radar(
         total_units,
     });
 
+    // Every row's depth is restated in this one currency so the list can be
+    // ordered by it. The first start is the settlement preference order's
+    // primary, which is also what the valuations elsewhere anchor to.
+    let anchor = request
+        .starts
+        .first()
+        .map(|start| start.start_asset_id.clone());
     let mut items = Vec::new();
     let mut probe_candidates = Vec::new();
     let mut scanned_conversion_count = 0_u32;
@@ -391,6 +406,9 @@ pub fn run_opportunity_radar(
             | ConversionComparisonStatus::NoPath => false,
         };
         if should_include {
+            let capacity = anchor.as_ref().and_then(|anchor| {
+                anchor_capacity(&index, &best.path_asset_ids, anchor, request.fee_policy)
+            });
             items.push(conversion_item(
                 items.len(),
                 best,
@@ -398,6 +416,7 @@ pub fn run_opportunity_radar(
                 result.comparison.basis_points,
                 request.thresholds,
                 stake_raised,
+                capacity,
             ));
         }
     }
@@ -423,7 +442,8 @@ pub fn run_opportunity_radar(
             &index,
             &TriangleRequest {
                 start_asset_id: start.start_asset_id.clone(),
-                amount_in: start.amount_in.clone(),
+                // Each cycle takes its own size from its thinnest leg.
+                amount_in: None,
                 minimum_profit_basis_points: request.minimum_triangle_profit_basis_points,
                 max_results: request.max_results,
                 max_evaluations: per_start_evaluations,
@@ -442,10 +462,9 @@ pub fn run_opportunity_radar(
                 .map(|step| step.from_asset_id.clone())
                 .collect();
             let key = canonical_cycle_key(&cycle);
-            let better = best_by_cycle.get(&key).is_none_or(|existing| {
-                triangle.profit_basis_points.unwrap_or(i64::MIN)
-                    > existing.profit_basis_points.unwrap_or(i64::MIN)
-            });
+            let better = best_by_cycle
+                .get(&key)
+                .is_none_or(|existing| triangle.edge_basis_points() > existing.edge_basis_points());
             if better {
                 best_by_cycle.insert(key, triangle);
             }
@@ -470,7 +489,20 @@ pub fn run_opportunity_radar(
                 });
             }
         }
-        items.push(triangle_item(items.len(), triangle, request.thresholds));
+        let capacity = anchor.as_ref().and_then(|anchor| {
+            anchor_capacity(
+                &index,
+                &triangle.cycle_asset_ids,
+                anchor,
+                request.fee_policy,
+            )
+        });
+        items.push(triangle_item(
+            items.len(),
+            triangle,
+            request.thresholds,
+            capacity,
+        ));
     }
     progress(RadarProgress {
         stage: RadarStage::Ranking,
@@ -571,6 +603,37 @@ fn restrict_selection(
     restricted
 }
 
+/// A path's top-of-book depth, restated in the settlement anchor.
+///
+/// Depth is what decides between two profitable rows, so it has to be one
+/// number in one currency. Measured in each path's own start asset it is not:
+/// the same trade reads eleven times larger started from chaos than from
+/// divine, and a list sorted on that ranks by unit rather than by market.
+///
+/// `None` when the chain or the conversion to the anchor cannot be formed,
+/// which sorts last — an unknown depth is not a deep one.
+fn anchor_capacity(
+    index: &MarketDepthIndex,
+    path: &[MarketAssetId],
+    anchor: &MarketAssetId,
+    fee_policy: FeePolicy,
+) -> Option<u64> {
+    let capacity = chain_rates(index, path, fee_policy)
+        .ok()
+        .flatten()?
+        .top_of_book_capacity()?;
+    let start = path.first()?;
+    if start == anchor {
+        return Some(capacity);
+    }
+    let (rate, _) = index.top_of_book(start, anchor)?;
+    u64::try_from(
+        u128::from(capacity).checked_mul(u128::from(rate.numerator))?
+            / u128::from(rate.denominator).max(1),
+    )
+    .ok()
+}
+
 fn conversion_item(
     index: usize,
     path: ConversionPath,
@@ -578,6 +641,7 @@ fn conversion_item(
     basis_points: Option<i64>,
     thresholds: RiskThresholds,
     stake_raised: bool,
+    liquidity_capacity: Option<u64>,
 ) -> RadarItem {
     let assessment = assess_path(&path, thresholds, false);
     let mut reasons = Vec::new();
@@ -608,6 +672,7 @@ fn conversion_item(
         amount_in: path.requested_input.clone(),
         amount_out: path.amount_out.clone(),
         value_basis_points: basis_points,
+        liquidity_capacity,
         reasons,
         risk_flags: path.risk_flags.clone(),
         blocking_risks: assessment.blocking(),
@@ -620,6 +685,7 @@ fn triangle_item(
     index: usize,
     triangle: TriangleEvaluation,
     thresholds: RiskThresholds,
+    liquidity_capacity: Option<u64>,
 ) -> RadarItem {
     let assessment = assess_triangle(&triangle, thresholds, false);
     let mut reasons = vec![RadarReason::TriangleReturn];
@@ -645,7 +711,10 @@ fn triangle_item(
         path_asset_ids: triangle.cycle_asset_ids.clone(),
         amount_in: triangle.amount_in.clone(),
         amount_out: triangle.amount_out.clone(),
-        value_basis_points: triangle.profit_basis_points,
+        // The exact rate-space edge, not the walked one: the walk floors
+        // once per leg at whatever size the book allowed.
+        value_basis_points: Some(triangle.edge_basis_points()),
+        liquidity_capacity,
         reasons,
         risk_flags: triangle.risk_flags.clone(),
         blocking_risks: assessment.blocking(),
@@ -747,9 +816,22 @@ const fn category_rank(value: Actionability) -> u8 {
     }
 }
 
+/// Deepest first, then most profitable, within each actionability rung.
+///
+/// The order the user asked for, and the one that matches how the list gets
+/// used: everything on it already clears the profit floor, so what decides
+/// between two rows is how much of each can actually be done. A thin row with
+/// a spectacular percentage is a rounding artefact waiting to happen; a deep
+/// row with a modest one is the trade.
 fn compare_items(left: &RadarItem, right: &RadarItem) -> Ordering {
     category_rank(left.category)
         .cmp(&category_rank(right.category))
+        .then_with(|| {
+            right
+                .liquidity_capacity
+                .unwrap_or(0)
+                .cmp(&left.liquidity_capacity.unwrap_or(0))
+        })
         .then_with(|| {
             right
                 .value_basis_points
