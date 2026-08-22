@@ -9,7 +9,8 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use gpui::{
-    Context, FocusHandle, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, px,
+    AppContext as _, Context, FocusHandle, IntoElement, ParentElement, Render, SharedString,
+    Styled, Window, div, px,
 };
 use gpui_component::StyledExt as _;
 
@@ -232,6 +233,13 @@ pub struct AppShell {
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
+    /// The new-season label box on the settings page.
+    pub(crate) season_input: gpui::Entity<gpui_component::input::InputState>,
+    /// Cached season/storage lines for the settings page; `None` means load
+    /// on the next draw (cleared after every season action).
+    pub(crate) season_info: Option<Vec<String>>,
+    /// Two-click confirmation state for the destructive purge button.
+    pub(crate) purge_armed: bool,
     /// The convert page's currency pickers and holdings box.
     ///
     /// Entities rather than values because a select owns its open menu and an
@@ -365,6 +373,8 @@ impl AppShell {
         let convert_need = Self::new_asset_select(window, cx);
         let settlement_select = Self::new_asset_select(window, cx);
         let holdings_input = Self::new_holdings_input(window, cx);
+        let season_input =
+            cx.new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("0.6"));
         // A picked currency or a typed holding is a new question, so the page
         // is rebuilt; the read itself is backgrounded, so this stays cheap.
         for (select, is_have) in [(convert_have.clone(), true), (convert_need.clone(), false)] {
@@ -402,6 +412,9 @@ impl AppShell {
             focus_handle: cx.focus_handle(),
             #[cfg(windows)]
             tuning_inputs,
+            season_input,
+            season_info: None,
+            purge_armed: false,
             radar_table,
             convert_have,
             convert_need,
@@ -1520,12 +1533,20 @@ impl Render for AppShell {
                     .child(if self.page == Page::Settings {
                         div()
                             .flex_grow()
+                            .min_h(px(0.))
                             .flex()
-                            .flex_col()
-                            .gap_3()
-                            .p_3()
-                            .child(self.settings_panel(cx))
-                            .child(self.tuning_panel(cx))
+                            .child(crate::ui::scrollable(
+                                div()
+                                    .flex_grow()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_3()
+                                    .p_3()
+                                    .child(self.settings_panel(cx))
+                                    .child(self.season_panel(cx))
+                                    .child(self.tuning_panel(cx)),
+                                "settings-scroll",
+                            ))
                     } else if self.page == Page::Monitor {
                         div()
                             .flex_grow()

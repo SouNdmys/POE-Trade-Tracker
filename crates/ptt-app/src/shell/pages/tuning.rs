@@ -36,11 +36,23 @@ pub struct TuningInputs {
     pub thin_stock: Entity<InputState>,
     pub outlier_factor: Entity<InputState>,
     pub window_hours: Entity<InputState>,
+    pub trend_recent: Entity<InputState>,
+    pub trend_window: Entity<InputState>,
+    pub breadth: Entity<InputState>,
+    pub verdict_bps: Entity<InputState>,
+    pub scarce_ratio: Entity<InputState>,
+    pub quiet_floor: Entity<InputState>,
+    pub thin_norm: Entity<InputState>,
+    pub retention_days: Entity<InputState>,
+    pub spike: Entity<InputState>,
+    pub severe_spike: Entity<InputState>,
+    pub wide_spread: Entity<InputState>,
+    pub severe_spread: Entity<InputState>,
 }
 
 impl TuningInputs {
     /// Every box, in the order the page draws them.
-    fn all(&self) -> [&Entity<InputState>; 13] {
+    fn all(&self) -> [&Entity<InputState>; 25] {
         [
             &self.fresh,
             &self.usable,
@@ -55,6 +67,18 @@ impl TuningInputs {
             &self.thin_stock,
             &self.outlier_factor,
             &self.window_hours,
+            &self.trend_recent,
+            &self.trend_window,
+            &self.breadth,
+            &self.verdict_bps,
+            &self.scarce_ratio,
+            &self.quiet_floor,
+            &self.thin_norm,
+            &self.retention_days,
+            &self.spike,
+            &self.severe_spike,
+            &self.wide_spread,
+            &self.severe_spread,
         ]
     }
 }
@@ -107,6 +131,18 @@ impl AppShell {
             thin_stock: make(tuning.risk.thin_liquidity_stock.to_string()),
             outlier_factor: make(tuning.risk.top_book_outlier_factor.to_string()),
             window_hours: make(tuning.report_window_hours.to_string()),
+            trend_recent: make(tuning.analytics.trend_recent_days.to_string()),
+            trend_window: make(tuning.analytics.trend_window_days.to_string()),
+            breadth: make(tuning.analytics.breadth_threshold_percent.to_string()),
+            verdict_bps: make(tuning.analytics.verdict_threshold_bps.to_string()),
+            scarce_ratio: make(tuning.analytics.scarce_ratio_percent.to_string()),
+            quiet_floor: make(tuning.analytics.quiet_floor_anchor_units.to_string()),
+            thin_norm: make(tuning.analytics.thin_norm_percent.to_string()),
+            retention_days: make(tuning.analytics.raw_retention_days.to_string()),
+            spike: make(tuning.risk.spike_basis_points.to_string()),
+            severe_spike: make(tuning.risk.severe_spike_basis_points.to_string()),
+            wide_spread: make(tuning.risk.wide_spread_basis_points.to_string()),
+            severe_spread: make(tuning.risk.severe_spread_basis_points.to_string()),
         }
     }
 
@@ -227,6 +263,51 @@ impl AppShell {
         if outlier_factor < 2 {
             return false;
         }
+        let (
+            Some(trend_recent),
+            Some(trend_window),
+            Some(breadth),
+            Some(verdict_bps),
+            Some(scarce_ratio),
+            Some(quiet_floor),
+            Some(thin_norm),
+            Some(retention_days),
+        ) = (
+            number(&inputs.trend_recent, cx),
+            number(&inputs.trend_window, cx),
+            number(&inputs.breadth, cx),
+            number(&inputs.verdict_bps, cx),
+            number(&inputs.scarce_ratio, cx),
+            number(&inputs.quiet_floor, cx),
+            number(&inputs.thin_norm, cx),
+            number(&inputs.retention_days, cx),
+        )
+        else {
+            return false;
+        };
+        // Mirrors `AnalyticsThresholds::try_new`: values the runtime would
+        // reject are refused here instead of written and silently defaulted.
+        if trend_recent == 0
+            || trend_window == 0
+            || !(1..=100).contains(&breadth)
+            || verdict_bps == 0
+            || scarce_ratio < 100
+            || thin_norm > 100
+        {
+            return false;
+        }
+        let (Some(spike), Some(severe_spike), Some(wide_spread), Some(severe_spread)) = (
+            number(&inputs.spike, cx),
+            number(&inputs.severe_spike, cx),
+            number(&inputs.wide_spread, cx),
+            number(&inputs.severe_spread, cx),
+        ) else {
+            return false;
+        };
+        // Severity must sit at or above its trigger, or "severe" fires first.
+        if spike == 0 || severe_spike < spike || wide_spread == 0 || severe_spread < wide_spread {
+            return false;
+        }
 
         let game = self.settings.active_profile.game;
         {
@@ -243,7 +324,19 @@ impl AppShell {
             tuning.radar.max_total_expansions = expansions;
             tuning.risk.thin_liquidity_stock = thin_stock;
             tuning.risk.top_book_outlier_factor = outlier_factor;
+            tuning.risk.spike_basis_points = spike;
+            tuning.risk.severe_spike_basis_points = severe_spike;
+            tuning.risk.wide_spread_basis_points = wide_spread;
+            tuning.risk.severe_spread_basis_points = severe_spread;
             tuning.report_window_hours = window_hours;
+            tuning.analytics.trend_recent_days = trend_recent;
+            tuning.analytics.trend_window_days = trend_window;
+            tuning.analytics.breadth_threshold_percent = breadth;
+            tuning.analytics.verdict_threshold_bps = verdict_bps;
+            tuning.analytics.scarce_ratio_percent = scarce_ratio;
+            tuning.analytics.quiet_floor_anchor_units = quiet_floor;
+            tuning.analytics.thin_norm_percent = thin_norm;
+            tuning.analytics.raw_retention_days = retention_days;
         }
         match self.settings_store.save(&self.settings) {
             Ok(()) => {
@@ -483,6 +576,54 @@ impl AppShell {
                     text.tuning_window,
                     &inputs.window_hours,
                     "24".to_owned(),
+                ))
+                .child(row(
+                    text.tuning_trend_recent,
+                    &inputs.trend_recent,
+                    "2".to_owned(),
+                ))
+                .child(row(
+                    text.tuning_trend_window,
+                    &inputs.trend_window,
+                    "7".to_owned(),
+                ))
+                .child(row(text.tuning_breadth, &inputs.breadth, "70".to_owned()))
+                .child(row(
+                    text.tuning_verdict,
+                    &inputs.verdict_bps,
+                    "500".to_owned(),
+                ))
+                .child(row(
+                    text.tuning_scarce,
+                    &inputs.scarce_ratio,
+                    "300".to_owned(),
+                ))
+                .child(row(text.tuning_quiet, &inputs.quiet_floor, "10".to_owned()))
+                .child(row(
+                    text.tuning_thin_norm,
+                    &inputs.thin_norm,
+                    "25".to_owned(),
+                ))
+                .child(row(
+                    text.tuning_retention,
+                    &inputs.retention_days,
+                    "0".to_owned(),
+                ))
+                .child(row(text.tuning_spike, &inputs.spike, "2000".to_owned()))
+                .child(row(
+                    text.tuning_severe_spike,
+                    &inputs.severe_spike,
+                    "5000".to_owned(),
+                ))
+                .child(row(
+                    text.tuning_wide_spread,
+                    &inputs.wide_spread,
+                    "1000".to_owned(),
+                ))
+                .child(row(
+                    text.tuning_severe_spread,
+                    &inputs.severe_spread,
+                    "2000".to_owned(),
                 ))
                 .child(
                     div()
