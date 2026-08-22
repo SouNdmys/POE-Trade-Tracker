@@ -43,6 +43,14 @@ fn main() -> Result<(), String> {
         observations.len()
     );
 
+    if arguments.first().is_some_and(|first| first == "--radar") {
+        return ptt_runtime::reports::debug_radar(
+            &observations,
+            &context_key,
+            LIVE_LEAGUE,
+            &tuning,
+        );
+    }
     if let Some((from, to)) = filter {
         ptt_runtime::reports::debug_pair(&observations, &context_key, &tuning, &from, &to)?;
         return Ok(());

@@ -1162,3 +1162,107 @@ fn an_intermediate_allow_list_prunes_bridges_but_never_the_destination() {
     );
     assert_eq!(best.amount_out.quanta, 5);
 }
+
+/// "Too small to trade" and "never quoted" are different answers.
+///
+/// Whole units mean an input below one unit of the target buys nothing: at
+/// eleven `a` per `b`, ten `a` floors to zero and the fill is empty. A caller
+/// that only sees the empty fill cannot tell that from a pair nobody has
+/// quoted — and the radar, seeing exactly that, spent weeks telling a user to
+/// go capture pairs whose quotes were on file and fresh. These two answer it.
+#[test]
+fn the_minimum_lot_is_knowable_and_separate_from_the_pair_being_unpriced() {
+    let catalog = whole_catalog(&["a", "b", "c"]);
+    let index = index(
+        QuoteSelectionStrategy::Instant,
+        catalog.clone(),
+        vec![PairSpec {
+            from: "a",
+            to: "b",
+            levels: vec![LevelSpec {
+                id: "edge-one",
+                rate: "1:11",
+                stock: 500,
+            }],
+        }],
+    );
+
+    // Ten buys nothing; eleven buys one. The boundary is the answer.
+    let below = index
+        .fill_pair(&amount("a", 10, &catalog), &asset("b"), FeePolicy::None)
+        .expect("fill")
+        .expect("pair");
+    assert_eq!(below.gross_amount_out.quanta, 0);
+    let minimum = index
+        .minimum_input_for_one_unit(&asset("a"), &asset("b"), FeePolicy::None)
+        .expect("minimum")
+        .expect("the pair is priced, so a size exists");
+    assert_eq!(minimum.quanta, 11);
+    let at_minimum = index
+        .fill_pair(&minimum, &asset("b"), FeePolicy::None)
+        .expect("fill")
+        .expect("pair");
+    assert_eq!(at_minimum.gross_amount_out.quanta, 1);
+
+    // A pair with no quotes has no minimum, which is what separates the two
+    // cases: there is no size that would help, so the data really is missing.
+    assert!(
+        index
+            .minimum_input_for_one_unit(&asset("a"), &asset("c"), FeePolicy::None)
+            .expect("minimum")
+            .is_none()
+    );
+}
+
+/// Reachability is a question about the graph, not about the input.
+///
+/// The path search answers "no path" both when the book cannot get there and
+/// when the caller asked to trade below a whole unit. This distinguishes them
+/// without amounts, which is what lets a caller decide between "go capture
+/// that pair" and "trade bigger".
+#[test]
+fn a_priced_chain_is_reachable_whatever_the_stake_and_a_fenced_one_is_not() {
+    let catalog = whole_catalog(&["a", "b", "c", "d"]);
+    let index = index(
+        QuoteSelectionStrategy::Instant,
+        catalog,
+        vec![
+            PairSpec {
+                from: "a",
+                to: "b",
+                levels: vec![LevelSpec {
+                    id: "edge-ab",
+                    rate: "1:11",
+                    stock: 500,
+                }],
+            },
+            PairSpec {
+                from: "b",
+                to: "c",
+                levels: vec![LevelSpec {
+                    id: "edge-bc",
+                    rate: "1:11",
+                    stock: 500,
+                }],
+            },
+        ],
+    );
+
+    assert!(index.is_priced_route(&asset("a"), &asset("b"), None, 3));
+    assert!(
+        index.is_priced_route(&asset("a"), &asset("c"), None, 3),
+        "two priced legs chain, however small the stake would have to be"
+    );
+    assert!(
+        !index.is_priced_route(&asset("a"), &asset("c"), Some(&[]), 3),
+        "with the only intermediate fenced off there is no chain"
+    );
+    assert!(
+        !index.is_priced_route(&asset("a"), &asset("c"), None, 1),
+        "one hop cannot cross two legs"
+    );
+    assert!(
+        !index.is_priced_route(&asset("a"), &asset("d"), None, 3),
+        "nothing quotes d at all"
+    );
+}

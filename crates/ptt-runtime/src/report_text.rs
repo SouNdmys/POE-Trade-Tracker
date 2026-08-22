@@ -134,7 +134,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     nothing_to_convert: "nothing to convert yet - capture a book first",
     same_currency: "have and want are the same currency - pick two different ones",
     focus_has_no_targets: "the focus list adds nothing to the settlement set - only the settlement currencies are being compared",
-    scan_accounting: "scanned {} conversions ({} priced, {} unpriceable), {} triangles - profit floor {}bp",
+    scan_accounting: "scanned {} conversions ({} priced, {} too small to trade, {} unpriceable), {} triangles - profit floor {}bp",
     core_liquidity: "core liquidity: {}",
     no_price_capture: "no price - capture this pair",
     coverage_unavailable: "coverage unavailable: {}",
@@ -201,7 +201,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
     same_currency: "拥有和想要是同一种通货 — 请选两种不同的",
     focus_has_no_targets: "关注列表没有在结算通货之外添加任何东西 — 现在只在结算通货之间比对",
-    scan_accounting: "扫描了 {} 条直兑（{} 条可定价，{} 条缺价）、评估 {} 个三角环 — 收益门槛 {}bp",
+    scan_accounting: "扫描了 {} 条直兑（{} 条可定价，{} 条投入买不起，{} 条缺价）、评估 {} 个三角环 — 收益门槛 {}bp",
     core_liquidity: "核心流通币：{}",
     no_price_capture: "没有价格 — 去翻这一对",
     coverage_unavailable: "覆盖情况读不出来：{}",
@@ -770,6 +770,9 @@ pub const fn radar_reason(language: UiLanguage, value: RadarReason) -> &'static 
         RadarReason::CaptureSkewExceeded => {
             pick(language, "captures too far apart", "抓取时差过大")
         }
+        RadarReason::StakeRaisedToMinimum => {
+            pick(language, "sized to the smallest trade", "已按最小可成交量")
+        }
     }
 }
 
@@ -981,6 +984,7 @@ mod tests {
                 RadarReason::SearchTruncated,
                 RadarReason::CaptureSkewUnverified,
                 RadarReason::CaptureSkewExceeded,
+                RadarReason::StakeRaisedToMinimum,
             ]
         );
         check!(

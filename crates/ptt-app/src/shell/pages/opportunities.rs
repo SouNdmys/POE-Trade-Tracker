@@ -368,6 +368,7 @@ impl AppShell {
                 &[
                     &scan.diagnostics.scanned_conversion_count.to_string(),
                     &scan.diagnostics.complete_conversion_count.to_string(),
+                    &scan.diagnostics.unfillable_conversion_count.to_string(),
                     &scan.diagnostics.missing_conversion_count.to_string(),
                     &scan.diagnostics.triangle_evaluation_count.to_string(),
                     &self

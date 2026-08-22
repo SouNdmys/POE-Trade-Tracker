@@ -227,6 +227,121 @@ impl MarketDepthIndex {
             .collect()
     }
 
+    /// Whether priced pairs chain from `from` to `to` within `max_hops`,
+    /// ignoring quantity entirely.
+    ///
+    /// The question "does the book know how to get there", separated from
+    /// "can this input get there". A search that finds no path answers both
+    /// at once and a caller cannot tell which one failed — which is how a
+    /// stake too small to buy one unit came to be reported as a quote nobody
+    /// had captured. Reachability is a property of the graph, so it is
+    /// answered on the graph: no amounts, no rounding, no depth.
+    #[must_use]
+    pub fn is_priced_route(
+        &self,
+        from: &MarketAssetId,
+        to: &MarketAssetId,
+        allowed_intermediates: Option<&[MarketAssetId]>,
+        max_hops: u8,
+    ) -> bool {
+        if from == to || max_hops == 0 {
+            return false;
+        }
+        let mut frontier = vec![from.clone()];
+        let mut seen: BTreeSet<MarketAssetId> = frontier.iter().cloned().collect();
+        for _ in 0..max_hops {
+            let mut next = Vec::new();
+            for asset in &frontier {
+                for neighbour in self.neighbors(asset) {
+                    if neighbour == *to {
+                        return true;
+                    }
+                    // An intermediate the caller excluded cannot be stepped
+                    // through, exactly as in the path search.
+                    if allowed_intermediates.is_some_and(|allowed| !allowed.contains(&neighbour))
+                        || !seen.insert(neighbour.clone())
+                    {
+                        continue;
+                    }
+                    next.push(neighbour);
+                }
+            }
+            if next.is_empty() {
+                return false;
+            }
+            frontier = next;
+        }
+        false
+    }
+
+    /// The smallest input of `from_asset_id` that buys at least one whole
+    /// quantum of `to_asset_id`, or `None` when no size does.
+    ///
+    /// A market's currencies differ in value by orders of magnitude while
+    /// their units stay whole, so a fixed input is not a fixed question: ten
+    /// chaos cannot buy one divine at eleven chaos apiece, and the fill
+    /// rounds to nothing. That is not a missing quote — it is a quote the
+    /// caller asked to trade below its own minimum lot — and a caller that
+    /// cannot tell those apart reports the wrong one. This answers "what
+    /// would be enough", so the difference is knowable.
+    ///
+    /// Found by bisecting [`Self::fill_pair`] rather than by re-deriving the
+    /// rate arithmetic: output is monotonic in input (more input consumes the
+    /// same levels and then further ones, never fewer), so the smallest input
+    /// that yields a whole unit is exactly the bisection point — and asking
+    /// the filler keeps one implementation of the scale, stock-capacity and
+    /// fee rules instead of two that can drift apart.
+    pub fn minimum_input_for_one_unit(
+        &self,
+        from_asset_id: &MarketAssetId,
+        to_asset_id: &MarketAssetId,
+        fee_policy: FeePolicy,
+    ) -> Result<Option<AssetAmount>, EngineError> {
+        if from_asset_id == to_asset_id
+            || !self
+                .pairs
+                .contains_key(&(from_asset_id.clone(), to_asset_id.clone()))
+        {
+            return Ok(None);
+        }
+        let yields_a_unit = |quanta: u64| -> Result<bool, EngineError> {
+            let input = AssetAmount::from_quanta(from_asset_id.clone(), quanta, &self.units)?;
+            // Overflow in the rate arithmetic is a "too big to answer", not a
+            // failure of the search: treat it as not yielding, so the bisection
+            // stays inside the range the engine can actually compute.
+            Ok(match self.fill_pair(&input, to_asset_id, fee_policy) {
+                Ok(Some(fill)) => fill.gross_amount_out.quanta > 0,
+                Ok(None) => false,
+                Err(EngineError::NumericOverflow) => false,
+                Err(error) => return Err(error),
+            })
+        };
+        // Double until a whole unit appears, so the bracket is found in a
+        // number of probes logarithmic in the answer rather than in u64.
+        let mut high = 1_u64;
+        while !yields_a_unit(high)? {
+            let Some(next) = high.checked_mul(2) else {
+                return Ok(None);
+            };
+            high = next;
+        }
+        let mut low = high / 2;
+        // Invariant: `low` does not yield a unit (or is 0), `high` does.
+        while high - low > 1 {
+            let middle = low + (high - low) / 2;
+            if yields_a_unit(middle)? {
+                high = middle;
+            } else {
+                low = middle;
+            }
+        }
+        Ok(Some(AssetAmount::from_quanta(
+            from_asset_id.clone(),
+            high,
+            &self.units,
+        )?))
+    }
+
     pub fn fill_pair(
         &self,
         input: &AssetAmount,

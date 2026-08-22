@@ -53,6 +53,10 @@ pub enum RadarReason {
     SearchTruncated,
     CaptureSkewUnverified,
     CaptureSkewExceeded,
+    /// The configured stake could not buy one whole unit of this target, so
+    /// the scan used the smallest size that can. The row's own `amount_in`
+    /// says what that was.
+    StakeRaisedToMinimum,
 }
 
 /// One settlement currency the radar scans from. Cycles rooted here close
@@ -161,6 +165,11 @@ pub struct RadarDiagnostics {
     pub scanned_conversion_count: u32,
     pub complete_conversion_count: u32,
     pub missing_conversion_count: u32,
+    /// Targets the book can route to but not at the stake asked for: whole
+    /// units mean a stake below one unit of the target buys nothing at all.
+    /// Counted apart from `missing_conversion_count` because the answer to
+    /// one is "go capture that pair" and to the other is "trade bigger".
+    pub unfillable_conversion_count: u32,
     pub triangle_evaluation_count: u32,
     pub item_count_before_limit: u32,
     /// State expansions the conversion scan consumed.
@@ -244,6 +253,7 @@ pub fn run_opportunity_radar(
     let mut scanned_conversion_count = 0_u32;
     let mut complete_conversion_count = 0_u32;
     let mut missing_conversion_count = 0_u32;
+    let mut unfillable_conversion_count = 0_u32;
     let mut expansions_used = 0_u32;
     let mut budget_exhausted = false;
     let per_target_budget = request
@@ -280,22 +290,25 @@ pub fn run_opportunity_radar(
             probe_candidates.push(missing_conversion_probe(start, target));
             continue;
         }
-        let result = find_best_conversion(
-            &index,
-            &ConversionRequest {
-                from_asset_id: start.start_asset_id.clone(),
-                to_asset_id: target.clone(),
-                amount_in: start.amount_in.clone(),
-                max_hops: request.max_hops,
-                max_paths: request.max_paths_per_target,
-                max_expansions: per_target_budget,
-                alternative_limit: 0,
-                allowed_intermediate_asset_ids: Some(routable.clone()),
-                fee_policy: request.fee_policy,
-            },
-            cancellation,
-        )
-        .map_err(map_engine_error)?;
+        let scan = |amount_in: AssetAmount| {
+            find_best_conversion(
+                &index,
+                &ConversionRequest {
+                    from_asset_id: start.start_asset_id.clone(),
+                    to_asset_id: target.clone(),
+                    amount_in,
+                    max_hops: request.max_hops,
+                    max_paths: request.max_paths_per_target,
+                    max_expansions: per_target_budget,
+                    alternative_limit: 0,
+                    allowed_intermediate_asset_ids: Some(routable.clone()),
+                    fee_policy: request.fee_policy,
+                },
+                cancellation,
+            )
+            .map_err(map_engine_error)
+        };
+        let mut result = scan(start.amount_in.clone())?;
         scanned_conversion_count = scanned_conversion_count
             .checked_add(1)
             .ok_or(WorkflowError::NumericOverflow)?;
@@ -303,11 +316,55 @@ pub fn run_opportunity_radar(
         if result.diagnostics.truncated {
             budget_exhausted = true;
         }
+        // A stake below the pair's own minimum lot buys nothing at all: units
+        // are whole, and ten chaos against a divine at eleven chaos rounds to
+        // zero. The search then reports no path, which is true of that size
+        // and false of the market — and reporting it as a missing quote sent
+        // the user to capture a pair whose quotes were already on file and
+        // fresh. Ask what would be enough and scan that instead; the row's own
+        // `amount_in` and `StakeRaisedToMinimum` say which size answered.
+        let mut stake_raised = false;
+        if result.best_path.is_none() {
+            let minimum = index
+                .minimum_input_for_one_unit(&start.start_asset_id, target, request.fee_policy)
+                .map_err(map_engine_error)?;
+            if let Some(minimum) = minimum
+                && minimum.quanta > start.amount_in.quanta
+            {
+                let retried = scan(minimum)?;
+                expansions_used =
+                    expansions_used.saturating_add(retried.diagnostics.expanded_state_count);
+                if retried.diagnostics.truncated {
+                    budget_exhausted = true;
+                }
+                if retried.best_path.is_some() {
+                    stake_raised = true;
+                    result = retried;
+                }
+            }
+        }
         let Some(best) = result.best_path else {
-            missing_conversion_count = missing_conversion_count
-                .checked_add(1)
-                .ok_or(WorkflowError::NumericOverflow)?;
-            probe_candidates.push(missing_conversion_probe(start, target));
+            // Still nothing. Whether that is a gap in the data or a stake the
+            // market cannot trade at is not something the search says — it
+            // returns no path for both — so ask the graph. Priced pairs that
+            // chain from here to the target mean the book knows the way and
+            // only the size was wrong; no chain means nobody has captured it,
+            // which is the one case worth sending the user to the panel for.
+            if index.is_priced_route(
+                &start.start_asset_id,
+                target,
+                Some(&routable),
+                request.max_hops,
+            ) {
+                unfillable_conversion_count = unfillable_conversion_count
+                    .checked_add(1)
+                    .ok_or(WorkflowError::NumericOverflow)?;
+            } else {
+                missing_conversion_count = missing_conversion_count
+                    .checked_add(1)
+                    .ok_or(WorkflowError::NumericOverflow)?;
+                probe_candidates.push(missing_conversion_probe(start, target));
+            }
             continue;
         };
         if !best.is_fully_filled {
@@ -340,6 +397,7 @@ pub fn run_opportunity_radar(
                 result.comparison.status,
                 result.comparison.basis_points,
                 request.thresholds,
+                stake_raised,
             ));
         }
     }
@@ -445,6 +503,7 @@ pub fn run_opportunity_radar(
             scanned_conversion_count,
             complete_conversion_count,
             missing_conversion_count,
+            unfillable_conversion_count,
             triangle_evaluation_count,
             item_count_before_limit,
             expansions_used,
@@ -518,9 +577,13 @@ fn conversion_item(
     comparison_status: ConversionComparisonStatus,
     basis_points: Option<i64>,
     thresholds: RiskThresholds,
+    stake_raised: bool,
 ) -> RadarItem {
     let assessment = assess_path(&path, thresholds, false);
     let mut reasons = Vec::new();
+    if stake_raised {
+        reasons.push(RadarReason::StakeRaisedToMinimum);
+    }
     if matches!(
         comparison_status,
         ConversionComparisonStatus::ComparableGross | ConversionComparisonStatus::ComparableNet

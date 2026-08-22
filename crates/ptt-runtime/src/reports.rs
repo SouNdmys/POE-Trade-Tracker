@@ -1713,6 +1713,180 @@ pub fn debug_pair(
     Ok(())
 }
 
+/// Why the radar says a target is unreachable, against the live database.
+///
+/// Diagnosis for "the radar wants a quote I have already captured": walks the
+/// same scope and starts `opportunities_model` builds, and for each target
+/// prints which step refuses it — no unit, no scope edge, no selected direct
+/// edge, or no path. The one number that matters is how many of these the
+/// selection could have answered directly.
+pub fn debug_radar(
+    observations: &[MarketEdgeObservation],
+    context_key: &str,
+    league: &str,
+    tuning: &MarketTuning,
+) -> Result<(), String> {
+    let (policy, _) = market_policy_from(tuning, league, UiLanguage::English);
+    let mut seen: Vec<MarketAssetId> = observations
+        .iter()
+        .flat_map(|observation| {
+            [
+                observation.edge.from_asset_id.clone(),
+                observation.edge.to_asset_id.clone(),
+            ]
+        })
+        .collect();
+    seen.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+    seen.dedup();
+    let market = build_market(observations, context_key, tuning, UiLanguage::English)?;
+    let items = focus_items_from(&policy, tuning, &seen, FocusPurpose::Arbitrage);
+    let scope = FocusScope::try_new(
+        &items,
+        FocusScopePolicy {
+            allow_target_interconnect: tuning.route_through_targets,
+            ..FocusScopePolicy::default()
+        },
+    )
+    .map_err(|error| format!("scope: {error}"))?;
+    println!(
+        "scope: status={:?} anchors={} targets={} bridges={} watch_only={} intermediates={} \
+         endpoints={} route_through_targets={}",
+        scope.status,
+        scope.anchors.len(),
+        scope.targets.len(),
+        scope.bridges.len(),
+        scope.watch_only.len(),
+        scope.intermediate_asset_ids.len(),
+        scope.endpoint_asset_ids.len(),
+        tuning.route_through_targets,
+    );
+    let selection = &market.instant_selection;
+    println!(
+        "instant selection: {} pair entries, {} with a selected edge",
+        selection.selections.len(),
+        selection
+            .selections
+            .iter()
+            .filter(|entry| entry.selected_edge.is_some())
+            .count(),
+    );
+    let kept = selection
+        .selections
+        .iter()
+        .filter(|entry| scope.edge_allowed(&entry.from_asset_id, &entry.to_asset_id))
+        .count();
+    println!(
+        "after scope restriction: {kept} of {} pair entries survive",
+        selection.selections.len()
+    );
+
+    for start in &policy.core_liquidity {
+        for target in &scope.endpoint_asset_ids {
+            if target == start || !scope.endpoint_pair_allowed(start, target) {
+                continue;
+            }
+            let direct = selection
+                .selections
+                .iter()
+                .find(|entry| entry.from_asset_id == *start && entry.to_asset_id == *target);
+            let direct_state = match direct {
+                None => "no-entry".to_owned(),
+                Some(entry) => format!(
+                    "selected={} candidates={} scope_allows={}",
+                    entry.selected_edge.is_some(),
+                    entry.candidate_edges.len(),
+                    scope.edge_allowed(&entry.from_asset_id, &entry.to_asset_id),
+                ),
+            };
+            // What the radar actually asks the engine, at several stakes: a
+            // path that appears only at a larger stake was never a data gap.
+            let mut routed = String::new();
+            for stake in [tuning.radar.stake.max(1), 100, 10_000] {
+                let Ok(amount_in) =
+                    AssetAmount::from_whole_units(start.clone(), stake, &market.units)
+                else {
+                    continue;
+                };
+                let restricted = {
+                    let mut clone = selection.clone();
+                    clone.selections.retain(|entry| {
+                        scope.edge_allowed(&entry.from_asset_id, &entry.to_asset_id)
+                    });
+                    clone
+                };
+                let Ok(index) =
+                    MarketDepthIndex::try_from_selection(&restricted, market.units.clone())
+                else {
+                    continue;
+                };
+                let routable: Vec<MarketAssetId> = scope
+                    .intermediate_asset_ids
+                    .iter()
+                    .filter(|asset| market.units.contains(asset))
+                    .cloned()
+                    .collect();
+                let outcome = find_best_conversion(
+                    &index,
+                    &ConversionRequest {
+                        from_asset_id: start.clone(),
+                        to_asset_id: target.clone(),
+                        amount_in,
+                        max_hops: 3,
+                        max_paths: 32,
+                        max_expansions: 4_000,
+                        alternative_limit: 0,
+                        allowed_intermediate_asset_ids: Some(routable),
+                        fee_policy: FeePolicy::None,
+                    },
+                    &SearchCancellation::default(),
+                );
+                let verdict = match &outcome {
+                    Ok(result) => match &result.best_path {
+                        Some(path) => format!(
+                            "out={} filled={}",
+                            path.amount_out.quanta, path.is_fully_filled
+                        ),
+                        None => "NO-PATH".to_owned(),
+                    },
+                    Err(error) => format!("{error:?}"),
+                };
+                routed.push_str(&format!(" [{stake}: {verdict}]"));
+            }
+            println!(
+                "{:<26} -> {:<26} unit={} routable_target={} direct[{direct_state}]{routed}",
+                start.as_str(),
+                target.as_str(),
+                market.units.contains(target),
+                scope.intermediate_asset_ids.contains(target),
+            );
+        }
+    }
+
+    // What the page itself would print, so the diagnosis and the product
+    // cannot disagree about the same database.
+    println!("\n--- the Opportunities page, verbatim ---");
+    let model = opportunities_model(
+        observations,
+        context_key,
+        league,
+        tuning,
+        UiLanguage::English,
+    )?;
+    if let RadarScan::Ran(scan) = &model.scan {
+        println!("diagnostics: {:?}", scan.diagnostics);
+    }
+    for line in opportunities_report(
+        observations,
+        context_key,
+        league,
+        tuning,
+        UiLanguage::Chinese,
+    )? {
+        println!("{line}");
+    }
+    Ok(())
+}
+
 fn focus_coverage(
     observations: &[MarketEdgeObservation],
     context_key: &str,
