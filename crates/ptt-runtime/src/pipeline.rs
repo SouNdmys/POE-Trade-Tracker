@@ -207,6 +207,10 @@ pub struct LivePipeline {
     /// client's. Captured at open: a switch mid-session reaches the next book
     /// rather than rewriting the one already on screen.
     ui_language: ptt_settings::UiLanguage,
+    /// The active season's start, read once at open so the per-accept
+    /// analysis window can be clamped with zero work inside the loop. A
+    /// season started mid-session reaches the next session.
+    season_floor: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl LivePipeline {
@@ -231,6 +235,12 @@ impl LivePipeline {
         let context = live_context(profile, league)
             .map_err(|error| PipelineError::Context(format!("{error:?}")))?;
         let context_key = context.stable_key();
+        // No season configured -> no clamp -> today's behavior exactly.
+        let season_floor = store
+            .active_season(profile.game.as_str())
+            .ok()
+            .flatten()
+            .map(|season| season.started_at);
         Ok(Self {
             route,
             store,
@@ -238,6 +248,7 @@ impl LivePipeline {
             context_key,
             sequence: 0,
             ui_language,
+            season_floor,
         })
     }
 
@@ -264,6 +275,7 @@ impl LivePipeline {
             context_key,
             sequence,
             ui_language,
+            season_floor,
         } = self;
         run_session(
             route,
@@ -333,8 +345,15 @@ impl LivePipeline {
                         return;
                     }
 
-                    let analysis = analyse(store, context_key, &need_id, &have_id, *ui_language)
-                        .unwrap_or_else(|error| vec![format!("analysis error: {error}")]);
+                    let analysis = analyse(
+                        store,
+                        context_key,
+                        &need_id,
+                        &have_id,
+                        *ui_language,
+                        *season_floor,
+                    )
+                    .unwrap_or_else(|error| vec![format!("analysis error: {error}")]);
                     on_event(PipelineEvent::Accepted(Box::new(AcceptedBook {
                         sequence: *sequence,
                         need_asset_id: need_id,
@@ -368,12 +387,14 @@ fn analyse(
     need_id: &str,
     have_id: &str,
     language: ptt_settings::UiLanguage,
+    season_floor: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Result<Vec<String>, String> {
+    let since = crate::rollup::clamp_to_season(
+        chrono::Utc::now() - chrono::Duration::hours(ANALYSIS_WINDOW_HOURS),
+        season_floor,
+    );
     let observations = store
-        .load_observations(
-            context_key,
-            Some(chrono::Utc::now() - chrono::Duration::hours(ANALYSIS_WINDOW_HOURS)),
-        )
+        .load_observations(context_key, Some(since))
         .map_err(|error| format!("load: {error}"))?;
     let need = domain_asset_id(need_id).map_err(|error| format!("{error:?}"))?;
     let have = domain_asset_id(have_id).map_err(|error| format!("{error:?}"))?;

@@ -203,6 +203,25 @@ pub struct HistoryModel {
     pub anomalies: Vec<ptt_strategy::PriceAnomaly>,
 }
 
+/// "What is the market doing": season-scale value, supply/demand pressure,
+/// and anchor health, built from persisted day rollups plus a live fold of
+/// today. The only page whose data reaches past the report window.
+#[derive(Clone, Debug)]
+pub struct AnalyticsModel {
+    pub notes: Notes,
+    /// The active season banner, when one is configured.
+    pub season: Option<SeasonBanner>,
+    /// Distinct UTC days feeding the pulse (rollups + today).
+    pub data_days: u32,
+    pub pulse: ptt_strategy::MarketPulse,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SeasonBanner {
+    pub label: String,
+    pub started_day: String,
+}
+
 /// Everything the engine needs, assembled once from stored observations.
 struct Market {
     index: MarketDepthIndex,
@@ -2029,6 +2048,164 @@ fn render_coverage(coverage: &CoverageModel, language: UiLanguage) -> Vec<String
             candidate.from_asset_id.as_str(),
             candidate.to_asset_id.as_str(),
             crate::report_text::probe_reason(language, candidate.reason),
+        ));
+    }
+    lines
+}
+
+// ---------------------------------------------------------------------------
+// Analytics: season-scale value, supply/demand pressure, anchor health
+// ---------------------------------------------------------------------------
+
+/// Builds the analytics page model from persisted day rollups plus a live
+/// fold of today's window observations. Pure over its inputs: the caller
+/// fetches rollup rows, the window, and the season (see `rollup`).
+#[must_use]
+pub fn analytics_model(
+    rollup_rows: &[ptt_storage::PairDayRollupRow],
+    window_observations: &[MarketEdgeObservation],
+    season: Option<&ptt_storage::SeasonRow>,
+    league: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> AnalyticsModel {
+    let text = crate::report_text::report(language);
+    let mut notes = Vec::new();
+
+    let (mut stats, row_notes) = crate::rollup::stats_from_rollup_rows(rollup_rows);
+    notes.extend(row_notes);
+    stats.extend(crate::rollup::today_stats(window_observations, Utc::now()));
+
+    let (policy, policy_note) = market_policy_from(tuning, league, language);
+    notes.extend(policy_note);
+
+    let thresholds = match analytics_thresholds_from(tuning) {
+        Some(thresholds) => thresholds,
+        None => {
+            notes.push(text.analytics_config_invalid.to_owned());
+            ptt_strategy::AnalyticsThresholds::default()
+        }
+    };
+
+    let data_days: std::collections::BTreeSet<&str> =
+        stats.iter().map(|stat| stat.utc_day.as_str()).collect();
+    let data_days = u32::try_from(data_days.len()).unwrap_or(u32::MAX);
+    let pulse = ptt_strategy::market_pulse(&stats, &policy.core_liquidity, &thresholds);
+
+    AnalyticsModel {
+        notes,
+        season: season.map(|row| SeasonBanner {
+            label: row.label.clone(),
+            started_day: row.started_at.format("%Y-%m-%d").to_string(),
+        }),
+        data_days,
+        pulse,
+    }
+}
+
+/// The tuned analytics thresholds, or `None` when the settings values do not
+/// validate (the caller notes the degradation and uses the defaults).
+fn analytics_thresholds_from(tuning: &MarketTuning) -> Option<ptt_strategy::AnalyticsThresholds> {
+    let analytics = &tuning.analytics;
+    ptt_strategy::AnalyticsThresholds::try_new(
+        u32::try_from(analytics.trend_recent_days).ok()?,
+        u32::try_from(analytics.trend_window_days).ok()?,
+        u32::try_from(analytics.breadth_threshold_percent).ok()?,
+        i64::try_from(analytics.verdict_threshold_bps).ok()?,
+        u32::try_from(analytics.scarce_ratio_percent).ok()?,
+        u128::from(analytics.quiet_floor_anchor_units),
+    )
+    .ok()
+}
+
+/// The analytics model as text lines — the probe's verification surface and
+/// the parity reference for the page.
+#[must_use]
+pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::{anchor_drift, fill, liquidity_class, trend_verdict};
+    let text = crate::report_text::report(language);
+    let mut lines = model.notes.clone();
+    if let Some(season) = &model.season {
+        lines.push(fill(
+            text.analytics_season_line,
+            &[&season.label, &season.started_day],
+        ));
+    }
+    let Some(as_of) = &model.pulse.as_of_day else {
+        lines.push(text.analytics_no_data.to_owned());
+        return lines;
+    };
+    lines.push(fill(
+        text.analytics_as_of,
+        &[as_of, &model.data_days.to_string()],
+    ));
+    if let Some(health) = &model.pulse.anchor_health {
+        lines.push(fill(
+            text.analytics_anchor_line,
+            &[
+                health.anchor_asset_id.as_str(),
+                anchor_drift(language, health.drift),
+            ],
+        ));
+        let median = health
+            .market_median_move_bps
+            .map_or_else(|| "-".to_owned(), |bps| bps.to_string());
+        lines.push(fill(
+            text.analytics_breadth_line,
+            &[
+                &health.risers.to_string(),
+                &health.fallers.to_string(),
+                &health.flat.to_string(),
+                &median,
+            ],
+        ));
+        for cross in &health.crosses {
+            let drift = cross
+                .drift_bps
+                .map_or_else(|| "-".to_owned(), |bps| bps.to_string());
+            lines.push(fill(
+                text.analytics_cross_line,
+                &[cross.asset_id.as_str(), &cross.latest_rate.text, &drift],
+            ));
+        }
+    }
+    lines.push(text.analytics_table_header.to_owned());
+    for asset in &model.pulse.assets {
+        let value = asset
+            .value_in_anchor
+            .as_ref()
+            .map_or_else(|| "-".to_owned(), |rate| rate.text.clone());
+        let supply = asset.supply_anchor.map_or_else(
+            || format!("{}?", asset.supply_units),
+            |units| units.to_string(),
+        );
+        let demand = asset.demand_anchor.map_or_else(
+            || format!("{}?", asset.demand_units),
+            |units| units.to_string(),
+        );
+        let verdict = asset
+            .verdict
+            .map_or("-", |verdict| trend_verdict(language, verdict));
+        let mut markers = String::new();
+        if asset.high_turnover {
+            markers.push_str("  [");
+            markers.push_str(text.analytics_marker_high_turnover);
+            markers.push(']');
+        }
+        if asset.greedy_candidate {
+            markers.push_str("  [");
+            markers.push_str(text.analytics_marker_greedy);
+            markers.push(']');
+        }
+        lines.push(format!(
+            "{:<28} {:>12} {:>14} {:>14}  {}  {}{}",
+            asset.asset_id.as_str(),
+            value,
+            supply,
+            demand,
+            liquidity_class(language, asset.class),
+            verdict,
+            markers,
         ));
     }
     lines

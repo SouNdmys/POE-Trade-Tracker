@@ -109,6 +109,16 @@ pub struct ReportText {
     pub risks: &'static str,
     pub probe: &'static str,
     pub flip: &'static str,
+    pub analytics_config_invalid: &'static str,
+    pub analytics_no_data: &'static str,
+    pub analytics_season_line: &'static str,
+    pub analytics_as_of: &'static str,
+    pub analytics_anchor_line: &'static str,
+    pub analytics_breadth_line: &'static str,
+    pub analytics_cross_line: &'static str,
+    pub analytics_table_header: &'static str,
+    pub analytics_marker_high_turnover: &'static str,
+    pub analytics_marker_greedy: &'static str,
 }
 
 #[must_use]
@@ -184,6 +194,16 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     risks: "risks",
     probe: "probe",
     flip: "flip",
+    analytics_config_invalid: "analytics thresholds in settings are invalid - using defaults",
+    analytics_no_data: "no market history yet - capture some books first",
+    analytics_season_line: "season {} - since {}",
+    analytics_as_of: "data through {} - {} day(s)",
+    analytics_anchor_line: "anchor {}: {}",
+    analytics_breadth_line: "breadth: {} up / {} down / {} flat - market median {}bp",
+    analytics_cross_line: "cross {}: {} per unit ({}bp)",
+    analytics_table_header: "asset | value | supply | demand | class | trend",
+    analytics_marker_high_turnover: "high-turnover",
+    analytics_marker_greedy: "greedy-fit",
 };
 
 pub static REPORT_CHINESE: ReportText = ReportText {
@@ -251,6 +271,16 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     risks: "风险",
     probe: "建议采集",
     flip: "翻",
+    analytics_config_invalid: "设置里的分析阈值无效 — 已回落到默认",
+    analytics_no_data: "还没有市场历史 — 先抓一些盘口",
+    analytics_season_line: "赛季 {} — {} 起",
+    analytics_as_of: "数据截至 {} — 共 {} 天",
+    analytics_anchor_line: "锚定通货 {}：{}",
+    analytics_breadth_line: "广度：{} 涨 / {} 跌 / {} 平 — 市场中位 {}bp",
+    analytics_cross_line: "锚交叉 {}：每单位 {}（{}bp）",
+    analytics_table_header: "通货 | 价值 | 供给 | 需求 | 分类 | 趋势",
+    analytics_marker_high_turnover: "高流转",
+    analytics_marker_greedy: "适合贪婪",
 };
 
 /// Fills a template's `{}` slots, in order.
@@ -582,6 +612,56 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
         ("risks", REPORT_ENGLISH.risks, REPORT_CHINESE.risks),
         ("probe", REPORT_ENGLISH.probe, REPORT_CHINESE.probe),
         ("flip", REPORT_ENGLISH.flip, REPORT_CHINESE.flip),
+        (
+            "analytics_config_invalid",
+            REPORT_ENGLISH.analytics_config_invalid,
+            REPORT_CHINESE.analytics_config_invalid,
+        ),
+        (
+            "analytics_no_data",
+            REPORT_ENGLISH.analytics_no_data,
+            REPORT_CHINESE.analytics_no_data,
+        ),
+        (
+            "analytics_season_line",
+            REPORT_ENGLISH.analytics_season_line,
+            REPORT_CHINESE.analytics_season_line,
+        ),
+        (
+            "analytics_as_of",
+            REPORT_ENGLISH.analytics_as_of,
+            REPORT_CHINESE.analytics_as_of,
+        ),
+        (
+            "analytics_anchor_line",
+            REPORT_ENGLISH.analytics_anchor_line,
+            REPORT_CHINESE.analytics_anchor_line,
+        ),
+        (
+            "analytics_breadth_line",
+            REPORT_ENGLISH.analytics_breadth_line,
+            REPORT_CHINESE.analytics_breadth_line,
+        ),
+        (
+            "analytics_cross_line",
+            REPORT_ENGLISH.analytics_cross_line,
+            REPORT_CHINESE.analytics_cross_line,
+        ),
+        (
+            "analytics_table_header",
+            REPORT_ENGLISH.analytics_table_header,
+            REPORT_CHINESE.analytics_table_header,
+        ),
+        (
+            "analytics_marker_high_turnover",
+            REPORT_ENGLISH.analytics_marker_high_turnover,
+            REPORT_CHINESE.analytics_marker_high_turnover,
+        ),
+        (
+            "analytics_marker_greedy",
+            REPORT_ENGLISH.analytics_marker_greedy,
+            REPORT_CHINESE.analytics_marker_greedy,
+        ),
     ]
 }
 
@@ -669,6 +749,49 @@ pub const fn freshness_light(language: UiLanguage, value: FreshnessStatus) -> &'
 pub const fn maker_exclusion(language: UiLanguage, value: MakerQueueExclusion) -> &'static str {
     match value {
         MakerQueueExclusion::PriceOutlier => pick(language, "price outlier", "价格离群"),
+    }
+}
+
+/// An asset's move relative to the market median move — the anchor-drift
+/// corrected verdict, never the raw move against the anchor.
+#[must_use]
+pub const fn trend_verdict(
+    language: UiLanguage,
+    value: ptt_strategy::TrendVerdict,
+) -> &'static str {
+    match value {
+        ptt_strategy::TrendVerdict::Appreciating => pick(language, "appreciating", "升值"),
+        ptt_strategy::TrendVerdict::Holding => pick(language, "holding", "保值"),
+        ptt_strategy::TrendVerdict::Depreciating => pick(language, "depreciating", "贬值"),
+    }
+}
+
+/// The mirror-vs-junk discrimination read from the imbalance direction.
+#[must_use]
+pub const fn liquidity_class(
+    language: UiLanguage,
+    value: ptt_strategy::LiquidityClass,
+) -> &'static str {
+    match value {
+        ptt_strategy::LiquidityClass::Scarce => pick(language, "scarce", "供不应求"),
+        ptt_strategy::LiquidityClass::Oversupplied => pick(language, "oversupplied", "供过于求"),
+        ptt_strategy::LiquidityClass::Balanced => pick(language, "balanced", "供需均衡"),
+        ptt_strategy::LiquidityClass::Quiet => pick(language, "quiet", "冷清"),
+    }
+}
+
+/// Whether the settlement anchor itself is drifting. "Inflating" is the
+/// anchor losing purchasing power — most asset prices in it rising.
+#[must_use]
+pub const fn anchor_drift(language: UiLanguage, value: ptt_strategy::AnchorDrift) -> &'static str {
+    match value {
+        ptt_strategy::AnchorDrift::Inflating => {
+            pick(language, "inflating (losing value)", "通胀（在贬值）")
+        }
+        ptt_strategy::AnchorDrift::Deflating => {
+            pick(language, "deflating (gaining value)", "通缩（在升值）")
+        }
+        ptt_strategy::AnchorDrift::Steady => pick(language, "steady", "稳定"),
     }
 }
 

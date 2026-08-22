@@ -1209,11 +1209,18 @@ fn load_window(
     let window_hours = i64::try_from(request.tuning.report_window_hours)
         .unwrap_or(FALLBACK_REPORT_WINDOW_HOURS)
         .clamp(1, 24 * 365);
+    // A configured season floors every page read; none configured, no clamp.
+    let season_floor = store
+        .active_season(request.profile.game.as_str())
+        .ok()
+        .flatten()
+        .map(|season| season.started_at);
+    let since = ptt_runtime::rollup::clamp_to_season(
+        chrono::Utc::now() - chrono::Duration::hours(window_hours),
+        season_floor,
+    );
     let observations = store
-        .load_observations(
-            &context_key,
-            Some(chrono::Utc::now() - chrono::Duration::hours(window_hours)),
-        )
+        .load_observations(&context_key, Some(since))
         .map_err(|error| format!("load: {error}"))?;
     Ok((context_key, observations))
 }

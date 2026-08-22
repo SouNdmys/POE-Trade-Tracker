@@ -14,6 +14,7 @@ pub mod live;
 pub mod pipeline;
 pub mod report_text;
 pub mod reports;
+pub mod rollup;
 
 /// The domain types the page models are made of.
 ///
