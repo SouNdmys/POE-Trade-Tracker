@@ -63,6 +63,9 @@ pub struct ConvertModel {
     /// The listing advice for the middle size, when there was a book to give
     /// it. Advisory: its absence never invalidates the routes above.
     pub maker: Option<MakerModel>,
+    /// Market-pulse context for the asset being acquired — the greedy card's
+    /// evidence line (scarce? drifting up?). Absent without season history.
+    pub need_structural: Option<StructuralNote>,
 }
 
 #[derive(Clone, Debug)]
@@ -180,6 +183,66 @@ pub struct OpportunityRow {
     /// Read from the oldest leg: a route is only as current as the capture it
     /// leans on hardest.
     pub light: Option<FreshnessStatus>,
+    /// Season-scale liquidity context for each leg asset the market pulse
+    /// knows. Advisory only: it never reorders items or changes a category —
+    /// the current snapshot depth is real even when a leg's market is
+    /// structurally thin (user ruling: sort stays liquidity > profit > hops).
+    pub structural: Vec<StructuralNote>,
+}
+
+/// One asset's market-pulse context, attached to a route or a pair.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StructuralNote {
+    pub asset_id: MarketAssetId,
+    pub class: ptt_strategy::LiquidityClass,
+    pub verdict: Option<ptt_strategy::TrendVerdict>,
+    /// Scarce and not depreciating relative to the market: the greedy-mode
+    /// precondition holds for this asset.
+    pub greedy_candidate: bool,
+}
+
+impl StructuralNote {
+    /// A structurally thin leg: nothing wrong with the printed numbers, but
+    /// the asset's market is oversupplied or quiet season-wide, so refills
+    /// behind the visible book are less likely.
+    #[must_use]
+    pub const fn structurally_illiquid(&self) -> bool {
+        matches!(
+            self.class,
+            ptt_strategy::LiquidityClass::Oversupplied | ptt_strategy::LiquidityClass::Quiet
+        )
+    }
+}
+
+/// The pulse context for every path asset the pulse knows, in path order,
+/// deduplicated. Annotation only — the caller must not resort on it.
+fn structural_notes_for(
+    path: &[MarketAssetId],
+    pulse: Option<&ptt_strategy::MarketPulse>,
+) -> Vec<StructuralNote> {
+    let Some(pulse) = pulse else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut notes = Vec::new();
+    for asset_id in path {
+        if !seen.insert(asset_id.clone()) {
+            continue;
+        }
+        if let Some(asset) = pulse
+            .assets
+            .iter()
+            .find(|asset| asset.asset_id == *asset_id)
+        {
+            notes.push(StructuralNote {
+                asset_id: asset.asset_id.clone(),
+                class: asset.class,
+                verdict: asset.verdict,
+                greedy_candidate: asset.greedy_candidate,
+            });
+        }
+    }
+    notes
 }
 
 /// "What should I go look at next": the probe queue on its own.
@@ -367,6 +430,7 @@ pub fn convert_report(
         holdings,
         tuning,
         language,
+        None,
     )?;
     Ok(render_convert(&model, language))
 }
@@ -405,6 +469,7 @@ pub fn convert_model(
     holdings: Option<u64>,
     tuning: &MarketTuning,
     language: UiLanguage,
+    pulse: Option<&ptt_strategy::MarketPulse>,
 ) -> Result<ConvertModel, String> {
     // "X into X" is not a route question. The engine says so with
     // `InvalidAnalysisRequest`, which is correct of it — that is a caller
@@ -422,6 +487,7 @@ pub fn convert_model(
             need: need.clone(),
             sizes: Vec::new(),
             maker: None,
+            need_structural: None,
         });
     }
     let market = build_market(observations, context_key, tuning, language)?;
@@ -486,6 +552,9 @@ pub fn convert_model(
         need: need.clone(),
         sizes: routes,
         maker,
+        need_structural: structural_notes_for(std::slice::from_ref(need), pulse)
+            .into_iter()
+            .next(),
     })
 }
 
@@ -1103,7 +1172,7 @@ pub fn opportunities_report(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let model = opportunities_model(observations, context_key, league, tuning, language)?;
+    let model = opportunities_model(observations, context_key, league, tuning, language, None)?;
     Ok(render_opportunities(&model, language))
 }
 
@@ -1115,6 +1184,7 @@ pub fn opportunities_model(
     league: &str,
     tuning: &MarketTuning,
     language: UiLanguage,
+    pulse: Option<&ptt_strategy::MarketPulse>,
 ) -> Result<OpportunitiesModel, String> {
     let (policy, policy_warning) = market_policy_from(tuning, league, language);
     // The unavailable answers carry no notes: each is a single sentence about
@@ -1253,7 +1323,12 @@ pub fn opportunities_model(
                         .classify(evidence.earliest_captured_at, now)
                         .status
                 });
-            OpportunityRow { item, light }
+            let structural = structural_notes_for(&item.path_asset_ids, pulse);
+            OpportunityRow {
+                item,
+                light,
+                structural,
+            }
         })
         .collect();
 
@@ -1944,6 +2019,7 @@ pub fn debug_radar(
         league,
         tuning,
         UiLanguage::English,
+        None,
     )?;
     if let RadarScan::Ran(scan) = &model.scan {
         println!("diagnostics: {:?}", scan.diagnostics);
@@ -2820,6 +2896,77 @@ mod settlement_tests {
                 .iter()
                 .any(|line| line.contains("data freshness: green - fresh")),
             "the default bands must still classify: {lines:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod structural_tests {
+    use super::*;
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn pulse_asset(id: &str, class: ptt_strategy::LiquidityClass) -> ptt_strategy::AssetPulse {
+        ptt_strategy::AssetPulse {
+            asset_id: asset(id),
+            value_in_anchor: None,
+            value_is_composed: false,
+            supply_units: 0,
+            demand_units: 0,
+            supply_anchor: None,
+            demand_anchor: None,
+            listing_rows: 0,
+            days_observed: 1,
+            circulation_norm_units: None,
+            trend_bps_raw: None,
+            trend_bps_relative: None,
+            verdict: None,
+            class,
+            high_turnover: false,
+            greedy_candidate: class == ptt_strategy::LiquidityClass::Scarce,
+        }
+    }
+
+    /// The annotation is context, never a verdict: legs keep path order, a
+    /// repeated asset notes once, an unknown asset notes nothing, and no
+    /// pulse means no notes — the page renders identically to before.
+    #[test]
+    fn structural_notes_annotate_without_reordering() {
+        let pulse = ptt_strategy::MarketPulse {
+            as_of_day: Some("2026-08-22".to_owned()),
+            anchor_asset_id: Some(asset("divine-orb")),
+            anchor_health: None,
+            assets: vec![
+                pulse_asset(
+                    "scroll-of-wisdom",
+                    ptt_strategy::LiquidityClass::Oversupplied,
+                ),
+                pulse_asset("mirror-of-kalandra", ptt_strategy::LiquidityClass::Scarce),
+            ],
+        };
+        let path = [
+            asset("divine-orb"),
+            asset("scroll-of-wisdom"),
+            asset("mirror-of-kalandra"),
+            asset("divine-orb"),
+        ];
+
+        let notes = structural_notes_for(&path, Some(&pulse));
+        assert_eq!(notes.len(), 2, "unknown assets and repeats add nothing");
+        assert_eq!(notes[0].asset_id.as_str(), "scroll-of-wisdom");
+        assert!(
+            notes[0].structurally_illiquid(),
+            "oversupplied is the junk shape"
+        );
+        assert_eq!(notes[1].asset_id.as_str(), "mirror-of-kalandra");
+        assert!(!notes[1].structurally_illiquid(), "scarce is not illiquid");
+        assert!(notes[1].greedy_candidate);
+
+        assert!(
+            structural_notes_for(&path, None).is_empty(),
+            "no pulse, no notes, no page change"
         );
     }
 }

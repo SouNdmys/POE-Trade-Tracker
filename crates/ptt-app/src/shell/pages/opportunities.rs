@@ -463,6 +463,25 @@ impl AppShell {
             .child(self.radar_probes(scan.probe_candidates.clone(), cx))
     }
 
+    /// One structural note as compact text: name, class, trend, greedy fit.
+    /// Shared with the Convert page's greedy context line.
+    pub(crate) fn structural_text(&self, note: &ptt_runtime::reports::StructuralNote) -> String {
+        let language = self.language();
+        let report = report_text::report(language);
+        let mut parts = vec![format!(
+            "{} {}",
+            self.display_name(note.asset_id.as_str()),
+            report_text::liquidity_class(language, note.class),
+        )];
+        if let Some(verdict) = note.verdict {
+            parts.push(report_text::trend_verdict(language, verdict).to_owned());
+        }
+        if note.greedy_candidate {
+            parts.push(report.analytics_marker_greedy.to_owned());
+        }
+        parts.join("·")
+    }
+
     /// The parts of the selected route.
     fn radar_detail(&self, row: &OpportunityRow, cx: &mut Context<Self>) -> gpui::Div {
         let language = self.language();
@@ -546,6 +565,17 @@ impl AppShell {
                     .collect::<Vec<_>>()
                     .join(", "),
             ));
+        }
+        // Season-scale context per leg asset: advisory, never a blocker and
+        // never a sort key (the user's ordering ruling stands).
+        if !row.structural.is_empty() {
+            let notes = row
+                .structural
+                .iter()
+                .map(|note| self.structural_text(note))
+                .collect::<Vec<_>>()
+                .join("  ");
+            inner = inner.child(kv_row(text.detail_structural, &notes));
         }
         if !item.reasons.is_empty() {
             inner = inner.child(kv_row(

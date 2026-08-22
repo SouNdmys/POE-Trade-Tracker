@@ -397,10 +397,9 @@ impl AppShell {
                             .child(crate::ui::scrollable(routes, "convert-routes")),
                     )
                     .children(
-                        model
-                            .maker
-                            .as_ref()
-                            .map(|maker| self.maker_panel(maker, cx)),
+                        model.maker.as_ref().map(|maker| {
+                            self.maker_panel(maker, model.need_structural.as_ref(), cx)
+                        }),
                     ),
             )
     }
@@ -671,7 +670,12 @@ impl AppShell {
 
     /// Listing instead of taking: the three ways to place an order, priced
     /// against the instant fill.
-    fn maker_panel(&self, maker: &MakerModel, _cx: &mut Context<Self>) -> gpui::Div {
+    fn maker_panel(
+        &self,
+        maker: &MakerModel,
+        need_structural: Option<&ptt_runtime::reports::StructuralNote>,
+        _cx: &mut Context<Self>,
+    ) -> gpui::Div {
         let text = self.text();
         let language = self.language();
         let report = report_text::report(language);
@@ -772,6 +776,13 @@ impl AppShell {
                         },
                     ))),
             );
+        }
+
+        // The greedy decision is about the asset you would end up holding:
+        // is its market scarce and drifting up (the greedy precondition), or
+        // oversupplied junk? Advisory context from the season pulse.
+        if let Some(note) = need_structural {
+            body = body.child(kv_row(text.detail_structural, &self.structural_text(note)));
         }
 
         if let Some(spread) = strategy.spread_basis_points {

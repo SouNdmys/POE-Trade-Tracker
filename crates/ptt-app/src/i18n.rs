@@ -103,6 +103,7 @@ pub struct Text {
     pub detail_leg: &'static str,
     pub detail_capture: &'static str,
     pub detail_risks: &'static str,
+    pub detail_structural: &'static str,
     pub detail_reasons: &'static str,
 
     // -- convert page --
@@ -297,6 +298,7 @@ impl Text {
             ("detail_leg", self.detail_leg),
             ("detail_capture", self.detail_capture),
             ("detail_risks", self.detail_risks),
+            ("detail_structural", self.detail_structural),
             ("detail_reasons", self.detail_reasons),
             ("convert_have_label", self.convert_have_label),
             ("convert_need_label", self.convert_need_label),
@@ -448,6 +450,7 @@ pub static ENGLISH: Text = Text {
     detail_leg: "leg",
     detail_capture: "captured",
     detail_risks: "risks",
+    detail_structural: "liquidity context",
     detail_reasons: "why",
     convert_have_label: "have",
     convert_need_label: "want",
@@ -609,6 +612,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     detail_leg: "第",
     detail_capture: "抓取",
     detail_risks: "风险",
+    detail_structural: "结构性流动性",
     detail_reasons: "依据",
     convert_have_label: "拥有",
     convert_need_label: "想要",

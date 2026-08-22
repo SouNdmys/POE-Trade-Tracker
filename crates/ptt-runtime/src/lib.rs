@@ -34,12 +34,13 @@ pub mod domain {
         QuoteSelectionStrategy,
     };
     pub use ptt_strategy::{
-        Actionability, AnchorAction, AnchorRecommendation, AnomalySeverity, BucketSize,
-        ExecutionRisk, MakerExcludedListing, MakerMode, MakerQueueExclusion, MakerQueueLevel,
-        MakerRecommendation, MakerStrategy, MakerWall, MarketPolicy, MarketRole, ModelCaveat,
-        PriceAnomaly, PriceAnomalyKind, PriceCandle, PricePoint, PriceSummary, ProfitTier,
-        ResidualPosition, RiskAssessment, RiskThresholds, RouteAccounting, Valuation,
-        ValuationMode, ValuationStatus,
+        Actionability, AnchorAction, AnchorCross, AnchorDrift, AnchorHealth, AnchorRecommendation,
+        AnomalySeverity, AssetPulse, BucketSize, ExecutionRisk, LiquidityClass,
+        MakerExcludedListing, MakerMode, MakerQueueExclusion, MakerQueueLevel, MakerRecommendation,
+        MakerStrategy, MakerWall, MarketPolicy, MarketPulse, MarketRole, ModelCaveat, PriceAnomaly,
+        PriceAnomalyKind, PriceCandle, PricePoint, PriceSummary, ProfitTier, ResidualPosition,
+        RiskAssessment, RiskThresholds, RouteAccounting, TrendVerdict, Valuation, ValuationMode,
+        ValuationStatus,
     };
     pub use ptt_trade_engine::{
         AssetAmount, AssetUnit, CaptureTimeEvidence, ComparisonDirection, ConversionPath,

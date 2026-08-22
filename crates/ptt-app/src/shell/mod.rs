@@ -1225,6 +1225,36 @@ fn load_window(
     Ok((context_key, observations))
 }
 
+/// The market pulse the structural annotations read: persisted day rollups
+/// (season-clamped) plus a live fold of the window's current day. `None`
+/// when the store cannot answer — annotations simply stay absent, the page
+/// itself is unaffected.
+#[cfg(windows)]
+fn load_pulse(
+    request: &PageRequest,
+    observations: &[ptt_trade_domain::MarketEdgeObservation],
+) -> Option<ptt_runtime::reports::AnalyticsModel> {
+    use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
+
+    let store = ptt_storage::MarketStore::open(default_database_path()).ok()?;
+    let game = request.profile.game.as_str();
+    let season = store.active_season(game).ok().flatten();
+    let from_day = season.as_ref().map_or_else(
+        || "0001-01-01".to_owned(),
+        |row| row.started_at.format("%Y-%m-%d").to_string(),
+    );
+    let to_day = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let rollup_rows = store.load_rollups(game, &from_day, &to_day).ok()?;
+    Some(ptt_runtime::reports::analytics_model(
+        &rollup_rows,
+        observations,
+        season.as_ref(),
+        LIVE_LEAGUE,
+        &request.tuning,
+        request.language,
+    ))
+}
+
 /// The radar's ranked routes.
 #[cfg(windows)]
 fn load_opportunities(
@@ -1233,12 +1263,14 @@ fn load_opportunities(
     use ptt_runtime::pipeline::LIVE_LEAGUE;
 
     let (context_key, observations) = load_window(request)?;
+    let analytics = load_pulse(request, &observations);
     ptt_runtime::reports::opportunities_model(
         &observations,
         &context_key,
         LIVE_LEAGUE,
         &request.tuning,
         request.language,
+        analytics.as_ref().map(|model| &model.pulse),
     )
 }
 
@@ -1294,6 +1326,7 @@ fn load_convert(
     let (context_key, observations) = load_window(request)?;
     let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
     let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
+    let analytics = load_pulse(request, &observations);
     ptt_runtime::reports::convert_model(
         &observations,
         &context_key,
@@ -1302,6 +1335,7 @@ fn load_convert(
         request.holdings,
         &request.tuning,
         request.language,
+        analytics.as_ref().map(|model| &model.pulse),
     )
     .map(Some)
 }
