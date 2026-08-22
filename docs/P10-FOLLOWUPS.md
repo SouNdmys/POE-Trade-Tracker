@@ -61,3 +61,28 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 
 过时的描述比没有描述更坑人 —— 它会让人以为这里没什么东西，从而不去读。
 顺手改的时候一起修掉即可。
+
+## 5. AppShell 不持有数据库连接（结构性，未做）
+
+第 3 条引用的那个待办，这里给它一条正式条目。
+
+每次页面读都自己 `MarketStore::open(default_database_path())`，全 app 没有一个
+长期持有者。7 个开库点：
+
+- `crates/ptt-app/src/shell/mod.rs`：1230 `load_window`、1269 `load_analytics`、
+  1299 `load_pulse`
+- `crates/ptt-app/src/shell/pages/season.rs`：112 `ensure_season_info`、
+  151 `start_new_season`、176 `purge_old_season`、204 `vacuum_store`
+
+收益最大的点是 Monitor（第 3 条）：常驻界面、刷新频率最高，且一次刷新现在开
+两个连接。
+
+**不紧急**：这些读都跑在 background executor 上，不阻塞 UI 线程。真正的理由是
+结构性的 —— "谁持有连接"目前没有答案，每加一个页面读就多一个 open，散得越久
+越难收。
+
+**动它之前要先想清楚的**：连接怎么跨线程共享。页面读跑在后台执行器上且允许
+两次刷新赛跑（见 `CORE-TRADING-MODEL.md` 8.4），一个 AppShell 持有的连接会被
+多个后台任务同时用 —— 加锁、每线程一个、还是连接池，这是这条待办真正的成本，
+不是把 7 个 open 删掉那么简单。`vacuum_store` 尤其要单独想：它现在有自己的
+连接，而 VACUUM 在 watching 期间会烧穿 5s busy_timeout 打断捕获写入。
