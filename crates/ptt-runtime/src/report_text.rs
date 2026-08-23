@@ -52,7 +52,6 @@ pub struct ReportText {
     /// The share chunk `leg_take`'s last slot receives when there is one.
     pub leg_share: &'static str,
     pub leg_covered: &'static str,
-    pub leg_sweeps_book: &'static str,
     pub leg_not_enough_listed: &'static str,
     pub leg_no_listings: &'static str,
     pub leg_bound_by_next: &'static str,
@@ -154,7 +153,6 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     leg_take: "{} -> {}   {} listed, this trip takes {}{}",
     leg_share: " ({}%)",
     leg_covered: "listings cover it",
-    leg_sweeps_book: "sweeps most of what is listed - the fill walks deep into the book",
     leg_not_enough_listed: "more than everything listed - one pass cannot fill it",
     leg_no_listings: "nothing listed this way - no data, not a shortage",
     leg_bound_by_next: "the next leg is the tighter one",
@@ -239,7 +237,6 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
     leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",
-    leg_sweeps_book: "要吃掉大半个盘口 — 会一路吃到深档，均价变差",
     leg_not_enough_listed: "比现有挂单还多 — 一次吃不完",
     leg_no_listings: "这个方向没抓到挂单 — 是没数据，不是不够",
     leg_bound_by_next: "下一步更紧",
@@ -562,7 +559,6 @@ pub fn leg_take_verdict(
     match verdict {
         Verdict::NoListings => text.leg_no_listings,
         Verdict::Covered => text.leg_covered,
-        Verdict::SweepsTheBook => text.leg_sweeps_book,
         Verdict::NotEnoughListed => text.leg_not_enough_listed,
     }
 }
@@ -746,11 +742,6 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "leg_covered",
             REPORT_ENGLISH.leg_covered,
             REPORT_CHINESE.leg_covered,
-        ),
-        (
-            "leg_sweeps_book",
-            REPORT_ENGLISH.leg_sweeps_book,
-            REPORT_CHINESE.leg_sweeps_book,
         ),
         (
             "leg_not_enough_listed",

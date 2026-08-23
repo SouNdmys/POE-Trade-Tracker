@@ -175,11 +175,15 @@ pub struct RouteQuote {
 pub enum LegTakeVerdict {
     /// No listings on record in this direction. Not a shortage: an absence.
     NoListings,
-    /// Small next to what is listed here.
+    /// The listings hold it. Whatever share of the book that is.
+    ///
+    /// There used to be a band between this and the next one — "takes a
+    /// large share, so the fill walks deep and the average worsens". That is
+    /// a taker's hazard, and this page prices what the reader can *list* at:
+    /// POE fills a listing at that rate or better, so the slide it warned
+    /// about cannot reach them. It was ten of the fourteen warning rows on
+    /// the owner's card, all about a thing that does not happen.
     Covered,
-    /// A large share of everything listed, so the fill walks deep into the
-    /// book and the average price lands well past the front row's.
-    SweepsTheBook,
     /// More than everything listed — one pass cannot fill it at any price.
     NotEnoughListed,
 }
@@ -620,27 +624,22 @@ fn front_rate_takes(
     takes
 }
 
-/// The band one leg falls in: how much of what is listed this trip takes.
+/// The band one leg falls in: whether the listings hold this trip at all.
 ///
-/// `front` is the stock behind the best row alone. A trip the front row can
-/// fill on its own clears at the quoted price no matter what fraction of the
-/// book it happens to be — buying ten of the forty-one mirrors in existence is
-/// 24% of the market and is also just a trade. The share is still reported;
-/// only the warning stands down.
-fn leg_take_verdict(taking: u64, listed: u64, front: u64, sweep_percent: u64) -> LegTakeVerdict {
+/// Two bands and no middle one. The only thing a lister cannot get around is
+/// nobody being on the other side — what fraction of the book they take is
+/// their business, and buying ten of the forty-one mirrors in existence is
+/// 24% of the market and is also just a trade. The share is still printed;
+/// there is simply no warning attached to it.
+///
+/// Compared on the exact integers, not the floored percentage: "more than
+/// the market is showing" is a fact about two numbers, and 1,005 out of
+/// 1,000 rounds to 100%.
+const fn leg_take_verdict(taking: u64, listed: u64) -> LegTakeVerdict {
     if listed == 0 {
-        return LegTakeVerdict::NoListings;
-    }
-    if taking <= front {
-        return LegTakeVerdict::Covered;
-    }
-    // Exact, not the floored percentage: "more than the market is showing" is
-    // a fact about two integers, and 1,005 out of 1,000 rounds to 100%.
-    if taking > listed {
-        return LegTakeVerdict::NotEnoughListed;
-    }
-    if u128::from(taking) * 100 / u128::from(listed) >= u128::from(sweep_percent) {
-        LegTakeVerdict::SweepsTheBook
+        LegTakeVerdict::NoListings
+    } else if taking > listed {
+        LegTakeVerdict::NotEnoughListed
     } else {
         LegTakeVerdict::Covered
     }
@@ -660,7 +659,6 @@ fn route_leg_coverage(
     market: &Market,
     path: &ptt_trade_engine::ConversionPath,
     size: u64,
-    sweep_percent: u64,
 ) -> Vec<LegTakeCoverage> {
     let takes = front_rate_takes(path, &market.index, size);
     let mut legs: Vec<LegTakeCoverage> = path
@@ -670,7 +668,7 @@ fn route_leg_coverage(
         .map(|(index, step)| {
             let (from, to) = (&step.from_asset_id, &step.to_asset_id);
             let (listed, rows) = leg_book(&market.instant_selection, from, to);
-            let top = market.index.top_of_book(from, to);
+
             // The walked fill is the fallback, not the source: it is only
             // reached when a leg has no front row to price the ask through.
             let taking = takes.get(index).copied().flatten().unwrap_or(
@@ -679,7 +677,6 @@ fn route_leg_coverage(
                     .unwrap_or(&step.gross_amount_out)
                     .quanta,
             );
-            let front = top.map_or(0, |(_, stock)| stock);
             LegTakeCoverage {
                 from_asset_id: from.clone(),
                 to_asset_id: to.clone(),
@@ -696,7 +693,7 @@ fn route_leg_coverage(
                             .unwrap_or(u64::MAX)
                     })
                     .filter(|share| *share > 0),
-                verdict: leg_take_verdict(taking, listed, front, sweep_percent),
+                verdict: leg_take_verdict(taking, listed),
                 bound_by_next_leg: false,
                 single_listing: rows == 1,
             }
@@ -919,7 +916,6 @@ fn route_quotes<'a>(
     candidates: &[&'a ptt_trade_engine::ConversionPath],
     direct: Option<&ptt_trade_engine::ConversionPath>,
     size: u64,
-    sweep_percent: u64,
 ) -> Vec<(&'a ptt_trade_engine::ConversionPath, RouteQuote)> {
     let baseline = direct.and_then(|path| route_front_quote(path, &market.index));
     let baseline_rate = baseline.map(|(rate, _)| rate);
@@ -959,7 +955,7 @@ fn route_quotes<'a>(
                     _ => None,
                 },
                 fillable_input: front.map(|(_, fillable)| fillable),
-                legs: route_leg_coverage(market, path, size, sweep_percent),
+                legs: route_leg_coverage(market, path, size),
             },
         ));
     }
@@ -1208,13 +1204,7 @@ pub fn convert_model(
             });
             continue;
         }
-        let priced = route_quotes(
-            &market,
-            &candidates,
-            direct,
-            size,
-            tuning.convert.leg_sweep_percent,
-        );
+        let priced = route_quotes(&market, &candidates, direct, size);
 
         // The detail below belongs to the route at the top of the list the
         // reader is looking at, which is not always the one `compare_paths`
@@ -4545,9 +4535,9 @@ mod leg_coverage_tests {
             .clone()
     }
 
-    /// The three bands, on one real book. 120 omens are listed against chaos;
-    /// taking 1 of them is nothing, 35 sweeps a quarter of the book, and 175
-    /// is more than the listings hold.
+    /// The two bands, on one real book. 120 omens are listed against chaos;
+    /// 35 of them is a large share and still just a trade, 175 is more than
+    /// the listings hold.
     ///
     /// The amounts are the ask at the **front** rate (1:57), not the blended
     /// average of walking 1:57, 1:60 and 1:65. That is the whole basis of
@@ -4566,13 +4556,13 @@ mod leg_coverage_tests {
         assert_eq!(covered[0].taking, 1, "{covered:?}");
         assert_eq!(covered[0].verdict, LegTakeVerdict::Covered, "{covered:?}");
 
-        let sweeping = legs_of(&observations, "chaos-orb", "omen-orb", 2_000);
-        assert_eq!(sweeping[0].taking, 35, "{sweeping:?}");
-        assert_eq!(sweeping[0].share_percent, Some(29), "{sweeping:?}");
+        let big_share = legs_of(&observations, "chaos-orb", "omen-orb", 2_000);
+        assert_eq!(big_share[0].taking, 35, "{big_share:?}");
+        assert_eq!(big_share[0].share_percent, Some(29), "{big_share:?}");
         assert_eq!(
-            sweeping[0].verdict,
-            LegTakeVerdict::SweepsTheBook,
-            "{sweeping:?}"
+            big_share[0].verdict,
+            LegTakeVerdict::Covered,
+            "29% of a book that holds it is a trade, not a hazard: {big_share:?}"
         );
 
         let short = legs_of(&observations, "chaos-orb", "omen-orb", 10_000);
@@ -4720,11 +4710,8 @@ mod leg_coverage_tests {
     /// the page would say, not a state it can currently reach.
     #[test]
     fn an_uncaptured_direction_reads_as_no_data_rather_than_short() {
-        assert_eq!(leg_take_verdict(500, 0, 0, 25), LegTakeVerdict::NoListings);
-        assert_eq!(
-            leg_take_verdict(500, 400, 10, 25),
-            LegTakeVerdict::NotEnoughListed
-        );
+        assert_eq!(leg_take_verdict(500, 0), LegTakeVerdict::NoListings);
+        assert_eq!(leg_take_verdict(500, 400), LegTakeVerdict::NotEnoughListed);
     }
 
     /// The text report is the page's parity reference, so the leg has to
@@ -5094,6 +5081,71 @@ mod route_quote_tests {
                 "divine-orb>chaos-orb".to_owned(),
             ],
             "best rate first, the baseline last"
+        );
+    }
+
+    /// **A page about listing rates does not warn about sliding down tiers,
+    /// because listing never slides.**
+    ///
+    /// The amber band fired whenever a step took more than a quarter of what
+    /// was listed and said "会一路吃到深档，均价变差" -- you will eat into
+    /// the deep levels and your average price gets worse. That is a taker's
+    /// hazard. This page prices what the reader can *list* at, and POE fills
+    /// a listing at that rate or better, so the slide the chip warns about
+    /// cannot happen to them. It was the bulk of the wall of amber on the
+    /// owner's real card -- ten of fourteen step rows -- all of it about a
+    /// thing that does not occur.
+    ///
+    /// What is still worth saying is that the market has not listed enough
+    /// to absorb the trip: that one is true whichever side you are on, and
+    /// it survives.
+    #[test]
+    fn taking_a_large_share_of_a_book_that_covers_it_is_not_a_warning() {
+        let mut observations = direct_book();
+        // Both legs deep enough to fill, but the trip is well over a quarter
+        // of each book -- the old amber threshold, twice over.
+        observations.extend(panel(
+            "dw",
+            "divine-orb",
+            "wide-orb",
+            &[((1, 1), 8), ((1, 1), 8)],
+        ));
+        observations.extend(panel(
+            "wc",
+            "wide-orb",
+            "chaos-orb",
+            &[((12, 1), 100), ((12, 1), 100)],
+        ));
+
+        let quotes = quotes_at(&observations, 10);
+        let wide = quotes
+            .iter()
+            .find(|quote| {
+                quote
+                    .route_asset_ids
+                    .iter()
+                    .any(|id| id.as_str() == "wide-orb")
+            })
+            .expect("the route is shown");
+        assert!(
+            wide.legs
+                .iter()
+                .all(|leg| leg.verdict == LegTakeVerdict::Covered),
+            "listings cover it, so there is nothing to warn about: {wide:?}"
+        );
+
+        let lines = english_report(&observations, 10);
+        assert!(
+            lines.contains("via wide-orb"),
+            "the rate still shows: {lines}"
+        );
+        assert!(
+            !lines.contains("sweeps most of what is listed"),
+            "a maker never walks into the deep levels: {lines}"
+        );
+        assert!(
+            !lines.contains("divine-orb -> wide-orb"),
+            "and with nothing to warn about the step earns no row: {lines}"
         );
     }
 

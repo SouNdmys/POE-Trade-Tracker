@@ -639,7 +639,6 @@ impl AppShell {
     fn leg_row(&self, leg: &LegTakeCoverage, language: ptt_settings::UiLanguage) -> gpui::Div {
         let kind = match leg.verdict {
             LegTakeVerdict::Covered => StatusKind::Idle,
-            LegTakeVerdict::SweepsTheBook => StatusKind::Warning,
             LegTakeVerdict::NotEnoughListed => StatusKind::Hit,
             LegTakeVerdict::NoListings => StatusKind::Disabled,
         };
