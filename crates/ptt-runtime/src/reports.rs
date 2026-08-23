@@ -917,6 +917,29 @@ fn route_quotes<'a>(
             },
         ));
     }
+    // Ordered by the number printed on the rows: best rate first, the direct
+    // baseline at the bottom as the floor everything above it beat. The
+    // engine's own order ranks what this particular size realized -- observed
+    // stranding, then the blended price of the fill -- and both of those move
+    // with the ask, so borrowing it made the rows shuffle when the holding
+    // changed. Rate is the one key on this page the ask cannot touch. What
+    // the engine's liquidity key knew is not lost: it is the leg chips beside
+    // each row, where the reader weighs it against the rate themselves.
+    quotes.sort_by(|(left_path, left), (right_path, right)| {
+        match (left.rate, right.rate) {
+            (Some(mine), Some(theirs)) => theirs.compare(mine),
+            // A route without a front price has nothing to stand on the rate
+            // ladder with; it sinks below everything that does.
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        }
+        // Equal rates: the shorter route wins -- a detour that only matches
+        // direct is not worth its extra book -- and asset ids settle the rest
+        // so the order never depends on how the candidates arrived.
+        .then_with(|| left_path.steps.len().cmp(&right_path.steps.len()))
+        .then_with(|| left_path.path_asset_ids.cmp(&right_path.path_asset_ids))
+    });
     quotes
 }
 
@@ -4883,6 +4906,28 @@ mod route_quote_tests {
         out
     }
 
+    /// The best-priced route on the book -- 12 a divine -- whose middle book
+    /// can only pass five divine through, so a large ask strands there and
+    /// the engine's liquidity key demotes it at exactly that size.
+    fn wide_entry_thin_exit() -> Vec<MarketEdgeObservation> {
+        let mut out = panel("dw", "divine-orb", "gate-orb", &[((1, 1), 100_000)]);
+        out.extend(panel("wc", "gate-orb", "chaos-orb", &[((12, 1), 60)]));
+        out
+    }
+
+    /// Slightly ahead of direct -- 11 against 10.8 -- with depth to spare on
+    /// both legs, so nothing about it moves with the ask.
+    fn deep_and_better() -> Vec<MarketEdgeObservation> {
+        let mut out = panel("dt", "divine-orb", "steady-orb", &[((1, 1), 1_000_000)]);
+        out.extend(panel(
+            "tc",
+            "steady-orb",
+            "chaos-orb",
+            &[((11, 1), 11_000_000)],
+        ));
+        out
+    }
+
     fn model_at(observations: &[MarketEdgeObservation], holdings: u64) -> ConvertModel {
         convert_model(
             observations,
@@ -4925,6 +4970,50 @@ mod route_quote_tests {
         )
         .expect("report")
         .join("\n")
+    }
+
+    /// The list is ordered by the number printed on it. The engine ranks by
+    /// what this particular size realized -- stranding and blended price both
+    /// move with the ask -- so borrowing its order made the rows shuffle when
+    /// the holding changed and parked the direct baseline mid-list. Rate
+    /// order is the one order the ask cannot move: best rate first, and the
+    /// direct baseline at the bottom as the floor everything above it beat.
+    #[test]
+    fn the_route_list_is_ordered_by_rate_and_the_ask_cannot_reorder_it() {
+        let mut observations = direct_book();
+        observations.extend(wide_entry_thin_exit());
+        observations.extend(deep_and_better());
+
+        let names = |quotes: &[RouteQuote]| -> Vec<String> {
+            quotes
+                .iter()
+                .map(|quote| {
+                    quote
+                        .route_asset_ids
+                        .iter()
+                        .map(|id| id.as_str().to_owned())
+                        .collect::<Vec<_>>()
+                        .join(">")
+                })
+                .collect()
+        };
+
+        let at_10 = quotes_at(&observations, 10);
+        let at_5000 = quotes_at(&observations, 5_000);
+        assert_eq!(
+            names(&at_10),
+            names(&at_5000),
+            "the size of the ask reordered the list"
+        );
+        assert_eq!(
+            names(&at_5000),
+            vec![
+                "divine-orb>gate-orb>chaos-orb".to_owned(),
+                "divine-orb>steady-orb>chaos-orb".to_owned(),
+                "divine-orb>chaos-orb".to_owned(),
+            ],
+            "best rate first, the baseline last"
+        );
     }
 
     /// **The invariant this whole change exists to establish.**
