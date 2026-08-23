@@ -148,8 +148,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     tier_closed: "closed",
     tier_theoretical: "theoretical",
     tier_mark_to_market: "mark-to-mkt",
-    better_than_direct: "+{} ({} vs direct)",
-    worse_than_direct: "-{} ({} vs direct)",
+    better_than_direct: "+{} ({} better than direct)",
+    worse_than_direct: "-{} ({} worse than direct)",
     level_with_direct: "level with direct",
     no_direct_route: "no direct route to compare",
     size_down_to: "size down to {} {}: past that, depth runs out",
@@ -410,6 +410,43 @@ pub fn leg_take_facts(
                 .map_or_else(|| "-".to_owned(), |share| format!("{share}%")),
         ],
     )
+}
+
+/// Where a route stands against the direct trade, in one phrase.
+///
+/// Written once for both renderers, for the same reason as
+/// [`leg_take_facts`]: the page and the text report print the same
+/// comparison, and the moment each owns its own wording they drift.
+///
+/// **The percentage goes in unsigned, and that is the whole point of this
+/// function existing.** Both templates already say which way it went --
+/// `比直兑低`, "worse than direct" -- while [`percent_from_basis_points`]
+/// writes its own minus. Handing it the raw signed number printed
+/// `比直兑低 -13.38%`, a double negative that reads as the opposite of the
+/// truth, in the one place a reader is deciding whether a route is ahead.
+#[must_use]
+pub fn versus_direct(
+    language: UiLanguage,
+    direction: Option<ptt_trade_engine::ComparisonDirection>,
+    delta_quanta: Option<u64>,
+    basis_points: Option<i64>,
+) -> String {
+    use ptt_trade_engine::ComparisonDirection as Direction;
+    let text = report(language);
+    match (direction, delta_quanta, basis_points) {
+        (Some(Direction::Improved), Some(delta), Some(points)) => fill(
+            text.better_than_direct,
+            &[&delta.to_string(), &percent_from_basis_points(points.abs())],
+        ),
+        (Some(Direction::Worse), Some(delta), Some(points)) => fill(
+            text.worse_than_direct,
+            &[&delta.to_string(), &percent_from_basis_points(points.abs())],
+        ),
+        (Some(Direction::Equal), _, _) => text.level_with_direct.to_owned(),
+        // No direct route observed: showing the route is useful, calling it
+        // an improvement over nothing is not.
+        _ => text.no_direct_route.to_owned(),
+    }
 }
 
 /// What qualifies one leg: the verdict first, then whatever the verdict does
@@ -1410,14 +1447,18 @@ mod percentage_tests {
 
     /// The real reading off the convert page on 2026-08-23: a route 1338
     /// basis points behind the direct trade.
+    ///
+    /// The magnitude goes into the template, never the signed value: the
+    /// template's own words already point the direction. See
+    /// [`super::versus_direct`].
     #[test]
     fn the_worse_than_direct_line_reads_as_a_percentage() {
         assert_eq!(
             fill(
                 REPORT_ENGLISH.worse_than_direct,
-                &["3451", &percent_from_basis_points(-1338)]
+                &["3451", &percent_from_basis_points(1338)]
             ),
-            "-3451 (-13.38% vs direct)"
+            "-3451 (13.38% worse than direct)"
         );
     }
 

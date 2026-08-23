@@ -631,36 +631,20 @@ impl AppShell {
         tier: &ProfitTier,
         language: ptt_settings::UiLanguage,
     ) -> gpui::Div {
-        let report = report_text::report(language);
-        let (verdict, colour) = match (tier.direction, &tier.delta, tier.basis_points) {
-            (
-                Some(ptt_runtime::domain::ComparisonDirection::Improved),
-                Some(delta),
-                Some(points),
-            ) => (
-                report_text::fill(
-                    report.better_than_direct,
-                    &[
-                        &delta.quanta.to_string(),
-                        &report_text::percent_from_basis_points(points),
-                    ],
-                ),
-                ACCENT_TEXT,
-            ),
-            (Some(ptt_runtime::domain::ComparisonDirection::Worse), Some(delta), Some(points)) => (
-                report_text::fill(
-                    report.worse_than_direct,
-                    &[
-                        &delta.quanta.to_string(),
-                        &report_text::percent_from_basis_points(points),
-                    ],
-                ),
-                DANGER,
-            ),
-            (Some(ptt_runtime::domain::ComparisonDirection::Equal), _, _) => {
-                (report.level_with_direct.to_owned(), TEXT_SECONDARY)
-            }
-            _ => (report.no_direct_route.to_owned(), TEXT_META),
+        // Wording is `report_text`'s, not this page's: the text report prints
+        // the same comparison and is the page's parity reference, and the
+        // sign belongs to whoever owns the sentence that carries "worse".
+        let verdict = report_text::versus_direct(
+            language,
+            tier.direction,
+            tier.delta.as_ref().map(|delta| delta.quanta),
+            tier.basis_points,
+        );
+        let colour = match tier.direction {
+            Some(ptt_runtime::domain::ComparisonDirection::Improved) => ACCENT_TEXT,
+            Some(ptt_runtime::domain::ComparisonDirection::Worse) => DANGER,
+            Some(ptt_runtime::domain::ComparisonDirection::Equal) => TEXT_SECONDARY,
+            None => TEXT_META,
         };
         div()
             .h_flex()

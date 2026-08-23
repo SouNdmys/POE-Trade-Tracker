@@ -20,8 +20,8 @@ use ptt_strategy::{
 };
 use ptt_trade_domain::{MarketAssetId, MarketEdgeObservation};
 use ptt_trade_engine::{
-    AssetAmount, AssetUnit, AssetUnitCatalog, ComparisonDirection, ConversionRequest, FeePolicy,
-    MarketDepthIndex, SearchCancellation, find_best_conversion,
+    AssetAmount, AssetUnit, AssetUnitCatalog, ConversionRequest, FeePolicy, MarketDepthIndex,
+    SearchCancellation, find_best_conversion,
 };
 use ptt_workflows::{
     FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, RadarBudget, RadarRequest, RadarStart,
@@ -611,22 +611,12 @@ fn route_leg_coverage(
 }
 
 fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
-    use crate::report_text::{fill, percent_from_basis_points};
-    let text = crate::report_text::report(language);
-    let profit = match (tier.direction, &tier.delta, tier.basis_points) {
-        (Some(ComparisonDirection::Improved), Some(delta), Some(bps)) => fill(
-            text.better_than_direct,
-            &[&delta.quanta.to_string(), &percent_from_basis_points(bps)],
-        ),
-        (Some(ComparisonDirection::Worse), Some(delta), Some(bps)) => fill(
-            text.worse_than_direct,
-            &[&delta.quanta.to_string(), &percent_from_basis_points(bps)],
-        ),
-        (Some(ComparisonDirection::Equal), _, _) => text.level_with_direct.to_owned(),
-        // No direct route observed: showing the route is useful, calling it
-        // an improvement over nothing is not.
-        _ => text.no_direct_route.to_owned(),
-    };
+    let profit = crate::report_text::versus_direct(
+        language,
+        tier.direction,
+        tier.delta.as_ref().map(|delta| delta.quanta),
+        tier.basis_points,
+    );
     format!(
         "{label:<12} {} in -> {} out   {profit}",
         tier.input.quanta, tier.output.quanta
@@ -4265,6 +4255,57 @@ mod leg_coverage_tests {
             legs[0].verdict,
             LegTakeVerdict::Covered,
             "the front row alone covers it: {legs:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod versus_direct_wording_tests {
+    use super::*;
+    use ptt_trade_engine::ComparisonDirection;
+
+    fn amount(id: &str, quanta: u64) -> AssetAmount {
+        AssetAmount {
+            asset_id: MarketAssetId::try_new(id).expect("asset id"),
+            quanta,
+            unit: AssetUnit::whole(),
+        }
+    }
+
+    /// The 2026-08-23 field reading: a route 1,338 basis points behind the
+    /// direct trade.
+    ///
+    /// Both templates already carry the direction -- `比直兑低`, "worse than
+    /// direct" -- and `percent_from_basis_points` writes its own minus sign,
+    /// so feeding it the raw signed number printed `比直兑低 -13.38%`. A
+    /// double negative in the one place a reader is deciding whether a route
+    /// is ahead or behind.
+    #[test]
+    fn a_route_behind_direct_says_so_once() {
+        let tier = ProfitTier {
+            input: amount("divine-orb", 5_000),
+            output: amount("chaos-orb", 22_318),
+            baseline_output: Some(amount("chaos-orb", 25_769)),
+            direction: Some(ComparisonDirection::Worse),
+            delta: Some(amount("chaos-orb", 3_451)),
+            basis_points: Some(-1_338),
+        };
+
+        let chinese = tier_line("已结算", &tier, UiLanguage::Chinese);
+        assert!(
+            chinese.contains("比直兑低 13.38%"),
+            "the direction is stated by the words, not repeated by the sign: {chinese}"
+        );
+        assert!(!chinese.contains("-13.38%"), "double negative: {chinese}");
+
+        let english = tier_line("closed", &tier, UiLanguage::English);
+        assert!(
+            !english.contains("-13.38%"),
+            "the English line repeats the minus too: {english}"
+        );
+        assert!(
+            english.contains("13.38% worse than direct"),
+            "English has to say which way as words as well: {english}"
         );
     }
 }
