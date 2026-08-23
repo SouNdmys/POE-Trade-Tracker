@@ -214,6 +214,22 @@ pub struct LegTakeCoverage {
     pub single_listing: bool,
 }
 
+impl LegTakeCoverage {
+    /// Whether this step has anything the route line above it does not say.
+    ///
+    /// The route already prints how much the market absorbs at its rate,
+    /// which is the tightest of its steps folded back to the reader's asset.
+    /// A step that clears, is not standing in for a tighter neighbour and
+    /// has more than one listing behind it adds nothing to that -- and
+    /// printing it anyway buries the steps that do.
+    #[must_use]
+    pub const fn is_noteworthy(&self) -> bool {
+        !matches!(self.verdict, LegTakeVerdict::Covered)
+            || self.bound_by_next_leg
+            || self.single_listing
+    }
+}
+
 /// The trader's three ways to act on a pair as a maker, priced against taking
 /// the instant fill now.
 #[derive(Clone, Debug)]
@@ -1253,7 +1269,10 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
         // the decision and the quantity is the warning beside it.
         for quote in &route.quotes {
             lines.push(format!("     {}", quote_line(quote, size, have, language)));
-            for leg in &quote.legs {
+            // Only the steps with something to say. The route line above
+            // already carries the one depth number that summarises all of
+            // them, so a step that clears is a row about nothing.
+            for leg in quote.legs.iter().filter(|leg| leg.is_noteworthy()) {
                 let facts = crate::report_text::leg_take_facts(
                     language,
                     leg.from_asset_id.as_str(),
@@ -5075,6 +5094,62 @@ mod route_quote_tests {
                 "divine-orb>chaos-orb".to_owned(),
             ],
             "best rate first, the baseline last"
+        );
+    }
+
+    /// **Silence is the all-clear.** A step whose listings cover the trip
+    /// used to print a row saying so, with a chip on it saying so again --
+    /// on a ten-route card that is thirty rows and thirty chips announcing
+    /// that nothing is wrong, and the two or three rows that do matter
+    /// disappear into them. The route already carries the one number that
+    /// summarises every step it has ("the front rows take N at this rate"),
+    /// so a calm step has nothing left to add.
+    #[test]
+    fn a_step_with_nothing_to_warn_about_prints_no_row() {
+        let mut observations = direct_book();
+        // A route with depth to spare on both legs: nothing to say about it.
+        observations.extend(panel(
+            "dq",
+            "divine-orb",
+            "quiet-orb",
+            &[((1, 1), 1_000_000), ((1, 2), 1_000_000)],
+        ));
+        observations.extend(panel(
+            "qc",
+            "quiet-orb",
+            "chaos-orb",
+            &[((11, 1), 9_000_000), ((10, 1), 9_000_000)],
+        ));
+
+        let quotes = quotes_at(&observations, 10);
+        let calm = quotes
+            .iter()
+            .find(|quote| {
+                quote
+                    .route_asset_ids
+                    .iter()
+                    .any(|id| id.as_str() == "quiet-orb")
+            })
+            .expect("the route is shown");
+        assert!(
+            calm.legs
+                .iter()
+                .all(|leg| leg.verdict == LegTakeVerdict::Covered),
+            "fixture should be calm: {calm:?}"
+        );
+
+        let lines = english_report(&observations, 10);
+        assert!(
+            lines.contains("via quiet-orb"),
+            "the rate still shows: {lines}"
+        );
+        assert!(
+            !lines.contains("listings cover it"),
+            "an all-clear chip is a reminder that nothing is wrong: {lines}"
+        );
+        assert!(
+            !lines.contains("divine-orb -> quiet-orb"),
+            "a calm step has nothing to add to the rate above it: {lines}"
         );
     }
 

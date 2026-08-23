@@ -514,7 +514,10 @@ impl AppShell {
         // which is the one thing no size can fix.
         for quote in &route.quotes {
             card = card.child(self.quote_row(quote, size, language));
-            for leg in &quote.legs {
+            // Only the steps with something to say -- see
+            // `LegTakeCoverage::is_noteworthy`. The rate row above already
+            // carries the depth number that summarises all of them.
+            for leg in quote.legs.iter().filter(|leg| leg.is_noteworthy()) {
                 card = card.child(self.leg_row(leg, language));
             }
         }

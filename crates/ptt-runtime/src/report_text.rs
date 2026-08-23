@@ -522,7 +522,13 @@ pub fn leg_take_notes(
     leg: &crate::reports::LegTakeCoverage,
 ) -> Vec<&'static str> {
     let text = report(language);
-    let mut notes = vec![leg_take_verdict(language, leg.verdict)];
+    // Silence is the all-clear. A chip reading "the listings cover it" is a
+    // reminder that nothing is wrong, printed once per step of every route
+    // on the card; the two that do matter drown in them.
+    let mut notes = Vec::new();
+    if leg.verdict != crate::reports::LegTakeVerdict::Covered {
+        notes.push(leg_take_verdict(language, leg.verdict));
+    }
     if leg.bound_by_next_leg {
         notes.push(text.leg_bound_by_next);
     }
