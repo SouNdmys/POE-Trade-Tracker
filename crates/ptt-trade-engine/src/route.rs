@@ -410,7 +410,15 @@ fn make_path(
     }
 }
 
-/// Coverage first, then executability, then the price the route actually got.
+/// Coverage, executability, liquidity risk, then the price the route got.
+///
+/// The order the ruling asks for (CORE-TRADING-MODEL, "兑换路线排序"), and
+/// the same one section 5 already binds the radar to: liquidity outranks the
+/// rate, and size is not a key at all. Size is not a key because a route is a
+/// rate, not a parcel -- POE fills against listings at your rate or better,
+/// so a route that eats 10 at 11.0 can simply be run at 4,000 and beats one
+/// that eats 4,000 at 10.9. What a smaller order cannot dodge is a leg with
+/// nobody on the other side, so that question is asked first.
 ///
 /// The price key used to be raw `amount_out`, which pays a route for burning
 /// capital: on 2026-08-23 a detour that ate 2,526 divine for 21,786 chaos
@@ -428,10 +436,58 @@ fn compare_paths(left: &ConversionPath, right: &ConversionPath) -> Ordering {
         .is_fully_filled
         .cmp(&left.is_fully_filled)
         .then_with(|| right.execution_eligible.cmp(&left.execution_eligible))
+        .then_with(|| compare_shares(worst_stranded_share(left), worst_stranded_share(right)))
         .then_with(|| compare_realized_price(right, left))
         .then_with(|| left.residuals.len().cmp(&right.residuals.len()))
         .then_with(|| left.steps.len().cmp(&right.steps.len()))
         .then_with(|| left.path_asset_ids.cmp(&right.path_asset_ids))
+}
+
+/// The worst share of a leg's input the market could not absorb, counted
+/// only over the legs that spend an intermediate asset, as the exact
+/// fraction `(stranded, handed to that leg)`.
+///
+/// **Only the legs after the first count, and that is the whole point.**
+/// Coming up short on the first leg leaves the unspent part in the asset the
+/// user was already holding: nothing is trapped, they simply traded less.
+/// Coming up short later leaves it in a currency they neither started with
+/// nor wanted, with the thin book that refused it as the only way out. That
+/// is the "stuck in the middle" the ruling names as the one hazard a smaller
+/// order cannot dodge, and it is why this key looks at the middle of a route
+/// rather than at how much came out of the end.
+///
+/// A share and not an amount, so no scale creeps back into the ranking: how
+/// many orbs got stranded says nothing about a route that can be run at any
+/// size, while what fraction of them did says everything.
+///
+/// Only observed stranding counts. A leg that did fill might have had one
+/// listing of headroom or a thousand, and the walk stops recording levels the
+/// moment it is satisfied, so the engine cannot tell -- it reports the trap
+/// it watched happen and does not guess at the ones it did not.
+fn worst_stranded_share(path: &ConversionPath) -> (u64, u64) {
+    path.steps
+        .iter()
+        .skip(1)
+        .filter(|step| step.requested_input.quanta > 0)
+        .map(|step| (step.unfilled_input.quanta, step.requested_input.quanta))
+        .fold((0, 1), |worst, share| {
+            if compare_shares(share, worst) == Ordering::Greater {
+                share
+            } else {
+                worst
+            }
+        })
+}
+
+/// `left.0 / left.1` against `right.0 / right.1`, ascending.
+///
+/// Cross-multiplied for the same reason as [`compare_realized_price`]:
+/// integer division would round two different shares into a tie the market
+/// never had, and widening to `u128` makes the multiply total, since the
+/// square of a `u64` always fits -- nothing to saturate and no overflow
+/// branch to get wrong.
+fn compare_shares(left: (u64, u64), right: (u64, u64)) -> Ordering {
+    (u128::from(left.0) * u128::from(right.1)).cmp(&(u128::from(right.0) * u128::from(left.1)))
 }
 
 /// `out_left / spent_left` against `out_right / spent_right`, ascending.
@@ -656,5 +712,149 @@ mod compare_paths_tests {
             vec![asset("divine"), asset("exalted"), asset("chaos")],
             "fully filled routes keep ranking on how much they return"
         );
+    }
+
+    /// The ruling's first key: getting stuck beats getting a better rate.
+    ///
+    /// Both routes eat 1,000 of the 5,000 divine on their first leg and hand
+    /// 10,000 of an intermediate currency to their second. The clean route's
+    /// second leg swallows all of it; the other one's absorbs 2,000 and
+    /// leaves 8,000 sitting in a currency the user neither started with nor
+    /// asked for. It pays 5% better per divine for the privilege, and 5% is
+    /// not worth being unable to get out.
+    #[test]
+    fn a_route_that_strands_capital_in_the_middle_loses_to_a_cheaper_clean_one() {
+        let clean = path(
+            &["divine", "exalted", "chaos"],
+            vec![
+                leg("divine", "exalted", STAKE, 1_000, 10_000),
+                leg("exalted", "chaos", 10_000, 10_000, 10_000),
+            ],
+            10_000,
+        );
+        let stranding = path(
+            &["divine", "annul", "chaos"],
+            vec![
+                leg("divine", "annul", STAKE, 1_000, 10_000),
+                leg("annul", "chaos", 10_000, 2_000, 10_500),
+            ],
+            10_500,
+        );
+
+        let mut paths = vec![stranding, clean];
+        paths.sort_by(compare_paths);
+
+        assert_eq!(
+            paths[0].path_asset_ids,
+            vec![asset("divine"), asset("exalted"), asset("chaos")],
+            "a middle leg that cannot absorb what it is handed outranks 5% of rate"
+        );
+    }
+
+    /// Guard on the key underneath: with nothing stranded either side, the
+    /// better rate still decides, which is the whole of `70852e1`.
+    #[test]
+    fn two_partial_routes_that_strand_nothing_still_rank_by_rate() {
+        let cheaper = path(
+            &["divine", "annul", "chaos"],
+            vec![
+                leg("divine", "annul", STAKE, 1_000, 10_000),
+                leg("annul", "chaos", 10_000, 10_000, 10_000),
+            ],
+            10_000,
+        );
+        let dearer = path(
+            &["divine", "exalted", "chaos"],
+            vec![
+                leg("divine", "exalted", STAKE, 1_000, 10_000),
+                leg("exalted", "chaos", 10_000, 10_000, 10_500),
+            ],
+            10_500,
+        );
+
+        let mut paths = vec![cheaper, dearer];
+        paths.sort_by(compare_paths);
+
+        assert_eq!(
+            paths[0].path_asset_ids,
+            vec![asset("divine"), asset("exalted"), asset("chaos")],
+            "the liquidity gate must stay silent when no leg came up short"
+        );
+    }
+
+    /// Guard for the radar, which only ever reads a fully filled best path.
+    ///
+    /// A path is marked fully filled only when every leg was, so no leg can
+    /// have left anything behind and the new key is arithmetically inert
+    /// between two of them. That is why adding it cannot change which route
+    /// the radar is handed for a pair.
+    #[test]
+    fn a_fully_filled_route_strands_nothing_so_the_radar_keeps_its_pick() {
+        let short = path(
+            &["divine", "chaos"],
+            vec![leg("divine", "chaos", STAKE, STAKE, 20_030)],
+            20_030,
+        );
+        let long = path(
+            &["divine", "exalted", "annul", "chaos"],
+            vec![
+                leg("divine", "exalted", STAKE, STAKE, 50_000),
+                leg("exalted", "annul", 50_000, 50_000, 60_000),
+                leg("annul", "chaos", 60_000, 60_000, 19_000),
+            ],
+            19_000,
+        );
+
+        assert_eq!(worst_stranded_share(&short), (0, 1));
+        assert_eq!(worst_stranded_share(&long), (0, 1));
+
+        let mut paths = vec![long, short];
+        paths.sort_by(compare_paths);
+
+        assert_eq!(
+            paths[0].path_asset_ids,
+            vec![asset("divine"), asset("chaos")],
+            "between full fills the order is still the rate and nothing else"
+        );
+    }
+
+    /// The ruling nailed down: size is not a key and must never become one.
+    ///
+    /// Two routes of the same shape, the same rate and the same (absent)
+    /// stranding, one of them run 400 times larger. A route is a rate and
+    /// scales, so the small one is every bit as good and the tie has to fall
+    /// through to the asset names -- which put `annul`, the 110-chaos route,
+    /// first. Re-introduce `amount_out` anywhere in the chain and the
+    /// 44,000-chaos route jumps the queue and this goes red.
+    #[test]
+    fn a_four_hundredfold_difference_in_output_does_not_move_the_order() {
+        let small = path(
+            &["divine", "annul", "chaos"],
+            vec![
+                leg("divine", "annul", STAKE, 10, 100),
+                leg("annul", "chaos", 100, 100, 110),
+            ],
+            110,
+        );
+        let large = path(
+            &["divine", "exalted", "chaos"],
+            vec![
+                leg("divine", "exalted", STAKE, 4_000, 40_000),
+                leg("exalted", "chaos", 40_000, 40_000, 44_000),
+            ],
+            44_000,
+        );
+
+        for mut paths in [
+            vec![small.clone(), large.clone()],
+            vec![large.clone(), small.clone()],
+        ] {
+            paths.sort_by(compare_paths);
+            assert_eq!(
+                paths[0].path_asset_ids,
+                vec![asset("divine"), asset("annul"), asset("chaos")],
+                "400x the output at the same rate must not buy a better place"
+            );
+        }
     }
 }
