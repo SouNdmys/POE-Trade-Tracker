@@ -4,6 +4,11 @@ P10 云端评审之后剩下的东西，加上首次实机测试的反馈（第 
 给下一个接手的会话。
 probe boost 的两条（不重排、Monitor 未接 pulse）已修，见 `0039c20`、`95e5a63`。
 
+每条「已修」后面跟的是真正落地的 commit 短 hash——写下来是因为条目正文讲的是
+**为什么**，而只有 hash 能带人去看**改了哪几行**，隔一个赛季回来时这是唯一还对得上的
+线索。本轮四条裁定的完整理由都写进了 `CORE-TRADING-MODEL.md`（`4bbaa81`），
+不在本文件里重复。
+
 ## 1. 今日折叠只读单个 context_key（已修 2026-08-22，见 `1749d2a`、`115a7ba`）
 
 `game_ui_build` 是 stable key 的材料（`crates/ptt-trade-domain/src/lib.rs:259`），
@@ -59,8 +64,8 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 每次页面读都自己 `MarketStore::open(default_database_path())`，全 app 没有一个
 长期持有者。7 个开库点：
 
-- `crates/ptt-app/src/shell/mod.rs`：1230 `load_window`、1269 `load_analytics`、
-  1300 `load_pulse`
+- `crates/ptt-app/src/shell/mod.rs`：`load_window`、`load_analytics`、`load_pulse`
+  （这三个的行号本轮已经漂过一次，只记函数名）
 - `crates/ptt-app/src/shell/pages/season.rs`：112 `ensure_season_info`、
   151 `start_new_season`、176 `purge_old_season`、204 `vacuum_store`
 
@@ -84,7 +89,7 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 来源：用户 `bug 2026-08-23.md` + 六张截图。下面都是**需要商讨或设计**才能动的，
 当场能修的（设置页参数说明）已经落在 `df4aff0`。
 
-## 6. 雷达表格在窄窗口整片空白（已修 2026-08-23，与第 15 条同一次改动）
+## 6. 雷达表格在窄窗口整片空白（已修 2026-08-23，见 `062403e`，与第 15 条同一次改动）
 
 "宽度不够就不画"的假设被实验**证伪**：ptt-ui-preview 画廊拉到 1100px（表格可用宽
 约 1078 < 列宽总和 1250）时所有行照常渲染，只是右侧被裁；`PTT_PREVIEW_PROBE=1`
@@ -93,11 +98,12 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 
 剩下两个嫌疑，按序排查：
 
-1. **页面外壳缺防溢出**：`opportunities.rs:454`（body）与 `:458`（页面根）都没有
-   `min_w(px(0.))` / `overflow_hidden`，而画廊（`preview.rs:487-495`）有。gpui 文本
+1. **页面外壳缺防溢出**：`opportunities.rs` 的 `render_opportunities` 里 body 与
+   页面根都没有 `min_w(px(0.))` / `overflow_hidden`，而画廊（`preview.rs` 的
+   `Gallery::render`，内容层那一个 `.overflow_hidden()`）有。gpui 文本
    的最小内容宽 = 不换行整行宽（见第 7 条），缺这一层时窄窗口下页面整体向右溢出
    而不是重排。
-2. **每次扫描 refresh() 把列宽清零一帧**：`sync_radar_table`（`opportunities.rs:303`）
+2. **每次扫描 refresh() 把列宽清零一帧**：`sync_radar_table`（`opportunities.rs`）
    每次都调 refresh → `prepare_col_groups`（gpui-component `state.rs:278-290`）把全部
    列 bounds 清零，那一帧格子按 Definite(0) 布局 → 空白；表头 canvas 回写 bounds 时
    不带 notify（`state.rs:857-859`），要靠别的重绘救回。
@@ -124,7 +130,13 @@ scrollbar_visible），实机窄窗口能不能横滚值得确认——滚不动
   risks 120 = 700，route 拿剩下的 300–390（见第 15 条）。verdict、light、risks 压得
   比原方案（130/110/180）更狠：它们装的是 `whitespace_nowrap` 的徽章，这张表给得起
   的任何宽度都放不下整句，而全文点一下详情面板就有——像素花在「这行到底是哪条路线」
-  上更值。
+  上更值。**预算有编译期护栏（2026-08-23 补）**：`COL_ROUTE_MAX_WIDTH` 是
+  「预算 − 七根固定列」这个减法，固定列一旦加宽到吃掉 route 列 300px 的地板，天花板
+  就会掉到地板下面，而 `route_column_width` 里的 `clamp(地板, 天花板)` 在上下界颠倒
+  时会 panic ——一次看起来只是调样式的改数字，会让雷达页画第一行时整个崩掉。现在
+  `opportunities.rs` 里有一条 `const _: () = assert!(COL_ROUTE_MIN_WIDTH <=
+  COL_ROUTE_MAX_WIDTH, …)`，把这件事从运行时崩溃变成编译失败，报错文案直接说该改
+  哪个数。
 - **③ 不再每次扫描都 refresh**：`set_rows` 现在返回「列有没有动」，`sync_radar_table`
   只在返回 true 时 `state.refresh(cx)`，否则只 `cx.notify()`。`refresh` 既是列宽变化
   唯一的送达通道，也正是把全部列 bounds 清零一帧的那个动作；只换行不换列的扫描没有
@@ -142,16 +154,16 @@ exit 0），不证明窄窗口不空白。按机制推断：① 堵的是「整�
 但裁多裁少本来就一直在发生，改上限是显示策略的另一次决定。画廊也没有加那个
 "radar frame" 页（原钉法建议），因为宽度这部分已经能用普通 cargo test 钉住了。
 
-## 7. 路线明细内容被右边界裁掉（已修 2026-08-23）
+## 7. 路线明细内容被右边界裁掉（已修 2026-08-23，见 `affbede`）
 
 两层根因：**gpui 文本的最小内容宽 = 不换行的整行宽**（gpui-0.2.2
 `text.rs:347-376`，MinContent 与 MaxContent 量出同一个值的缓存短路）；`kv_row`
-的值容器是 `flex_1` 但没有 `min_w(0)`（`ui.rs:725-731`），于是永远压不进面板、
-永远拿不到确定宽度、永远不换行，还把 340px 的 `detail_panel`（`ui.rs:700`）撑宽
+的值容器是 `flex_1` 但没有 `min_w(0)`（`ui.rs` 的 `kv_row`），于是永远压不进面板、
+永远拿不到确定宽度、永远不换行，还把 340px 的 `detail_panel`（`ui.rs` 同文件）撑宽
 ——右边被窗口边界裁掉而不是被面板边框裁掉。
 
-修法：`ui.rs:725` 的值 div 加 `.min_w(px(0.))`，`detail_panel` 同加。**选换行**，
-不选截断/横滚——`kv_row` 的文档注释（`ui.rs:707-710`）本来就写着"值会长到两三行"，
+修法：`kv_row` 的值 div 加 `.min_w(px(0.))`，`detail_panel` 同加。**选换行**，
+不选截断/横滚——`kv_row` 的文档注释本来就写着"值会长到两三行"，
 换行是既定意图，只是没生效。风险：面板变高，必要时给 radar_detail 内层套
 `scrollable()`。画廊 kit 页的 `kv_row("risks", …)` 是现成回归用例（改前溢出、
 改后换行）。
@@ -170,7 +182,7 @@ test 钉不住（无 gpui test-support），靠肉眼看画廊 + `PTT_PREVIEW_PR
 要不要让 claude design 出一版。在决定"是调密度还是重做一版"之前不要零敲碎打改字号
 ——那只会让两种宽度都不对。
 
-## 9. 兑换页负收益路线（排序键已修 2026-08-23；对照行与基准半仍未做）
+## 9. 兑换页负收益路线（排序键已修 2026-08-23，见 `70852e1`、`073c82e`；对照行与基准半仍未做）
 
 从真实库逐位复算，截图上每个数字全部对上。三部分：
 
@@ -243,12 +255,12 @@ test 钉不住（无 gpui test-support），靠肉眼看画廊 + `PTT_PREVIEW_PR
 
 要不要加一句提示是产品判断：加了会让本来就有四行角色说明的顶部更长。
 
-## 13. 选中行被高亮涂掉（已修 2026-08-23）
+## 13. 选中行被高亮涂掉（已修 2026-08-23，见 `f967ec8`）
 
 选中高亮是行顶层一块带背景的绝对定位元素（gpui-component `state.rs:1082-1099`）。
 上游主题装载会把 table_active 的透明度夹到 ≤0.2（`schema.rs:636-638`），但我们直接
-写 colors 结构体绕过了夹取：`theme.rs:257` 的 table_active = SELECTED（0xEFE9DE，
-alpha=1.0）→ 不透明实底盖住整行文字。`theme.rs:249` 的 list_active 同病（树/列表
+写 colors 结构体绕过了夹取：`theme.rs` 的 table_active = SELECTED（0xEFE9DE，
+alpha=1.0）→ 不透明实底盖住整行文字。同文件的 list_active 同病（树/列表
 控件也会中招）。右键高亮只画边框不画底，所以右键没这现象——反向印证。
 
 修法：两处改成低透明度 wash（如 rgba 0xEFE9DE33），选中感由 table_active_border
@@ -260,9 +272,9 @@ UI 问题里唯一能用普通 cargo test 钉住的。
 `apply_ledger_colors(&mut ThemeColor)`（`apply_ledger_theme` 要 `App`，拆开才测得到），
 回归测试 `active_row_highlights_stay_translucent`（`theme.rs` 的 `theme_tests`）。
 
-## 14. 扫描后选中索引不重映射（已修 2026-08-23）
+## 14. 扫描后选中索引不重映射（已修 2026-08-23，见 `c72444f`）
 
-`set_rows`（`opportunities.rs:127-140`）只换 rows 不动 selected_row；每次扫描后
+`set_rows`（`opportunities.rs`）只换 rows 不动 selected_row；每次扫描后
 选中索引指向新行集里的**另一条路线**，详情面板静悄悄换内容。与第 13 条无关
 （那次索引恰好没错位，详情是对的），单独修。
 
@@ -292,7 +304,7 @@ UI 问题里唯一能用普通 cargo test 钉住的。
 `a_scan_without_the_selected_route_clears_the_selection`（新行集里没有那条路线，断言
 None；改前恒 Some(1)）。
 
-## 15. 路径列宽方案（已修 2026-08-23，与第 6 条同一次改动）
+## 15. 路径列宽方案（已修 2026-08-23，见 `062403e`，与第 6 条同一次改动）
 
 上游 Column 只有固定像素宽，无 flex/auto/按内容测量；拖拽默认开但每次 refresh
 被 column.width 重建吃回去（拖了白拖，这本身也是要修的）。方案：set_rows 里按
@@ -325,7 +337,7 @@ None；改前恒 Some(1)）。
 超长扫描不许把它撑回 390；加标志前正是 390）。测试的资产 id 用目录里没有的字母串，
 `asset_name` 会原样回退成 id，所以 route 文本要多长就有多长。
 
-## 16. 确认探针是恒定噪音，挤掉了有用建议（已修 2026-08-23）
+## 16. 确认探针是恒定噪音，挤掉了有用建议（已修 2026-08-23，见 `72d8815`）
 
 实机那四条"确认一个机会"全部来自三角腿分支（`radar.rs`），不是部分成交分支（本次
 扫描 29+6+1=36 全对上，confirm_conversion_probe 一条没推）。根因：
@@ -343,7 +355,7 @@ false。回归测试在 `crates/ptt-workflows/tests/radar.rs`：
 `a_stale_legged_profitable_loop_is_still_filed_for_confirmation`（腿龄 30 分钟，
 探针照推，证明不是把功能整个关掉）。
 
-## 17. 估值恒定取两侧最薄档（已修 2026-08-23）
+## 17. 估值恒定取两侧最薄档（已修 2026-08-23，见 `d87c97b`、`769fefa`）
 
 三段叠加：`reports.rs:377` 把全部候选边都装进 selected；Instant 候选按 stock 降序
 （market-book `lib.rs:901-914`，本批置信度全同所以排序实际就是库存序）；
@@ -351,17 +363,26 @@ false。回归测试在 `crates/ptt-workflows/tests/radar.rs`：
 = 库存最小档。实测四个方向全部选中最薄档（鎖骨买价来自 stock=2 的挂单，stock=99
 的被忽略）。
 
-**已修**：`best_rate` 的比较键加了第三键 stock（「taker 标志 → captured_at →
-stock」），平局取最深档。裁定理由——为什么最薄的一行是最不可信的一行、为什么没写
-成「取队首」——在 `CORE-TRADING-MODEL.md`「估值平局取最深档」。回归测试
+**已修（第二、三段）**：`d87c97b` 给 `best_rate` 的比较键加了第三键 stock
+（「taker 标志 → captured_at → stock」），平局取最深档。裁定理由——为什么最薄的
+一行是最不可信的一行、为什么没写成「取队首」——在 `CORE-TRADING-MODEL.md`
+「估值平局取最深档」。回归测试
 `a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture`
 （`anchor_value.rs` 的 `mod tests`，数据是 2026-08-23 那本 ancient-clavicle 的
 taker 阶梯原样搬过来）。改前红：卖价取 41:1（stock=41）、买价取 47:1（stock=2）——
 和实机诊断逐位对上；改后取 44:1（stock=3740）与 49:1（stock=99）。
 
+`769fefa` 补了它留下的两个洞：那条回归测试的样本恰好就是 stock 降序，所以「显式比
+深度」和「取第一个」在它上面答案相同，把整个比较器删掉换成 `.next()` 测试照绿；而
+深度本身也会平局（同一次抓取的三档同为 stock=500），`max_by` 又返回并列里的最后
+一个，同样三行能把估值差出 7.3%。现在第四键是 rate（同样能吃、同样新、同样深的两
+档，取更好的那个价），测试改成对候选列表的每一种旋转与反向旋转都跑一遍。
+
 影响面只有关注页的估值列（`value_against_anchor` 全仓只被 `watchlist_model`
 调用一处）。市场分析页的价值列走的是 rollup 价格序列（`market_analytics.rs:392-410`），
 不经过这条路径，数字不变。
+
+**第一段没修**：「全部候选边都装进 selected」这一段仍然原样，独立记为第 21 条。
 
 ## 18. 赛季边界的三个潜在隐患（今天不触发，记账）
 
@@ -372,7 +393,7 @@ taker 阶梯原样搬过来）。改前红：卖价取 41:1（stock=41）、买�
 - purge_before_active_season 清 raw 后 earliest_capture_day 前移，开赛日永远不会
   被 rollup、也不拿 mark（本次无损，耦合不显眼）。
 
-## 19. bp 统一成百分比（已修 2026-08-23）
+## 19. bp 统一成百分比（已修 2026-08-23，见 `2b4d7f5`）
 
 雷达页已经显示百分比（`opportunities.rs`），兑换页显示 bp——同一个量两种写法。
 
@@ -388,6 +409,18 @@ taker 阶梯原样搬过来）。改前红：卖价取 41:1（stock=41）、买�
 -1338bp → `-3451 (-13.38% vs direct)`）、
 `basis_points_convert_to_two_decimals_without_loss`（0、±1、±99、100、-1338、
 10000 的逐字符断言，钉住负号那一格）。三条改前全红。
+
+**正负号补记（2026-08-23，本轮收尾）**：改成百分比之后还剩一处不一致——分析页给正数
+加 "+"（`analytics.rs` 的 `signed_percent`），而同两个数字在 `analytics_report_lines`
+（`reports.rs`）里是光秃秃的。这两处不是巧合并列：文字报表的文档注释写着它是**页面的
+对照基准**，一个正的漂移在一处读作 `+2.57%`、另一处读作 `2.57%`，正好制造第 19 条要
+消灭的那种「这是不是两个不同的数字」的怀疑。裁定按页面走：这两个数是**移动**不是
+**水平**，没有符号就读成了后者。做法是把符号规则搬进 `report_text` 的新函数
+`signed_percent_from_basis_points`，两边都调它——规则只要还归某一页所有，另一页迟早
+再漂开。零算「不是下跌」，跟着带 "+"：一列都带符号的数字里，独独一个不带的会被读成
+另一类数，而不是更小的数。回归测试两处：`reports.rs` 底部新的 `analytics_sign_tests`
+（正数带 "+" 改前红，负数不许出现 `+-`／`--` 的双符号）、`report_text.rs`
+`percentage_tests` 里的 `a_drift_is_written_with_the_sign_it_moved_in`。
 
 **仍未做**：`i18n.rs` 那 7 处设置页标签仍写 bp（输入单位，独立一次改动；过渡措施是
 六条 `tuning_*_note` 都写上"100bp = 1%"，`tuning_min_bps_note` 另点明"这里填 bp，
@@ -405,4 +438,58 @@ taker 阶梯原样搬过来）。改前红：卖价取 41:1（stock=41）、买�
   全部 key，单独评估。
 - analytics_probe 的文档注释写成 `analytics-probe`（连字符），照敲报
   `no bin target named`（`bin/analytics_probe.rs:8`）。
+- **`coverage_probe` 的资产 id 必须用连字符**：`coverage-probe FROM TO` 里的两个 id
+  要写 `ancient-clavicle`，照 `crates/ptt-catalog/data/*/currency_master*.json` 里的
+  下划线形式敲成 `ancient_clavicle`，会得到 `no selection entry for ... -> ...`
+  ——看起来像「这对没抓到数据」，实际只是字符串没对上。两种写法都存在是有原因的：
+  目录文件用下划线，`MarketAssetId::try_new` 干脆不接受下划线（只收小写字母、数字和
+  连字符），`live.rs` 装载目录时逐个 `replace('_', "-")`。probe 拿命令行参数直接和
+  `MarketAssetId` 比字符串，中间没有这一步转换。与上一条 `analytics_probe` 的连字符
+  坑同类：都是**照文档／目录原样敲，得到一个看起来像数据问题的假象**。
 
+## 21. 估值仍会读被选拔拒绝、低置信度的边（未修，2026-08-23 记账）
+
+第 17 条「三段叠加」里**没修的第一段**，单独立条。不是回归：`d87c97b` 与 `769fefa`
+修的是第二、三段（同一本书里几档全平局时该选谁），这一段问的是更前面的问题——
+**谁有资格进这场比较**——从头到尾没动过。
+
+现状两句话：
+
+- `crates/ptt-runtime/src/reports.rs:377` 把每个方向的**全部候选边**原样装进
+  `market.selected`（`selected.extend(entry.candidate_edges.iter().cloned())`），
+  其中包含 `accepted_for_selection == false` 的边。这一行本身是对的，它当初是为了修
+  「选中边被重复计入」的 bug，注释也写明候选里已经含选中边。
+- `crates/ptt-strategy/src/anchor_value.rs` 的 `best_rate` 只过滤方向和新鲜度，四个
+  比较键（taker 标志 → `captured_at` → stock → rate）里**没有一个看
+  `accepted_for_selection`，也没有一个看 `effective_confidence_ppm`**。
+
+后果实测：一条同时带 `PriceOutlier` + `LowConfidence`（置信度 100 ppm，正常一批是
+990000 ppm）、但库存 9999 的边，会在第三键上赢过所有正常档，**由它决定关注页的估值**。
+这正是第 17 条裁定要挡的那类数——只不过那次挡的是「最薄的一行」，而这一条是「最假的
+一行」，并且它恰好还很深。
+
+**修法方向，三条，取舍不一样：**
+
+1. **在装进 `selected` 时过滤掉 `accepted_for_selection == false`**——看着最省事，
+   实际上是错的，而且错得不显眼。`market.selected` 有四个读者：挂单策略的竞争队列
+   （`MakerRequest.competing`）、关注页估值（`value_against_anchor`）、流动性锚推荐
+   （`recommend_liquidity_anchors`）、History 页的价格序列（`price_points`）。在源头
+   砍一刀会静默改掉后面三页的数字。更要命的是 `accepted_for_selection` **是相对
+   Instant 这个选拔策略说的**：Instant 要求 taker，于是**每一条 maker 参考边都带
+   `WrongExecutionType`、一律 `accepted=false`**——按这个标志过滤等于把整个竞争侧删光。
+   `maker_strategy.rs` 里已经有一段注释把这件事讲透了（大意：判据要用证据、不要用选拔
+   结果，因为 Instant 选拔下每条 maker 行都"被拒绝"，而那跟它诚不诚实无关）。
+2. **在 `best_rate` 里按 `accepted_for_selection` 过滤**——影响面精确锁死在估值这一条路
+   （`value_against_anchor` 全仓只被 `watchlist_model` 调用一处），不碰另外三个读者。
+   但判据仍然是错的那一个，理由同上：估值本来就要读 maker 边（taker 只是第一个比较键，
+   不是准入条件），按这个标志一滤，买卖两侧会瘸掉一侧。
+3. **在 `best_rate` 里按证据过滤**——照 `maker_strategy` 已经在用的那套：看
+   `risk_flags` 里有没有 `PriceOutlier` / `OutsideTopBookBand`，再加一道置信度地板。
+   判据对、影响面也窄，代价是两个：一是仓里从此有第三处在回答「这一行诚不诚实」，
+   三处漂开就是下一个这样的 bug；二是**置信度地板现在住在 `QuoteSelectionPolicy` 里，
+   而 `best_rate` 手上没有 policy**——`ValuationRequest` 只有 asset/anchor/mode/edges/
+   include_historical 五个字段，要么给它加一个字段，要么让阈值有第二个家。
+
+倾向是 3，但那道地板要从哪儿来得先定，所以今天只记账。**改之前先写红测试**：
+一条 stock 极大、带 `PriceOutlier` + `LowConfidence` 的边，和一条正常边，断言估值取
+正常那条。

@@ -34,16 +34,11 @@ fn class_kind(class: ptt_runtime::domain::LiquidityClass) -> StatusKind {
 
 /// A drift column reads as a signed percentage.
 ///
-/// The shared formatter already writes the minus sign; the plus is added
-/// here because these columns are deltas, and a delta with no sign at all
-/// looks like a level rather than a move.
+/// The rule itself lives in `report_text` rather than here: this page and
+/// `analytics_report_lines` print the same drifts, and a sign rule owned by
+/// one of them is a sign rule the other will drift away from.
 fn signed_percent(value: i64) -> String {
-    let percent = report_text::percent_from_basis_points(value);
-    if value >= 0 {
-        format!("+{percent}")
-    } else {
-        percent
-    }
+    report_text::signed_percent_from_basis_points(value)
 }
 
 impl AppShell {

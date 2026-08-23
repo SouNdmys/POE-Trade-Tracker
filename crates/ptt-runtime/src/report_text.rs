@@ -329,6 +329,29 @@ pub fn percent_from_basis_points(points: i64) -> String {
     )
 }
 
+/// The same percentage, written as a *move* rather than a level.
+///
+/// [`percent_from_basis_points`] only ever writes the minus, so a rise comes
+/// out looking exactly like a standing value. These numbers are drifts and
+/// trends, and a delta with no sign in front of it reads as a level — so the
+/// plus is added here, once, for every renderer.
+///
+/// It lives beside the unsigned formatter instead of in a page, because the
+/// Analytics page and `analytics_report_lines` print the same two numbers and
+/// the text lines are the page's parity reference: the moment each side owns
+/// its own sign rule, the same drift reads `+2.57%` in one place and `2.57%`
+/// in the other, and the reader starts wondering whether they are the same
+/// number at all.
+#[must_use]
+pub fn signed_percent_from_basis_points(points: i64) -> String {
+    let percent = percent_from_basis_points(points);
+    if points < 0 {
+        percent
+    } else {
+        format!("+{percent}")
+    }
+}
+
 /// Every field of both catalogues, paired by name.
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
@@ -1221,7 +1244,10 @@ mod tests {
 /// The unit these numbers reach the reader in.
 #[cfg(test)]
 mod percentage_tests {
-    use super::{REPORT_ENGLISH, fill, percent_from_basis_points, report_pairs};
+    use super::{
+        REPORT_ENGLISH, fill, percent_from_basis_points, report_pairs,
+        signed_percent_from_basis_points,
+    };
 
     /// "bp" is desk jargon. A hundred basis points is one percent, and the
     /// person reading this screen has no reason to know that -- worse, the
@@ -1268,5 +1294,18 @@ mod percentage_tests {
         assert_eq!(percent_from_basis_points(100), "1.00%");
         assert_eq!(percent_from_basis_points(-1338), "-13.38%");
         assert_eq!(percent_from_basis_points(10_000), "100.00%");
+    }
+
+    /// A move says which way it went; a level does not. Zero counts as "not
+    /// a fall", which is why it keeps the plus rather than going bare -- a
+    /// bare number in a column of signed ones reads as a different kind of
+    /// number, not as a smaller one.
+    #[test]
+    fn a_drift_is_written_with_the_sign_it_moved_in() {
+        assert_eq!(signed_percent_from_basis_points(257), "+2.57%");
+        assert_eq!(signed_percent_from_basis_points(-257), "-2.57%");
+        assert_eq!(signed_percent_from_basis_points(0), "+0.00%");
+        assert_eq!(signed_percent_from_basis_points(1), "+0.01%");
+        assert_eq!(signed_percent_from_basis_points(-1), "-0.01%");
     }
 }

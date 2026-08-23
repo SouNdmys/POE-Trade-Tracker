@@ -2296,7 +2296,7 @@ fn analytics_thresholds_from(tuning: &MarketTuning) -> Option<ptt_strategy::Anal
 #[must_use]
 pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> Vec<String> {
     use crate::report_text::{
-        anchor_drift, fill, liquidity_class, percent_from_basis_points, trend_verdict,
+        anchor_drift, fill, liquidity_class, signed_percent_from_basis_points, trend_verdict,
     };
     let text = crate::report_text::report(language);
     let mut lines = model.notes.clone();
@@ -2324,7 +2324,7 @@ pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> V
         ));
         let median = health
             .market_median_move_bps
-            .map_or_else(|| "-".to_owned(), percent_from_basis_points);
+            .map_or_else(|| "-".to_owned(), signed_percent_from_basis_points);
         lines.push(fill(
             text.analytics_breadth_line,
             &[
@@ -2337,7 +2337,7 @@ pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> V
         for cross in &health.crosses {
             let drift = cross
                 .drift_bps
-                .map_or_else(|| "-".to_owned(), percent_from_basis_points);
+                .map_or_else(|| "-".to_owned(), signed_percent_from_basis_points);
             lines.push(fill(
                 text.analytics_cross_line,
                 &[cross.asset_id.as_str(), &cross.latest_rate.text, &drift],
@@ -3635,5 +3635,78 @@ mod convert_tests {
         .join("\n");
         assert!(chinese.contains("挂单策略"), "{chinese}");
         assert!(chinese.contains("价格离群"), "{chinese}");
+    }
+}
+
+#[cfg(test)]
+mod analytics_sign_tests {
+    use super::*;
+    use ptt_trade_domain::Ratio;
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn model(median_bps: i64, cross_bps: i64) -> AnalyticsModel {
+        AnalyticsModel {
+            notes: Notes::new(),
+            season: None,
+            data_days: 5,
+            pulse: ptt_strategy::MarketPulse {
+                as_of_day: Some("2026-08-23".to_owned()),
+                anchor_asset_id: Some(asset("chaos-orb")),
+                anchor_health: Some(ptt_strategy::AnchorHealth {
+                    anchor_asset_id: asset("chaos-orb"),
+                    drift: ptt_strategy::AnchorDrift::Steady,
+                    market_median_move_bps: Some(median_bps),
+                    risers: 3,
+                    fallers: 7,
+                    flat: 4,
+                    crosses: vec![ptt_strategy::AnchorCross {
+                        asset_id: asset("divine-orb"),
+                        latest_rate: Ratio::from_parts(111, 10).expect("rate"),
+                        drift_bps: Some(cross_bps),
+                    }],
+                }),
+                assets: Vec::new(),
+            },
+        }
+    }
+
+    /// A rise and a fall have to be told apart at a glance.
+    ///
+    /// The Analytics page writes a leading `+` on these two numbers because
+    /// they are moves, not levels; the text lines are documented as the
+    /// page's parity reference, so a positive move that reads `2.57%` in one
+    /// place and `+2.57%` in the other makes the reader wonder whether they
+    /// are even the same number.
+    #[test]
+    fn a_positive_analytics_drift_carries_its_plus_sign() {
+        let lines = analytics_report_lines(&model(257, 724), UiLanguage::English);
+        assert!(
+            lines.iter().any(|line| line.contains("+2.57%")),
+            "market median: {lines:?}"
+        );
+        assert!(
+            lines.iter().any(|line| line.contains("+7.24%")),
+            "anchor cross: {lines:?}"
+        );
+    }
+
+    /// The minus is the shared formatter's, and adding a plus must not
+    /// double it up.
+    #[test]
+    fn a_negative_analytics_drift_keeps_exactly_one_minus_sign() {
+        let lines = analytics_report_lines(&model(-257, -724), UiLanguage::English);
+        assert!(
+            lines.iter().any(|line| line.contains("-2.57%")),
+            "market median: {lines:?}"
+        );
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.contains("+-") || line.contains("--")),
+            "a sign was written twice: {lines:?}"
+        );
     }
 }

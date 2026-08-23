@@ -112,6 +112,22 @@ const COL_ROUTE_MIN_WIDTH: f32 = 300.0;
 /// The route column's ceiling: whatever the budget has left over.
 const COL_ROUTE_MAX_WIDTH: f32 = RADAR_TABLE_WIDTH_BUDGET - RADAR_FIXED_COLUMNS_WIDTH;
 
+/// Widening a fixed column past the budget has to fail here, not on screen.
+///
+/// The ceiling above is subtraction, so seven fixed columns that outgrow the
+/// budget do not stop at zero — they push the ceiling under the floor, and
+/// `route_column_width` clamps into `[floor, ceiling]`. `f32::clamp` panics
+/// when its bounds are the wrong way round, so a one-number edit that looks
+/// like styling would take the whole radar page down at the first row it
+/// draws. Asserting it in a `const` moves the failure to the build, where
+/// the message can say which number to change.
+const _: () = assert!(
+    COL_ROUTE_MIN_WIDTH <= COL_ROUTE_MAX_WIDTH,
+    "the fixed radar columns no longer leave the route column its floor: \
+     narrow one of them, or raise RADAR_TABLE_WIDTH_BUDGET (and check the \
+     table still fits a ~1100px window)"
+);
+
 /// How much longer a route has to read before the column actually widens.
 ///
 /// The row set is replaced on every accepted book, so a column that re-fits
