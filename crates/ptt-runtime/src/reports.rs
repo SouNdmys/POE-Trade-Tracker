@@ -559,37 +559,42 @@ fn leg_book(
 /// Whole units of `to` this leg has to take, for the whole request rather
 /// than the part of it that fit.
 ///
-/// A leg that ran out of listings halfway is precisely the leg this signal
-/// exists to name; measuring it by what it managed to fill would score it as
-/// if it had wanted less, and every short leg would grade itself covered. So
-/// the shortfall is priced too: at the rate the leg actually achieved when it
-/// achieved one, at the top of its book when nothing filled at all.
-fn leg_take_amount(
-    step: &ptt_trade_engine::PairFill,
-    top_rate: Option<&ptt_trade_domain::Ratio>,
-) -> u64 {
-    let out = step
-        .net_amount_out
-        .as_ref()
-        .unwrap_or(&step.gross_amount_out)
-        .quanta;
-    let consumed = step.consumed_input.quanta;
-    let requested = step.requested_input.quanta;
-    if consumed == requested {
-        return out;
-    }
-    let (numerator, denominator) = if consumed > 0 {
-        (u128::from(out), u128::from(consumed))
-    } else {
-        match top_rate {
-            Some(rate) => (u128::from(rate.numerator), u128::from(rate.denominator)),
-            None => return out,
+/// **Every step is priced off the reader's ask and the front rows, never off
+/// what the step before it managed to buy.** The engine hands each leg the
+/// previous leg's *actual* output, so one short leg shrinks the request of
+/// every leg behind it and they all report a smaller trip than was asked
+/// for -- on the owner's real book the last leg of a three-hop route read
+/// the same 27 at a 500 ask and at a 50,000 ask, which is a warning that
+/// cannot warn. It also put the two halves of one card on different trips:
+/// the header says "500 -> 88" from `project_at_front_rates` while the steps
+/// described a walk that stopped at 27.
+///
+/// So the prefix product of the front rates carries the ask forward, one leg
+/// at a time, and each entry is what that leg would have to buy. Floored once
+/// per prefix rather than once per hop, for the reason
+/// [`project_at_front_rates`] gives: flooring every hop can make a better
+/// rate project less.
+fn front_rate_takes(
+    path: &ptt_trade_engine::ConversionPath,
+    index: &MarketDepthIndex,
+    size: u64,
+) -> Vec<Option<u64>> {
+    let mut rate = RouteRate::ONE;
+    let mut takes = Vec::with_capacity(path.steps.len());
+    for step in &path.steps {
+        let next = leg_front_row(step, index).and_then(|(leg_rate, _)| rate.times(&leg_rate));
+        match next {
+            Some(composed) => {
+                rate = composed;
+                takes.push(rate.forward(size));
+            }
+            // A leg with no front row prices nothing behind it either: the
+            // product is broken from here on, and guessing past it would
+            // invent a number the book never said.
+            None => takes.push(None),
         }
-    };
-    if denominator == 0 {
-        return out;
     }
-    u64::try_from(u128::from(requested).saturating_mul(numerator) / denominator).unwrap_or(u64::MAX)
+    takes
 }
 
 /// The band one leg falls in: how much of what is listed this trip takes.
@@ -631,16 +636,26 @@ fn leg_take_verdict(taking: u64, listed: u64, front: u64, sweep_percent: u64) ->
 fn route_leg_coverage(
     market: &Market,
     path: &ptt_trade_engine::ConversionPath,
+    size: u64,
     sweep_percent: u64,
 ) -> Vec<LegTakeCoverage> {
+    let takes = front_rate_takes(path, &market.index, size);
     let mut legs: Vec<LegTakeCoverage> = path
         .steps
         .iter()
-        .map(|step| {
+        .enumerate()
+        .map(|(index, step)| {
             let (from, to) = (&step.from_asset_id, &step.to_asset_id);
             let (listed, rows) = leg_book(&market.instant_selection, from, to);
             let top = market.index.top_of_book(from, to);
-            let taking = leg_take_amount(step, top.as_ref().map(|(rate, _)| rate));
+            // The walked fill is the fallback, not the source: it is only
+            // reached when a leg has no front row to price the ask through.
+            let taking = takes.get(index).copied().flatten().unwrap_or(
+                step.net_amount_out
+                    .as_ref()
+                    .unwrap_or(&step.gross_amount_out)
+                    .quanta,
+            );
             let front = top.map_or(0, |(_, stock)| stock);
             LegTakeCoverage {
                 from_asset_id: from.clone(),
@@ -913,7 +928,7 @@ fn route_quotes<'a>(
                     _ => None,
                 },
                 fillable_input: front.map(|(_, fillable)| fillable),
-                legs: route_leg_coverage(market, path, sweep_percent),
+                legs: route_leg_coverage(market, path, size, sweep_percent),
             },
         ));
     }
@@ -4533,8 +4548,16 @@ mod leg_coverage_tests {
     }
 
     /// The three bands, on one real book. 120 omens are listed against chaos;
-    /// taking 1 of them is nothing, 33 sweeps a quarter of the book, and 159
+    /// taking 1 of them is nothing, 35 sweeps a quarter of the book, and 175
     /// is more than the listings hold.
+    ///
+    /// The amounts are the ask at the **front** rate (1:57), not the blended
+    /// average of walking 1:57, 1:60 and 1:65. That is the whole basis of
+    /// this page: the reader lists one rate and the market fills them at it
+    /// or better, so "what would this step have to buy" is the ask through
+    /// the front rows. The blended walk answers a different question and
+    /// used to answer it in this column, which is why the header and the
+    /// steps quoted different trips.
     #[test]
     fn a_leg_is_graded_by_how_much_of_the_listings_the_trip_takes() {
         let observations = chaos_to_omen();
@@ -4546,8 +4569,8 @@ mod leg_coverage_tests {
         assert_eq!(covered[0].verdict, LegTakeVerdict::Covered, "{covered:?}");
 
         let sweeping = legs_of(&observations, "chaos-orb", "omen-orb", 2_000);
-        assert_eq!(sweeping[0].taking, 33, "{sweeping:?}");
-        assert_eq!(sweeping[0].share_percent, Some(27), "{sweeping:?}");
+        assert_eq!(sweeping[0].taking, 35, "{sweeping:?}");
+        assert_eq!(sweeping[0].share_percent, Some(29), "{sweeping:?}");
         assert_eq!(
             sweeping[0].verdict,
             LegTakeVerdict::SweepsTheBook,
@@ -4555,7 +4578,7 @@ mod leg_coverage_tests {
         );
 
         let short = legs_of(&observations, "chaos-orb", "omen-orb", 10_000);
-        assert_eq!(short[0].taking, 159, "{short:?}");
+        assert_eq!(short[0].taking, 175, "{short:?}");
         assert_eq!(
             short[0].verdict,
             LegTakeVerdict::NotEnoughListed,
@@ -4588,6 +4611,45 @@ mod leg_coverage_tests {
         assert!(
             !legs[1].bound_by_next_leg,
             "the last leg has no next leg to be bound by: {legs:?}"
+        );
+    }
+
+    /// **Every step is measured against the reader's ask, not against what
+    /// the step before it managed to buy.**
+    ///
+    /// The engine hands the next leg the previous leg's *actual* output
+    /// (route.rs propagates `net_amount_out`), so once any leg runs short
+    /// every leg behind it inherits a shrunken request and reports a trip
+    /// smaller than the reader asked for. On the owner's real book the last
+    /// leg of a three-hop route read the same 27 at a 500 ask and at a
+    /// 50,000 ask -- a warning that cannot move with the ask is not a
+    /// warning. The route header is already priced at the front rates
+    /// (`project_at_front_rates`), so the steps have to be too, or the two
+    /// halves of one card are quoting different trips.
+    #[test]
+    fn every_step_is_measured_against_the_ask_not_against_the_step_before_it() {
+        let mut observations = panel("db", "divine-orb", "bridge-orb", &[((1, 1), 5)], &[]);
+        observations.extend(panel(
+            "bc",
+            "bridge-orb",
+            "chaos-orb",
+            &[((10, 1), 1_000_000)],
+            &[],
+        ));
+
+        let small = legs_of(&observations, "divine-orb", "chaos-orb", 10);
+        let large = legs_of(&observations, "divine-orb", "chaos-orb", 1_000);
+        assert_eq!(small.len(), 2, "{small:?}");
+
+        assert_eq!(small[0].taking, 10, "first leg already scales: {small:?}");
+        assert_eq!(large[0].taking, 1_000, "{large:?}");
+        assert_eq!(
+            small[1].taking, 100,
+            "ten divine at one bridge each at ten chaos each is a hundred chaos: {small:?}"
+        );
+        assert_eq!(
+            large[1].taking, 10_000,
+            "the second leg has to move with the ask too: {large:?}"
         );
     }
 
@@ -4667,7 +4729,7 @@ mod leg_coverage_tests {
 ",
         );
         assert!(
-            english.contains("chaos-orb -> omen-orb   120 listed, this trip takes 159"),
+            english.contains("chaos-orb -> omen-orb   120 listed, this trip takes 175"),
             "{english}"
         );
         assert!(english.contains("more than everything listed"), "{english}");
@@ -4687,7 +4749,7 @@ mod leg_coverage_tests {
 ",
         );
         assert!(
-            chinese.contains("市面挂着 120，这一趟要吃掉 159"),
+            chinese.contains("市面挂着 120，这一趟要吃掉 175"),
             "{chinese}"
         );
         assert!(chinese.contains("一次吃不完"), "{chinese}");
