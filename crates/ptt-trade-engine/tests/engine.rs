@@ -1453,3 +1453,53 @@ fn the_improvement_over_direct_does_not_move_with_the_stake() {
         "12 against 10 is 20% at either stake"
     );
 }
+
+/// **The two sides of a panel count their stock in different currencies, so
+/// they cannot be added.**
+///
+/// A row's stock is what its lister pays out (CORE-TRADING-MODEL 7.1): the
+/// available rows in the asset the leg wants, the competing rows in the asset
+/// the leg spends. `listed_liquidity` summed both, which lands in no unit at
+/// all — on the owner's real book the chaos leg to left-erasure omens answered
+/// 11 omens plus 21,809 chaos as 21,820 of nothing. The radar sorts on this
+/// number, so the row order was decided partly by an addition that has no
+/// meaning.
+#[test]
+fn listed_liquidity_counts_only_the_side_denominated_in_what_the_leg_buys() {
+    use ptt_trade_domain::{ExecutionType, QuoteEdgeRole, QuoteSide};
+
+    let catalog = whole_catalog(&["a", "b"]);
+    let mut book = selection(
+        QuoteSelectionStrategy::Instant,
+        vec![PairSpec {
+            from: "a",
+            to: "b",
+            levels: vec![
+                LevelSpec {
+                    id: "available",
+                    rate: "2:1",
+                    stock: 11,
+                },
+                LevelSpec {
+                    id: "competing",
+                    rate: "2:1",
+                    stock: 21_809,
+                },
+            ],
+        }],
+    );
+    // The second row is the other side of the panel: its stock is counted in
+    // `a`, and the depth walk refuses it for exactly that reason.
+    let row = &mut book.selections[0].candidate_edges[1];
+    row.observation.edge.execution_type = ExecutionType::MakerReference;
+    row.observation.edge.role = QuoteEdgeRole::CompetingMakerReference;
+    row.observation.edge.source_side = QuoteSide::Competing;
+    row.eligible_for_depth_analysis = false;
+
+    let index = MarketDepthIndex::try_from_selection(&book, catalog).expect("index");
+    assert_eq!(
+        index.listed_liquidity(&asset("a"), &asset("b")),
+        Some(11),
+        "only the rows paying out in b count toward how much b is listed"
+    );
+}

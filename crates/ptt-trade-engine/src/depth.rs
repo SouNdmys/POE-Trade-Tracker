@@ -175,14 +175,27 @@ impl MarketDepthIndex {
                         && candidate.observation.edge.context_key == selection.context_key
                 })
                 .cloned();
-            // Summed over every row the panel showed, not just the priceable
-            // ones: the listings a trade cannot be priced against are still
-            // currency sitting on the market, and the book refills behind
-            // them as other players list against the same rate.
+            // Summed over every row the panel showed on the side this
+            // direction buys from -- not just the priceable ones, because the
+            // listings a trade cannot be priced against are still currency
+            // sitting on the market and the book refills behind them.
+            //
+            // **The side filter is the whole correctness of this number.** A
+            // row's stock is what its lister pays out, so the available rows
+            // count in the asset this direction wants and the competing rows
+            // count in the asset it spends. Summing both lands in no unit at
+            // all -- on the owner's real book the chaos leg to left-erasure
+            // omens added 11 omens to 21,809 chaos and reported 21,820 -- and
+            // because both edges of a row carry the same stock the total came
+            // out identical in both directions, so it could not tell buying
+            // from selling either. The radar sorts on this.
             let listed_stock = selected
                 .candidate_edges
                 .iter()
-                .filter(|candidate| candidate.observation.edge.context_key == selection.context_key)
+                .filter(|candidate| {
+                    candidate.observation.edge.context_key == selection.context_key
+                        && candidate.observation.edge.execution_type == ExecutionType::Taker
+                })
                 .fold(0_u64, |total, candidate| {
                     total.saturating_add(candidate.observation.edge.stock)
                 });
