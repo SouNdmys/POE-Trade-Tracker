@@ -174,56 +174,31 @@ test 钉不住（无 gpui test-support），靠肉眼看画廊 + `PTT_PREVIEW_PR
 
 从真实库逐位复算，截图上每个数字全部对上。三部分：
 
-- **数据半（诚实的部分）**：直兑 taker 深度只有 1855 神聖石（5000 的 37%）。
-  "可见深度 37404"是**对侧**竞争方挂单（你的对手在卖，不是你能吃的买单），
+- **数据半（诚实的部分，展示未做）**：直兑 taker 深度只有 1855 神聖石（5000 的
+  37%）。"可见深度 37404"是**对侧**竞争方挂单（你的对手在卖，不是你能吃的买单），
   同页并排不加区分是误读的直接来源。
-- **bug 半（主因）**：两条路都部分成交时 `compare_paths`
-  （ptt-trade-engine `route.rs:413-421`）按 amount_out **绝对值**排序，
-  "单价差 20% 但烧掉更多本金"的绕路胜出；按市价总值它比直兑少 3451 混沌。
-  修法：部分成交时按已实现单价（amount_out/consumed_input）或按市价总值排。
-  §5 的"排序不重开"裁定管的是雷达路线排序，不覆盖这里。
-- **基准半**："比直兑低"的基准是直兑前 1855 个的均价**线性外推**到任意投入
+- **bug 半（主因，已修）**：`compare_paths`（ptt-trade-engine `route.rs`）的第三个
+  键从 amount_out **绝对值**换成**已实现单价** = `amount_out / 首腿 consumed_input`；
+  吃满的路线之间序不变（分母相同，退化回原来的比较）。裁定与完整理由——包括"为什么
+  数量根本不该进排序键"、被否掉的两个排序键、以及流动性为什么排在单价之前——在
+  `CORE-TRADING-MODEL.md`「兑换路线排序：流动性 > 兑换率，数量不参与」与同文档
+  「否掉的方案 · 排序与风险」。回归测试 `compare_paths_tests`（`route.rs` 底部）。
+- **基准半（未做）**："比直兑低"的基准是直兑前 1855 个的均价**线性外推**到任意投入
   （`route_accounting.rs:493-508` 的 simulate），是个不可达的数，违反
   CORE-TRADING-MODEL"快速价是保守下界"的约定；且路线自己的外推有旗标、
   基准的外推是静默的。engine 的 compare_best_to_direct 在双部分成交时本来
   会拒绝比较（IncomparableCoverage），convert_model（`reports.rs:503-534`）
   没用它，绕过了这道保护。
 
-改法顺序（待拍板）：先修排序键 → 把直兑作为对照行并排列出（让"直兑只能吃
-1855"这个真约束可见）→ 文案说明绕路代价。单独只做"低于直兑就折叠"会掩盖问题。
+**仍未做**（按建议顺序）：
 
-**已修（只做了第一步：排序键）**：`compare_paths` 的第三个键从 amount_out 绝对值
-换成**已实现单价** = `amount_out / 首腿 consumed_input`。比大小走交叉相乘
-（`left.out * right.spent` 对 `right.out * left.spent`），全程整数：两个 u64 拓宽成
-u128 相乘，u64 的平方必定装得下 u128，所以这里根本没有溢出分支、更没有饱和；也不做
-除法，免得整数除把两个不同的比率抹成平局（8.3 的"f64 只在绘图边界"照旧）。分母取
-**首腿**的 consumed_input——后面每一腿花的都是首腿买回来的东西，所以"请求量 − 首腿
-剩余"就是用户手里那种资产的全部账单。
+1. **流动性闸**——裁定要求兑换路线排序把流动性风险放在单价**之前**，而
+   `compare_paths` 目前是 覆盖 → 可执行 → 单价，没有这一层。
+2. 把直兑作为**对照行**并排列出，让"直兑只能吃 1855"这个真约束可见。
+3. 文案说明绕路代价；`compare_best_to_direct` 的 IncomparableCoverage 保护与
+   convert_model 绕过它这件事；直兑的线性外推基准。
 
-**为什么选已实现单价而不是按市价总值**：市价总值要给残余（没花掉的本金、卡在中间
-资产里的存货）定价，而 `compare_paths` 是个只看两条 `ConversionPath` 的纯比较函数；
-往排序里塞价格预言机就得把 mark rate 灌进 engine 层，而 mark rate 现在住在
-ptt-strategy 的 `route_accounting`，engine 有意不持有它。何况"没花掉的本金按自己市价
-折算"正好又要用上本条第三段点名不可信的那个外推基准。已实现单价尺度无关，问的正是
-实机答错的那个问题："每花掉一枚本金换回多少"。代价是卡在中间资产的残余被记作零价值，
-方向保守，可接受。
-
-**吃满的路线之间的序没变**：两条都吃满就都花了请求量，分母相同，比值退化成原来的
-amount_out 比较。回归测试在 `route.rs` 底部新的 `compare_paths_tests`：
-`a_partial_route_that_burns_more_capital_for_a_worse_price_does_not_win`（改前红，
-数字照搬实机——直兑吃 1855 出 20030、绕路吃 2526 出 21786，改前绕路排第一），
-外加 `two_fully_filled_routes_still_rank_by_absolute_output` 守住吃满那一半。
-
-**影响面**：雷达页不受影响。`radar.rs:406` 对 `!best.is_fully_filled` 的结果直接
-`continue` 并改推探针，部分成交的 best 进不了列表；吃满的 best 选谁没变，所以 §5
-「流动性 > 利润 > 跳数」的 `compare_items` 输入一个都没动。雷达侧唯一可能变的是
-全员部分成交时被点名去确认的那条路线（`confirm_conversion_probe` 的 notes 里那个
-残余条数），推不推、推给谁那一对资产都不变。兑换页会变：某些尺寸的最佳路线换成
-单价更好的那条，`derive_route_accounting` 的数字随之改变。
-
-**这次没动的**：`compare_best_to_direct` 的 IncomparableCoverage 保护、
-`convert_model`（`reports.rs:503-534`）绕过它这件事、`route_accounting.rs:493-508`
-的直兑线性外推，以及展示层的对照行与文案，全部留给后续。
+单独只做"低于直兑就折叠"会掩盖问题。
 
 ## 10. 覆盖与缺口需要「忽略」（新功能，待设计）
 
@@ -349,53 +324,36 @@ None；改前恒 Some(1)）。
 
 ## 16. 确认探针是恒定噪音，挤掉了有用建议（已修 2026-08-23）
 
-实机那四条"确认一个机会"全部来自三角腿分支（`radar.rs:491-512`），不是部分成交
-分支（本次扫描 29+6+1=36 全对上，confirm_conversion_probe 一条没推）。根因：
+实机那四条"确认一个机会"全部来自三角腿分支（`radar.rs`），不是部分成交分支（本次
+扫描 29+6+1=36 全对上，confirm_conversion_probe 一条没推）。根因：
 `product_execution_allowed` 硬编码 false（ptt-market-book `lib.rs:504`，任何设置
-改不了）→ triangle.execution_eligible 恒 false → **每个盈利闭环无条件推腿探针**。
-重抓不改变结论，100% 恒定噪音。真伤害：噪音沾结算通货的高流转 boost 升到 High，
-加 take(4)，把 6 条"这对你从没抓过"（MissingForwardQuote）永久挤出屏幕。
+改不了）→ triangle.execution_eligible 恒 false → **每个盈利闭环无条件推腿探针**，
+100% 恒定噪音，把 6 条 MissingForwardQuote 永久挤出机会页那四个槽位。
 
-方案 A（倾向）：三角所有腿都在 fresh 窗口内就不推（capture_time_evidence 已存在，
-不用改签名），先写红测试（全 Fresh 盈利闭环 → probe_candidates 为空）。备选 A'：
-take(4) 前按 reason 保槽。只改文案（B）不解决挤占，不单独用。
-
-**已修（方案 A）**：腿探针的条件由 `!execution_eligible` 收紧成
-`!execution_eligible && !legs_all_fresh(...)`。新私有函数 `legs_all_fresh`
-（`crates/ptt-workflows/src/radar.rs`）读 `triangle.capture_time_evidence` 里
-**最早**那一腿的抓取时间，按 `selection.policy.freshness` 分档，只有落在 Fresh 才
-算全新鲜——保守方向是"最旧的腿都新鲜才算数"，没有抓取时间戳的一律不算新鲜（无戳
-的走线正是一次抓取能了结的情形）。`run_opportunity_radar` 的签名没动；`now` 在三角
-循环前取一次 `Utc::now()`，同一批里共享一条腿的两个闭环不会对"这腿还新不新鲜"给出
-两个答案。硬编码的 `product_execution_allowed` 没动，它仍恒为 false——这条修的是
-"推不推探针"，不是"能不能执行"。§5 的雷达排序与 2026-08-23 的探针分级都没碰。
-
-回归测试在 `crates/ptt-workflows/tests/radar.rs`：
-`a_fully_fresh_profitable_loop_is_not_filed_for_confirmation`（改前红，三条腿全被
-推），对照 `a_stale_legged_profitable_loop_is_still_filed_for_confirmation`（腿龄
-30 分钟，探针照推，证明不是把功能整个关掉）。两条共用新 fixture `loop_selection`，
-它把 `product_execution_allowed` 留在出厂的 false，复现的就是实机那个恒 false 的
-条件。
+**已修**：腿探针条件由 `!execution_eligible` 收紧成
+`!execution_eligible && !legs_all_fresh(...)`（新私有函数 `legs_all_fresh`，
+`crates/ptt-workflows/src/radar.rs`）——三条腿都在 fresh 窗口内就不推。裁定理由，
+以及"提醒不提醒"与"能不能执行"为什么是两件事，在 `CORE-TRADING-MODEL.md`
+「闭环全新鲜就不再提醒确认」。硬编码的 `product_execution_allowed` 没动，仍恒为
+false。回归测试在 `crates/ptt-workflows/tests/radar.rs`：
+`a_fully_fresh_profitable_loop_is_not_filed_for_confirmation`（改前红），对照
+`a_stale_legged_profitable_loop_is_still_filed_for_confirmation`（腿龄 30 分钟，
+探针照推，证明不是把功能整个关掉）。
 
 ## 17. 估值恒定取两侧最薄档（已修 2026-08-23）
 
 三段叠加：`reports.rs:377` 把全部候选边都装进 selected；Instant 候选按 stock 降序
 （market-book `lib.rs:901-914`，本批置信度全同所以排序实际就是库存序）；
-`anchor_value.rs:100-112` best_rate 用 max_by，captured_at 全平局时返回**最后一个**
+`anchor_value.rs` 的 best_rate 用 max_by，captured_at 全平局时返回**最后一个**
 = 库存最小档。实测四个方向全部选中最薄档（鎖骨买价来自 stock=2 的挂单，stock=99
-的被忽略）。估值被最容易挂错价、最容易消失的行系统性决定。修向：平局取队首
-（最深档）。先红测试。
+的被忽略）。
 
-**已修**：`best_rate` 的比较键从「taker 标志 → captured_at」加成
-「taker 标志 → captured_at → stock」，`max_by` 于是在前两键平局时挑库存最深的那档。
-没有改成「取队首」的写法：依赖迭代器顺序等于把结论押在上游 Instant 排序不变上，
-显式比 stock 才让「平局取最深」这件事在代码里读得出来，也顺带不受候选顺序变化影响。
-第一键与第二键的语义没动（能吃的优先、新的优先），只是给平局补了个决胜键——实机
-一本书 12 条边共用一个 captured_at，所以决胜键才是真正拍板的那个。
-
-回归测试 `a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture`
-（`anchor_value.rs` 的 `mod tests`），数据就是 2026-08-23 那本 ancient-clavicle 的
-taker 阶梯原样搬过来。改前红：卖价取 41:1（stock=41）、买价取 47:1（stock=2）——
+**已修**：`best_rate` 的比较键加了第三键 stock（「taker 标志 → captured_at →
+stock」），平局取最深档。裁定理由——为什么最薄的一行是最不可信的一行、为什么没写
+成「取队首」——在 `CORE-TRADING-MODEL.md`「估值平局取最深档」。回归测试
+`a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture`
+（`anchor_value.rs` 的 `mod tests`，数据是 2026-08-23 那本 ancient-clavicle 的
+taker 阶梯原样搬过来）。改前红：卖价取 41:1（stock=41）、买价取 47:1（stock=2）——
 和实机诊断逐位对上；改后取 44:1（stock=3740）与 49:1（stock=99）。
 
 影响面只有关注页的估值列（`value_against_anchor` 全仓只被 `watchlist_model`
@@ -413,30 +371,13 @@ taker 阶梯原样搬过来。改前红：卖价取 41:1（stock=41）、买价�
 
 ## 19. bp 统一成百分比（已修 2026-08-23）
 
-雷达页已经显示百分比（`opportunities.rs:60-68`），兑换页显示 bp——同一个量两种
-写法。方案：全局两位小数百分比（整数运算无损，-1338bp → -13.38%），兑换页 tier
-行叠一句实物说明。全部出现位置：report_text.rs 8 处成对字段、i18n.rs 7 处设置页
-标签、`analytics.rs:34-40`、`history.rs:99/102/157`（后两处不在 i18n，改时容易漏）。
-设置页输入单位（填 bp）单独一次改动，不与显示层混。
+雷达页已经显示百分比（`opportunities.rs`），兑换页显示 bp——同一个量两种写法。
 
 **已修**：新增共用格式化函数 `percent_from_basis_points`（`report_text.rs`），
-所有显示点改走它。整数运算：100bp 正好等于 1%，所以拆成整数百分位加两位余数，
-不引入浮点，也没有可四舍五入的东西。**符号单独写，不交给除法** —— 比 1% 小的数
-整除出来的商是 0，而 0 不带符号，照抄雷达页原来那句 `(points % 100).abs()` 会把
--1bp 印成 `0.01%`（大小对、方向错）。这正是精度测试里最先红的那个断言。
-
-改到的显示点：`report_text.rs` 8 对模板（英中各一份）去掉 "bp" 字样，改由传进来
-的值自带 "%"；`reports.rs` 的 tier_line、maker_improvement、maker_spread、
-maker_over_taker、雷达行、历史异常行、广度中位、锚交叉漂移；`opportunities.rs`
-的 `edge_text` 与 scan_accounting 的收益门槛；`convert.rs` 的 tier 判词、
-maker_improvement、maker_spread；`analytics.rs` 的 `signed_bps` 改名
-`signed_percent`（保留正号：那几列是涨跌幅，不是水位）；`history.rs` 的波动幅度、
-挂单高于吃单、异常幅度。原本重复了两遍的那句内联写法（`opportunities.rs` 与
-`reports.rs:1471` 的雷达行）一并收敛进共用函数。
-
-`reports.rs:1754`（历史异常行的文本版）不在原清单里，一起改了：它和
-`history.rs:157` 是同一个数字的页面／文本双胞胎，只改一边就正好是 CLAUDE.md
-点名的那种页面与报表漂移。
+所有显示点改走它（`report_text.rs` 的 8 对模板、`reports.rs`、`opportunities.rs`、
+`convert.rs`、`analytics.rs` 的 `signed_bps` → `signed_percent`、`history.rs`）。
+裁定理由——为什么两位小数是无损的、为什么符号必须单独写而不能交给除法、为什么设置页
+输入单位故意不一起改——在 `CORE-TRADING-MODEL.md`「界面统一用百分比，不用 bp」。
 
 回归测试在 `report_text.rs` 底部新的 `percentage_tests`：
 `no_report_template_prints_basis_points`（遍历 `report_pairs()`，两种语言都不许
@@ -445,12 +386,10 @@ maker_improvement、maker_spread；`analytics.rs` 的 `signed_bps` 改名
 `basis_points_convert_to_two_decimals_without_loss`（0、±1、±99、100、-1338、
 10000 的逐字符断言，钉住负号那一格）。三条改前全红。
 
-**这次没动的**：`i18n.rs` 那 7 处设置页标签仍写 bp —— 那是**输入单位**，用户填
-进去的就是 bp；显示层改百分比而输入跟着改会错位，输入单位的迁移牵扯 ptt-settings
-的字段语义，是独立一次改动。作为补偿，六条 `tuning_*_note` 的说明里都写上了
-"100bp = 1%"，`tuning_min_bps_note` 另外点明"这里填 bp，页面上显示成百分比"。
-兑换页 tier 行的实物说明（"每 100 神聖石少换约 13 混沌"）没做。
-`analysis.rs:102` 与 `bin/engine_replay_probe.rs:378` 的 `profit={}bp` 也没动：
+**仍未做**：`i18n.rs` 那 7 处设置页标签仍写 bp（输入单位，独立一次改动；过渡措施是
+六条 `tuning_*_note` 都写上"100bp = 1%"，`tuning_min_bps_note` 另点明"这里填 bp，
+页面上显示成百分比"）。兑换页 tier 行的实物说明（"每 100 神聖石少换约 13 混沌"）
+没做。`analysis.rs:102` 与 `bin/engine_replay_probe.rs:378` 的 `profit={}bp` 也没动：
 那两行是硬写英文的诊断转储，根本没进双语目录，属于另一类问题。
 
 ## 20. 杂项记账（2026-08-23）
