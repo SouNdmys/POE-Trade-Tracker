@@ -559,7 +559,7 @@ impl AppShell {
             (report.tier_theoretical, &accounting.theoretical),
             (report.tier_mark_to_market, &accounting.mark_to_market),
         ] {
-            card = card.child(self.tier_row(label, tier, language));
+            card = card.child(self.tier_row(label, tier));
         }
 
         if accounting.recommended_input.quanta < accounting.requested_input.quanta {
@@ -743,28 +743,9 @@ impl AppShell {
             .child(chips(kind, &notes, 3))
     }
 
-    /// One profit tier: what went in, what came out, and how that compares.
-    fn tier_row(
-        &self,
-        label: &str,
-        tier: &ProfitTier,
-        language: ptt_settings::UiLanguage,
-    ) -> gpui::Div {
-        // Wording is `report_text`'s, not this page's: the text report prints
-        // the same comparison and is the page's parity reference, and the
-        // sign belongs to whoever owns the sentence that carries "worse".
-        let verdict = report_text::versus_direct(
-            language,
-            tier.direction,
-            tier.delta.as_ref().map(|delta| delta.quanta),
-            tier.basis_points,
-        );
-        let colour = match tier.direction {
-            Some(ptt_runtime::domain::ComparisonDirection::Improved) => ACCENT_TEXT,
-            Some(ptt_runtime::domain::ComparisonDirection::Worse) => DANGER,
-            Some(ptt_runtime::domain::ComparisonDirection::Equal) => TEXT_SECONDARY,
-            None => TEXT_META,
-        };
+    /// One profit tier: what went in and what came out. Nothing else.
+    fn tier_row(&self, label: &str, tier: &ProfitTier) -> gpui::Div {
+        let texts = tier_row_texts(label, tier);
         div()
             .h_flex()
             .items_center()
@@ -775,13 +756,9 @@ impl AppShell {
                     .w(px(96.))
                     .flex_none()
                     .text_color(c(TEXT_META))
-                    .child(label.to_owned()),
+                    .child(texts[0].clone()),
             )
-            .child(
-                mono(format!("{} → {}", tier.input.quanta, tier.output.quanta))
-                    .text_color(c(TEXT_PRIMARY)),
-            )
-            .child(mono(verdict).text_color(c(colour)))
+            .child(mono(texts[1].clone()).text_color(c(TEXT_PRIMARY)))
     }
 
     /// A size the search could not route, and the probe that would fix it.
@@ -1072,5 +1049,63 @@ mod tests {
     #[test]
     fn a_query_naming_nothing_matches_nothing() {
         assert!(AssetList::filter(&choices(), "zzzznotacurrency").is_empty());
+    }
+}
+
+/// The strings one clearance tier prints, in row order.
+///
+/// No comparison against direct here — the text report's `tier_line` dropped
+/// it for a reason this page inherits: these outputs are the blended average
+/// of sweeping several levels, direct's was a different blend, and the
+/// difference moved with the size of the ask. The comparison lives on the
+/// rate rows above, where the ask cannot reach it. Split from the row so a
+/// test can read what the row says without a window.
+fn tier_row_texts(label: &str, tier: &ProfitTier) -> Vec<String> {
+    vec![
+        label.to_owned(),
+        format!("{} → {}", tier.input.quanta, tier.output.quanta),
+    ]
+}
+
+#[cfg(test)]
+mod clearance_tier_tests {
+    use super::*;
+    use ptt_runtime::domain::{AssetAmount, AssetUnit, ComparisonDirection};
+    use ptt_trade_domain::MarketAssetId;
+
+    fn amount(quanta: u64) -> AssetAmount {
+        AssetAmount {
+            asset_id: MarketAssetId::try_new("chaos-orb").expect("asset id"),
+            quanta,
+            unit: AssetUnit {
+                numerator: 1,
+                denominator: 1,
+            },
+        }
+    }
+
+    /// A clearance tier that swept the book at a loss against direct.
+    fn losing_tier() -> ProfitTier {
+        ProfitTier {
+            input: amount(500_000_000),
+            output: amount(46_728_977),
+            baseline_output: Some(amount(46_768_040)),
+            direction: Some(ComparisonDirection::Worse),
+            delta: Some(amount(39_063)),
+            basis_points: Some(-8),
+        }
+    }
+
+    /// The three clearance rows are labelled "not a rate you can list at",
+    /// so a loss against direct printed beside them is a negative number the
+    /// page already promised not to show. Numbers in, numbers out — the
+    /// comparison lives on the rate rows above, where the ask cannot move it.
+    #[test]
+    fn a_clearance_tier_never_compares_itself_against_direct() {
+        assert_eq!(
+            tier_row_texts("按市价", &losing_tier()),
+            vec!["按市价".to_owned(), "500000000 → 46728977".to_owned()],
+            "a clearance row is the label and the numbers, nothing else"
+        );
     }
 }
