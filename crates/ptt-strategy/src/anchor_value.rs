@@ -98,17 +98,32 @@ fn best_rate(
                     FreshnessStatus::Fresh | FreshnessStatus::Usable
                 )
         })
-        // Prefer what you could actually trade against, then the newest.
+        // Prefer what you could actually trade against, then the newest, then
+        // the deepest. That last key is the one that decides in practice: a
+        // whole panel is read in one go, so every level of a book carries the
+        // same `captured_at` and the first two keys tie across all of them.
+        // Depth breaks the tie because a two-item listing is the row most
+        // likely to be a fat-fingered price and the first to disappear —
+        // letting it set the valuation pegs the number to the least reliable
+        // line on the screen.
         .max_by(|left, right| {
             let taker = |edge: &EvaluatedQuoteEdge| {
                 edge.observation.edge.execution_type == ExecutionType::Taker
             };
-            taker(left).cmp(&taker(right)).then_with(|| {
-                left.observation
-                    .edge
-                    .captured_at
-                    .cmp(&right.observation.edge.captured_at)
-            })
+            taker(left)
+                .cmp(&taker(right))
+                .then_with(|| {
+                    left.observation
+                        .edge
+                        .captured_at
+                        .cmp(&right.observation.edge.captured_at)
+                })
+                .then_with(|| {
+                    left.observation
+                        .edge
+                        .stock
+                        .cmp(&right.observation.edge.stock)
+                })
         })
         .map(|evaluated| {
             (
@@ -223,7 +238,115 @@ pub fn value_against_anchor(request: ValuationRequest<'_>) -> Valuation {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+
+    use chrono::{TimeZone, Utc};
+    use ptt_market_book::{EvaluatedQuoteEdge, FreshnessAssessment, FreshnessStatus};
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, MarketAssetId, MarketEdgeObservation, QuoteEdge, QuoteEdgeRole,
+        QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    use super::{ValuationMode, ValuationRequest, value_against_anchor};
     use crate::exact::Rational;
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// One row of a panel: same capture instant and same taker flag for every
+    /// level, which is what a single screenshot of one book actually yields.
+    fn book_edge(from: &str, to: &str, rate: &str, stock: u64) -> EvaluatedQuoteEdge {
+        let captured_at = Utc
+            .with_ymd_and_hms(2026, 8, 23, 2, 22, 20)
+            .single()
+            .expect("timestamp");
+        EvaluatedQuoteEdge {
+            observation: MarketEdgeObservation {
+                edge: QuoteEdge {
+                    edge_id: format!("{from}->{to}@{rate}x{stock}"),
+                    snapshot_id: "snapshot".to_owned(),
+                    quote_id: format!("quote-{rate}-{stock}"),
+                    context_key: "test-context".to_owned(),
+                    from_asset_id: asset(from),
+                    to_asset_id: asset(to),
+                    rate: Ratio::parse(rate).expect("rate"),
+                    source_side: QuoteSide::Available,
+                    execution_type: ExecutionType::Taker,
+                    role: QuoteEdgeRole::AvailableTaker,
+                    stock,
+                    original_need_asset_id: asset(to),
+                    original_have_asset_id: asset(from),
+                    original_row_index: 0,
+                    comparator: Comparator::Exact,
+                    user_edited: false,
+                    machine_confidence_ppm: Some(990_000),
+                    captured_at,
+                    confirmed_at: captured_at,
+                },
+                snapshot_complete: true,
+                record_status: SnapshotRecordStatus::Active,
+                record_revision: 1,
+                record_reason: None,
+            },
+            freshness: FreshnessAssessment {
+                status: FreshnessStatus::Fresh,
+                age_seconds: 60,
+                future_timestamp: false,
+            },
+            effective_confidence_ppm: 990_000,
+            risk_flags: Vec::new(),
+            selection_rejections: Vec::new(),
+            execution_blockers: Vec::new(),
+            accepted_for_selection: true,
+            eligible_for_depth_analysis: true,
+        }
+    }
+
+    #[test]
+    fn a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture() {
+        // The ancient-clavicle book as the 2026-08-23 run captured it, taker
+        // levels only and in the order the Instant strategy hands them over
+        // (stock descending). One screenshot, so every level shares a capture
+        // instant and every tie-break above depth is a dead heat.
+        let target = asset("ancient-clavicle");
+        let anchor = asset("chaos-orb");
+        let edges = vec![
+            book_edge("ancient-clavicle", "chaos-orb", "44:1", 3740),
+            book_edge("ancient-clavicle", "chaos-orb", "41:1", 2705),
+            book_edge("ancient-clavicle", "chaos-orb", "43:1", 344),
+            book_edge("ancient-clavicle", "chaos-orb", "45:1", 180),
+            book_edge("ancient-clavicle", "chaos-orb", "45.33:1", 136),
+            book_edge("ancient-clavicle", "chaos-orb", "41:1", 41),
+            book_edge("chaos-orb", "ancient-clavicle", "1:49", 99),
+            book_edge("chaos-orb", "ancient-clavicle", "1:48", 8),
+            book_edge("chaos-orb", "ancient-clavicle", "1:48.75", 8),
+            book_edge("chaos-orb", "ancient-clavicle", "1:47.5", 4),
+            book_edge("chaos-orb", "ancient-clavicle", "1:49", 3),
+            book_edge("chaos-orb", "ancient-clavicle", "1:47", 2),
+        ];
+        let valuation = value_against_anchor(ValuationRequest {
+            asset_id: &target,
+            anchor_asset_id: &anchor,
+            mode: ValuationMode::Midpoint,
+            edges: &edges,
+            include_historical: false,
+        });
+
+        let sell = valuation.sell_value.expect("sell value");
+        assert_eq!(
+            sell.compare_value(&Ratio::parse("44:1").expect("deep sell rate")),
+            Ordering::Equal,
+            "sell value came from the thin stock=41 level instead of stock=3740"
+        );
+
+        let buy = valuation.buy_cost.expect("buy cost");
+        assert_eq!(
+            buy.compare_value(&Ratio::parse("49:1").expect("deep buy rate")),
+            Ordering::Equal,
+            "buy cost came from the thin stock=2 level instead of stock=99"
+        );
+    }
 
     #[test]
     fn the_geometric_midpoint_lands_between_the_two_sides() {

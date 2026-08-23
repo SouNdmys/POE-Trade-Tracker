@@ -263,7 +263,7 @@ take(4) 前按 reason 保槽。只改文案（B）不解决挤占，不单独用
 它把 `product_execution_allowed` 留在出厂的 false，复现的就是实机那个恒 false 的
 条件。
 
-## 17. 估值恒定取两侧最薄档（真 bug 2026-08-23，未修）
+## 17. 估值恒定取两侧最薄档（已修 2026-08-23）
 
 三段叠加：`reports.rs:377` 把全部候选边都装进 selected；Instant 候选按 stock 降序
 （market-book `lib.rs:901-914`，本批置信度全同所以排序实际就是库存序）；
@@ -271,6 +271,22 @@ take(4) 前按 reason 保槽。只改文案（B）不解决挤占，不单独用
 = 库存最小档。实测四个方向全部选中最薄档（鎖骨买价来自 stock=2 的挂单，stock=99
 的被忽略）。估值被最容易挂错价、最容易消失的行系统性决定。修向：平局取队首
 （最深档）。先红测试。
+
+**已修**：`best_rate` 的比较键从「taker 标志 → captured_at」加成
+「taker 标志 → captured_at → stock」，`max_by` 于是在前两键平局时挑库存最深的那档。
+没有改成「取队首」的写法：依赖迭代器顺序等于把结论押在上游 Instant 排序不变上，
+显式比 stock 才让「平局取最深」这件事在代码里读得出来，也顺带不受候选顺序变化影响。
+第一键与第二键的语义没动（能吃的优先、新的优先），只是给平局补了个决胜键——实机
+一本书 12 条边共用一个 captured_at，所以决胜键才是真正拍板的那个。
+
+回归测试 `a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture`
+（`anchor_value.rs` 的 `mod tests`），数据就是 2026-08-23 那本 ancient-clavicle 的
+taker 阶梯原样搬过来。改前红：卖价取 41:1（stock=41）、买价取 47:1（stock=2）——
+和实机诊断逐位对上；改后取 44:1（stock=3740）与 49:1（stock=99）。
+
+影响面只有关注页的估值列（`value_against_anchor` 全仓只被 `watchlist_model`
+调用一处）。市场分析页的价值列走的是 rollup 价格序列（`market_analytics.rs:392-410`），
+不经过这条路径，数字不变。
 
 ## 18. 赛季边界的三个潜在隐患（今天不触发，记账）
 
