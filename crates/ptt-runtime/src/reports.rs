@@ -73,6 +73,66 @@ pub struct SizeRoute {
     pub size: u64,
     /// `None` when the search found no path at this size.
     pub accounting: Option<Box<ptt_strategy::RouteAccounting>>,
+    /// One entry per leg of the route above, in order. Empty when there was
+    /// no route to measure.
+    pub legs: Vec<LegTakeCoverage>,
+}
+
+/// How far the listings on one leg go towards filling that leg *right now*.
+///
+/// Strictly a taker reading, and the naming is deliberate. Nothing here says
+/// whether an order the reader lists will find a buyer: in this exchange a
+/// listing is filled at the rate its owner named, or at a better one, or not
+/// at all — so a maker never walks down a book and the question "will my
+/// order sit there" is not a depth question. That risk is read off supply and
+/// demand instead (`StructuralNote`), and is not what this measures.
+///
+/// The variants are in escalation order and the ordering is used: a middle
+/// currency is judged by the tighter of the two books it passes through,
+/// which is `max` over this enum. `NoListings` sits first on purpose —
+/// "nobody ever captured this direction" must never be reported as "the
+/// market is short", and last place would let it escalate a neighbour.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum LegTakeVerdict {
+    /// No listings on record in this direction. Not a shortage: an absence.
+    NoListings,
+    /// Small next to what is listed here.
+    Covered,
+    /// A large share of everything listed, so the fill walks deep into the
+    /// book and the average price lands well past the front row's.
+    SweepsTheBook,
+    /// More than everything listed — one pass cannot fill it at any price.
+    NotEnoughListed,
+}
+
+/// One leg of a route, against the listings that leg would have to take.
+///
+/// The numbers are the point, not the verdict. A currency's total listings
+/// say nothing about whether *this* leg can carry the trade: on 2026-08-23
+/// the market held 3,133 left-erasure omens and the chaos leg to them held
+/// 11, because the other 3,122 were listed against divine and that leg cannot
+/// reach them. So the denominator here is the leg, never the currency.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LegTakeCoverage {
+    pub from_asset_id: MarketAssetId,
+    pub to_asset_id: MarketAssetId,
+    /// Whole units of `to_asset_id` this trip has to take on this leg — the
+    /// whole request, not the part of it that fit. A leg that ran out of
+    /// listings halfway is the leg this signal exists to name, and scoring it
+    /// by what it managed to fill would score it as if it had wanted less.
+    pub taking: u64,
+    /// Whole units of `to_asset_id` listed on the side this leg takes from.
+    /// `None` when the direction was never captured.
+    pub listed: Option<u64>,
+    /// `taking` as a percent of `listed`, floored.
+    pub share_percent: Option<u64>,
+    pub verdict: LegTakeVerdict,
+    /// The verdict came from the next leg rather than this one: the currency
+    /// this leg buys is immediately spent taking the next one, and that book
+    /// is the tighter of the two.
+    pub bound_by_next_leg: bool,
+    /// One listing backs the whole figure, so nothing corroborates it.
+    pub single_listing: bool,
 }
 
 /// The trader's three ways to act on a pair as a maker, priced against taking
@@ -372,7 +432,7 @@ fn build_market(
             );
         }
         // The selected edge is one of the candidates, so the candidates alone
-        // carry it — pushing it separately double-counted every selected edge
+        // carry it — taking it separately double-counted every selected edge
         // in valuations and price histories.
         selected.extend(entry.candidate_edges.iter().cloned());
     }
@@ -386,6 +446,168 @@ fn build_market(
         book,
         instant_selection: selection,
     })
+}
+
+/// Whole units of `to` the market is showing on the side this leg buys from,
+/// and how many rows say so.
+///
+/// **Not** `MarketDepthIndex::listed_liquidity`, which looks like exactly this
+/// method and is not. That one sums every candidate row in the direction, and
+/// the two sides of a panel count their stock in different currencies — the
+/// available rows in what their lister pays out (the asset the leg wants), the
+/// competing rows in what theirs pays out (the asset the leg spends). Adding
+/// them lands in no unit at all, and because both edges of a row carry the
+/// same stock the sum comes out identical in both directions, so it cannot
+/// tell "buying B" from "selling B" either. On the 2026-08-23 book it answered
+/// 3,133 for the chaos leg to left-erasure omens; the omens that leg can
+/// actually reach numbered 11.
+///
+/// Every taker row counts, including the ones the depth walk refuses — the
+/// aggregate `>` row is where most of a currency usually sits, and it is still
+/// currency on the market. Same reasoning as `PairDepth::listed_stock`, minus
+/// the side that is denominated in the wrong asset.
+fn leg_book(
+    selection: &ptt_market_book::QuoteSelectionResult,
+    from: &MarketAssetId,
+    to: &MarketAssetId,
+) -> (u64, usize) {
+    let Some(entry) = selection
+        .selections
+        .iter()
+        .find(|entry| &entry.from_asset_id == from && &entry.to_asset_id == to)
+    else {
+        return (0, 0);
+    };
+    entry
+        .candidate_edges
+        .iter()
+        .filter(|candidate| {
+            candidate.observation.edge.execution_type == ptt_trade_domain::ExecutionType::Taker
+                && candidate.observation.edge.context_key == selection.context_key
+        })
+        .fold((0_u64, 0_usize), |(stock, rows), candidate| {
+            (
+                stock.saturating_add(candidate.observation.edge.stock),
+                rows + 1,
+            )
+        })
+}
+
+/// Whole units of `to` this leg has to take, for the whole request rather
+/// than the part of it that fit.
+///
+/// A leg that ran out of listings halfway is precisely the leg this signal
+/// exists to name; measuring it by what it managed to fill would score it as
+/// if it had wanted less, and every short leg would grade itself covered. So
+/// the shortfall is priced too: at the rate the leg actually achieved when it
+/// achieved one, at the top of its book when nothing filled at all.
+fn leg_take_amount(
+    step: &ptt_trade_engine::PairFill,
+    top_rate: Option<&ptt_trade_domain::Ratio>,
+) -> u64 {
+    let out = step
+        .net_amount_out
+        .as_ref()
+        .unwrap_or(&step.gross_amount_out)
+        .quanta;
+    let consumed = step.consumed_input.quanta;
+    let requested = step.requested_input.quanta;
+    if consumed == requested {
+        return out;
+    }
+    let (numerator, denominator) = if consumed > 0 {
+        (u128::from(out), u128::from(consumed))
+    } else {
+        match top_rate {
+            Some(rate) => (u128::from(rate.numerator), u128::from(rate.denominator)),
+            None => return out,
+        }
+    };
+    if denominator == 0 {
+        return out;
+    }
+    u64::try_from(u128::from(requested).saturating_mul(numerator) / denominator).unwrap_or(u64::MAX)
+}
+
+/// The band one leg falls in: how much of what is listed this trip takes.
+///
+/// `front` is the stock behind the best row alone. A trip the front row can
+/// fill on its own clears at the quoted price no matter what fraction of the
+/// book it happens to be — buying ten of the forty-one mirrors in existence is
+/// 24% of the market and is also just a trade. The share is still reported;
+/// only the warning stands down.
+fn leg_take_verdict(taking: u64, listed: u64, front: u64, sweep_percent: u64) -> LegTakeVerdict {
+    if listed == 0 {
+        return LegTakeVerdict::NoListings;
+    }
+    if taking <= front {
+        return LegTakeVerdict::Covered;
+    }
+    // Exact, not the floored percentage: "more than the market is showing" is
+    // a fact about two integers, and 1,005 out of 1,000 rounds to 100%.
+    if taking > listed {
+        return LegTakeVerdict::NotEnoughListed;
+    }
+    if u128::from(taking) * 100 / u128::from(listed) >= u128::from(sweep_percent) {
+        LegTakeVerdict::SweepsTheBook
+    } else {
+        LegTakeVerdict::Covered
+    }
+}
+
+/// Every leg of one route, measured against the listings it would take.
+///
+/// The second pass is the middle-currency rule. A currency picked up in the
+/// middle of a route is immediately spent taking the next one, and that
+/// second book can be the tighter of the two — the route is only as walkable
+/// in one pass as its narrowest book. So a leg that buys a middle currency
+/// inherits its neighbour's verdict when the neighbour is worse. It keeps
+/// printing its own numbers: the reader is owed both sides, and a leg
+/// silently wearing a colour its own figures do not explain is the confusing
+/// half of this.
+fn route_leg_coverage(
+    market: &Market,
+    path: &ptt_trade_engine::ConversionPath,
+    sweep_percent: u64,
+) -> Vec<LegTakeCoverage> {
+    let mut legs: Vec<LegTakeCoverage> = path
+        .steps
+        .iter()
+        .map(|step| {
+            let (from, to) = (&step.from_asset_id, &step.to_asset_id);
+            let (listed, rows) = leg_book(&market.instant_selection, from, to);
+            let top = market.index.top_of_book(from, to);
+            let taking = leg_take_amount(step, top.as_ref().map(|(rate, _)| rate));
+            let front = top.map_or(0, |(_, stock)| stock);
+            LegTakeCoverage {
+                from_asset_id: from.clone(),
+                to_asset_id: to.clone(),
+                taking,
+                listed: (listed > 0).then_some(listed),
+                share_percent: (listed > 0).then(|| {
+                    u64::try_from(u128::from(taking) * 100 / u128::from(listed)).unwrap_or(u64::MAX)
+                }),
+                verdict: leg_take_verdict(taking, listed, front, sweep_percent),
+                bound_by_next_leg: false,
+                single_listing: rows == 1,
+            }
+        })
+        .collect();
+
+    let own: Vec<LegTakeVerdict> = legs.iter().map(|leg| leg.verdict).collect();
+    for (index, leg) in legs.iter_mut().enumerate() {
+        // "Never captured" is not evidence about anything, so it neither
+        // escalates a neighbour nor gets escalated by one.
+        let Some(exit) = own.get(index + 1).copied() else {
+            continue;
+        };
+        if leg.verdict == LegTakeVerdict::NoListings || exit <= leg.verdict {
+            continue;
+        }
+        leg.verdict = exit;
+        leg.bound_by_next_leg = true;
+    }
+    legs
 }
 
 fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
@@ -522,6 +744,7 @@ pub fn convert_model(
             routes.push(SizeRoute {
                 size,
                 accounting: None,
+                legs: Vec::new(),
             });
             continue;
         };
@@ -536,6 +759,7 @@ pub fn convert_model(
         routes.push(SizeRoute {
             size,
             accounting: Some(Box::new(accounting)),
+            legs: route_leg_coverage(&market, best, tuning.convert.leg_sweep_percent),
         });
     }
 
@@ -565,7 +789,6 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
     let text = crate::report_text::report(language);
     let mut lines = model.notes.clone();
     let (have, need) = (&model.have, &model.need);
-
     for route in &model.sizes {
         let size = route.size;
         let Some(accounting) = &route.accounting else {
@@ -575,13 +798,26 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
             ));
             continue;
         };
-        let route = accounting
+        let route_text = accounting
             .route_asset_ids
             .iter()
             .map(MarketAssetId::as_str)
             .collect::<Vec<_>>()
             .join(" -> ");
-        lines.push(format!("{size:>4} {have}   via {route}"));
+        lines.push(format!("{size:>4} {have}   via {route_text}"));
+        for leg in &route.legs {
+            let facts = crate::report_text::leg_take_facts(
+                language,
+                leg.from_asset_id.as_str(),
+                leg.to_asset_id.as_str(),
+                leg,
+            );
+            let notes = crate::report_text::join_text(
+                language,
+                &crate::report_text::leg_take_notes(language, leg),
+            );
+            lines.push(format!("     {facts}   {notes}"));
+        }
         for (label, tier) in [
             (text.tier_closed, &accounting.closed),
             (text.tier_theoretical, &accounting.theoretical),
@@ -3707,6 +3943,328 @@ mod analytics_sign_tests {
                 .iter()
                 .any(|line| line.contains("+-") || line.contains("--")),
             "a sign was written twice: {lines:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod leg_coverage_tests {
+    use super::*;
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    const CONTEXT: &str = "leg-liquidity-context";
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// One quote edge. `tag` names the capture: every edge a single panel
+    /// produces has to share one snapshot id, because the coherent book keeps
+    /// the newest snapshot **per panel side** and would otherwise throw away
+    /// half of a fixture that pretended each direction was its own capture.
+    #[allow(clippy::too_many_arguments)]
+    fn edge(
+        tag: &str,
+        edge_id: &str,
+        from: &str,
+        to: &str,
+        side: QuoteSide,
+        role: QuoteEdgeRole,
+        execution: ExecutionType,
+        row: u8,
+        rate: (u64, u64),
+        stock: u64,
+    ) -> MarketEdgeObservation {
+        let captured = Utc::now() - chrono::Duration::minutes(1);
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: edge_id.to_owned(),
+                snapshot_id: format!("snapshot-{tag}"),
+                quote_id: format!("quote-{edge_id}"),
+                context_key: CONTEXT.to_owned(),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                rate: Ratio::from_parts(rate.0, rate.1).expect("rate"),
+                source_side: side,
+                execution_type: execution,
+                role,
+                stock,
+                original_need_asset_id: asset(to),
+                original_have_asset_id: asset(from),
+                original_row_index: row,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(990_000),
+                captured_at: captured,
+                confirmed_at: captured,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    /// One captured panel (need = `need`, have = `have`) as the two edges per
+    /// row the domain builds: a taker one way and a maker reference back.
+    ///
+    /// The `available` rows are priced `to`-per-`from`, which is the direction
+    /// the route takes in, and their stock counts what the lister pays out —
+    /// the asset being bought. That is the whole point of this fixture: the
+    /// competing rows carry a stock in the *other* currency, so what a leg can
+    /// take cannot be read off the pair as a whole.
+    fn panel(
+        tag: &str,
+        have: &str,
+        need: &str,
+        available: &[((u64, u64), u64)],
+        competing: &[((u64, u64), u64)],
+    ) -> Vec<MarketEdgeObservation> {
+        let mut out = Vec::new();
+        for (index, (rate, stock)) in available.iter().enumerate() {
+            let row = u8::try_from(index).expect("row index");
+            out.push(edge(
+                tag,
+                &format!("{tag}-a{index}-f"),
+                have,
+                need,
+                QuoteSide::Available,
+                QuoteEdgeRole::AvailableTaker,
+                ExecutionType::Taker,
+                row,
+                *rate,
+                *stock,
+            ));
+            out.push(edge(
+                tag,
+                &format!("{tag}-a{index}-r"),
+                need,
+                have,
+                QuoteSide::Available,
+                QuoteEdgeRole::AvailableReverseMakerReference,
+                ExecutionType::MakerReference,
+                row,
+                (rate.1, rate.0),
+                *stock,
+            ));
+        }
+        for (index, (rate, stock)) in competing.iter().enumerate() {
+            let row = u8::try_from(index).expect("row index");
+            out.push(edge(
+                tag,
+                &format!("{tag}-c{index}-f"),
+                have,
+                need,
+                QuoteSide::Competing,
+                QuoteEdgeRole::CompetingMakerReference,
+                ExecutionType::MakerReference,
+                row,
+                *rate,
+                *stock,
+            ));
+            out.push(edge(
+                tag,
+                &format!("{tag}-c{index}-r"),
+                need,
+                have,
+                QuoteSide::Competing,
+                QuoteEdgeRole::CompetingReverseTaker,
+                ExecutionType::Taker,
+                row,
+                (rate.1, rate.0),
+                *stock,
+            ));
+        }
+        out
+    }
+
+    /// The omen book behind the chaos leg: three rows, 120 omens in all, and
+    /// only 12 of them at the front price. Shaped after the real 2026-08-23
+    /// reading this whole signal came from.
+    fn chaos_to_omen() -> Vec<MarketEdgeObservation> {
+        panel(
+            "co",
+            "chaos-orb",
+            "omen-orb",
+            &[((1, 57), 12), ((1, 60), 40), ((1, 65), 68)],
+            &[],
+        )
+    }
+
+    fn legs_of(
+        observations: &[MarketEdgeObservation],
+        have: &str,
+        need: &str,
+        holdings: u64,
+    ) -> Vec<LegTakeCoverage> {
+        let model = convert_model(
+            observations,
+            CONTEXT,
+            &asset(have),
+            &asset(need),
+            Some(holdings),
+            &MarketTuning::default(),
+            UiLanguage::English,
+            None,
+        )
+        .expect("convert model");
+        model.sizes.first().expect("one priced size").legs.clone()
+    }
+
+    /// The three bands, on one real book. 120 omens are listed against chaos;
+    /// taking 1 of them is nothing, 33 sweeps a quarter of the book, and 159
+    /// is more than the listings hold.
+    #[test]
+    fn a_leg_is_graded_by_how_much_of_the_listings_the_trip_takes() {
+        let observations = chaos_to_omen();
+
+        let covered = legs_of(&observations, "chaos-orb", "omen-orb", 100);
+        assert_eq!(covered.len(), 1, "{covered:?}");
+        assert_eq!(covered[0].listed, Some(120), "{covered:?}");
+        assert_eq!(covered[0].taking, 1, "{covered:?}");
+        assert_eq!(covered[0].verdict, LegTakeVerdict::Covered, "{covered:?}");
+
+        let sweeping = legs_of(&observations, "chaos-orb", "omen-orb", 2_000);
+        assert_eq!(sweeping[0].taking, 33, "{sweeping:?}");
+        assert_eq!(sweeping[0].share_percent, Some(27), "{sweeping:?}");
+        assert_eq!(
+            sweeping[0].verdict,
+            LegTakeVerdict::SweepsTheBook,
+            "{sweeping:?}"
+        );
+
+        let short = legs_of(&observations, "chaos-orb", "omen-orb", 10_000);
+        assert_eq!(short[0].taking, 159, "{short:?}");
+        assert_eq!(
+            short[0].verdict,
+            LegTakeVerdict::NotEnoughListed,
+            "past the whole book is not covered at any price: {short:?}"
+        );
+    }
+
+    /// A middle currency is spent again immediately. The divine leg into
+    /// chaos is nothing next to its own book, but that chaos then has to take
+    /// omens through a 120-omen door, so the first leg is graded by the door.
+    #[test]
+    fn a_middle_leg_is_graded_by_whichever_book_is_tighter() {
+        let mut observations = panel("dc", "divine-orb", "chaos-orb", &[((700, 1), 100_000)], &[]);
+        observations.extend(chaos_to_omen());
+
+        let legs = legs_of(&observations, "divine-orb", "omen-orb", 20);
+        assert_eq!(legs.len(), 2, "{legs:?}");
+        assert_eq!(
+            legs[0].share_percent,
+            Some(14),
+            "the leg still reports its own number: {legs:?}"
+        );
+        assert_eq!(
+            legs[0].verdict,
+            LegTakeVerdict::NotEnoughListed,
+            "the next book is the binding one: {legs:?}"
+        );
+        assert!(legs[0].bound_by_next_leg, "{legs:?}");
+        assert_eq!(legs[1].verdict, LegTakeVerdict::NotEnoughListed, "{legs:?}");
+        assert!(
+            !legs[1].bound_by_next_leg,
+            "the last leg has no next leg to be bound by: {legs:?}"
+        );
+    }
+
+    /// A direction nobody captured is an absence, not a shortage. This
+    /// project never infers the second from the first, so an empty book has
+    /// to reach a different verdict from an overdrawn one.
+    ///
+    /// Stated on the classifier rather than through a page, because a leg
+    /// with no listings has no route through it either — the search would
+    /// never hand the page such a leg. The branch is a guarantee about what
+    /// the page would say, not a state it can currently reach.
+    #[test]
+    fn an_uncaptured_direction_reads_as_no_data_rather_than_short() {
+        assert_eq!(leg_take_verdict(500, 0, 0, 25), LegTakeVerdict::NoListings);
+        assert_eq!(
+            leg_take_verdict(500, 400, 10, 25),
+            LegTakeVerdict::NotEnoughListed
+        );
+    }
+
+    /// The text report is the page's parity reference, so the leg has to
+    /// reach it too — with the numbers, in both languages, and worded as
+    /// taking rather than waiting.
+    #[test]
+    fn the_text_report_prints_each_leg_against_its_own_listings() {
+        let observations = chaos_to_omen();
+        let english = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("chaos-orb"),
+            &asset("omen-orb"),
+            Some(10_000),
+            &MarketTuning::default(),
+            UiLanguage::English,
+        )
+        .expect("report")
+        .join(
+            "
+",
+        );
+        assert!(
+            english.contains("chaos-orb -> omen-orb   120 listed, this trip takes 159 (132%)"),
+            "{english}"
+        );
+        assert!(english.contains("more than everything listed"), "{english}");
+
+        let chinese = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("chaos-orb"),
+            &asset("omen-orb"),
+            Some(10_000),
+            &MarketTuning::default(),
+            UiLanguage::Chinese,
+        )
+        .expect("report")
+        .join(
+            "
+",
+        );
+        assert!(
+            chinese.contains("市面挂着 120，这一趟要吃掉 159"),
+            "{chinese}"
+        );
+        assert!(chinese.contains("一次吃不完"), "{chinese}");
+        assert!(
+            !chinese.contains("卡住") && !chinese.contains("等"),
+            "the line must not read as a maker question: {chinese}"
+        );
+    }
+
+    /// Forty-one mirrors exist and taking fifteen is 36% of that, over the
+    /// bar — but thirty sit at the front price, so the fill never leaves the
+    /// quoted rate and there is nothing to warn about. The percentage is
+    /// still printed; only the colour stands down.
+    #[test]
+    fn a_trip_the_front_row_alone_can_fill_is_not_flagged() {
+        let observations = panel(
+            "dm",
+            "divine-orb",
+            "mirror-orb",
+            &[((1, 776), 30), ((1, 800), 11)],
+            &[],
+        );
+        let legs = legs_of(&observations, "divine-orb", "mirror-orb", 11_640);
+        assert_eq!(legs[0].listed, Some(41), "{legs:?}");
+        assert_eq!(legs[0].taking, 15, "{legs:?}");
+        assert_eq!(
+            legs[0].share_percent,
+            Some(36),
+            "the number is shown either way: {legs:?}"
+        );
+        assert_eq!(
+            legs[0].verdict,
+            LegTakeVerdict::Covered,
+            "the front row alone covers it: {legs:?}"
         );
     }
 }

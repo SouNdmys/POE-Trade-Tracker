@@ -29,6 +29,7 @@ pub struct TuningInputs {
     pub skew: Entity<InputState>,
     pub sizes: Entity<InputState>,
     pub max_hops: Entity<InputState>,
+    pub leg_sweep: Entity<InputState>,
     pub stake: Entity<InputState>,
     pub max_results: Entity<InputState>,
     pub min_basis_points: Entity<InputState>,
@@ -52,7 +53,7 @@ pub struct TuningInputs {
 
 impl TuningInputs {
     /// Every box, in the order the page draws them.
-    fn all(&self) -> [&Entity<InputState>; 25] {
+    fn all(&self) -> [&Entity<InputState>; 26] {
         [
             &self.fresh,
             &self.usable,
@@ -60,6 +61,7 @@ impl TuningInputs {
             &self.skew,
             &self.sizes,
             &self.max_hops,
+            &self.leg_sweep,
             &self.stake,
             &self.max_results,
             &self.min_basis_points,
@@ -124,6 +126,7 @@ impl AppShell {
                     .join(", "),
             ),
             max_hops: make(tuning.convert.max_hops.to_string()),
+            leg_sweep: make(tuning.convert.leg_sweep_percent.to_string()),
             stake: make(tuning.radar.stake.to_string()),
             max_results: make(tuning.radar.max_results.to_string()),
             min_basis_points: make(tuning.radar.minimum_profit_basis_points.to_string()),
@@ -234,6 +237,7 @@ impl AppShell {
         let (
             Some(sizes),
             Some(max_hops),
+            Some(leg_sweep),
             Some(stake),
             Some(max_results),
             Some(min_basis_points),
@@ -244,6 +248,7 @@ impl AppShell {
         ) = (
             sizes(&inputs.sizes, cx),
             number(&inputs.max_hops, cx),
+            number(&inputs.leg_sweep, cx),
             number(&inputs.stake, cx),
             number(&inputs.max_results, cx),
             number(&inputs.min_basis_points, cx),
@@ -256,6 +261,11 @@ impl AppShell {
             return false;
         };
         if max_hops == 0 || stake == 0 || max_results == 0 || window_hours == 0 {
+            return false;
+        }
+        // A bar of zero flags every leg and a bar past 100 flags none, since
+        // anything over 100 is already the harder verdict.
+        if !(1..=100).contains(&leg_sweep) {
             return false;
         }
         // An outlier band of one admits nothing, and a band of zero is not a
@@ -318,6 +328,7 @@ impl AppShell {
             tuning.freshness.capture_skew_seconds = skew;
             tuning.convert.sizes = sizes;
             tuning.convert.max_hops = max_hops;
+            tuning.convert.leg_sweep_percent = leg_sweep;
             tuning.radar.stake = stake;
             tuning.radar.max_results = max_results;
             tuning.radar.minimum_profit_basis_points = min_basis_points;
@@ -589,6 +600,12 @@ impl AppShell {
                     &inputs.max_hops,
                     "3",
                     text.tuning_max_hops_note,
+                ))
+                .child(row(
+                    text.tuning_leg_sweep,
+                    &inputs.leg_sweep,
+                    "25",
+                    text.tuning_leg_sweep_note,
                 ))
                 .child(row(
                     text.tuning_stake,

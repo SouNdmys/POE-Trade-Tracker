@@ -286,6 +286,24 @@ pub struct ConvertTuning {
     /// its own validation and the report says so.
     #[serde(default = "default_max_hops")]
     pub max_hops: u64,
+    /// A leg that has to take this percent or more of what is listed against
+    /// it is called out as sweeping the book — the fill walks deep and the
+    /// average price lands well past the front row's. Above 100 the page says
+    /// the listings do not cover the trip at all, which is a fact rather than
+    /// a preference and therefore not tunable.
+    ///
+    /// A taker bar only. Whether an order the user *lists* will find a buyer
+    /// is not a depth question in this exchange — a listing fills at its own
+    /// rate or better or not at all — and is read off supply and demand
+    /// instead.
+    ///
+    /// Deliberately **not** `analytics.thin_norm_percent`, which is also 25
+    /// by default and was the obvious thing to reuse. That one is a percent
+    /// of a currency's median *daily circulation* and raising it flags *more*
+    /// books as thin; raising this one warns about *fewer* legs. One number
+    /// moving two gates in opposite directions is worse than two numbers.
+    #[serde(default = "default_leg_sweep_percent")]
+    pub leg_sweep_percent: u64,
 }
 
 fn default_convert_sizes() -> Vec<u64> {
@@ -294,12 +312,16 @@ fn default_convert_sizes() -> Vec<u64> {
 fn default_max_hops() -> u64 {
     3
 }
+fn default_leg_sweep_percent() -> u64 {
+    25
+}
 
 impl Default for ConvertTuning {
     fn default() -> Self {
         Self {
             sizes: default_convert_sizes(),
             max_hops: default_max_hops(),
+            leg_sweep_percent: default_leg_sweep_percent(),
         }
     }
 }

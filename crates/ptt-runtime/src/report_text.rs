@@ -44,6 +44,21 @@ pub struct ReportText {
     pub level_with_direct: &'static str,
     pub no_direct_route: &'static str,
     pub size_down_to: &'static str,
+    /// One leg of a route against the listings it would have to take right
+    /// now. Slots: from, to, listed, taken, share.
+    ///
+    /// Worded as taking, never as waiting. Whether an order the reader
+    /// *lists* ever fills is not a depth question in this exchange — a
+    /// listing is taken at its own rate or a better one or not at all — and
+    /// a line that let itself be read that way would be answering a question
+    /// it never looked at.
+    pub leg_take: &'static str,
+    pub leg_covered: &'static str,
+    pub leg_sweeps_book: &'static str,
+    pub leg_not_enough_listed: &'static str,
+    pub leg_no_listings: &'static str,
+    pub leg_bound_by_next: &'static str,
+    pub leg_single_listing: &'static str,
     pub stranded: &'static str,
     pub no_cost_basis: &'static str,
     pub break_even_at: &'static str,
@@ -138,6 +153,13 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     level_with_direct: "level with direct",
     no_direct_route: "no direct route to compare",
     size_down_to: "size down to {} {}: past that, depth runs out",
+    leg_take: "{} -> {}   {} listed, this trip takes {} ({})",
+    leg_covered: "listings cover it",
+    leg_sweeps_book: "sweeps most of what is listed - the fill walks deep into the book",
+    leg_not_enough_listed: "more than everything listed - one pass cannot fill it",
+    leg_no_listings: "nothing listed this way - no data, not a shortage",
+    leg_bound_by_next: "the next leg is the tighter one",
+    leg_single_listing: "one listing only",
     stranded: "stranded {} {}   {}",
     no_cost_basis: "no cost basis",
     break_even_at: "break even at 1 : {}",
@@ -215,6 +237,13 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     level_with_direct: "与直兑持平",
     no_direct_route: "没有直兑路线可比",
     size_down_to: "减到 {} {}：再多深度就不够了",
+    leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}（{}）",
+    leg_covered: "现有挂单够吃",
+    leg_sweeps_book: "要吃掉大半个盘口 — 会一路吃到深档，均价变差",
+    leg_not_enough_listed: "比现有挂单还多 — 一次吃不完",
+    leg_no_listings: "这个方向没抓到挂单 — 是没数据，不是不够",
+    leg_bound_by_next: "下一条腿更紧",
+    leg_single_listing: "只有一个盘口",
     stranded: "剩下 {} {}   {}",
     no_cost_basis: "没有成本基准",
     break_even_at: "保本价 1 : {}",
@@ -349,6 +378,87 @@ pub fn signed_percent_from_basis_points(points: i64) -> String {
         percent
     } else {
         format!("+{percent}")
+    }
+}
+
+/// One route leg's numbers: what is listed against it, how much of that this
+/// trip would have to take right now, and the share that works out to.
+///
+/// The two callers hand in their own names for the currencies -- the page uses
+/// the catalogue's display names, the text report uses the raw ids -- and
+/// share everything after that. Written once because the whole point of the
+/// signal is that the same leg reads the same on both.
+///
+/// Facts only; the verdict is [`leg_take_notes`], because the page shows it as
+/// a coloured chip beside the numbers and would otherwise print it twice.
+#[must_use]
+pub fn leg_take_facts(
+    language: UiLanguage,
+    from: &str,
+    to: &str,
+    leg: &crate::reports::LegTakeCoverage,
+) -> String {
+    fill(
+        report(language).leg_take,
+        &[
+            from,
+            to,
+            &leg.listed
+                .map_or_else(|| "-".to_owned(), |listed| listed.to_string()),
+            &leg.taking.to_string(),
+            &leg.share_percent
+                .map_or_else(|| "-".to_owned(), |share| format!("{share}%")),
+        ],
+    )
+}
+
+/// What qualifies one leg: the verdict first, then whatever the verdict does
+/// not say on its own.
+///
+/// The one thing none of these may imply is a maker's question -- nothing here
+/// knows whether an order the reader *lists* will find a taker.
+#[must_use]
+pub fn leg_take_notes(
+    language: UiLanguage,
+    leg: &crate::reports::LegTakeCoverage,
+) -> Vec<&'static str> {
+    let text = report(language);
+    let mut notes = vec![leg_take_verdict(language, leg.verdict)];
+    if leg.bound_by_next_leg {
+        notes.push(text.leg_bound_by_next);
+    }
+    if leg.single_listing {
+        notes.push(text.leg_single_listing);
+    }
+    notes
+}
+
+/// Already-translated fragments, punctuated for the language.
+///
+/// [`join`] does the same for typed values it can name itself; this one is
+/// for callers holding strings that are already text. Here rather than in a
+/// page so no business file has to spell a full-width semicolon.
+#[must_use]
+pub fn join_text(language: UiLanguage, parts: &[&str]) -> String {
+    let separator = match language {
+        UiLanguage::English => "; ",
+        UiLanguage::Chinese => "；",
+    };
+    parts.join(separator)
+}
+
+#[must_use]
+pub fn leg_take_verdict(
+    language: UiLanguage,
+    verdict: crate::reports::LegTakeVerdict,
+) -> &'static str {
+    use crate::reports::LegTakeVerdict as Verdict;
+    let text = report(language);
+    match verdict {
+        Verdict::NoListings => text.leg_no_listings,
+        Verdict::Covered => text.leg_covered,
+        Verdict::SweepsTheBook => text.leg_sweeps_book,
+        Verdict::NotEnoughListed => text.leg_not_enough_listed,
     }
 }
 
@@ -526,6 +636,37 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "size_down_to",
             REPORT_ENGLISH.size_down_to,
             REPORT_CHINESE.size_down_to,
+        ),
+        ("leg_take", REPORT_ENGLISH.leg_take, REPORT_CHINESE.leg_take),
+        (
+            "leg_covered",
+            REPORT_ENGLISH.leg_covered,
+            REPORT_CHINESE.leg_covered,
+        ),
+        (
+            "leg_sweeps_book",
+            REPORT_ENGLISH.leg_sweeps_book,
+            REPORT_CHINESE.leg_sweeps_book,
+        ),
+        (
+            "leg_not_enough_listed",
+            REPORT_ENGLISH.leg_not_enough_listed,
+            REPORT_CHINESE.leg_not_enough_listed,
+        ),
+        (
+            "leg_no_listings",
+            REPORT_ENGLISH.leg_no_listings,
+            REPORT_CHINESE.leg_no_listings,
+        ),
+        (
+            "leg_bound_by_next",
+            REPORT_ENGLISH.leg_bound_by_next,
+            REPORT_CHINESE.leg_bound_by_next,
+        ),
+        (
+            "leg_single_listing",
+            REPORT_ENGLISH.leg_single_listing,
+            REPORT_CHINESE.leg_single_listing,
         ),
         ("stranded", REPORT_ENGLISH.stranded, REPORT_CHINESE.stranded),
         (

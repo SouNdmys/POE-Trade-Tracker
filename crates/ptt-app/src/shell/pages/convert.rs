@@ -14,7 +14,7 @@ use gpui_component::{
 };
 use ptt_runtime::domain::{MakerMode, MakerRecommendation, ProfitTier, RouteAccounting};
 use ptt_runtime::report_text;
-use ptt_runtime::reports::{ConvertModel, MakerModel};
+use ptt_runtime::reports::{ConvertModel, LegTakeCoverage, LegTakeVerdict, MakerModel};
 
 use crate::shell::AppShell;
 use crate::state::PageData;
@@ -368,7 +368,7 @@ impl AppShell {
         }
         for size in &model.sizes {
             routes = routes.child(match &size.accounting {
-                Some(accounting) => self.route_card(size.size, accounting, cx),
+                Some(accounting) => self.route_card(size.size, accounting, &size.legs, cx),
                 None => self.no_route_card(size.size, &model, cx),
             });
         }
@@ -477,6 +477,7 @@ impl AppShell {
         &self,
         size: u64,
         accounting: &RouteAccounting,
+        legs: &[LegTakeCoverage],
         _cx: &mut Context<Self>,
     ) -> gpui::Div {
         let text = self.text();
@@ -517,6 +518,15 @@ impl AppShell {
                         report_text::actionability(language, accounting.assessment.actionability),
                     )),
             );
+
+        // Every leg, against the listings it would have to take. Above the
+        // tiers because a rate nobody has enough of on the shelf is the first
+        // thing to know about it, and because the tiers say nothing about it:
+        // a leg that ran out of listings still reports a perfectly good price
+        // for the part that fit.
+        for leg in legs {
+            card = card.child(self.leg_row(leg, language));
+        }
 
         // The three tiers stay three rows: they answer different questions,
         // and collapsing them to the friendliest number is how a theoretical
@@ -568,6 +578,50 @@ impl AppShell {
             );
         }
         card
+    }
+
+    /// One leg, against the listings it would have to take right now.
+    ///
+    /// Colour is the coarse screen and the numbers are the signal, so the row
+    /// prints both and never only the chip. Amber means the fill sweeps most
+    /// of the book and walks into worse levels; red means the listings do not
+    /// cover the trip at all. Neither says anything about an order the reader
+    /// lists — that question is not answered on this page.
+    fn leg_row(&self, leg: &LegTakeCoverage, language: ptt_settings::UiLanguage) -> gpui::Div {
+        let kind = match leg.verdict {
+            LegTakeVerdict::Covered => StatusKind::Idle,
+            LegTakeVerdict::SweepsTheBook => StatusKind::Warning,
+            LegTakeVerdict::NotEnoughListed => StatusKind::Hit,
+            LegTakeVerdict::NoListings => StatusKind::Disabled,
+        };
+        let facts = report_text::leg_take_facts(
+            language,
+            &self.display_name(leg.from_asset_id.as_str()),
+            &self.display_name(leg.to_asset_id.as_str()),
+            leg,
+        );
+        let notes = report_text::leg_take_notes(language, leg)
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        div()
+            .flex()
+            .items_start()
+            .gap_2()
+            .py(px(3.))
+            .text_size(fs(FS_11_5))
+            .child(div().w(px(96.)).flex_none().text_color(c(TEXT_META)).child(
+                gpui::SharedString::from(self.text().convert_leg.to_string()),
+            ))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .font_family(FONT_MONO)
+                    .text_color(c(TEXT_PRIMARY))
+                    .child(gpui::SharedString::from(facts)),
+            )
+            .child(chips(kind, &notes, 3))
     }
 
     /// One profit tier: what went in, what came out, and how that compares.
