@@ -14,8 +14,7 @@ use ptt_market_book::{
 };
 use ptt_settings::{MarketTuning, UiLanguage};
 use ptt_strategy::{
-    BucketSize, MarkRateTable, MarketPolicy, ProfitTier, RiskThresholds, RouteAccountingRequest,
-    ValuationMode, ValuationRequest, ValuationStatus, anomalies, candles, derive_route_accounting,
+    BucketSize, MarketPolicy, ValuationMode, ValuationRequest, ValuationStatus, anomalies, candles,
     price_points, recommend_liquidity_anchors, summarize, value_against_anchor,
 };
 use ptt_trade_domain::{MarketAssetId, MarketEdgeObservation};
@@ -90,8 +89,6 @@ pub struct ConvertModel {
 #[derive(Clone, Debug)]
 pub struct SizeRoute {
     pub size: u64,
-    /// `None` when the search found no path at this size.
-    pub accounting: Option<Box<ptt_strategy::RouteAccounting>>,
     /// Every route worth putting in front of the reader at this size, in the
     /// order `compare_paths` ranked them. The direct trade is always here;
     /// see [`route_quotes`] for what the others had to clear to join it.
@@ -442,7 +439,6 @@ struct Market {
     notes: Vec<String>,
     units: AssetUnitCatalog,
     selected: Vec<EvaluatedQuoteEdge>,
-    mark_rates: MarkRateTable,
     /// Kept so coverage can reuse them. Building the book clones every
     /// observation in the window, so doing it twice for one page doubled the
     /// most expensive step on the UI thread.
@@ -503,28 +499,20 @@ fn build_market(
     let index = MarketDepthIndex::try_from_selection(&selection, units.clone())
         .map_err(|error| format!("index: {error}"))?;
 
-    let mut selected = Vec::new();
-    let mut mark_rates = MarkRateTable::new();
-    for entry in &selection.selections {
-        if let Some(edge) = &entry.selected_edge {
-            mark_rates.insert(
-                &edge.observation.edge.from_asset_id,
-                &edge.observation.edge.to_asset_id,
-                edge.observation.edge.rate.clone(),
-            );
-        }
-        // The selected edge is one of the candidates, so the candidates alone
-        // carry it — taking it separately double-counted every selected edge
-        // in valuations and price histories.
-        selected.extend(entry.candidate_edges.iter().cloned());
-    }
+    // The selected edge is one of the candidates, so the candidates alone
+    // carry it — taking it separately double-counted every selected edge in
+    // valuations and price histories.
+    let selected: Vec<_> = selection
+        .selections
+        .iter()
+        .flat_map(|entry| entry.candidate_edges.iter().cloned())
+        .collect();
 
     Ok(Market {
         index,
         notes: policy_note.into_iter().collect(),
         units,
         selected,
-        mark_rates,
         book,
         instant_selection: selection,
     })
@@ -1033,24 +1021,8 @@ fn quote_line(quote: &RouteQuote, size: u64, have: &MarketAssetId, language: UiL
     format!("{label:<28} {rate:>14}   {standing:<36} {projected:<18} {depth}")
 }
 
-/// One clearance tier: what a sweep down the book right now produces.
-///
-/// No comparison against direct on this line any more. These outputs are the
-/// blended average of walking several levels, and the direct baseline was
-/// its own blended average of a different number of levels — apples against
-/// oranges, and the number it produced moved with the size of the ask, which
-/// is precisely what the rate rows above exist to stop. The comparison lives
-/// there, on rates, where the ask cannot reach it.
-fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
-    let _ = language;
-    format!(
-        "{label:<12} {} in -> {} out",
-        tier.input.quanta, tier.output.quanta
-    )
-}
-
-/// "I hold X and want Y": the three profit tiers at a few sizes, plus what
-/// gets stranded and what it would have to clear at to break even.
+/// "I hold X and want Y": every rate the book can be routed at, and how much
+/// of the reader's asset the market absorbs at each.
 pub fn convert_report(
     observations: &[MarketEdgeObservation],
     context_key: &str,
@@ -1215,7 +1187,6 @@ pub fn convert_model(
         if candidates.is_empty() {
             routes.push(SizeRoute {
                 size,
-                accounting: None,
                 quotes: Vec::new(),
                 direct_is_the_only_one: false,
             });
@@ -1233,32 +1204,10 @@ pub fn convert_model(
         // reader is looking at, which is not always the one `compare_paths`
         // put first — that one may have been dropped for pricing worse than
         // direct.
-        // Accounting only exists for a route the reader's own ask can
-        // actually walk. A row enumerated from the catalogue is a rate they
-        // can list at, not a trip they can complete right now, and inventing
-        // a clearance block for it would put the catalogue's size on screen.
-        let walkable: std::collections::BTreeSet<&Vec<MarketAssetId>> = ranked_paths(&at_size)
-            .map(|path| &path.path_asset_ids)
-            .collect();
-        let accounting = priced
-            .first()
-            .filter(|(path, _)| walkable.contains(&path.path_asset_ids))
-            .map(|(path, _)| {
-                derive_route_accounting(RouteAccountingRequest {
-                    path,
-                    direct_path: direct,
-                    mark_rates: &market.mark_rates,
-                    thresholds: RiskThresholds::default(),
-                    needs_probe: false,
-                })
-            })
-            .transpose()
-            .map_err(|error| format!("accounting: {error}"))?;
         let quotes: Vec<RouteQuote> = priced.into_iter().map(|(_, quote)| quote).collect();
         routes.push(SizeRoute {
             size,
             direct_is_the_only_one: quotes.len() == 1 && quotes[0].is_direct,
-            accounting: accounting.map(Box::new),
             quotes,
         });
     }
@@ -1321,59 +1270,6 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
         if route.direct_is_the_only_one {
             lines.push(format!("     {}", text.no_route_beats_direct));
         }
-        // No clearance block for a size the ask cannot walk -- see the
-        // matching guard in the page's `route_card`.
-        let Some(accounting) = &route.accounting else {
-            continue;
-        };
-        lines.push(format!("     {}", text.sweep_average_note));
-        for (label, tier) in [
-            (text.tier_closed, &accounting.closed),
-            (text.tier_theoretical, &accounting.theoretical),
-            (text.tier_mark_to_market, &accounting.mark_to_market),
-        ] {
-            lines.push(format!("     {}", tier_line(label, tier, language)));
-        }
-        if accounting.recommended_input.quanta < accounting.requested_input.quanta {
-            lines.push(format!(
-                "     {}",
-                fill(
-                    text.size_down_to,
-                    &[
-                        &accounting.recommended_input.quanta.to_string(),
-                        have.as_str(),
-                    ],
-                )
-            ));
-        }
-        for residual in &accounting.residuals {
-            let break_even = residual.break_even_unit_price.as_ref().map_or_else(
-                || text.no_cost_basis.to_owned(),
-                |price| fill(text.break_even_at, &[&price.text]),
-            );
-            lines.push(format!(
-                "     {}",
-                fill(
-                    text.stranded,
-                    &[
-                        &residual.amount.quanta.to_string(),
-                        residual.asset_id.as_str(),
-                        &break_even,
-                    ],
-                )
-            ));
-        }
-        let verdict =
-            crate::report_text::actionability(language, accounting.assessment.actionability);
-        lines.push(format!(
-            "     {verdict}   {} {}",
-            risks_label(language),
-            crate::report_text::join(
-                language,
-                &accounting.assessment.blocking(),
-                crate::report_text::execution_risk
-            )
-        ));
     }
 
     if lines.is_empty() {
@@ -5180,6 +5076,50 @@ mod route_quote_tests {
             ],
             "best rate first, the baseline last"
         );
+    }
+
+    /// **The page has no opinion about the reader's inventory.**
+    ///
+    /// The clearance block priced a sweep of the whole holding: three
+    /// blended tiers, a "size down to N" instruction, the stranded remainder
+    /// and its break-even. Every one of them answers a question the market
+    /// will not hold still for -- the owner's ruling is that somebody can
+    /// add listings while you are converting and the trade goes through
+    /// anyway, so a number computed from one snapshot of depth times your
+    /// stack is a guess dressed as a forecast. It also crowded out the rate,
+    /// which is the only thing on this page that is actually stable.
+    ///
+    /// What survives is the single depth fact the ruling does ask for,
+    /// stated beside the rate it belongs to: how much the market absorbs at
+    /// this rate right now.
+    #[test]
+    fn the_page_prices_rates_and_says_nothing_about_clearing_your_stack() {
+        let mut observations = direct_book();
+        observations.extend(thin_but_better());
+        let lines = english_report(&observations, 5_000);
+
+        for gone in [
+            "closed",
+            "theoretical",
+            "mark-to-mkt",
+            "clearance price",
+            "size down to",
+            "stranded",
+            "break even at",
+            "no cost basis",
+        ] {
+            assert!(
+                !lines.contains(gone),
+                "the clearance block is gone; found {gone:?} in:
+{lines}"
+            );
+        }
+
+        assert!(
+            lines.contains("the front rows take 5 divine-orb at this rate"),
+            "the one depth fact stays: {lines}"
+        );
+        assert!(lines.contains("via bridge-orb"), "{lines}");
     }
 
     /// A detour that only *matches* direct still sorts below it. Direct is

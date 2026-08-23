@@ -36,14 +36,10 @@ use ptt_workflows::{FocusCoverageStatus, ProbePriority, ProbeReason, RadarItemKi
 /// report built by gluing translated pieces together produces a sentence that
 /// is grammatical in exactly one of them.
 pub struct ReportText {
-    pub tier_closed: &'static str,
-    pub tier_theoretical: &'static str,
-    pub tier_mark_to_market: &'static str,
     pub better_than_direct: &'static str,
     pub worse_than_direct: &'static str,
     pub level_with_direct: &'static str,
     pub no_direct_route: &'static str,
-    pub size_down_to: &'static str,
     /// One leg of a route against the listings it would have to take right
     /// now. Slots: from, to, listed, taken, share.
     ///
@@ -61,9 +57,6 @@ pub struct ReportText {
     pub leg_no_listings: &'static str,
     pub leg_bound_by_next: &'static str,
     pub leg_single_listing: &'static str,
-    pub stranded: &'static str,
-    pub no_cost_basis: &'static str,
-    pub break_even_at: &'static str,
     pub nothing_to_convert: &'static str,
     /// Both pickers on one currency. Not a failure — a question with no
     /// content, which the page has to say plainly so the reader knows to
@@ -124,7 +117,6 @@ pub struct ReportText {
     pub route_front_short: &'static str,
     pub route_no_front_price: &'static str,
     pub no_route_beats_direct: &'static str,
-    pub sweep_average_note: &'static str,
     pub valuation_two_sided: &'static str,
     pub valuation_one_sided: &'static str,
     pub anchor_recommendation: &'static str,
@@ -155,14 +147,10 @@ pub const fn report(language: UiLanguage) -> &'static ReportText {
 }
 
 pub static REPORT_ENGLISH: ReportText = ReportText {
-    tier_closed: "closed",
-    tier_theoretical: "theoretical",
-    tier_mark_to_market: "mark-to-mkt",
     better_than_direct: "+{} ({} better than direct)",
     worse_than_direct: "-{} ({} worse than direct)",
     level_with_direct: "level with direct",
     no_direct_route: "no direct route to compare",
-    size_down_to: "size down to {} {}: past that, depth runs out",
     leg_take: "{} -> {}   {} listed, this trip takes {}{}",
     leg_share: " ({}%)",
     leg_covered: "listings cover it",
@@ -171,9 +159,6 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     leg_no_listings: "nothing listed this way - no data, not a shortage",
     leg_bound_by_next: "the next leg is the tighter one",
     leg_single_listing: "one listing only",
-    stranded: "stranded {} {}   {}",
-    no_cost_basis: "no cost basis",
-    break_even_at: "break even at 1 : {}",
     route_direct_label: "direct",
     route_via: "via {}",
     route_baseline: "baseline",
@@ -181,7 +166,6 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     route_front_short: "your ask is larger than that",
     route_no_front_price: "no front price on one of the legs - rate not claimed",
     no_route_beats_direct: "no route beats going direct - direct is the best rate on this book",
-    sweep_average_note: "below: eating down the book right now, blended across levels - a clearance price, not a rate you can list",
     nothing_to_convert: "nothing to convert yet - capture a book first",
     same_currency: "have and want are the same currency - pick two different ones",
     focus_has_no_targets: "the focus list adds nothing to the settlement set - only the settlement currencies are being compared",
@@ -248,14 +232,10 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
 };
 
 pub static REPORT_CHINESE: ReportText = ReportText {
-    tier_closed: "已结算",
-    tier_theoretical: "理论",
-    tier_mark_to_market: "按市价",
     better_than_direct: "+{}（比直兑高 {}）",
     worse_than_direct: "-{}（比直兑低 {}）",
     level_with_direct: "与直兑持平",
     no_direct_route: "没有直兑路线可比",
-    size_down_to: "减到 {} {}：再多深度就不够了",
     leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
     leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",
@@ -264,9 +244,6 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     leg_no_listings: "这个方向没抓到挂单 — 是没数据，不是不够",
     leg_bound_by_next: "下一步更紧",
     leg_single_listing: "只有一个盘口",
-    stranded: "剩下 {} {}   {}",
-    no_cost_basis: "没有成本基准",
-    break_even_at: "保本价 1 : {}",
     route_direct_label: "直兑",
     route_via: "经 {}",
     route_baseline: "基准",
@@ -274,7 +251,6 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     route_front_short: "少于你要推的量",
     route_no_front_price: "其中一步没有首档报价 — 不给汇率结论",
     no_route_beats_direct: "没有比直兑更好的路线 — 直兑就是这本书上最优的汇率",
-    sweep_average_note: "下面是现在就吃穿多档的均价 — 清仓价，不是你能挂出去的汇率",
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
     same_currency: "拥有和想要是同一种通货 — 请选两种不同的",
     focus_has_no_targets: "关注列表没有在结算通货之外添加任何东西 — 现在只在结算通货之间比对",
@@ -589,7 +565,6 @@ pub fn leg_take_verdict(
 #[cfg(test)]
 fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
-        ("stranded", REPORT_ENGLISH.stranded, REPORT_CHINESE.stranded),
         ("staking", REPORT_ENGLISH.staking, REPORT_CHINESE.staking),
         ("unpriced", REPORT_ENGLISH.unpriced, REPORT_CHINESE.unpriced),
         ("risks", REPORT_ENGLISH.risks, REPORT_CHINESE.risks),
@@ -619,11 +594,6 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "no_route_beats_direct",
             REPORT_ENGLISH.no_route_beats_direct,
             REPORT_CHINESE.no_route_beats_direct,
-        ),
-        (
-            "sweep_average_note",
-            REPORT_ENGLISH.sweep_average_note,
-            REPORT_CHINESE.sweep_average_note,
         ),
         (
             "valuation_two_sided",
@@ -746,21 +716,6 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             REPORT_CHINESE.maker_excluded,
         ),
         (
-            "tier_closed",
-            REPORT_ENGLISH.tier_closed,
-            REPORT_CHINESE.tier_closed,
-        ),
-        (
-            "tier_theoretical",
-            REPORT_ENGLISH.tier_theoretical,
-            REPORT_CHINESE.tier_theoretical,
-        ),
-        (
-            "tier_mark_to_market",
-            REPORT_ENGLISH.tier_mark_to_market,
-            REPORT_CHINESE.tier_mark_to_market,
-        ),
-        (
             "better_than_direct",
             REPORT_ENGLISH.better_than_direct,
             REPORT_CHINESE.better_than_direct,
@@ -779,11 +734,6 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "no_direct_route",
             REPORT_ENGLISH.no_direct_route,
             REPORT_CHINESE.no_direct_route,
-        ),
-        (
-            "size_down_to",
-            REPORT_ENGLISH.size_down_to,
-            REPORT_CHINESE.size_down_to,
         ),
         ("leg_take", REPORT_ENGLISH.leg_take, REPORT_CHINESE.leg_take),
         (
@@ -815,17 +765,6 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "leg_single_listing",
             REPORT_ENGLISH.leg_single_listing,
             REPORT_CHINESE.leg_single_listing,
-        ),
-        ("stranded", REPORT_ENGLISH.stranded, REPORT_CHINESE.stranded),
-        (
-            "no_cost_basis",
-            REPORT_ENGLISH.no_cost_basis,
-            REPORT_CHINESE.no_cost_basis,
-        ),
-        (
-            "break_even_at",
-            REPORT_ENGLISH.break_even_at,
-            REPORT_CHINESE.break_even_at,
         ),
         (
             "nothing_to_convert",

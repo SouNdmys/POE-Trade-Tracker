@@ -12,7 +12,7 @@ use gpui_component::{
     input::{Input, InputState},
     select::{Select, SelectState},
 };
-use ptt_runtime::domain::{MakerMode, MakerRecommendation, ProfitTier, RouteAccounting};
+use ptt_runtime::domain::{MakerMode, MakerRecommendation};
 use ptt_runtime::report_text;
 use ptt_runtime::reports::{
     ConvertModel, LegTakeCoverage, LegTakeVerdict, MakerModel, RouteQuote, RouteRate, SizeRoute,
@@ -25,8 +25,6 @@ use crate::ui::{
     LedgerButton, StatusKind, button, chip, chips, empty_state, freshness_kind, kv_row, mono,
     panel, panel_header,
 };
-
-use super::opportunities::actionability_kind;
 
 /// One row of a currency picker: what the reader sees, and what is picked.
 ///
@@ -369,15 +367,10 @@ impl AppShell {
             ));
         }
         for size in &model.sizes {
-            routes = routes.child(match (size.quotes.is_empty(), &size.accounting) {
-                (false, accounting) => self.route_card(
-                    size,
-                    accounting.as_deref(),
-                    model.have.as_str(),
-                    model.need.as_str(),
-                    cx,
-                ),
-                (true, _) => self.no_route_card(size.size, &model, cx),
+            routes = routes.child(if size.quotes.is_empty() {
+                self.no_route_card(size.size, &model, cx)
+            } else {
+                self.route_card(size, model.have.as_str(), model.need.as_str(), cx)
             });
         }
 
@@ -484,12 +477,10 @@ impl AppShell {
     fn route_card(
         &self,
         route: &SizeRoute,
-        accounting: Option<&RouteAccounting>,
         have: &str,
         need: &str,
         _cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let text = self.text();
         let language = self.language();
         let report = report_text::report(language);
         let size = route.size;
@@ -513,16 +504,7 @@ impl AppShell {
                         mono(format!("{size} {}", self.display_name(have))).text_size(fs(FS_12_5)),
                     )
                     .child(mono(pair).text_size(fs(FS_11_5)).text_color(c(TEXT_META)))
-                    .child(div().flex_grow())
-                    .children(accounting.map(|accounting| {
-                        chip(
-                            actionability_kind(accounting.assessment.actionability),
-                            report_text::actionability(
-                                language,
-                                accounting.assessment.actionability,
-                            ),
-                        )
-                    })),
+                    .child(div().flex_grow()),
             );
 
         // Every route worth showing, rate first, each with its legs against
@@ -545,72 +527,6 @@ impl AppShell {
             );
         }
 
-        // The three tiers stay three rows: they answer different questions,
-        // and collapsing them to the friendliest number is how a theoretical
-        // profit gets traded. All three are blended averages of a sweep, so
-        // they carry a heading that says so — they are a clearance price, not
-        // a rate anyone can list at, and they no longer carry a comparison
-        // against direct because that comparison moved with the size of the
-        // ask.
-        // No clearance block for a size the ask cannot walk: the rows above
-        // are rates the reader can list at, and a sweep price for a trip
-        // that does not complete would be a number about nothing.
-        let Some(accounting) = accounting else {
-            return card;
-        };
-        card = card.child(
-            div()
-                .pt_1()
-                .text_size(fs(FS_10_5))
-                .text_color(c(TEXT_META))
-                .child(report.sweep_average_note.to_owned()),
-        );
-        for (label, tier) in [
-            (report.tier_closed, &accounting.closed),
-            (report.tier_theoretical, &accounting.theoretical),
-            (report.tier_mark_to_market, &accounting.mark_to_market),
-        ] {
-            card = card.child(self.tier_row(label, tier));
-        }
-
-        if accounting.recommended_input.quanta < accounting.requested_input.quanta {
-            card = card.child(kv_row(
-                text.convert_size_down,
-                &report_text::fill(
-                    report.size_down_to,
-                    &[
-                        &accounting.recommended_input.quanta.to_string(),
-                        &self.display_name(accounting.requested_input.asset_id.as_str()),
-                    ],
-                ),
-            ));
-        }
-        for residual in &accounting.residuals {
-            let break_even = residual.break_even_unit_price.as_ref().map_or_else(
-                || report.no_cost_basis.to_owned(),
-                |price| report_text::fill(report.break_even_at, &[&price.text]),
-            );
-            card = card.child(kv_row(
-                text.convert_stranded,
-                &format!(
-                    "{} {}   {break_even}",
-                    residual.amount.quanta, residual.asset_id
-                ),
-            ));
-        }
-        let blocking = accounting.assessment.blocking();
-        if !blocking.is_empty() {
-            card = card.child(
-                div().pt_1().child(chips(
-                    StatusKind::Warning,
-                    &blocking
-                        .iter()
-                        .map(|risk| report_text::execution_risk(language, *risk).to_owned())
-                        .collect::<Vec<_>>(),
-                    4,
-                )),
-            );
-        }
         card
     }
 
@@ -752,24 +668,6 @@ impl AppShell {
                     .child(gpui::SharedString::from(facts)),
             )
             .child(chips(kind, &notes, 3))
-    }
-
-    /// One profit tier: what went in and what came out. Nothing else.
-    fn tier_row(&self, label: &str, tier: &ProfitTier) -> gpui::Div {
-        let texts = tier_row_texts(label, tier);
-        div()
-            .h_flex()
-            .items_center()
-            .gap_2()
-            .text_size(fs(FS_11_5))
-            .child(
-                div()
-                    .w(px(96.))
-                    .flex_none()
-                    .text_color(c(TEXT_META))
-                    .child(texts[0].clone()),
-            )
-            .child(mono(texts[1].clone()).text_color(c(TEXT_PRIMARY)))
     }
 
     /// A size the search could not route, and the probe that would fix it.
@@ -1060,63 +958,5 @@ mod tests {
     #[test]
     fn a_query_naming_nothing_matches_nothing() {
         assert!(AssetList::filter(&choices(), "zzzznotacurrency").is_empty());
-    }
-}
-
-/// The strings one clearance tier prints, in row order.
-///
-/// No comparison against direct here — the text report's `tier_line` dropped
-/// it for a reason this page inherits: these outputs are the blended average
-/// of sweeping several levels, direct's was a different blend, and the
-/// difference moved with the size of the ask. The comparison lives on the
-/// rate rows above, where the ask cannot reach it. Split from the row so a
-/// test can read what the row says without a window.
-fn tier_row_texts(label: &str, tier: &ProfitTier) -> Vec<String> {
-    vec![
-        label.to_owned(),
-        format!("{} → {}", tier.input.quanta, tier.output.quanta),
-    ]
-}
-
-#[cfg(test)]
-mod clearance_tier_tests {
-    use super::*;
-    use ptt_runtime::domain::{AssetAmount, AssetUnit, ComparisonDirection};
-    use ptt_trade_domain::MarketAssetId;
-
-    fn amount(quanta: u64) -> AssetAmount {
-        AssetAmount {
-            asset_id: MarketAssetId::try_new("chaos-orb").expect("asset id"),
-            quanta,
-            unit: AssetUnit {
-                numerator: 1,
-                denominator: 1,
-            },
-        }
-    }
-
-    /// A clearance tier that swept the book at a loss against direct.
-    fn losing_tier() -> ProfitTier {
-        ProfitTier {
-            input: amount(500_000_000),
-            output: amount(46_728_977),
-            baseline_output: Some(amount(46_768_040)),
-            direction: Some(ComparisonDirection::Worse),
-            delta: Some(amount(39_063)),
-            basis_points: Some(-8),
-        }
-    }
-
-    /// The three clearance rows are labelled "not a rate you can list at",
-    /// so a loss against direct printed beside them is a negative number the
-    /// page already promised not to show. Numbers in, numbers out — the
-    /// comparison lives on the rate rows above, where the ask cannot move it.
-    #[test]
-    fn a_clearance_tier_never_compares_itself_against_direct() {
-        assert_eq!(
-            tier_row_texts("按市价", &losing_tier()),
-            vec!["按市价".to_owned(), "500000000 → 46728977".to_owned()],
-            "a clearance row is the label and the numbers, nothing else"
-        );
     }
 }
