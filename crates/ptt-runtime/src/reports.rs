@@ -681,9 +681,17 @@ fn route_leg_coverage(
                 to_asset_id: to.clone(),
                 taking,
                 listed: (listed > 0).then_some(listed),
-                share_percent: (listed > 0).then(|| {
-                    u64::try_from(u128::from(taking) * 100 / u128::from(listed)).unwrap_or(u64::MAX)
-                }),
+                // Floored, so anything under one percent reads "0%" beside a
+                // five-figure amount and looks like a broken number rather
+                // than a small one. Under one percent the share says nothing
+                // the two amounts do not already say, so it is left off for
+                // the same reason it is left off above the whole book.
+                share_percent: (listed > 0)
+                    .then(|| {
+                        u64::try_from(u128::from(taking) * 100 / u128::from(listed))
+                            .unwrap_or(u64::MAX)
+                    })
+                    .filter(|share| *share > 0),
                 verdict: leg_take_verdict(taking, listed, front, sweep_percent),
                 bound_by_next_leg: false,
                 single_listing: rows == 1,
@@ -968,9 +976,15 @@ fn route_quotes<'a>(
             (None, Some(_)) => std::cmp::Ordering::Greater,
             (None, None) => std::cmp::Ordering::Equal,
         }
-        // Equal rates: the shorter route wins -- a detour that only matches
-        // direct is not worth its extra book -- and asset ids settle the rest
-        // so the order never depends on how the candidates arrived.
+        // Equal rates: direct sinks to the floor regardless. It is the row
+        // every other row is measured against, and a baseline sitting in the
+        // middle of the list is the symptom this sort exists to remove --
+        // ordering ties by step count put a one-step direct back on top of
+        // every route that merely matched it. Among the rest the shorter
+        // route wins, since a detour earning zero basis points has not paid
+        // for its extra book, and asset ids settle what is left so the order
+        // never depends on how the candidates arrived.
+        .then_with(|| left.is_direct.cmp(&right.is_direct))
         .then_with(|| left_path.steps.len().cmp(&right_path.steps.len()))
         .then_with(|| left_path.path_asset_ids.cmp(&right_path.path_asset_ids))
     });
@@ -4722,6 +4736,27 @@ mod leg_coverage_tests {
         );
     }
 
+    /// Under one percent the share is left off for the same reason it is
+    /// left off above the whole book: it says nothing the two amounts do not
+    /// already say, and floored to "0%" beside a five-figure take it reads
+    /// as a broken number rather than a small one. The owner's card showed
+    /// "市面挂着 566708, 这一趟要吃掉 5275（0%）" -- 5,275 is not zero
+    /// percent of anything, it is 0.93%.
+    #[test]
+    fn a_share_under_one_percent_is_not_printed_as_zero() {
+        let observations = panel("big", "chaos-orb", "omen-orb", &[((1, 1), 1_000_000)], &[]);
+        let legs = legs_of(&observations, "chaos-orb", "omen-orb", 5_275);
+        assert_eq!(legs[0].listed, Some(1_000_000), "{legs:?}");
+        assert_eq!(legs[0].taking, 5_275, "{legs:?}");
+        assert_eq!(
+            legs[0].share_percent, None,
+            "under one percent says nothing the amounts do not: {legs:?}"
+        );
+        let facts = crate::report_text::leg_take_facts(UiLanguage::Chinese, "a", "b", &legs[0]);
+        assert!(!facts.contains("0%"), "{facts}");
+        assert!(facts.contains("5275"), "{facts}");
+    }
+
     /// Past everything listed, the share is the verdict said again as noise:
     /// "takes 159 (132%)" repeats "more than everything listed", and at a
     /// large ask the repeat inflates into numbers like 1796364% that bury
@@ -5144,6 +5179,46 @@ mod route_quote_tests {
                 "divine-orb>chaos-orb".to_owned(),
             ],
             "best rate first, the baseline last"
+        );
+    }
+
+    /// A detour that only *matches* direct still sorts below it. Direct is
+    /// the floor of this list and the row every other row is measured
+    /// against, so a route that adds two books' worth of risk for zero
+    /// basis points has not earned a place above it -- and the tie-break
+    /// that used to decide this was step count ascending, which handed a
+    /// one-step direct the win and put the baseline back in the middle of
+    /// the list, the exact symptom the rate sort was written to remove.
+    #[test]
+    fn a_route_that_only_ties_direct_sorts_below_the_baseline() {
+        let mut observations = direct_book();
+        // 1:2 then 5.4:1 composes to exactly 10.8, the direct front rate.
+        observations.extend(panel("dm", "divine-orb", "mirror-orb", &[((1, 2), 10_000)]));
+        observations.extend(panel(
+            "mc",
+            "mirror-orb",
+            "chaos-orb",
+            &[((108, 5), 1_000_000)],
+        ));
+
+        let quotes = quotes_at(&observations, 500);
+        let tie = quotes
+            .iter()
+            .position(|quote| {
+                quote
+                    .route_asset_ids
+                    .iter()
+                    .any(|id| id.as_str() == "mirror-orb")
+            })
+            .expect("the tying route is shown, not hidden");
+        let direct = quotes
+            .iter()
+            .position(|quote| quote.is_direct)
+            .expect("direct is always shown");
+        assert_eq!(quotes[tie].versus_direct_bps, Some(0), "{quotes:?}");
+        assert!(
+            direct > tie,
+            "direct is the floor and sorts last even against a tie: {quotes:?}"
         );
     }
 
