@@ -6,7 +6,7 @@
 //! with no path — and only the reason separates "go capture this" from "you
 //! asked to trade below one whole unit".
 
-use chrono::{TimeZone, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use ptt_market_book::{
     CostVerification, EvaluatedQuoteEdge, FreshnessAssessment, FreshnessStatus,
     PolicyCalibrationStatus, QuoteSelectionPolicy, QuoteSelectionResult, QuoteSelectionStrategy,
@@ -20,7 +20,7 @@ use ptt_trade_domain::{
 use ptt_trade_engine::{AssetAmount, AssetUnit, AssetUnitCatalog, FeePolicy, SearchCancellation};
 use ptt_workflows::{
     FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, ProbePriority, ProbeReason,
-    RadarBudget, RadarRequest, RadarStart, run_opportunity_radar,
+    RadarBudget, RadarItemKind, RadarRequest, RadarStart, run_opportunity_radar,
 };
 
 fn asset(value: &str) -> MarketAssetId {
@@ -311,5 +311,221 @@ fn radar_probes_rank_confirmation_above_missing_data() {
         graded.get("mirror"),
         Some(&(ProbeReason::MissingForwardQuote, ProbePriority::Low)),
         "an unpriced pair is exploratory, and must leave the boost room to raise it"
+    );
+}
+
+/// One taker level of the loop fixture, stamped `age_seconds` ago.
+///
+/// Separate from `taker_edge` because that one pins an absolute date, and
+/// what these tests vary is how old the capture is *now* — the radar reads
+/// the leg's age against the policy's fresh window, not against a calendar.
+fn aged_taker_edge(
+    from: &str,
+    to: &str,
+    rate: &str,
+    stock: u64,
+    age_seconds: i64,
+    status: FreshnessStatus,
+) -> EvaluatedQuoteEdge {
+    let captured_at = Utc::now() - Duration::seconds(age_seconds);
+    EvaluatedQuoteEdge {
+        observation: MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: format!("edge-{from}-{to}"),
+                snapshot_id: format!("snapshot-{from}-{to}"),
+                quote_id: format!("quote-{from}-{to}"),
+                context_key: "context".to_owned(),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                rate: Ratio::parse(rate).expect("rate"),
+                source_side: QuoteSide::Available,
+                execution_type: ExecutionType::Taker,
+                role: QuoteEdgeRole::AvailableTaker,
+                stock,
+                original_need_asset_id: asset(to),
+                original_have_asset_id: asset(from),
+                original_row_index: 0,
+                comparator: Comparator::Exact,
+                user_edited: true,
+                machine_confidence_ppm: None,
+                captured_at,
+                confirmed_at: captured_at,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        },
+        freshness: FreshnessAssessment {
+            status,
+            age_seconds: u64::try_from(age_seconds).expect("age"),
+            future_timestamp: false,
+        },
+        effective_confidence_ppm: 1_000_000,
+        risk_flags: Vec::new(),
+        selection_rejections: Vec::new(),
+        execution_blockers: Vec::new(),
+        accepted_for_selection: true,
+        eligible_for_depth_analysis: true,
+    }
+}
+
+/// A book holding one profitable closed loop, every quote the same age.
+///
+/// `product_execution_allowed` is left at the shipped default (`false`), so
+/// every triangle this book produces comes back `execution_eligible == false`
+/// — the live condition, not a contrived one.
+fn loop_selection(age_seconds: i64, status: FreshnessStatus) -> QuoteSelectionResult {
+    let strategy = QuoteSelectionStrategy::Instant;
+    let mut policy = QuoteSelectionPolicy::personal_default(strategy).expect("policy");
+    policy.identity.policy_id = "test_loop_policy".to_owned();
+    policy.identity.source = "test-only calibrated fixture".to_owned();
+    policy.identity.calibration_status = PolicyCalibrationStatus::Verified;
+    policy.cost_verification = CostVerification {
+        fee_verified: true,
+        minimum_lots_verified: true,
+    };
+    policy.validate().expect("test policy");
+    // chaos -> divine -> exalt -> chaos returns 1.2x: 100 chaos buys 10
+    // divine, which buys 80 exalt, which buys 120 chaos.
+    let legs = [
+        ("chaos", "divine", "1:10", 200_u64),
+        ("divine", "exalt", "8:1", 4_000_u64),
+        ("exalt", "chaos", "3:2", 9_000_u64),
+    ];
+    let selections = legs
+        .iter()
+        .map(|(from, to, rate, stock)| {
+            let candidate = aged_taker_edge(from, to, rate, *stock, age_seconds, status);
+            SelectedQuoteEdge {
+                pair_key: format!("{from}->{to}"),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                strategy,
+                selected_edge: Some(candidate.clone()),
+                candidate_edges: vec![candidate],
+                rejections: Vec::new(),
+                execution_eligible: true,
+                needs_probe: false,
+            }
+        })
+        .collect();
+    QuoteSelectionResult {
+        context_key: "context".to_owned(),
+        policy,
+        selections,
+    }
+}
+
+/// chaos anchors, divine is the target, exalt is the bridge that closes the
+/// loop.
+fn loop_scope() -> FocusScope {
+    FocusScope::try_new(
+        &[
+            FocusGroupItem {
+                asset_id: asset("chaos"),
+                role: FocusRole::Anchor,
+            },
+            FocusGroupItem {
+                asset_id: asset("divine"),
+                role: FocusRole::Target,
+            },
+            FocusGroupItem {
+                asset_id: asset("exalt"),
+                role: FocusRole::Bridge,
+            },
+        ],
+        FocusScopePolicy::default(),
+    )
+    .expect("scope")
+}
+
+/// A loop whose every leg is fresh has nothing left to confirm.
+///
+/// `execution_eligible` is hard-wired off for products, so it is false for
+/// every triangle ever found — asking to re-capture each leg of every
+/// profitable loop is a constant, and a constant is noise. It filled the four
+/// probe slots on the page and pushed the pairs the user has genuinely never
+/// captured off the bottom.
+#[test]
+fn a_fully_fresh_profitable_loop_is_not_filed_for_confirmation() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    let selection = loop_selection(60, FreshnessStatus::Fresh);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 100, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    assert!(
+        result
+            .items
+            .iter()
+            .any(|item| item.kind == RadarItemKind::Loop),
+        "the fixture has to actually produce the profitable loop, or the \
+         assertion below passes for the wrong reason"
+    );
+    let confirmations: Vec<String> = result
+        .probe_candidates
+        .iter()
+        .filter(|candidate| candidate.reason == ProbeReason::OpportunityConfirmation)
+        .map(|candidate| {
+            format!(
+                "{}->{}",
+                candidate.from_asset_id.as_str(),
+                candidate.to_asset_id.as_str()
+            )
+        })
+        .collect();
+    assert!(
+        confirmations.is_empty(),
+        "every leg was captured a minute ago; there is nothing to re-confirm, \
+         but the radar asked for {confirmations:?}"
+    );
+}
+
+/// The same loop on half-hour-old quotes still asks.
+///
+/// The guard above must not turn the suggestion off wholesale: when a leg has
+/// aged out of the fresh window the loop really is theory, and one capture is
+/// what turns it back into a price.
+#[test]
+fn a_stale_legged_profitable_loop_is_still_filed_for_confirmation() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    // Thirty minutes: past the ten-minute fresh window, inside the hour-long
+    // usable one, so the legs still price the walk.
+    let selection = loop_selection(30 * 60, FreshnessStatus::Usable);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 100, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    let confirmations: Vec<String> = result
+        .probe_candidates
+        .iter()
+        .filter(|candidate| candidate.reason == ProbeReason::OpportunityConfirmation)
+        .map(|candidate| {
+            format!(
+                "{}->{}",
+                candidate.from_asset_id.as_str(),
+                candidate.to_asset_id.as_str()
+            )
+        })
+        .collect();
+    assert_eq!(
+        confirmations,
+        vec!["chaos->divine", "divine->exalt", "exalt->chaos"],
+        "each aged leg of the loop is worth one capture"
     );
 }

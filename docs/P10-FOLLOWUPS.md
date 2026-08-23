@@ -233,7 +233,7 @@ UI 问题里唯一能用普通 cargo test 钉住的。
 压缩一起定（~1090）。必须加迟滞（只增不减、变化 >24px 才动），否则表格每次扫描
 抖动，比截断更烦。宽度计算可用普通测试钉。
 
-## 16. 确认探针是恒定噪音，挤掉了有用建议（已定因 2026-08-23，方案 A 待拍板）
+## 16. 确认探针是恒定噪音，挤掉了有用建议（已修 2026-08-23）
 
 实机那四条"确认一个机会"全部来自三角腿分支（`radar.rs:491-512`），不是部分成交
 分支（本次扫描 29+6+1=36 全对上，confirm_conversion_probe 一条没推）。根因：
@@ -245,6 +245,23 @@ UI 问题里唯一能用普通 cargo test 钉住的。
 方案 A（倾向）：三角所有腿都在 fresh 窗口内就不推（capture_time_evidence 已存在，
 不用改签名），先写红测试（全 Fresh 盈利闭环 → probe_candidates 为空）。备选 A'：
 take(4) 前按 reason 保槽。只改文案（B）不解决挤占，不单独用。
+
+**已修（方案 A）**：腿探针的条件由 `!execution_eligible` 收紧成
+`!execution_eligible && !legs_all_fresh(...)`。新私有函数 `legs_all_fresh`
+（`crates/ptt-workflows/src/radar.rs`）读 `triangle.capture_time_evidence` 里
+**最早**那一腿的抓取时间，按 `selection.policy.freshness` 分档，只有落在 Fresh 才
+算全新鲜——保守方向是"最旧的腿都新鲜才算数"，没有抓取时间戳的一律不算新鲜（无戳
+的走线正是一次抓取能了结的情形）。`run_opportunity_radar` 的签名没动；`now` 在三角
+循环前取一次 `Utc::now()`，同一批里共享一条腿的两个闭环不会对"这腿还新不新鲜"给出
+两个答案。硬编码的 `product_execution_allowed` 没动，它仍恒为 false——这条修的是
+"推不推探针"，不是"能不能执行"。§5 的雷达排序与 2026-08-23 的探针分级都没碰。
+
+回归测试在 `crates/ptt-workflows/tests/radar.rs`：
+`a_fully_fresh_profitable_loop_is_not_filed_for_confirmation`（改前红，三条腿全被
+推），对照 `a_stale_legged_profitable_loop_is_still_filed_for_confirmation`（腿龄
+30 分钟，探针照推，证明不是把功能整个关掉）。两条共用新 fixture `loop_selection`，
+它把 `product_execution_allowed` 留在出厂的 false，复现的就是实机那个恒 false 的
+条件。
 
 ## 17. 估值恒定取两侧最薄档（真 bug 2026-08-23，未修）
 

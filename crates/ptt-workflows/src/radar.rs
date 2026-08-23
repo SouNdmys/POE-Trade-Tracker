@@ -1,7 +1,11 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
-use ptt_market_book::{QuoteSelectionPolicy, QuoteSelectionResult, QuoteSelectionStrategy};
+use chrono::{DateTime, Utc};
+use ptt_market_book::{
+    FreshnessPolicy, FreshnessStatus, QuoteSelectionPolicy, QuoteSelectionResult,
+    QuoteSelectionStrategy,
+};
 use ptt_strategy::{Actionability, ExecutionRisk, RiskThresholds, assess_path, assess_triangle};
 use ptt_trade_domain::MarketAssetId;
 use ptt_trade_engine::{
@@ -488,8 +492,20 @@ pub fn run_opportunity_radar(
             }
         }
     }
+    // One clock for the whole batch, so two loops sharing a leg cannot
+    // disagree about whether that leg is still fresh.
+    let now = Utc::now();
     for triangle in best_by_cycle.into_values() {
-        if !triangle.execution_eligible {
+        // `execution_eligible` is off for every product cycle by
+        // construction — `product_execution_allowed` is a constant, not a
+        // setting — so asking on that alone asked about every profitable loop
+        // on every scan. A suggestion that never changes is noise, and this
+        // one was spending the page's four probe slots on pairs already
+        // priced and on file. Ask only once the prices behind the loop have
+        // aged out of the fresh window.
+        if !triangle.execution_eligible
+            && !legs_all_fresh(&triangle, selection.policy.freshness, now)
+        {
             for step in &triangle.steps {
                 probe_candidates.push(ProbeCandidate {
                     from_asset_id: step.from_asset_id.clone(),
@@ -617,6 +633,25 @@ fn validate_request(
         }
     }
     Ok(())
+}
+
+/// Whether every leg of a cycle was captured inside the policy's fresh
+/// window.
+///
+/// Read off the oldest leg, because a loop is only as current as its stalest
+/// price. A cycle with no capture stamps at all counts as not fresh — an
+/// unstamped walk is precisely the case a capture would settle.
+fn legs_all_fresh(
+    triangle: &TriangleEvaluation,
+    freshness: FreshnessPolicy,
+    now: DateTime<Utc>,
+) -> bool {
+    triangle.capture_time_evidence.is_some_and(|evidence| {
+        freshness
+            .classify(evidence.earliest_captured_at, now)
+            .status
+            == FreshnessStatus::Fresh
+    })
 }
 
 fn restrict_selection(
