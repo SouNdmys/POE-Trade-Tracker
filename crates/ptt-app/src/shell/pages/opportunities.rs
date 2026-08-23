@@ -63,7 +63,7 @@ pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, u32) {
         || (report_text::report(language).unpriced.to_owned(), TEXT_META),
         |points| {
             (
-                format!("{}.{:02}%", points / 100, (points % 100).abs()),
+                report_text::percent_from_basis_points(points),
                 if points >= 0 { ACCENT_TEXT } else { DANGER },
             )
         },
@@ -391,11 +391,10 @@ impl AppShell {
                     &scan.diagnostics.missing_conversion_count.to_string(),
                     &scan.diagnostics.triangle_evaluation_count.to_string(),
                     &scan.diagnostics.profitable_loop_count.to_string(),
-                    &self
-                        .settings_tuning()
-                        .radar
-                        .minimum_profit_basis_points
-                        .to_string(),
+                    &report_text::percent_from_basis_points(
+                        i64::try_from(self.settings_tuning().radar.minimum_profit_basis_points)
+                            .unwrap_or(i64::MAX),
+                    ),
                 ],
             ))
             .text_size(fs(FS_11_5))

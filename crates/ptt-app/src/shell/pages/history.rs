@@ -96,10 +96,16 @@ impl AppShell {
                 ),
             ));
         if let Some(range) = summary.range_basis_points {
-            facts = facts.child(kv_row(text.history_range, &format!("{range}bp")));
+            facts = facts.child(kv_row(
+                text.history_range,
+                &report_text::percent_from_basis_points(range),
+            ));
         }
         if let Some(spread) = summary.spread_basis_points {
-            facts = facts.child(kv_row(text.history_spread, &format!("{spread}bp")));
+            facts = facts.child(kv_row(
+                text.history_spread,
+                &report_text::percent_from_basis_points(spread),
+            ));
         }
         // How much of the series is worth acting on, rather than just how
         // much of it there is.
@@ -152,9 +158,9 @@ impl AppShell {
                         mono(format!(
                             "{}{}",
                             report_text::anomaly_severity(language, anomaly.severity),
-                            anomaly
-                                .basis_points
-                                .map_or_else(String::new, |points| format!("  {points}bp"))
+                            anomaly.basis_points.map_or_else(String::new, |points| {
+                                format!("  {}", report_text::percent_from_basis_points(points))
+                            })
                         ))
                         .text_size(fs(FS_10_5))
                         .text_color(c(TEXT_META)),

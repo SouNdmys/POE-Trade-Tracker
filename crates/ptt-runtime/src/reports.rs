@@ -389,16 +389,16 @@ fn build_market(
 }
 
 fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
-    use crate::report_text::fill;
+    use crate::report_text::{fill, percent_from_basis_points};
     let text = crate::report_text::report(language);
     let profit = match (tier.direction, &tier.delta, tier.basis_points) {
         (Some(ComparisonDirection::Improved), Some(delta), Some(bps)) => fill(
             text.better_than_direct,
-            &[&delta.quanta.to_string(), &bps.to_string()],
+            &[&delta.quanta.to_string(), &percent_from_basis_points(bps)],
         ),
         (Some(ComparisonDirection::Worse), Some(delta), Some(bps)) => fill(
             text.worse_than_direct,
-            &[&delta.quanta.to_string(), &bps.to_string()],
+            &[&delta.quanta.to_string(), &percent_from_basis_points(bps)],
         ),
         (Some(ComparisonDirection::Equal), _, _) => text.level_with_direct.to_owned(),
         // No direct route observed: showing the route is useful, calling it
@@ -740,7 +740,7 @@ fn render_maker(
                     &[
                         &delta.quanta.to_string(),
                         need.as_str(),
-                        &points.to_string(),
+                        &crate::report_text::percent_from_basis_points(points),
                     ],
                 )),
                 _ => None,
@@ -783,7 +783,10 @@ fn render_maker(
     if let Some(spread) = strategy.spread_basis_points {
         lines.push(format!(
             "     {}",
-            fill(text.maker_spread, &[&spread.to_string()])
+            fill(
+                text.maker_spread,
+                &[&crate::report_text::percent_from_basis_points(spread)]
+            )
         ));
     }
     if let (Some(depth), Some(cap)) = (
@@ -1468,7 +1471,7 @@ fn radar_item_lines(
         .join(" -> ");
     let edge = item.value_basis_points.map_or_else(
         || text.unpriced.to_owned(),
-        |points| format!("{}.{:02}%", points / 100, (points % 100).abs()),
+        crate::report_text::percent_from_basis_points,
     );
     let category = crate::report_text::actionability(language, item.category);
     let light = freshness.map_or(String::new(), |status| {
@@ -1717,7 +1720,10 @@ fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
         ));
     }
     if let Some(spread) = summary.spread_basis_points {
-        lines.push(fill(text.maker_over_taker, &[&spread.to_string()]));
+        lines.push(fill(
+            text.maker_over_taker,
+            &[&crate::report_text::percent_from_basis_points(spread)],
+        ));
     }
     if summary.historical_only {
         lines.push(text.nothing_current.to_owned());
@@ -1749,9 +1755,9 @@ fn render_history(model: &HistoryModel, language: UiLanguage) -> Vec<String> {
             "{} ({}){}",
             crate::report_text::price_anomaly_kind(language, anomaly.kind),
             crate::report_text::anomaly_severity(language, anomaly.severity),
-            anomaly
-                .basis_points
-                .map_or_else(String::new, |bps| format!(" {bps}bp")),
+            anomaly.basis_points.map_or_else(String::new, |bps| {
+                format!(" {}", crate::report_text::percent_from_basis_points(bps))
+            }),
         ));
     }
     lines
@@ -2289,7 +2295,9 @@ fn analytics_thresholds_from(tuning: &MarketTuning) -> Option<ptt_strategy::Anal
 /// the parity reference for the page.
 #[must_use]
 pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> Vec<String> {
-    use crate::report_text::{anchor_drift, fill, liquidity_class, trend_verdict};
+    use crate::report_text::{
+        anchor_drift, fill, liquidity_class, percent_from_basis_points, trend_verdict,
+    };
     let text = crate::report_text::report(language);
     let mut lines = model.notes.clone();
     if let Some(season) = &model.season {
@@ -2316,7 +2324,7 @@ pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> V
         ));
         let median = health
             .market_median_move_bps
-            .map_or_else(|| "-".to_owned(), |bps| bps.to_string());
+            .map_or_else(|| "-".to_owned(), percent_from_basis_points);
         lines.push(fill(
             text.analytics_breadth_line,
             &[
@@ -2329,7 +2337,7 @@ pub fn analytics_report_lines(model: &AnalyticsModel, language: UiLanguage) -> V
         for cross in &health.crosses {
             let drift = cross
                 .drift_bps
-                .map_or_else(|| "-".to_owned(), |bps| bps.to_string());
+                .map_or_else(|| "-".to_owned(), percent_from_basis_points);
             lines.push(fill(
                 text.analytics_cross_line,
                 &[cross.asset_id.as_str(), &cross.latest_rate.text, &drift],

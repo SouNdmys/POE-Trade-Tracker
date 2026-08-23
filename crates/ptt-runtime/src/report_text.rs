@@ -133,8 +133,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     tier_closed: "closed",
     tier_theoretical: "theoretical",
     tier_mark_to_market: "mark-to-mkt",
-    better_than_direct: "+{} ({}bp vs direct)",
-    worse_than_direct: "-{} ({}bp vs direct)",
+    better_than_direct: "+{} ({} vs direct)",
+    worse_than_direct: "-{} ({} vs direct)",
     level_with_direct: "level with direct",
     no_direct_route: "no direct route to compare",
     size_down_to: "size down to {} {}: past that, depth runs out",
@@ -144,7 +144,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     nothing_to_convert: "nothing to convert yet - capture a book first",
     same_currency: "have and want are the same currency - pick two different ones",
     focus_has_no_targets: "the focus list adds nothing to the settlement set - only the settlement currencies are being compared",
-    scan_accounting: "scanned {} conversions ({} priced, {} too small to trade, {} unpriceable) and {} loops, of which {} pay - profit floor {}bp",
+    scan_accounting: "scanned {} conversions ({} priced, {} too small to trade, {} unpriceable) and {} loops, of which {} pay - profit floor {}",
     core_liquidity: "core liquidity: {}",
     no_price_capture: "no price - capture this pair",
     coverage_unavailable: "coverage unavailable: {}",
@@ -163,7 +163,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     nothing_to_probe: "nothing to probe - the book is current",
     no_history_yet: "no history yet for {} -> {}",
     median_low_high: "median {}   low {}   high {}",
-    maker_over_taker: "maker over taker: {}bp",
+    maker_over_taker: "maker over taker: {}",
     listings_note: "  (listings)",
     nothing_current: "nothing current - this is history, not a price",
     radar_probe_header: "to firm these up, go flip:",
@@ -179,9 +179,9 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_undercut: "undercut, list at {}",
     maker_match: "match the front, list at {} - queues behind it",
     maker_greedy: "greedy, list at {} - bets on drift",
-    maker_improvement: "+{} {} vs taking ({}bp)",
+    maker_improvement: "+{} {} vs taking ({})",
     maker_not_worth: "no better than taking - trade instead",
-    maker_spread: "front over instant: {}bp",
+    maker_spread: "front over instant: {}",
     maker_depth: "visible depth {} {}, max single order {} {}",
     maker_excluded: "excluded listing at {} (stock {}): {}",
     no_route_for_pair: "{} -> {}: no route yet",
@@ -199,8 +199,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     analytics_season_line: "season {} - since {}",
     analytics_as_of: "data through {} - {} day(s)",
     analytics_anchor_line: "anchor {}: {}",
-    analytics_breadth_line: "breadth: {} up / {} down / {} flat - market median {}bp",
-    analytics_cross_line: "cross {}: {} per unit ({}bp)",
+    analytics_breadth_line: "breadth: {} up / {} down / {} flat - market median {}",
+    analytics_cross_line: "cross {}: {} per unit ({})",
     analytics_table_header: "asset | value | supply | demand | class | trend",
     analytics_marker_high_turnover: "high-turnover",
     analytics_marker_greedy: "greedy-fit",
@@ -210,8 +210,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     tier_closed: "已结算",
     tier_theoretical: "理论",
     tier_mark_to_market: "按市价",
-    better_than_direct: "+{}（比直兑高 {}bp）",
-    worse_than_direct: "-{}（比直兑低 {}bp）",
+    better_than_direct: "+{}（比直兑高 {}）",
+    worse_than_direct: "-{}（比直兑低 {}）",
     level_with_direct: "与直兑持平",
     no_direct_route: "没有直兑路线可比",
     size_down_to: "减到 {} {}：再多深度就不够了",
@@ -221,7 +221,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
     same_currency: "拥有和想要是同一种通货 — 请选两种不同的",
     focus_has_no_targets: "关注列表没有在结算通货之外添加任何东西 — 现在只在结算通货之间比对",
-    scan_accounting: "扫描了 {} 条直兑（{} 条可定价，{} 条投入买不起，{} 条缺价）、{} 个闭环（其中 {} 个有得赚）— 收益门槛 {}bp",
+    scan_accounting: "扫描了 {} 条直兑（{} 条可定价，{} 条投入买不起，{} 条缺价）、{} 个闭环（其中 {} 个有得赚）— 收益门槛 {}",
     core_liquidity: "核心流通币：{}",
     no_price_capture: "没有价格 — 去翻这一对",
     coverage_unavailable: "覆盖情况读不出来：{}",
@@ -240,7 +240,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     nothing_to_probe: "没有要补的 — 盘口是最新的",
     no_history_yet: "{} → {} 还没有历史数据",
     median_low_high: "中位 {}   最低 {}   最高 {}",
-    maker_over_taker: "挂单高于吃单：{}bp",
+    maker_over_taker: "挂单高于吃单：{}",
     listings_note: "  （挂单）",
     nothing_current: "没有当前报价 — 这是历史，不是价格",
     radar_probe_header: "要坐实这些机会，去翻：",
@@ -256,9 +256,9 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_undercut: "机会（压一档），挂 {}",
     maker_match: "跟价，挂 {} — 排在原单之后",
     maker_greedy: "贪婪，挂 {} — 赌行情走势",
-    maker_improvement: "比立即成交多 {} {}（{}bp）",
+    maker_improvement: "比立即成交多 {} {}（{}）",
     maker_not_worth: "不比立即成交好 — 不如直接吃单",
-    maker_spread: "队首高出立即成交 {}bp",
+    maker_spread: "队首高出立即成交 {}",
     maker_depth: "可见深度 {} {}，单笔建议不超过 {} {}",
     maker_excluded: "已排除挂单 {}（库存 {}）：{}",
     no_route_for_pair: "{} → {}：还没有路线",
@@ -276,8 +276,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     analytics_season_line: "赛季 {} — {} 起",
     analytics_as_of: "数据截至 {} — 共 {} 天",
     analytics_anchor_line: "锚定通货 {}：{}",
-    analytics_breadth_line: "广度：{} 涨 / {} 跌 / {} 平 — 市场中位 {}bp",
-    analytics_cross_line: "锚交叉 {}：每单位 {}（{}bp）",
+    analytics_breadth_line: "广度：{} 涨 / {} 跌 / {} 平 — 市场中位 {}",
+    analytics_cross_line: "锚交叉 {}：每单位 {}（{}）",
     analytics_table_header: "通货 | 价值 | 供给 | 需求 | 分类 | 趋势",
     analytics_marker_high_turnover: "高流转",
     analytics_marker_greedy: "适合贪婪",
@@ -304,6 +304,29 @@ pub fn fill(template: &str, values: &[&str]) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// Basis points as a two-decimal percentage — the one unit these numbers
+/// reach the reader in.
+///
+/// Integer arithmetic on purpose. A hundred basis points is exactly one
+/// percent, so the value splits into a whole-percent part and a two-digit
+/// remainder with nothing left over to round: no float, no lost precision,
+/// and the printed number is the stored number.
+///
+/// The sign is written separately rather than left to the division, which is
+/// the part that is easy to get wrong. Anything smaller than a percent
+/// divides to a whole part of zero, and zero carries no sign — so -1 bp
+/// would print as `0.01%`, the right size pointing the wrong way.
+#[must_use]
+pub fn percent_from_basis_points(points: i64) -> String {
+    let magnitude = points.unsigned_abs();
+    format!(
+        "{}{}.{:02}%",
+        if points < 0 { "-" } else { "" },
+        magnitude / 100,
+        magnitude % 100
+    )
 }
 
 /// Every field of both catalogues, paired by name.
@@ -1192,5 +1215,58 @@ mod tests {
             "手续费未知、路径不完整"
         );
         assert_eq!(join(UiLanguage::English, &[], execution_risk_flag), "");
+    }
+}
+
+/// The unit these numbers reach the reader in.
+#[cfg(test)]
+mod percentage_tests {
+    use super::{REPORT_ENGLISH, fill, percent_from_basis_points, report_pairs};
+
+    /// "bp" is desk jargon. A hundred basis points is one percent, and the
+    /// person reading this screen has no reason to know that -- worse, the
+    /// radar page already prints percentages, so the same quantity arrives
+    /// in two different units depending on which page you are on.
+    #[test]
+    fn no_report_template_prints_basis_points() {
+        for (field, english, chinese) in report_pairs() {
+            assert!(
+                !english.contains("bp"),
+                "{field} still prints basis points in English: {english:?}"
+            );
+            assert!(
+                !chinese.contains("bp"),
+                "{field} still prints basis points in Chinese: {chinese:?}"
+            );
+        }
+    }
+
+    /// The real reading off the convert page on 2026-08-23: a route 1338
+    /// basis points behind the direct trade.
+    #[test]
+    fn the_worse_than_direct_line_reads_as_a_percentage() {
+        assert_eq!(
+            fill(
+                REPORT_ENGLISH.worse_than_direct,
+                &["3451", &percent_from_basis_points(-1338)]
+            ),
+            "-3451 (-13.38% vs direct)"
+        );
+    }
+
+    /// The conversion is exact -- a hundred basis points is one percent, so
+    /// there is a whole-percent part and a two-digit remainder and nothing
+    /// left to round. The edges worth pinning are the ones smaller than a
+    /// percent, where the whole part is zero and cannot carry the sign.
+    #[test]
+    fn basis_points_convert_to_two_decimals_without_loss() {
+        assert_eq!(percent_from_basis_points(0), "0.00%");
+        assert_eq!(percent_from_basis_points(1), "0.01%");
+        assert_eq!(percent_from_basis_points(-1), "-0.01%");
+        assert_eq!(percent_from_basis_points(99), "0.99%");
+        assert_eq!(percent_from_basis_points(-99), "-0.99%");
+        assert_eq!(percent_from_basis_points(100), "1.00%");
+        assert_eq!(percent_from_basis_points(-1338), "-13.38%");
+        assert_eq!(percent_from_basis_points(10_000), "100.00%");
     }
 }

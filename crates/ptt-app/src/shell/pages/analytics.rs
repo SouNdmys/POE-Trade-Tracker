@@ -32,11 +32,17 @@ fn class_kind(class: ptt_runtime::domain::LiquidityClass) -> StatusKind {
     }
 }
 
-fn signed_bps(value: i64) -> String {
+/// A drift column reads as a signed percentage.
+///
+/// The shared formatter already writes the minus sign; the plus is added
+/// here because these columns are deltas, and a delta with no sign at all
+/// looks like a level rather than a move.
+fn signed_percent(value: i64) -> String {
+    let percent = report_text::percent_from_basis_points(value);
     if value >= 0 {
-        format!("+{value}bp")
+        format!("+{percent}")
     } else {
-        format!("{value}bp")
+        percent
     }
 }
 
@@ -111,7 +117,7 @@ impl AppShell {
         if let Some(health) = &model.pulse.anchor_health {
             let median = health
                 .market_median_move_bps
-                .map_or_else(|| "-".to_owned(), signed_bps);
+                .map_or_else(|| "-".to_owned(), signed_percent);
             head = head
                 .child(
                     div()
@@ -139,7 +145,9 @@ impl AppShell {
                         ),
                 )
                 .children(health.crosses.iter().map(|cross| {
-                    let drift = cross.drift_bps.map_or_else(|| "-".to_owned(), signed_bps);
+                    let drift = cross
+                        .drift_bps
+                        .map_or_else(|| "-".to_owned(), signed_percent);
                     mono(format!(
                         "{} = {} ({drift})",
                         self.display_name(cross.asset_id.as_str()),
@@ -186,7 +194,7 @@ impl AppShell {
             );
             let trend = asset
                 .trend_bps_relative
-                .map_or_else(|| "-".to_owned(), signed_bps);
+                .map_or_else(|| "-".to_owned(), signed_percent);
             let verdict = asset
                 .verdict
                 .map_or("", |verdict| report_text::trend_verdict(language, verdict));
@@ -277,10 +285,10 @@ impl AppShell {
         if let Some(raw) = asset.trend_bps_raw {
             let relative = asset
                 .trend_bps_relative
-                .map_or_else(|| "-".to_owned(), signed_bps);
+                .map_or_else(|| "-".to_owned(), signed_percent);
             body = body.child(kv_row(
                 text.analytics_col_trend,
-                &format!("{} / {relative}", signed_bps(raw)),
+                &format!("{} / {relative}", signed_percent(raw)),
             ));
         }
         if let Some(norm) = asset.circulation_norm_units {

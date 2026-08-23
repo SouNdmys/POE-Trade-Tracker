@@ -586,14 +586,20 @@ impl AppShell {
             ) => (
                 report_text::fill(
                     report.better_than_direct,
-                    &[&delta.quanta.to_string(), &points.to_string()],
+                    &[
+                        &delta.quanta.to_string(),
+                        &report_text::percent_from_basis_points(points),
+                    ],
                 ),
                 ACCENT_TEXT,
             ),
             (Some(ptt_runtime::domain::ComparisonDirection::Worse), Some(delta), Some(points)) => (
                 report_text::fill(
                     report.worse_than_direct,
-                    &[&delta.quanta.to_string(), &points.to_string()],
+                    &[
+                        &delta.quanta.to_string(),
+                        &report_text::percent_from_basis_points(points),
+                    ],
                 ),
                 DANGER,
             ),
@@ -730,7 +736,7 @@ impl AppShell {
                         &[
                             &delta.quanta.to_string(),
                             &self.display_name(strategy.to_asset_id.as_str()),
-                            &points.to_string(),
+                            &report_text::percent_from_basis_points(points),
                         ],
                     ),
                     _ => String::new(),
@@ -788,7 +794,10 @@ impl AppShell {
         if let Some(spread) = strategy.spread_basis_points {
             body = body.child(kv_row(
                 text.maker_spread_label,
-                &report_text::fill(report.maker_spread, &[&spread.to_string()]),
+                &report_text::fill(
+                    report.maker_spread,
+                    &[&report_text::percent_from_basis_points(spread)],
+                ),
             ));
         }
         if let (Some(depth), Some(cap)) = (

@@ -330,13 +330,47 @@ taker 阶梯原样搬过来。改前红：卖价取 41:1（stock=41）、买价�
 - purge_before_active_season 清 raw 后 earliest_capture_day 前移，开赛日永远不会
   被 rollup、也不拿 mark（本次无损，耦合不显眼）。
 
-## 19. bp 统一成百分比（方案已备，待拍板）
+## 19. bp 统一成百分比（已修 2026-08-23）
 
 雷达页已经显示百分比（`opportunities.rs:60-68`），兑换页显示 bp——同一个量两种
 写法。方案：全局两位小数百分比（整数运算无损，-1338bp → -13.38%），兑换页 tier
 行叠一句实物说明。全部出现位置：report_text.rs 8 处成对字段、i18n.rs 7 处设置页
 标签、`analytics.rs:34-40`、`history.rs:99/102/157`（后两处不在 i18n，改时容易漏）。
 设置页输入单位（填 bp）单独一次改动，不与显示层混。
+
+**已修**：新增共用格式化函数 `percent_from_basis_points`（`report_text.rs`），
+所有显示点改走它。整数运算：100bp 正好等于 1%，所以拆成整数百分位加两位余数，
+不引入浮点，也没有可四舍五入的东西。**符号单独写，不交给除法** —— 比 1% 小的数
+整除出来的商是 0，而 0 不带符号，照抄雷达页原来那句 `(points % 100).abs()` 会把
+-1bp 印成 `0.01%`（大小对、方向错）。这正是精度测试里最先红的那个断言。
+
+改到的显示点：`report_text.rs` 8 对模板（英中各一份）去掉 "bp" 字样，改由传进来
+的值自带 "%"；`reports.rs` 的 tier_line、maker_improvement、maker_spread、
+maker_over_taker、雷达行、历史异常行、广度中位、锚交叉漂移；`opportunities.rs`
+的 `edge_text` 与 scan_accounting 的收益门槛；`convert.rs` 的 tier 判词、
+maker_improvement、maker_spread；`analytics.rs` 的 `signed_bps` 改名
+`signed_percent`（保留正号：那几列是涨跌幅，不是水位）；`history.rs` 的波动幅度、
+挂单高于吃单、异常幅度。原本重复了两遍的那句内联写法（`opportunities.rs` 与
+`reports.rs:1471` 的雷达行）一并收敛进共用函数。
+
+`reports.rs:1754`（历史异常行的文本版）不在原清单里，一起改了：它和
+`history.rs:157` 是同一个数字的页面／文本双胞胎，只改一边就正好是 CLAUDE.md
+点名的那种页面与报表漂移。
+
+回归测试在 `report_text.rs` 底部新的 `percentage_tests`：
+`no_report_template_prints_basis_points`（遍历 `report_pairs()`，两种语言都不许
+再出现 "bp"）、`the_worse_than_direct_line_reads_as_a_percentage`（实机那条
+-1338bp → `-3451 (-13.38% vs direct)`）、
+`basis_points_convert_to_two_decimals_without_loss`（0、±1、±99、100、-1338、
+10000 的逐字符断言，钉住负号那一格）。三条改前全红。
+
+**这次没动的**：`i18n.rs` 那 7 处设置页标签仍写 bp —— 那是**输入单位**，用户填
+进去的就是 bp；显示层改百分比而输入跟着改会错位，输入单位的迁移牵扯 ptt-settings
+的字段语义，是独立一次改动。作为补偿，六条 `tuning_*_note` 的说明里都写上了
+"100bp = 1%"，`tuning_min_bps_note` 另外点明"这里填 bp，页面上显示成百分比"。
+兑换页 tier 行的实物说明（"每 100 神聖石少换约 13 混沌"）没做。
+`analysis.rs:102` 与 `bin/engine_replay_probe.rs:378` 的 `profit={}bp` 也没动：
+那两行是硬写英文的诊断转储，根本没进双语目录，属于另一类问题。
 
 ## 20. 杂项记账（2026-08-23）
 
