@@ -1355,3 +1355,101 @@ fn a_four_asset_loop_is_found_and_a_shorter_equal_one_outranks_it() {
         "no three-asset loop exists in this book"
     );
 }
+
+/// **The improvement over direct is a rate against a rate, so the stake must
+/// not move it.**
+///
+/// It used to be `best.amount_out` against `direct.amount_out` — two blended
+/// averages of two multi-tier sweeps, each averaging over however many levels
+/// the stake happened to reach. That number is what the radar ranks and
+/// filters on, so the same pair could read one improvement on the radar and a
+/// different one on the convert page, which prices the front rows alone. The
+/// convert page's basis is the ruling (CORE-TRADING-MODEL, "兑换页围绕汇率算")
+/// and this is the same question, so it gets the same answer.
+#[test]
+fn the_improvement_over_direct_does_not_move_with_the_stake() {
+    let catalog = whole_catalog(&["a", "b", "c"]);
+    // Direct a->c: 10 at the front, then a much worse level behind it.
+    // Via b: 12 at the front, then a worse level too. Front rates say the
+    // detour is 20% better whatever the stake; the blended averages do not.
+    let book = selection(
+        QuoteSelectionStrategy::Instant,
+        vec![
+            PairSpec {
+                from: "a",
+                to: "c",
+                levels: vec![
+                    LevelSpec {
+                        id: "ac-front",
+                        rate: "10:1",
+                        stock: 100,
+                    },
+                    LevelSpec {
+                        id: "ac-deep",
+                        rate: "4:1",
+                        stock: 1_000_000,
+                    },
+                ],
+            },
+            PairSpec {
+                from: "a",
+                to: "b",
+                levels: vec![LevelSpec {
+                    id: "ab",
+                    rate: "1:1",
+                    stock: 1_000_000,
+                }],
+            },
+            PairSpec {
+                from: "b",
+                to: "c",
+                levels: vec![
+                    LevelSpec {
+                        id: "bc-front",
+                        rate: "12:1",
+                        stock: 120,
+                    },
+                    LevelSpec {
+                        id: "bc-deep",
+                        rate: "11:1",
+                        stock: 1_000_000,
+                    },
+                ],
+            },
+        ],
+    );
+    let index = MarketDepthIndex::try_from_selection(&book, catalog.clone()).expect("index");
+
+    let improvement_at = |stake: u64| {
+        find_best_conversion(
+            &index,
+            &ConversionRequest {
+                from_asset_id: asset("a"),
+                to_asset_id: asset("c"),
+                amount_in: amount("a", stake, &catalog),
+                max_hops: 2,
+                max_paths: 16,
+                max_expansions: 1_000,
+                alternative_limit: 8,
+                allowed_intermediate_asset_ids: None,
+                fee_policy: FeePolicy::None,
+            },
+            &SearchCancellation::default(),
+        )
+        .expect("conversion")
+        .comparison
+        .basis_points
+    };
+
+    assert_eq!(
+        improvement_at(10),
+        improvement_at(100),
+        "the stake changed the improvement"
+    );
+    assert_eq!(improvement_at(10), improvement_at(5_000), "nor at any size");
+    assert_eq!(
+        improvement_at(10),
+        Some(2_000),
+        "12 against 10 is 20% at either stake"
+    );
+}

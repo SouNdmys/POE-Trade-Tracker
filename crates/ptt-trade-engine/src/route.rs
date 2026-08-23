@@ -534,6 +534,47 @@ fn consumed_input_quanta(path: &ConversionPath) -> u64 {
         })
 }
 
+/// The product of every leg's front-row rate: the rate this whole route can
+/// be listed at, in lowest terms.
+///
+/// **Size-free by construction, and that is the point.** The improvement the
+/// radar ranks and filters on used to be `best.amount_out` against
+/// `direct.amount_out` -- two blended averages of two multi-tier sweeps, each
+/// averaging over however many levels the stake happened to reach. On a book
+/// where direct degrades steeply and a detour degrades gently, the same pair
+/// read +20% at a stake of ten and +141% at a stake of a hundred. It also put
+/// the radar on a different basis from the convert page, which prices the
+/// front rows alone (CORE-TRADING-MODEL, "兑换页围绕汇率算") -- so one pair
+/// could be an opportunity on one page and not on the other.
+///
+/// POE fills a listing at the listed rate or better, so the front rows are
+/// what the reader can actually ask for; the levels behind them are a
+/// clearance price, not a rate anybody can list at.
+///
+/// Reduced after every multiply, which is what keeps four-hop products inside
+/// `u128`. `None` when any leg recorded no level at all -- there is no rate
+/// to compose, and guessing one would invent a number the book never said.
+fn front_rate_product(path: &ConversionPath) -> Option<(u128, u128)> {
+    let (mut numerator, mut denominator) = (1u128, 1u128);
+    for step in &path.steps {
+        let front = step.fills.first()?;
+        numerator = numerator.checked_mul(u128::from(front.rate.numerator))?;
+        denominator = denominator.checked_mul(u128::from(front.rate.denominator))?;
+        let (mut a, mut b) = (numerator, denominator);
+        while b != 0 {
+            let next = a % b;
+            a = b;
+            b = next;
+        }
+        if a == 0 {
+            return None;
+        }
+        numerator /= a;
+        denominator /= a;
+    }
+    (numerator != 0 && denominator != 0).then_some((numerator, denominator))
+}
+
 fn compare_best_to_direct(
     best: Option<&ConversionPath>,
     direct: Option<&ConversionPath>,
@@ -556,7 +597,17 @@ fn compare_best_to_direct(
             basis_points: None,
         });
     };
-    if !best.is_fully_filled || !direct.is_fully_filled || direct.amount_out.quanta == 0 {
+    let (Some(best_rate), Some(direct_rate)) =
+        (front_rate_product(best), front_rate_product(direct))
+    else {
+        return Ok(ConversionComparison {
+            status: ConversionComparisonStatus::IncomparableCoverage,
+            direction: None,
+            delta: None,
+            basis_points: None,
+        });
+    };
+    if !best.is_fully_filled || !direct.is_fully_filled {
         return Ok(ConversionComparison {
             status: ConversionComparisonStatus::IncomparableCoverage,
             direction: None,
@@ -564,26 +615,39 @@ fn compare_best_to_direct(
             basis_points: None,
         });
     }
-    let (direction, magnitude) = match best.amount_out.quanta.cmp(&direct.amount_out.quanta) {
-        Ordering::Greater => (
-            ComparisonDirection::Improved,
-            best.amount_out.quanta - direct.amount_out.quanta,
-        ),
-        Ordering::Equal => (ComparisonDirection::Equal, 0),
-        Ordering::Less => (
-            ComparisonDirection::Worse,
-            direct.amount_out.quanta - best.amount_out.quanta,
-        ),
+    // Cross-multiplied, never divided: integer division rounds two rates the
+    // market never tied into a tie, and this tie decides whether the radar
+    // calls a pair an opportunity at all.
+    let (best_scaled, direct_scaled) = (
+        best_rate.0.checked_mul(direct_rate.1),
+        direct_rate.0.checked_mul(best_rate.1),
+    );
+    let (Some(best_scaled), Some(direct_scaled)) = (best_scaled, direct_scaled) else {
+        return Err(EngineError::NumericOverflow);
     };
-    let signed_delta = match direction {
-        ComparisonDirection::Improved => i128::from(magnitude),
-        ComparisonDirection::Equal => 0,
-        ComparisonDirection::Worse => -i128::from(magnitude),
+    let direction = match best_scaled.cmp(&direct_scaled) {
+        Ordering::Greater => ComparisonDirection::Improved,
+        Ordering::Equal => ComparisonDirection::Equal,
+        Ordering::Less => ComparisonDirection::Worse,
     };
-    let basis_points = signed_delta
+    // The percentage is rate against rate and carries no size. The delta
+    // beside it is an amount, so it does scale with the ask -- both projected
+    // at the front rates, so the two always agree with each other.
+    let stake = u128::from(request.amount_in.quanta);
+    let project = |rate: (u128, u128)| {
+        stake
+            .checked_mul(rate.0)
+            .map(|scaled| scaled / rate.1)
+            .ok_or(EngineError::NumericOverflow)
+    };
+    let magnitude = u64::try_from(project(best_rate)?.abs_diff(project(direct_rate)?))
+        .map_err(|_| EngineError::NumericOverflow)?;
+    let signed = i128::try_from(best_scaled).map_err(|_| EngineError::NumericOverflow)?
+        - i128::try_from(direct_scaled).map_err(|_| EngineError::NumericOverflow)?;
+    let basis_points = signed
         .checked_mul(10_000)
         .ok_or(EngineError::NumericOverflow)?
-        / i128::from(direct.amount_out.quanta);
+        / i128::try_from(direct_scaled).map_err(|_| EngineError::NumericOverflow)?;
     Ok(ConversionComparison {
         status: if request.fee_policy.is_unknown() {
             ConversionComparisonStatus::ComparableGross
