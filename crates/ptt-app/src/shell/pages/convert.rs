@@ -514,10 +514,10 @@ impl AppShell {
         // which is the one thing no size can fix.
         for quote in &route.quotes {
             card = card.child(self.quote_row(quote, size, language));
-            // Only the steps with something to say -- see
-            // `LegTakeCoverage::is_noteworthy`. The rate row above already
-            // carries the depth number that summarises all of them.
-            for leg in quote.legs.iter().filter(|leg| leg.is_noteworthy()) {
+            // One row at most, naming where the route pinches -- see
+            // `RouteQuote::pinch`. The rate row above already carries the
+            // summary; repeating it per step is what made a wall of amber.
+            if let Some(leg) = quote.pinch() {
                 card = card.child(self.leg_row(leg, language));
             }
         }

@@ -218,6 +218,46 @@ pub struct LegTakeCoverage {
     pub single_listing: bool,
 }
 
+impl RouteQuote {
+    /// The one step worth printing under this route, if any.
+    ///
+    /// The rate row already says how much the market absorbs at this rate,
+    /// so the only thing the steps can add is *which* one is the narrow one.
+    /// Preference goes to a step that earned its own verdict over one merely
+    /// wearing its neighbour's, so the sentence on the row is always true of
+    /// the two numbers printed beside it; among those, the one taking the
+    /// largest share of what is listed against it.
+    #[must_use]
+    pub fn pinch(&self) -> Option<&LegTakeCoverage> {
+        self.legs
+            .iter()
+            .filter(|leg| leg.is_noteworthy())
+            .max_by(|left, right| {
+                left.bound_by_next_leg
+                    .cmp(&right.bound_by_next_leg)
+                    .reverse()
+                    .then_with(|| compare_shortfall(left, right))
+            })
+    }
+}
+
+/// Which of two steps is the tighter, by the share of its book it takes.
+///
+/// Cross-multiplied rather than divided, for the reason the engine gives
+/// about every other ratio here: integer division rounds two different
+/// shares into a tie the market never had. A step with nothing listed is
+/// tighter than any step with something.
+fn compare_shortfall(left: &LegTakeCoverage, right: &LegTakeCoverage) -> std::cmp::Ordering {
+    match (left.listed, right.listed) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (Some(left_listed), Some(right_listed)) => (u128::from(left.taking)
+            * u128::from(right_listed))
+        .cmp(&(u128::from(right.taking) * u128::from(left_listed))),
+    }
+}
+
 impl LegTakeCoverage {
     /// Whether this step has anything the route line above it does not say.
     ///
@@ -1259,10 +1299,10 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
         // the decision and the quantity is the warning beside it.
         for quote in &route.quotes {
             lines.push(format!("     {}", quote_line(quote, size, have, language)));
-            // Only the steps with something to say. The route line above
-            // already carries the one depth number that summarises all of
-            // them, so a step that clears is a row about nothing.
-            for leg in quote.legs.iter().filter(|leg| leg.is_noteworthy()) {
+            // One row at most, naming where the route pinches. The rate
+            // line above already carries the summary; three rows repeating
+            // it is how a card becomes a wall of warnings.
+            if let Some(leg) = quote.pinch() {
                 let facts = crate::report_text::leg_take_facts(
                     language,
                     leg.from_asset_id.as_str(),
@@ -5081,6 +5121,68 @@ mod route_quote_tests {
                 "divine-orb>chaos-orb".to_owned(),
             ],
             "best rate first, the baseline last"
+        );
+    }
+
+    /// **One route, at most one warning row: where it pinches.**
+    ///
+    /// The rate row already ends with "the market absorbs N of yours at this
+    /// rate, which is less than you asked for". Printing that same sentence
+    /// again under every step of every route is how fourteen rows of a
+    /// sixteen-row card came to say one thing -- the owner's words: "一整个
+    /// 面板全是告诉我吃紧吃紧…我期待的是满屏幕的机会". What the steps can
+    /// add that the rate row cannot is *which* step is the narrow one, and
+    /// that is one row, not three.
+    ///
+    /// Choosing the step that earned the verdict also settles an old
+    /// complaint: a leg only wearing its neighbour's verdict printed "市面
+    /// 挂着 273207，这一趟要吃掉 1150" beside "more than everything listed",
+    /// a sentence its own two numbers contradict. The pinch always owns the
+    /// sentence it carries.
+    #[test]
+    fn one_route_shows_one_step_and_it_is_the_one_that_pinches() {
+        let mut observations = direct_book();
+        observations.extend(panel("dn", "divine-orb", "near-orb", &[((1, 1), 400)]));
+        observations.extend(panel("nt", "near-orb", "tight-orb", &[((1, 1), 40)]));
+        observations.extend(panel(
+            "tc",
+            "tight-orb",
+            "chaos-orb",
+            &[((12, 1), 1_000_000)],
+        ));
+
+        let quotes = quotes_at(&observations, 5_000);
+        let route = quotes
+            .iter()
+            .find(|quote| {
+                quote
+                    .route_asset_ids
+                    .iter()
+                    .any(|id| id.as_str() == "tight-orb")
+            })
+            .expect("the route is shown");
+        assert_eq!(route.legs.len(), 3, "all three steps are still modelled");
+
+        let pinch = route.pinch().expect("something pinches");
+        assert_eq!(pinch.to_asset_id.as_str(), "tight-orb", "{route:?}");
+        assert!(
+            !pinch.bound_by_next_leg,
+            "the row shown is the one that earned its verdict: {pinch:?}"
+        );
+        assert!(
+            pinch.taking > pinch.listed.expect("listed"),
+            "so its sentence matches its own two numbers: {pinch:?}"
+        );
+
+        let lines = english_report(&observations, 5_000);
+        assert_eq!(
+            lines
+                .lines()
+                .filter(|line| line.starts_with("       ") && line.contains(" -> "))
+                .count(),
+            1,
+            "one warning row on the whole card:
+{lines}"
         );
     }
 
