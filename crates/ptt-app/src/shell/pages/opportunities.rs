@@ -70,6 +70,101 @@ pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, u32) {
     )
 }
 
+/// Every column's width, added up, may not exceed this.
+///
+/// Upstream columns are pixel-only — no flex, no auto, no measuring the
+/// content — so these eight numbers *are* the layout, and nothing downstream
+/// will reflow them to fit a narrower window. One fixed ceiling is what keeps
+/// the two demands on this table from cancelling each other out: the route
+/// column wants to grow until a whole route reads, and a window a little over
+/// 1100px wide wants the whole table to fit inside it. Without a shared
+/// budget, satisfying either one silently undoes the other.
+pub const RADAR_TABLE_WIDTH_BUDGET: f32 = 1090.0;
+
+// The seven columns that never move. They are narrower than they were: the
+// verdict, freshness and risk cells hold badges that overflow any width this
+// table can afford, and their full text is one click away in the detail
+// panel, so the pixels are better spent on the column that says *which route
+// this row is*.
+const COL_KIND_WIDTH: f32 = 80.0;
+const COL_EDGE_WIDTH: f32 = 80.0;
+const COL_DEPTH_WIDTH: f32 = 90.0;
+const COL_OUT_WIDTH: f32 = 120.0;
+const COL_VERDICT_WIDTH: f32 = 120.0;
+const COL_LIGHT_WIDTH: f32 = 90.0;
+const COL_RISKS_WIDTH: f32 = 120.0;
+
+/// What the seven fixed columns cost together.
+const RADAR_FIXED_COLUMNS_WIDTH: f32 = COL_KIND_WIDTH
+    + COL_EDGE_WIDTH
+    + COL_DEPTH_WIDTH
+    + COL_OUT_WIDTH
+    + COL_VERDICT_WIDTH
+    + COL_LIGHT_WIDTH
+    + COL_RISKS_WIDTH;
+
+/// Where the route column lives in `columns`.
+const ROUTE_COLUMN: usize = 1;
+
+/// The route column's floor: the width it had before it could grow at all.
+const COL_ROUTE_MIN_WIDTH: f32 = 300.0;
+
+/// The route column's ceiling: whatever the budget has left over.
+const COL_ROUTE_MAX_WIDTH: f32 = RADAR_TABLE_WIDTH_BUDGET - RADAR_FIXED_COLUMNS_WIDTH;
+
+/// How much longer a route has to read before the column actually widens.
+///
+/// The row set is replaced on every accepted book, so a column that re-fits
+/// itself exactly would shift the whole table sideways every few seconds.
+/// A reader tracking a row down the list would rather have it truncated in a
+/// stable place than perfectly sized in a moving one.
+const COL_ROUTE_GROWTH_STEP: f32 = 24.0;
+
+/// A cell's left plus right padding at [`Size::XSmall`], which is the size
+/// this table is drawn at.
+const CELL_PADDING: f32 = 8.0;
+
+/// How wide a string draws in the table's monospace font.
+///
+/// gpui can measure text exactly, but only inside a layout pass, and a column
+/// width has to exist before the first layout pass runs — so this is an
+/// estimate by arithmetic instead. The font is monospace, which makes it a
+/// sum of per-character advances: a CJK glyph takes a full em, everything
+/// else about six tenths of one. Being a few pixels out is harmless in both
+/// directions, because the answer is clamped into a range either way.
+fn monospace_width(text: &str, font_size: f32) -> f32 {
+    text.chars()
+        .map(|character| {
+            if character.is_ascii() {
+                font_size * 0.6
+            } else {
+                font_size
+            }
+        })
+        .sum()
+}
+
+/// The width the route column would like, given the routes it has to show.
+///
+/// Clamped rather than granted: below the floor the column stops being worth
+/// reading, and above the ceiling the table stops fitting the window.
+fn route_column_width(
+    rows: &[OpportunityRow],
+    language: UiLanguage,
+    catalog: &ptt_runtime::domain::Catalog,
+) -> f32 {
+    let widest = rows
+        .iter()
+        .map(|row| {
+            monospace_width(
+                &route_text(catalog, language, &row.item.path_asset_ids),
+                FS_11_5,
+            )
+        })
+        .fold(0.0_f32, f32::max);
+    (widest + CELL_PADDING).clamp(COL_ROUTE_MIN_WIDTH, COL_ROUTE_MAX_WIDTH)
+}
+
 /// The radar's rows.
 ///
 /// Public so the gallery can drive the same delegate against synthetic data:
@@ -81,6 +176,10 @@ pub struct RadarTable {
     /// Held rather than looked up: the delegate renders currency names and
     /// has no route back to the shell's settings.
     catalog: &'static ptt_runtime::domain::Catalog,
+    /// Set once the reader has dragged a column edge, which retires the
+    /// automatic fit: a width someone chose on purpose outranks one measured
+    /// off whatever routes this scan happened to find.
+    widths_are_the_readers: bool,
 }
 
 impl RadarTable {
@@ -91,12 +190,13 @@ impl RadarTable {
         catalog: &'static ptt_runtime::domain::Catalog,
     ) -> Self {
         let chrome = i18n::text(language);
+        let route = route_column_width(&rows, language, catalog);
         Self {
             columns: vec![
-                Column::new("kind", chrome.radar_column_kind).width(px(110.)),
-                Column::new("route", chrome.radar_column_route).width(px(300.)),
+                Column::new("kind", chrome.radar_column_kind).width(px(COL_KIND_WIDTH)),
+                Column::new("route", chrome.radar_column_route).width(px(route)),
                 Column::new("edge", chrome.radar_column_edge)
-                    .width(px(90.))
+                    .width(px(COL_EDGE_WIDTH))
                     .text_right()
                     .sortable(),
                 // Depth before amount: it is what the list is ordered by, and
@@ -104,39 +204,79 @@ impl RadarTable {
                 // wrong. The amount stays beside it because it is what the
                 // trade actually produces at that depth.
                 Column::new("depth", chrome.radar_column_depth)
-                    .width(px(110.))
+                    .width(px(COL_DEPTH_WIDTH))
                     .text_right(),
                 Column::new("out", chrome.radar_column_out)
-                    .width(px(140.))
+                    .width(px(COL_OUT_WIDTH))
                     .text_right(),
-                Column::new("verdict", chrome.radar_column_verdict).width(px(150.)),
-                Column::new("light", chrome.radar_column_light).width(px(110.)),
-                Column::new("risks", chrome.radar_column_risks).width(px(240.)),
+                Column::new("verdict", chrome.radar_column_verdict).width(px(COL_VERDICT_WIDTH)),
+                Column::new("light", chrome.radar_column_light).width(px(COL_LIGHT_WIDTH)),
+                Column::new("risks", chrome.radar_column_risks).width(px(COL_RISKS_WIDTH)),
             ],
             rows,
             language,
             catalog,
+            widths_are_the_readers: false,
         }
     }
 
-    /// Replaces the rows in place.
+    /// Replaces the rows in place, reporting whether the columns moved with
+    /// them.
     ///
     /// The table owns the scroll position and the selection, so rebuilding it
     /// on every accepted book would throw the reader back to the top of the
     /// list every few seconds.
+    ///
+    /// The answer matters because refreshing a table clears every column's
+    /// measured bounds for a frame, so a caller that refreshes on every scan
+    /// pays a blank frame for a layout that did not change.
     pub fn set_rows(
         &mut self,
         rows: Vec<OpportunityRow>,
         language: UiLanguage,
         catalog: &'static ptt_runtime::domain::Catalog,
-    ) {
+    ) -> bool {
         // The catalogue changes with the game, and both it and the language
         // are baked into the built columns, so either one moving is a rebuild.
         if language != self.language || !std::ptr::eq(catalog, self.catalog) {
             *self = Self::new(rows, language, catalog);
-            return;
+            return true;
         }
+        let widened = self.fit_route_column(&rows);
         self.rows = rows;
+        widened
+    }
+
+    /// Widens the route column when a scan brings in a longer route.
+    ///
+    /// Grow-only, and only in steps worth seeing. A scan replaces the rows
+    /// every few seconds, and a column that tracked the longest route exactly
+    /// would nudge the seven columns after it sideways each time — a table
+    /// that will not hold still is harder to read than one that truncates.
+    fn fit_route_column(&mut self, rows: &[OpportunityRow]) -> bool {
+        if self.widths_are_the_readers {
+            return false;
+        }
+        let wanted = route_column_width(rows, self.language, self.catalog);
+        let column = &mut self.columns[ROUTE_COLUMN];
+        if wanted <= f32::from(column.width) + COL_ROUTE_GROWTH_STEP {
+            return false;
+        }
+        column.width = px(wanted);
+        true
+    }
+
+    /// Takes the widths back from a column the reader dragged.
+    ///
+    /// Without this the drag is undone by the next scan: a refresh rebuilds
+    /// the table's own column state straight out of these `Column` values, so
+    /// a width that only ever lived in the table is lost the moment the rows
+    /// change.
+    pub fn set_column_widths(&mut self, widths: &[gpui::Pixels]) {
+        for (column, width) in self.columns.iter_mut().zip(widths) {
+            column.width = *width;
+        }
+        self.widths_are_the_readers = true;
     }
 
     #[must_use]
@@ -299,8 +439,17 @@ impl AppShell {
         let catalog = self.catalog();
         let table = self.radar_table.clone();
         table.update(cx, |state, cx| {
-            state.delegate_mut().set_rows(rows, language, catalog);
-            state.refresh(cx);
+            // Refreshing is how a changed column reaches the table, and also
+            // how every column loses its measured bounds for a frame — cells
+            // laid out against a zero width draw as a blank table until some
+            // later repaint happens to put the bounds back. A scan that only
+            // changed the rows does not need to pay that, so it just asks for
+            // a repaint.
+            if state.delegate_mut().set_rows(rows, language, catalog) {
+                state.refresh(cx);
+            } else {
+                cx.notify();
+            }
         });
     }
 
@@ -450,12 +599,26 @@ impl AppShell {
                 )
         };
 
-        let mut body = div().flex_grow().flex().gap_3().p_3().child(table);
+        // `min_w(0)` on both wrappers, for the same reason `min_h(0)` runs all
+        // the way down the shell: a flex item's automatic minimum size is its
+        // content, and this page's content is a fixed-width table beside a
+        // fixed-width detail panel. Without it a window narrower than the two
+        // of them together does not clip — it grows the page past the window
+        // edge and takes the header and the probe strip with it.
+        let mut body = div()
+            .flex_grow()
+            .min_w(px(0.))
+            .flex()
+            .gap_3()
+            .p_3()
+            .overflow_hidden()
+            .child(table);
         if let Some(row) = selected {
             body = body.child(self.radar_detail(&row, cx));
         }
         div()
             .flex_grow()
+            .min_w(px(0.))
             .flex()
             .flex_col()
             .child(body)
@@ -676,5 +839,151 @@ impl AppShell {
                 report_text::report(language).radar_probe_header,
             ))
             .child(div().p_3().child(row))
+    }
+}
+
+#[cfg(test)]
+mod column_width_tests {
+    use super::*;
+    use ptt_runtime::domain::{AssetAmount, AssetUnit, RadarItemKind};
+
+    fn catalog() -> &'static ptt_runtime::domain::Catalog {
+        ptt_runtime::domain::poe2_catalog()
+    }
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn amount(id: &str) -> AssetAmount {
+        AssetAmount {
+            asset_id: asset(id),
+            quanta: 10,
+            unit: AssetUnit::whole(),
+        }
+    }
+
+    /// A row whose only interesting property is how long its route reads.
+    ///
+    /// The ids are runs of letters the catalogue has never heard of, so
+    /// `asset_name` falls back to the id itself and the route text is exactly
+    /// as long as the test asked for.
+    fn row(name_length: usize) -> OpportunityRow {
+        let from = "a".repeat(name_length);
+        let to = "b".repeat(name_length);
+        OpportunityRow {
+            item: RadarItem {
+                item_id: "width".to_owned(),
+                kind: RadarItemKind::BestConversion,
+                category: Actionability::InstantExecutable,
+                path_asset_ids: vec![asset(&from), asset(&to)],
+                amount_in: amount(&from),
+                amount_out: amount(&to),
+                value_basis_points: Some(100),
+                liquidity_capacity: Some(10),
+                reasons: Vec::new(),
+                risk_flags: Vec::new(),
+                blocking_risks: Vec::new(),
+                conversion_path: None,
+                triangle: None,
+            },
+            light: None,
+            structural: Vec::new(),
+        }
+    }
+
+    fn table(rows: Vec<OpportunityRow>) -> RadarTable {
+        RadarTable::new(rows, UiLanguage::English, catalog())
+    }
+
+    fn total_width(table: &RadarTable) -> f32 {
+        table
+            .columns
+            .iter()
+            .map(|column| f32::from(column.width))
+            .sum()
+    }
+
+    fn route_width(table: &RadarTable) -> f32 {
+        f32::from(table.columns[ROUTE_COLUMN].width)
+    }
+
+    #[test]
+    fn every_column_together_fits_the_table_width_budget() {
+        let mut table = table(Vec::new());
+        assert!(
+            total_width(&table) <= RADAR_TABLE_WIDTH_BUDGET,
+            "empty table is {} wide",
+            total_width(&table)
+        );
+
+        table.set_rows(vec![row(90)], UiLanguage::English, catalog());
+        assert!(
+            total_width(&table) <= RADAR_TABLE_WIDTH_BUDGET,
+            "table with the longest possible route is {} wide",
+            total_width(&table)
+        );
+    }
+
+    #[test]
+    fn a_long_route_widens_its_column_up_to_the_ceiling() {
+        let mut table = table(Vec::new());
+        assert!(
+            (route_width(&table) - COL_ROUTE_MIN_WIDTH).abs() < 0.5,
+            "an empty scan should leave the route column at its floor, got {}",
+            route_width(&table)
+        );
+
+        table.set_rows(vec![row(90)], UiLanguage::English, catalog());
+        assert!(
+            (route_width(&table) - COL_ROUTE_MAX_WIDTH).abs() < 0.5,
+            "a route far too long for the budget should pin the column to the \
+             ceiling, got {}",
+            route_width(&table)
+        );
+    }
+
+    #[test]
+    fn a_dragged_route_width_survives_the_next_scan() {
+        let mut table = table(vec![row(22)]);
+        let mut widths: Vec<gpui::Pixels> =
+            table.columns.iter().map(|column| column.width).collect();
+        widths[ROUTE_COLUMN] = px(200.0);
+        table.set_column_widths(&widths);
+
+        // A scan whose routes are far too long for the column the reader
+        // chose: the fit must not talk them out of it.
+        table.set_rows(vec![row(90)], UiLanguage::English, catalog());
+        assert!(
+            (route_width(&table) - 200.0).abs() < 0.5,
+            "a scan overrode the width the reader dragged, leaving {}",
+            route_width(&table)
+        );
+    }
+
+    #[test]
+    fn the_route_column_only_widens_in_steps_worth_seeing() {
+        let mut table = table(vec![row(22)]);
+        let start = route_width(&table);
+        assert!(
+            start > COL_ROUTE_MIN_WIDTH,
+            "fixture must start above the floor so a shrink is visible, got {start}"
+        );
+
+        // About 14px longer: under the step, so nothing moves.
+        table.set_rows(vec![row(23)], UiLanguage::English, catalog());
+        assert!(
+            (route_width(&table) - start).abs() < 0.5,
+            "a change smaller than the step moved the column from {start} to {}",
+            route_width(&table)
+        );
+
+        // About 41px longer: over the step, so it moves.
+        table.set_rows(vec![row(25)], UiLanguage::English, catalog());
+        assert!(
+            route_width(&table) > start + COL_ROUTE_GROWTH_STEP,
+            "a change larger than the step left the column at {}",
+            route_width(&table)
+        );
     }
 }

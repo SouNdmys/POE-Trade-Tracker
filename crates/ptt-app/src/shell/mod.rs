@@ -397,13 +397,21 @@ impl AppShell {
             }
         })
         .detach();
-        cx.subscribe(&radar_table, |_, _, event, cx| {
-            if matches!(
-                event,
-                gpui_component::table::TableEvent::SelectRow(_)
-                    | gpui_component::table::TableEvent::DoubleClickedRow(_)
-            ) {
-                cx.notify();
+        cx.subscribe(&radar_table, |_, table, event, cx| {
+            use gpui_component::table::TableEvent;
+            match event {
+                TableEvent::SelectRow(_) | TableEvent::DoubleClickedRow(_) => cx.notify(),
+                // A dragged column width lives only in the table until it is
+                // written back to the delegate, and the next scan rebuilds
+                // the table's copy from the delegate — so without this the
+                // drag survives until the next accepted book and no longer.
+                TableEvent::ColumnWidthsChanged(widths) => {
+                    let widths = widths.clone();
+                    table.update(cx, |state, _| {
+                        state.delegate_mut().set_column_widths(&widths);
+                    });
+                }
+                _ => {}
             }
         })
         .detach();

@@ -84,7 +84,7 @@ Monitor 是常驻界面，刷新频率最高，所以它是"AppShell 持有连�
 来源：用户 `bug 2026-08-23.md` + 六张截图。下面都是**需要商讨或设计**才能动的，
 当场能修的（设置页参数说明）已经落在 `df4aff0`。
 
-## 6. 雷达表格在窄窗口整片空白（已诊断 2026-08-23，未修）
+## 6. 雷达表格在窄窗口整片空白（已修 2026-08-23，与第 15 条同一次改动）
 
 "宽度不够就不画"的假设被实验**证伪**：ptt-ui-preview 画廊拉到 1100px（表格可用宽
 约 1078 < 列宽总和 1250）时所有行照常渲染，只是右侧被裁；`PTT_PREVIEW_PROBE=1`
@@ -111,6 +111,36 @@ scrollbar_visible），实机窄窗口能不能横滚值得确认——滚不动
 
 钉法：普通测试钉不住（无 gpui test-support）；给画廊加一个照抄雷达页外壳
 （两层包裹 + 底部探针条 + 详情面板）的 "radar frame" 页。
+
+**已修（①②③ 三步都做了）**：三步各自只堵住一条路，所以一起做。
+
+- **① 页面外壳**：`opportunities.rs` 的 body 与页面根都加了 `.min_w(px(0.))`，body
+  另加 `.overflow_hidden()`。理由和 shell 那一路 `min_h(0)` 是同一个：flex 子项的
+  自动最小尺寸等于它的内容，而这一页的内容是「固定宽表格 + 固定宽详情面板」。缺这
+  一层时，比两者之和更窄的窗口不是裁切而是让整页向右长出去，把表头和底部探针条一起
+  带走。
+- **② 列宽总预算**：新常量 `RADAR_TABLE_WIDTH_BUDGET = 1090`，八列之和不得超过它。
+  七根固定列压成 kind 80 / edge 80 / depth 90 / out 120 / verdict 120 / light 90 /
+  risks 120 = 700，route 拿剩下的 300–390（见第 15 条）。verdict、light、risks 压得
+  比原方案（130/110/180）更狠：它们装的是 `whitespace_nowrap` 的徽章，这张表给得起
+  的任何宽度都放不下整句，而全文点一下详情面板就有——像素花在「这行到底是哪条路线」
+  上更值。
+- **③ 不再每次扫描都 refresh**：`set_rows` 现在返回「列有没有动」，`sync_radar_table`
+  只在返回 true 时 `state.refresh(cx)`，否则只 `cx.notify()`。`refresh` 既是列宽变化
+  唯一的送达通道，也正是把全部列 bounds 清零一帧的那个动作；只换行不换列的扫描没有
+  理由付这一帧。上游 `TableState::new` 自己会调一次 `prepare_col_groups`，所以
+  col_groups 不会因为少调 refresh 而空着。
+
+**哪一步真正消掉了空白，未能实机确证**：布局钉不住（无 gpui test-support），
+`PTT_PREVIEW_PROBE=1` 只证明表格仍然虚拟化（cells_drawn=454 / cells_if_eager=3500，
+exit 0），不证明窄窗口不空白。按机制推断：① 堵的是「整页溢出窗口、表格被推出可视
+区」，③ 堵的是「扫描后那一帧按 Definite(0) 布局」，② 让两者都不容易再触发。实机若
+仍有残留，剩下的嫌疑只有上游 canvas 回写 bounds 不带 notify（`state.rs:857-859`）
+那一条，那要么等上游，要么自己找一个能触发重绘的时机。
+
+**这次没动的**：`chips(…, 2)` 的两枚上限没改——risks 只剩 120px，两枚徽章必定被裁，
+但裁多裁少本来就一直在发生，改上限是显示策略的另一次决定。画廊也没有加那个
+"radar frame" 页（原钉法建议），因为宽度这部分已经能用普通 cargo test 钉住了。
 
 ## 7. 路线明细内容被右边界裁掉（已修 2026-08-23）
 
@@ -258,13 +288,38 @@ UI 问题里唯一能用普通 cargo test 钉住的。
 选中索引指向新行集里的**另一条路线**，详情面板静悄悄换内容。与第 13 条无关
 （那次索引恰好没错位，详情是对的），单独修。
 
-## 15. 路径列宽方案（待做，和第 6 条一起设计）
+## 15. 路径列宽方案（已修 2026-08-23，与第 6 条同一次改动）
 
 上游 Column 只有固定像素宽，无 flex/auto/按内容测量；拖拽默认开但每次 refresh
 被 column.width 重建吃回去（拖了白拖，这本身也是要修的）。方案：set_rows 里按
 最长 route 文本算期望宽，clamp(期望, 300, 总预算 − 其余七列)；总预算与第 6 条的
 压缩一起定（~1090）。必须加迟滞（只增不减、变化 >24px 才动），否则表格每次扫描
 抖动，比截断更烦。宽度计算可用普通测试钉。
+
+**已修**：期望宽在 `RadarTable::new` 与 `RadarTable::set_rows` 里算，走新的
+`route_column_width`——取当前行集里最长的一条 route 文本，用 `monospace_width` 估宽
+（CJK 一个字宽、其余约 0.6 字宽），加一格 cell padding（XSmall 是左右各 4px），再
+`clamp(300, 1090 − 700 = 390)`。为什么是估不是量：gpui 能精确量文本，但只在布局过程
+里，而列宽必须在第一次布局之前就存在；字体是等宽的，所以逐字加宽度就够，差几个像素
+无所谓——两头都被 clamp 接住。
+
+**迟滞**：`fit_route_column` 只增不减，且只有期望宽超过当前宽 24px
+（`COL_ROUTE_GROWTH_STEP`）才真的改。扫描每几秒换一批行，逐帧贴合会让它后面七列跟着
+横向挪；读者顺着一行往下看时，「稳定地被截断」好过「精确但是在动」。
+
+**拖了白拖也修了**：`AppShell` 里本来就有的 `cx.subscribe(&radar_table, …)` 多接一个
+`TableEvent::ColumnWidthsChanged`，把宽度写回 `RadarTable::columns`，refresh 于是重建
+出用户拖的那套而不是出厂那套。同时置 `widths_are_the_readers` 标志让自动贴合退休：
+否则用户手动把 route 拉窄，下一次扫描又会按「只增不减」把它撑回去，还是白拖。语言或
+目录变化走 `Self::new` 整体重建，标志跟着复位。
+
+回归测试在 `opportunities.rs` 底部新的 `column_width_tests`，四条，改前三条红：
+`every_column_together_fits_the_table_width_budget`（八列之和 ≤ 预算；改前 1250）、
+`a_long_route_widens_its_column_up_to_the_ceiling`（超长 route 顶到 390；改前恒 300）、
+`the_route_column_only_widens_in_steps_worth_seeing`（+14px 不动、+41px 才动；改前连
+起点都贴在地板上）、`a_dragged_route_width_survives_the_next_scan`（拖到 200 之后一次
+超长扫描不许把它撑回 390；加标志前正是 390）。测试的资产 id 用目录里没有的字母串，
+`asset_name` 会原样回退成 id，所以 route 文本要多长就有多长。
 
 ## 16. 确认探针是恒定噪音，挤掉了有用建议（已修 2026-08-23）
 
