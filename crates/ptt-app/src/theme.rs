@@ -10,7 +10,7 @@
 
 use gpui::{App, Hsla, Pixels, Rgba, px};
 
-use gpui_component::theme::{Theme, ThemeMode};
+use gpui_component::theme::{Theme, ThemeColor, ThemeMode};
 
 // ---------------------------------------------------------------------------
 // Surfaces (章节 01)
@@ -28,6 +28,10 @@ pub const WELL: u32 = 0xFFFDF9;
 pub const HOVER: u32 = 0xF1EDE4;
 /// selected(配 2px 左边框)
 pub const SELECTED: u32 = 0xEFE9DE;
+/// 选中底的不透明度上限。上游把选中高亮画在行**上面**(绝对定位块),不是画在
+/// 行背后,实底会把整行文字盖掉;上游主题装载器为此自己夹到 0.2,而我们直接写
+/// colors 结构体绕过了那道夹取,所以夹取在这里补。选中感交给 *_active_border。
+pub const SELECTED_WASH_ALPHA: f32 = 0.2;
 /// pressed
 pub const PRESSED: u32 = 0xE7E0D1;
 
@@ -184,8 +188,16 @@ pub fn apply_ledger_theme(cx: &mut App) {
     theme.tile_shadow = false;
     theme.tile_radius = px(0.);
 
-    let colors = &mut theme.colors;
+    apply_ledger_colors(&mut theme.colors);
+}
 
+/// Write the Ledger palette onto a `ThemeColor`.
+///
+/// Split out of `apply_ledger_theme` because `Theme::global_mut` needs a live
+/// `App`: the palette itself has invariants worth asserting (see
+/// `theme_tests`), and a plain unit test can only reach them through a
+/// function that takes the struct.
+fn apply_ledger_colors(colors: &mut ThemeColor) {
     // Surfaces
     colors.background = hsla_of(CANVAS);
     colors.foreground = hsla_of(TEXT_PRIMARY);
@@ -246,7 +258,7 @@ pub fn apply_ledger_theme(cx: &mut App) {
 
     // List / tree
     colors.list = hsla_of(PANEL);
-    colors.list_active = hsla_of(SELECTED);
+    colors.list_active = hsla_of(SELECTED).alpha(SELECTED_WASH_ALPHA);
     colors.list_active_border = hsla_of(ACCENT);
     colors.list_even = hsla_of(PANEL);
     colors.list_head = hsla_of(RAIL);
@@ -254,7 +266,7 @@ pub fn apply_ledger_theme(cx: &mut App) {
 
     // Table(数值条件表)
     colors.table = hsla_of(WELL);
-    colors.table_active = hsla_of(SELECTED);
+    colors.table_active = hsla_of(SELECTED).alpha(SELECTED_WASH_ALPHA);
     colors.table_active_border = hsla_of(ACCENT);
     colors.table_even = hsla_of(WELL);
     colors.table_head = hsla_of(RAIL);
@@ -302,4 +314,37 @@ pub fn apply_ledger_theme(cx: &mut App) {
     colors.group_box_foreground = hsla_of(TEXT_PRIMARY);
     colors.description_list_label = hsla_of(RAIL);
     colors.description_list_label_foreground = hsla_of(TEXT_META);
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+
+    fn ledger_colors() -> ThemeColor {
+        let mut colors = ThemeColor::default();
+        apply_ledger_colors(&mut colors);
+        colors
+    }
+
+    /// The selected-row highlight upstream draws is a positioned element on
+    /// top of the row, not a background behind it (gpui-component
+    /// `table/state.rs`), so an opaque fill hides every cell it covers.
+    /// Upstream's own theme loader clamps these two to <= 0.2 alpha
+    /// (`theme/schema.rs`); writing the color structs directly skips that
+    /// clamp, so the invariant has to be held here instead.
+    #[test]
+    fn active_row_highlights_stay_translucent() {
+        let colors = ledger_colors();
+
+        assert!(
+            colors.table_active.a <= 0.2,
+            "table_active alpha {} would paint over the selected row's text",
+            colors.table_active.a
+        );
+        assert!(
+            colors.list_active.a <= 0.2,
+            "list_active alpha {} would paint over the selected item's text",
+            colors.list_active.a
+        );
+    }
 }

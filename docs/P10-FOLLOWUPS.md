@@ -196,7 +196,7 @@ scrollbar_visible），实机窄窗口能不能横滚值得确认——滚不动
 
 要不要加一句提示是产品判断：加了会让本来就有四行角色说明的顶部更长。
 
-## 13. 选中行被高亮涂掉（已定因 2026-08-23，未修，一行级）
+## 13. 选中行被高亮涂掉（已修 2026-08-23）
 
 选中高亮是行顶层一块带背景的绝对定位元素（gpui-component `state.rs:1082-1099`）。
 上游主题装载会把 table_active 的透明度夹到 ≤0.2（`schema.rs:636-638`），但我们直接
@@ -207,6 +207,11 @@ alpha=1.0）→ 不透明实底盖住整行文字。`theme.rs:249` 的 list_acti
 修法：两处改成低透明度 wash（如 rgba 0xEFE9DE33），选中感由 table_active_border
 承担。测试：断言 apply_ledger_theme 后 `table_active.a <= 0.2`，先红后修——四个
 UI 问题里唯一能用普通 cargo test 钉住的。
+
+**已修**：新常量 `SELECTED_WASH_ALPHA = 0.2`，`table_active` / `list_active` 都改成
+`hsla_of(SELECTED).alpha(SELECTED_WASH_ALPHA)`。写 colors 结构体的那一段拆成
+`apply_ledger_colors(&mut ThemeColor)`（`apply_ledger_theme` 要 `App`，拆开才测得到），
+回归测试 `active_row_highlights_stay_translucent`（`theme.rs` 的 `theme_tests`）。
 
 ## 14. 扫描后选中索引不重映射（顺手发现的真 bug，未修）
 
