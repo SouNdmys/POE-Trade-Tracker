@@ -53,6 +53,8 @@ pub struct ReportText {
     /// a line that let itself be read that way would be answering a question
     /// it never looked at.
     pub leg_take: &'static str,
+    /// The share chunk `leg_take`'s last slot receives when there is one.
+    pub leg_share: &'static str,
     pub leg_covered: &'static str,
     pub leg_sweeps_book: &'static str,
     pub leg_not_enough_listed: &'static str,
@@ -161,7 +163,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     level_with_direct: "level with direct",
     no_direct_route: "no direct route to compare",
     size_down_to: "size down to {} {}: past that, depth runs out",
-    leg_take: "{} -> {}   {} listed, this trip takes {} ({})",
+    leg_take: "{} -> {}   {} listed, this trip takes {}{}",
+    leg_share: " ({}%)",
     leg_covered: "listings cover it",
     leg_sweeps_book: "sweeps most of what is listed - the fill walks deep into the book",
     leg_not_enough_listed: "more than everything listed - one pass cannot fill it",
@@ -253,7 +256,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     level_with_direct: "与直兑持平",
     no_direct_route: "没有直兑路线可比",
     size_down_to: "减到 {} {}：再多深度就不够了",
-    leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}（{}）",
+    leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
+    leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",
     leg_sweeps_book: "要吃掉大半个盘口 — 会一路吃到深档，均价变差",
     leg_not_enough_listed: "比现有挂单还多 — 一次吃不完",
@@ -422,16 +426,26 @@ pub fn leg_take_facts(
     to: &str,
     leg: &crate::reports::LegTakeCoverage,
 ) -> String {
+    let text = report(language);
+    // The share prints only while it is a share of something. Past everything
+    // listed it repeats the verdict beside it ("more than everything listed"
+    // already says 132%), and at a large ask the floored percent inflates
+    // into numbers no reader can weigh -- the two amounts carry it alone.
+    let share = match (leg.listed, leg.share_percent) {
+        (Some(listed), Some(share)) if leg.taking <= listed => {
+            fill(text.leg_share, &[&share.to_string()])
+        }
+        _ => String::new(),
+    };
     fill(
-        report(language).leg_take,
+        text.leg_take,
         &[
             from,
             to,
             &leg.listed
                 .map_or_else(|| "-".to_owned(), |listed| listed.to_string()),
             &leg.taking.to_string(),
-            &leg.share_percent
-                .map_or_else(|| "-".to_owned(), |share| format!("{share}%")),
+            &share,
         ],
     )
 }

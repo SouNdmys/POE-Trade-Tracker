@@ -4568,6 +4568,44 @@ mod leg_coverage_tests {
         );
     }
 
+    /// Past everything listed, the share is the verdict said again as noise:
+    /// "takes 159 (132%)" repeats "more than everything listed", and at a
+    /// large ask the repeat inflates into numbers like 1796364% that bury
+    /// the two figures that matter. The amounts and the verdict carry it.
+    /// Within the listings the share still prints — there it says something
+    /// the verdict does not.
+    #[test]
+    fn a_share_past_everything_listed_is_not_printed() {
+        let mut leg = LegTakeCoverage {
+            from_asset_id: asset("divine-orb"),
+            to_asset_id: asset("perfect-chaos-orb"),
+            taking: 83_333_333,
+            listed: Some(46),
+            share_percent: Some(181_159_419),
+            verdict: LegTakeVerdict::NotEnoughListed,
+            bound_by_next_leg: false,
+            single_listing: false,
+        };
+        for language in [UiLanguage::English, UiLanguage::Chinese] {
+            let facts = crate::report_text::leg_take_facts(language, "divine", "perfect", &leg);
+            assert!(
+                !facts.contains('%'),
+                "past the whole book the share is noise: {facts}"
+            );
+            assert!(facts.contains("83333333"), "{facts}");
+            assert!(facts.contains("46"), "{facts}");
+        }
+
+        leg.taking = 15;
+        leg.listed = Some(41);
+        leg.share_percent = Some(36);
+        leg.verdict = LegTakeVerdict::Covered;
+        for language in [UiLanguage::English, UiLanguage::Chinese] {
+            let facts = crate::report_text::leg_take_facts(language, "divine", "perfect", &leg);
+            assert!(facts.contains("36%"), "within the book it informs: {facts}");
+        }
+    }
+
     /// A direction nobody captured is an absence, not a shortage. This
     /// project never infers the second from the first, so an empty book has
     /// to reach a different verdict from an overdrawn one.
@@ -4606,7 +4644,7 @@ mod leg_coverage_tests {
 ",
         );
         assert!(
-            english.contains("chaos-orb -> omen-orb   120 listed, this trip takes 159 (132%)"),
+            english.contains("chaos-orb -> omen-orb   120 listed, this trip takes 159"),
             "{english}"
         );
         assert!(english.contains("more than everything listed"), "{english}");
