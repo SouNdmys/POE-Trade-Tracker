@@ -140,7 +140,7 @@ test 钉不住（无 gpui test-support），靠肉眼看画廊 + `PTT_PREVIEW_PR
 要不要让 claude design 出一版。在决定"是调密度还是重做一版"之前不要零敲碎打改字号
 ——那只会让两种宽度都不对。
 
-## 9. 兑换页负收益路线（已定因 2026-08-23：引擎排序 bug + 基准外推，未修）
+## 9. 兑换页负收益路线（排序键已修 2026-08-23；对照行与基准半仍未做）
 
 从真实库逐位复算，截图上每个数字全部对上。三部分：
 
@@ -161,6 +161,39 @@ test 钉不住（无 gpui test-support），靠肉眼看画廊 + `PTT_PREVIEW_PR
 
 改法顺序（待拍板）：先修排序键 → 把直兑作为对照行并排列出（让"直兑只能吃
 1855"这个真约束可见）→ 文案说明绕路代价。单独只做"低于直兑就折叠"会掩盖问题。
+
+**已修（只做了第一步：排序键）**：`compare_paths` 的第三个键从 amount_out 绝对值
+换成**已实现单价** = `amount_out / 首腿 consumed_input`。比大小走交叉相乘
+（`left.out * right.spent` 对 `right.out * left.spent`），全程整数：两个 u64 拓宽成
+u128 相乘，u64 的平方必定装得下 u128，所以这里根本没有溢出分支、更没有饱和；也不做
+除法，免得整数除把两个不同的比率抹成平局（8.3 的"f64 只在绘图边界"照旧）。分母取
+**首腿**的 consumed_input——后面每一腿花的都是首腿买回来的东西，所以"请求量 − 首腿
+剩余"就是用户手里那种资产的全部账单。
+
+**为什么选已实现单价而不是按市价总值**：市价总值要给残余（没花掉的本金、卡在中间
+资产里的存货）定价，而 `compare_paths` 是个只看两条 `ConversionPath` 的纯比较函数；
+往排序里塞价格预言机就得把 mark rate 灌进 engine 层，而 mark rate 现在住在
+ptt-strategy 的 `route_accounting`，engine 有意不持有它。何况"没花掉的本金按自己市价
+折算"正好又要用上本条第三段点名不可信的那个外推基准。已实现单价尺度无关，问的正是
+实机答错的那个问题："每花掉一枚本金换回多少"。代价是卡在中间资产的残余被记作零价值，
+方向保守，可接受。
+
+**吃满的路线之间的序没变**：两条都吃满就都花了请求量，分母相同，比值退化成原来的
+amount_out 比较。回归测试在 `route.rs` 底部新的 `compare_paths_tests`：
+`a_partial_route_that_burns_more_capital_for_a_worse_price_does_not_win`（改前红，
+数字照搬实机——直兑吃 1855 出 20030、绕路吃 2526 出 21786，改前绕路排第一），
+外加 `two_fully_filled_routes_still_rank_by_absolute_output` 守住吃满那一半。
+
+**影响面**：雷达页不受影响。`radar.rs:406` 对 `!best.is_fully_filled` 的结果直接
+`continue` 并改推探针，部分成交的 best 进不了列表；吃满的 best 选谁没变，所以 §5
+「流动性 > 利润 > 跳数」的 `compare_items` 输入一个都没动。雷达侧唯一可能变的是
+全员部分成交时被点名去确认的那条路线（`confirm_conversion_probe` 的 notes 里那个
+残余条数），推不推、推给谁那一对资产都不变。兑换页会变：某些尺寸的最佳路线换成
+单价更好的那条，`derive_route_accounting` 的数字随之改变。
+
+**这次没动的**：`compare_best_to_direct` 的 IncomparableCoverage 保护、
+`convert_model`（`reports.rs:503-534`）绕过它这件事、`route_accounting.rs:493-508`
+的直兑线性外推，以及展示层的对照行与文案，全部留给后续。
 
 ## 10. 覆盖与缺口需要「忽略」（新功能，待设计）
 

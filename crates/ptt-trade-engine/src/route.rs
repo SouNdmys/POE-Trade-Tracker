@@ -410,15 +410,58 @@ fn make_path(
     }
 }
 
+/// Coverage first, then executability, then the price the route actually got.
+///
+/// The price key used to be raw `amount_out`, which pays a route for burning
+/// capital: on 2026-08-23 a detour that ate 2,526 divine for 21,786 chaos
+/// outranked a direct fill that ate 1,855 for 20,030, even though the direct
+/// fill priced 25% better and the detour was 3,451 chaos behind at mark.
+/// Absolute output only means something when both routes spent the same
+/// input, and two partial fills never do.
+///
+/// Routes that swallow the whole stake all spent exactly the requested
+/// amount, so for them the ratio is the old key over a shared denominator
+/// and their order is unchanged -- there is a test below holding that half
+/// of the ranking still.
 fn compare_paths(left: &ConversionPath, right: &ConversionPath) -> Ordering {
     right
         .is_fully_filled
         .cmp(&left.is_fully_filled)
         .then_with(|| right.execution_eligible.cmp(&left.execution_eligible))
-        .then_with(|| right.amount_out.quanta.cmp(&left.amount_out.quanta))
+        .then_with(|| compare_realized_price(right, left))
         .then_with(|| left.residuals.len().cmp(&right.residuals.len()))
         .then_with(|| left.steps.len().cmp(&right.steps.len()))
         .then_with(|| left.path_asset_ids.cmp(&right.path_asset_ids))
+}
+
+/// `out_left / spent_left` against `out_right / spent_right`, ascending.
+///
+/// Cross-multiplied rather than divided: 8.3 keeps f64 at the drawing edge,
+/// and integer division would round the two ratios into a tie the market
+/// never had. Widening to `u128` makes the multiply total -- the square of a
+/// `u64` always fits -- so there is no overflow branch to saturate here.
+///
+/// A route that spent nothing compares as infinitely good, which is the
+/// right answer and also unreachable: a path is only recorded once a leg
+/// produced output.
+fn compare_realized_price(left: &ConversionPath, right: &ConversionPath) -> Ordering {
+    let left_scaled = u128::from(left.amount_out.quanta) * u128::from(consumed_input_quanta(right));
+    let right_scaled =
+        u128::from(right.amount_out.quanta) * u128::from(consumed_input_quanta(left));
+    left_scaled.cmp(&right_scaled)
+}
+
+/// How much of the starting asset the route actually spent.
+///
+/// The first leg answers it on its own: every later leg spends what the
+/// first one bought, so the requested amount minus the first leg's leftover
+/// is the whole bill in the asset the user is holding.
+fn consumed_input_quanta(path: &ConversionPath) -> u64 {
+    path.steps
+        .first()
+        .map_or(path.requested_input.quanta, |step| {
+            step.consumed_input.quanta
+        })
 }
 
 fn compare_best_to_direct(
@@ -485,4 +528,133 @@ fn compare_best_to_direct(
         )?),
         basis_points: Some(i64::try_from(basis_points).map_err(|_| EngineError::NumericOverflow)?),
     })
+}
+
+#[cfg(test)]
+mod compare_paths_tests {
+    use super::*;
+    use crate::depth::QuoteLevelFill;
+    use crate::quantity::AssetUnit;
+
+    /// The stake from the 2026-08-23 field test: 5,000 divine offered, and
+    /// neither route could eat all of it.
+    const STAKE: u64 = 5_000;
+
+    fn asset(name: &str) -> MarketAssetId {
+        MarketAssetId::try_new(name).expect("asset id")
+    }
+
+    fn amount(name: &str, quanta: u64) -> AssetAmount {
+        AssetAmount {
+            asset_id: asset(name),
+            quanta,
+            unit: AssetUnit::whole(),
+        }
+    }
+
+    fn leg(from: &str, to: &str, requested: u64, consumed: u64, produced: u64) -> PairFill {
+        PairFill {
+            from_asset_id: asset(from),
+            to_asset_id: asset(to),
+            kind: FillKind::TakerDepth,
+            requested_input: amount(from, requested),
+            consumed_input: amount(from, consumed),
+            unfilled_input: amount(from, requested - consumed),
+            gross_amount_out: amount(to, produced),
+            net_amount_out: None,
+            fills: Vec::<QuoteLevelFill>::new(),
+            capture_time_evidence: None,
+            is_fully_filled: consumed == requested,
+            execution_eligible: false,
+            bottleneck: None,
+            risk_flags: Vec::new(),
+        }
+    }
+
+    fn path(assets: &[&str], steps: Vec<PairFill>, amount_out: u64) -> ConversionPath {
+        let is_fully_filled = steps.iter().all(|step| step.is_fully_filled);
+        let residuals = steps
+            .iter()
+            .enumerate()
+            .filter(|(_, step)| step.unfilled_input.quanta > 0)
+            .map(|(position, step)| ResidualAmount {
+                after_step: u8::try_from(position + 1).expect("short fixture"),
+                amount: step.unfilled_input.clone(),
+            })
+            .collect();
+        ConversionPath {
+            path_asset_ids: assets.iter().map(|name| asset(name)).collect(),
+            requested_input: amount(assets[0], STAKE),
+            amount_out: amount(assets[assets.len() - 1], amount_out),
+            gross_only: true,
+            steps,
+            capture_time_evidence: None,
+            residuals,
+            is_fully_filled,
+            execution_eligible: false,
+            bottleneck: None,
+            risk_flags: Vec::new(),
+        }
+    }
+
+    /// The 2026-08-23 convert page, numbers straight off the live book.
+    ///
+    /// Direct eats 1,855 of the 5,000 divine and returns 20,030 chaos
+    /// (10.80 each); the detour eats 2,526 and returns 21,786 (8.62 each).
+    /// The detour is the worse trade in every sense that matters and wins on
+    /// absolute output only because it burns more capital.
+    #[test]
+    fn a_partial_route_that_burns_more_capital_for_a_worse_price_does_not_win() {
+        let direct = path(
+            &["divine", "chaos"],
+            vec![leg("divine", "chaos", STAKE, 1_855, 20_030)],
+            20_030,
+        );
+        let detour = path(
+            &["divine", "exalted", "chaos"],
+            vec![
+                leg("divine", "exalted", STAKE, 2_526, 50_000),
+                leg("exalted", "chaos", 50_000, 50_000, 21_786),
+            ],
+            21_786,
+        );
+
+        let mut paths = vec![detour, direct];
+        paths.sort_by(compare_paths);
+
+        assert_eq!(
+            paths[0].path_asset_ids,
+            vec![asset("divine"), asset("chaos")],
+            "the cheaper realized price has to come first"
+        );
+    }
+
+    /// Guard on the half of the order that must not move: when both routes
+    /// swallow the whole stake they spent the same input, so the deeper
+    /// payout still wins and nothing about today's ranking changes.
+    #[test]
+    fn two_fully_filled_routes_still_rank_by_absolute_output() {
+        let direct = path(
+            &["divine", "chaos"],
+            vec![leg("divine", "chaos", STAKE, STAKE, 20_030)],
+            20_030,
+        );
+        let detour = path(
+            &["divine", "exalted", "chaos"],
+            vec![
+                leg("divine", "exalted", STAKE, STAKE, 50_000),
+                leg("exalted", "chaos", 50_000, 50_000, 21_786),
+            ],
+            21_786,
+        );
+
+        let mut paths = vec![direct, detour];
+        paths.sort_by(compare_paths);
+
+        assert_eq!(
+            paths[0].path_asset_ids,
+            vec![asset("divine"), asset("exalted"), asset("chaos")],
+            "fully filled routes keep ranking on how much they return"
+        );
+    }
 }
