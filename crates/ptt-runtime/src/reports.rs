@@ -31,6 +31,25 @@ use ptt_workflows::{
 /// The sizes the convert page prices, in whole orbs.
 const CONVERT_SIZES: [u64; 3] = [1, 10, 100];
 
+/// Every path one search ranked: its pick first, then the rest.
+fn ranked_paths(
+    found: &Option<ptt_trade_engine::ConversionResult>,
+) -> impl Iterator<Item = &ptt_trade_engine::ConversionPath> {
+    found
+        .iter()
+        .flat_map(|result| result.best_path.iter().chain(result.alternatives.iter()))
+}
+
+/// The ask the route *search* runs at, whatever the reader happens to hold.
+///
+/// Only ever used to enumerate which paths exist. The engine drops a path
+/// the moment a hop rounds to zero quanta, so searching at the reader's own
+/// holding lets a dear bridge currency delete every route through itself --
+/// see the comment in `convert_model`. Big enough that no bridge on a real
+/// book rounds away, small enough to stay far from the overflow guards in
+/// `AssetAmount::from_whole_units`.
+const ROUTE_ENUMERATION_SIZE: u64 = 1_000_000;
+
 // ---------------------------------------------------------------------------
 // Page models
 //
@@ -1101,11 +1120,12 @@ pub fn convert_model(
     let max_hops = u8::try_from(tuning.convert.max_hops.clamp(1, 4)).unwrap_or(3);
 
     let mut routes: Vec<SizeRoute> = Vec::new();
-    for size in sizes.iter().copied() {
-        let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), size, &market.units) else {
-            continue;
+    let search = |amount: u64| -> Result<Option<ptt_trade_engine::ConversionResult>, String> {
+        let Ok(amount_in) = AssetAmount::from_whole_units(have.clone(), amount, &market.units)
+        else {
+            return Ok(None);
         };
-        let conversion = find_best_conversion(
+        find_best_conversion(
             &market.index,
             &ConversionRequest {
                 from_asset_id: have.clone(),
@@ -1125,9 +1145,60 @@ pub fn convert_model(
             },
             &SearchCancellation::default(),
         )
-        .map_err(|error| format!("convert: {error:?}"))?;
+        .map(Some)
+        .map_err(|error| format!("convert: {error:?}"))
+    };
 
-        let Some(best) = &conversion.best_path else {
+    // **The candidate list is enumerated once, at a size nobody typed.**
+    //
+    // The search takes the reader's holding as its input amount, and the
+    // walk drops any path whose next hop rounds to zero quanta
+    // (`route.rs`, `if propagated.quanta == 0`). A bridge currency dearer
+    // than one unit of what they hold therefore deletes every route through
+    // itself -- on the owner's real book `chaos-orb -> divine-orb` offered
+    // 1 route at a 20-chaos holding and all 10 at 200, and
+    // `chaos-orb -> omen-of-whittling` offered none at all under 100 chaos
+    // while eight profitable rates sat in the database. That is ruling 3's
+    // 错杀 arriving through the back door: not hidden for pricing badly,
+    // just never enumerated.
+    //
+    // A route's listable rate does not depend on the ask, so the set of them
+    // must not either. This enumeration size is large enough that no
+    // realistic bridge rounds away, and it is only ever used to *find* the
+    // paths -- every number on the page is still computed for the size the
+    // reader typed, off the front rows.
+    let catalogue = search(ROUTE_ENUMERATION_SIZE)?;
+
+    for size in sizes.iter().copied() {
+        let at_size = search(size)?;
+
+        // Everything either search ranked, with the direct trade guaranteed
+        // a place: it is the baseline every other row is measured against,
+        // and a baseline that can fall off the bottom of `alternatives` is
+        // not one. The reader's own size goes first so that when both
+        // searches found a path, the one carrying this ask's fill is the one
+        // the accounting below reads.
+        let mut candidates: Vec<&ptt_trade_engine::ConversionPath> = Vec::new();
+        let direct = at_size
+            .as_ref()
+            .and_then(|result| result.direct_path.as_ref())
+            .or_else(|| {
+                catalogue
+                    .as_ref()
+                    .and_then(|result| result.direct_path.as_ref())
+            });
+        for path in ranked_paths(&at_size)
+            .chain(ranked_paths(&catalogue))
+            .chain(direct)
+        {
+            if !candidates
+                .iter()
+                .any(|seen| seen.path_asset_ids == path.path_asset_ids)
+            {
+                candidates.push(path);
+            }
+        }
+        if candidates.is_empty() {
             routes.push(SizeRoute {
                 size,
                 accounting: None,
@@ -1135,26 +1206,11 @@ pub fn convert_model(
                 direct_is_the_only_one: false,
             });
             continue;
-        };
-
-        // Everything the engine ranked, with the direct trade guaranteed a
-        // place: it is the baseline every other row is measured against, and
-        // a baseline that can fall off the bottom of `alternatives` is not
-        // one.
-        let mut candidates = vec![best];
-        candidates.extend(conversion.alternatives.iter());
-        if let Some(direct) = &conversion.direct_path {
-            if !candidates
-                .iter()
-                .any(|path| path.path_asset_ids == direct.path_asset_ids)
-            {
-                candidates.push(direct);
-            }
         }
         let priced = route_quotes(
             &market,
             &candidates,
-            conversion.direct_path.as_ref(),
+            direct,
             size,
             tuning.convert.leg_sweep_percent,
         );
@@ -1163,12 +1219,20 @@ pub fn convert_model(
         // reader is looking at, which is not always the one `compare_paths`
         // put first — that one may have been dropped for pricing worse than
         // direct.
+        // Accounting only exists for a route the reader's own ask can
+        // actually walk. A row enumerated from the catalogue is a rate they
+        // can list at, not a trip they can complete right now, and inventing
+        // a clearance block for it would put the catalogue's size on screen.
+        let walkable: std::collections::BTreeSet<&Vec<MarketAssetId>> = ranked_paths(&at_size)
+            .map(|path| &path.path_asset_ids)
+            .collect();
         let accounting = priced
             .first()
+            .filter(|(path, _)| walkable.contains(&path.path_asset_ids))
             .map(|(path, _)| {
                 derive_route_accounting(RouteAccountingRequest {
                     path,
-                    direct_path: conversion.direct_path.as_ref(),
+                    direct_path: direct,
                     mark_rates: &market.mark_rates,
                     thresholds: RiskThresholds::default(),
                     needs_probe: false,
@@ -1213,13 +1277,13 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
     let (have, need) = (&model.have, &model.need);
     for route in &model.sizes {
         let size = route.size;
-        let Some(accounting) = &route.accounting else {
+        if route.quotes.is_empty() {
             lines.push(format!(
                 "{size:>4} {}",
                 fill(text.no_route_for_pair, &[have.as_str(), need.as_str()])
             ));
             continue;
-        };
+        }
         lines.push(format!("{size:>4} {have} -> {need}"));
         // Rate, then what fills at it. Never the other way round: the reader
         // lists one rate and controls the quantity themselves, so the rate is
@@ -1243,6 +1307,11 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
         if route.direct_is_the_only_one {
             lines.push(format!("     {}", text.no_route_beats_direct));
         }
+        // No clearance block for a size the ask cannot walk -- see the
+        // matching guard in the page's `route_card`.
+        let Some(accounting) = &route.accounting else {
+            continue;
+        };
         lines.push(format!("     {}", text.sweep_average_note));
         for (label, tier) in [
             (text.tier_closed, &accounting.closed),
@@ -5076,6 +5145,65 @@ mod route_quote_tests {
             ],
             "best rate first, the baseline last"
         );
+    }
+
+    /// **How much you hold must not decide which rates you are allowed to
+    /// see.**
+    ///
+    /// The search is handed the reader's holding as its input amount, and
+    /// `route.rs` drops any path whose next hop rounds to zero
+    /// (`if propagated.quanta == 0 { continue }`). So a bridge currency that
+    /// costs more than one unit of what you hold silently deletes every
+    /// route through it. On the owner's real book `chaos-orb -> divine-orb`
+    /// showed 1 route at a 20-chaos holding, 3 at 50, 7 at 100 and all 10 at
+    /// 200 -- and `chaos-orb -> omen-of-whittling` showed *nothing at all*
+    /// below 100 chaos, on a pair with eight profitable rates sitting in the
+    /// database, under a heading that reads "还没有路线" and offers to go
+    /// capture the data again.
+    ///
+    /// That is the 错杀 ruling 3 exists to prevent, arriving through the
+    /// back door: not hidden for pricing worse than direct, just never
+    /// enumerated. The rate a route can be listed at does not depend on the
+    /// ask, so neither may the list of them.
+    #[test]
+    fn the_size_of_the_holding_does_not_decide_which_routes_exist() {
+        // One bridge orb costs fifty divine, so a small holding cannot buy a
+        // whole one and the old search dropped the route entirely.
+        let mut observations = direct_book();
+        observations.extend(panel("dg", "divine-orb", "gate-orb", &[((1, 50), 400)]));
+        observations.extend(panel(
+            "gc",
+            "gate-orb",
+            "chaos-orb",
+            &[((600, 1), 1_000_000)],
+        ));
+
+        let names = |holdings: u64| -> Vec<String> {
+            quotes_at(&observations, holdings)
+                .iter()
+                .map(|quote| {
+                    quote
+                        .route_asset_ids
+                        .iter()
+                        .map(|id| id.as_str().to_owned())
+                        .collect::<Vec<_>>()
+                        .join(">")
+                })
+                .collect()
+        };
+
+        let reference = names(5_000);
+        assert!(
+            reference.contains(&"divine-orb>gate-orb>chaos-orb".to_owned()),
+            "the bridge route is real at a large ask: {reference:?}"
+        );
+        for holdings in [1, 7, 20, 49, 200, 5_000] {
+            assert_eq!(
+                names(holdings),
+                reference,
+                "the visible routes moved with a holding of {holdings}"
+            );
+        }
     }
 
     /// **The invariant this whole change exists to establish.**

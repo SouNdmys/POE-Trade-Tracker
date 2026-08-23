@@ -369,9 +369,15 @@ impl AppShell {
             ));
         }
         for size in &model.sizes {
-            routes = routes.child(match &size.accounting {
-                Some(accounting) => self.route_card(size, accounting, cx),
-                None => self.no_route_card(size.size, &model, cx),
+            routes = routes.child(match (size.quotes.is_empty(), &size.accounting) {
+                (false, accounting) => self.route_card(
+                    size,
+                    accounting.as_deref(),
+                    model.have.as_str(),
+                    model.need.as_str(),
+                    cx,
+                ),
+                (true, _) => self.no_route_card(size.size, &model, cx),
             });
         }
 
@@ -478,7 +484,9 @@ impl AppShell {
     fn route_card(
         &self,
         route: &SizeRoute,
-        accounting: &RouteAccounting,
+        accounting: Option<&RouteAccounting>,
+        have: &str,
+        need: &str,
         _cx: &mut Context<Self>,
     ) -> gpui::Div {
         let text = self.text();
@@ -486,11 +494,7 @@ impl AppShell {
         let report = report_text::report(language);
         let size = route.size;
 
-        let pair = format!(
-            "{} → {}",
-            self.display_name(accounting.requested_input.asset_id.as_str()),
-            self.display_name(accounting.account_asset_id.as_str())
-        );
+        let pair = format!("{} → {}", self.display_name(have), self.display_name(need));
 
         let mut card = div()
             .flex()
@@ -506,18 +510,19 @@ impl AppShell {
                     .items_center()
                     .gap_2()
                     .child(
-                        mono(format!(
-                            "{size} {}",
-                            self.display_name(accounting.requested_input.asset_id.as_str())
-                        ))
-                        .text_size(fs(FS_12_5)),
+                        mono(format!("{size} {}", self.display_name(have))).text_size(fs(FS_12_5)),
                     )
                     .child(mono(pair).text_size(fs(FS_11_5)).text_color(c(TEXT_META)))
                     .child(div().flex_grow())
-                    .child(chip(
-                        actionability_kind(accounting.assessment.actionability),
-                        report_text::actionability(language, accounting.assessment.actionability),
-                    )),
+                    .children(accounting.map(|accounting| {
+                        chip(
+                            actionability_kind(accounting.assessment.actionability),
+                            report_text::actionability(
+                                language,
+                                accounting.assessment.actionability,
+                            ),
+                        )
+                    })),
             );
 
         // Every route worth showing, rate first, each with its legs against
@@ -547,6 +552,12 @@ impl AppShell {
         // a rate anyone can list at, and they no longer carry a comparison
         // against direct because that comparison moved with the size of the
         // ask.
+        // No clearance block for a size the ask cannot walk: the rows above
+        // are rates the reader can list at, and a sweep price for a trip
+        // that does not complete would be a number about nothing.
+        let Some(accounting) = accounting else {
+            return card;
+        };
         card = card.child(
             div()
                 .pt_1()
