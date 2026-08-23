@@ -54,7 +54,7 @@ pub const fn native_label(language: UiLanguage) -> &'static str {
 pub fn leg_label(language: UiLanguage, index: usize) -> String {
     match language {
         UiLanguage::English => format!("leg {index}"),
-        UiLanguage::Chinese => format!("第 {index} 腿"),
+        UiLanguage::Chinese => format!("第 {index} 步"),
     }
 }
 
@@ -816,7 +816,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     convert_need_label: "想要",
     convert_holdings_label: "持仓",
     convert_pick: "选择通货",
-    convert_leg: "这条腿",
+    convert_leg: "这一步",
     convert_size_down: "建议减量",
     convert_stranded: "零头",
     maker_header: "挂单策略",
@@ -895,10 +895,10 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     tuning_fresh: "绿灯上限（秒）",
     tuning_usable: "黄灯上限（秒）",
     tuning_stale: "红灯起点（秒）",
-    tuning_skew: "跨腿时间窗（秒）",
+    tuning_skew: "各步时间窗（秒）",
     tuning_sizes: "兑换规模",
     tuning_max_hops: "最大跳数",
-    tuning_leg_sweep: "腿吃盘口 %",
+    tuning_leg_sweep: "单步吃盘口 %",
     tuning_stake: "雷达投入",
     tuning_results: "结果条数",
     tuning_min_bps: "最低收益（bp）",
@@ -921,10 +921,10 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     tuning_fresh_note: "比这更新的数据算新鲜，亮绿灯",
     tuning_usable_note: "过了绿灯但还能选，标黄灯",
     tuning_stale_note: "再旧就算过期，默认不许拿来下决定",
-    tuning_skew_note: "一条路线各腿的抓取时间最多差多久",
+    tuning_skew_note: "一条路线各步的抓取时间最多差多久",
     tuning_sizes_note: "兑换页在你没填持仓时默认按这几档报价",
     tuning_max_hops_note: "一次兑换最多经过几步，只接受 1 到 4",
-    tuning_leg_sweep_note: "兑换路线的一条腿要吃掉现有挂单的百分之多少，才标记成「吃掉大半个盘口」；超过 100% 是「现有挂单不够一次吃完」，那是事实、不可调。这个数说的是现在立刻去吃别人挂单够不够，不是「我挂出去的单能不能成交」。和市场分析那个「薄流动性 %」不是同一个数。",
+    tuning_leg_sweep_note: "兑换路线的其中一步要吃掉现有挂单的百分之多少，才标记成「吃掉大半个盘口」；超过 100% 是「现有挂单不够一次吃完」，那是事实、不可调。这个数说的是现在立刻去吃别人挂单够不够，不是「我挂出去的单能不能成交」。和市场分析那个「薄流动性 %」不是同一个数。",
     tuning_stake_note: "雷达假设你愿意投入多少，每种结算通货各算一次",
     tuning_results_note: "雷达页最多列出几条路线",
     tuning_min_bps_note: "利润低于这个数就不进列表，这里填 bp，页面上显示成百分比，100bp = 1%",

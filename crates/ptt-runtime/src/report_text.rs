@@ -262,7 +262,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     leg_sweeps_book: "要吃掉大半个盘口 — 会一路吃到深档，均价变差",
     leg_not_enough_listed: "比现有挂单还多 — 一次吃不完",
     leg_no_listings: "这个方向没抓到挂单 — 是没数据，不是不够",
-    leg_bound_by_next: "下一条腿更紧",
+    leg_bound_by_next: "下一步更紧",
     leg_single_listing: "只有一个盘口",
     stranded: "剩下 {} {}   {}",
     no_cost_basis: "没有成本基准",
@@ -272,7 +272,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     route_baseline: "基准",
     route_front_depth: "这个汇率上市面能吃下 {} {}",
     route_front_short: "少于你要推的量",
-    route_no_front_price: "有一条腿没有首档报价 — 不给汇率结论",
+    route_no_front_price: "其中一步没有首档报价 — 不给汇率结论",
     no_route_beats_direct: "没有比直兑更好的路线 — 直兑就是这本书上最优的汇率",
     sweep_average_note: "下面是现在就吃穿多档的均价 — 清仓价，不是你能挂出去的汇率",
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
@@ -1042,7 +1042,7 @@ pub const fn execution_risk(language: UiLanguage, value: ExecutionRisk) -> &'sta
         ExecutionRisk::ArchivedData => pick(language, "archived data", "归档数据"),
         ExecutionRisk::ClockSkewFuture => pick(language, "timestamp in the future", "时间戳在未来"),
         ExecutionRisk::CaptureSkewExceeded => {
-            pick(language, "captures too far apart", "各腿抓取时间相差过大")
+            pick(language, "captures too far apart", "各步抓取时间相差过大")
         }
         ExecutionRisk::LowConfidence => pick(language, "low confidence", "置信度低"),
         ExecutionRisk::ThinLiquidity => pick(language, "thin liquidity", "流动性薄"),
@@ -1155,7 +1155,7 @@ pub const fn execution_risk_flag(language: UiLanguage, value: ExecutionRiskFlag)
         ExecutionRiskFlag::UnknownFee => pick(language, "unknown fee", "手续费未知"),
         ExecutionRiskFlag::PartialRoute => pick(language, "partial route", "路径不完整"),
         ExecutionRiskFlag::ResidualInventory => pick(language, "residual inventory", "有零头库存"),
-        ExecutionRiskFlag::MultiHopMaker => pick(language, "multi-hop maker leg", "多跳挂单腿"),
+        ExecutionRiskFlag::MultiHopMaker => pick(language, "multi-hop maker leg", "中途需挂单"),
         ExecutionRiskFlag::SearchTruncated => pick(language, "search truncated", "搜索被截断"),
         ExecutionRiskFlag::UnverifiedProductPolicy => {
             pick(language, "trade rules unverified", "成交规则未验证")
@@ -1195,7 +1195,7 @@ pub const fn probe_reason(language: UiLanguage, value: ProbeReason) -> &'static 
         ProbeReason::LowConfidence => pick(language, "low confidence", "置信度低"),
         ProbeReason::ComparatorBoundary => pick(language, "aggregate row", "聚合行边界"),
         ProbeReason::ThinLiquidity => pick(language, "thin liquidity", "流动性薄"),
-        ProbeReason::MissingBridgeQuote => pick(language, "no bridge quote", "缺中转腿报价"),
+        ProbeReason::MissingBridgeQuote => pick(language, "no bridge quote", "缺中转报价"),
         ProbeReason::OpportunityConfirmation => {
             pick(language, "confirming an opportunity", "确认一个机会")
         }
