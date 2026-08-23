@@ -14,7 +14,9 @@ use gpui_component::{
 };
 use ptt_runtime::domain::{MakerMode, MakerRecommendation, ProfitTier, RouteAccounting};
 use ptt_runtime::report_text;
-use ptt_runtime::reports::{ConvertModel, LegTakeCoverage, LegTakeVerdict, MakerModel};
+use ptt_runtime::reports::{
+    ConvertModel, LegTakeCoverage, LegTakeVerdict, MakerModel, RouteQuote, RouteRate, SizeRoute,
+};
 
 use crate::shell::AppShell;
 use crate::state::PageData;
@@ -368,7 +370,7 @@ impl AppShell {
         }
         for size in &model.sizes {
             routes = routes.child(match &size.accounting {
-                Some(accounting) => self.route_card(size.size, accounting, &size.legs, cx),
+                Some(accounting) => self.route_card(size, accounting, cx),
                 None => self.no_route_card(size.size, &model, cx),
             });
         }
@@ -475,21 +477,20 @@ impl AppShell {
     /// One size, priced.
     fn route_card(
         &self,
-        size: u64,
+        route: &SizeRoute,
         accounting: &RouteAccounting,
-        legs: &[LegTakeCoverage],
         _cx: &mut Context<Self>,
     ) -> gpui::Div {
         let text = self.text();
         let language = self.language();
         let report = report_text::report(language);
+        let size = route.size;
 
-        let route = accounting
-            .route_asset_ids
-            .iter()
-            .map(|asset| self.display_name(asset.as_str()))
-            .collect::<Vec<_>>()
-            .join(" → ");
+        let pair = format!(
+            "{} → {}",
+            self.display_name(accounting.requested_input.asset_id.as_str()),
+            self.display_name(accounting.account_asset_id.as_str())
+        );
 
         let mut card = div()
             .flex()
@@ -511,7 +512,7 @@ impl AppShell {
                         ))
                         .text_size(fs(FS_12_5)),
                     )
-                    .child(mono(route).text_size(fs(FS_11_5)).text_color(c(TEXT_META)))
+                    .child(mono(pair).text_size(fs(FS_11_5)).text_color(c(TEXT_META)))
                     .child(div().flex_grow())
                     .child(chip(
                         actionability_kind(accounting.assessment.actionability),
@@ -519,18 +520,40 @@ impl AppShell {
                     )),
             );
 
-        // Every leg, against the listings it would have to take. Above the
-        // tiers because a rate nobody has enough of on the shelf is the first
-        // thing to know about it, and because the tiers say nothing about it:
-        // a leg that ran out of listings still reports a perfectly good price
-        // for the part that fit.
-        for leg in legs {
-            card = card.child(self.leg_row(leg, language));
+        // Every route worth showing, rate first, each with its legs against
+        // the listings they would have to take. Rank decided the order and
+        // nothing else: a route four places down is still a rate the reader
+        // can list at. What is missing here priced worse than trading direct,
+        // which is the one thing no size can fix.
+        for quote in &route.quotes {
+            card = card.child(self.quote_row(quote, size, language));
+            for leg in &quote.legs {
+                card = card.child(self.leg_row(leg, language));
+            }
+        }
+        if route.direct_is_the_only_one {
+            card = card.child(
+                div()
+                    .text_size(fs(FS_11_5))
+                    .text_color(c(TEXT_META))
+                    .child(report.no_route_beats_direct.to_owned()),
+            );
         }
 
         // The three tiers stay three rows: they answer different questions,
         // and collapsing them to the friendliest number is how a theoretical
-        // profit gets traded.
+        // profit gets traded. All three are blended averages of a sweep, so
+        // they carry a heading that says so — they are a clearance price, not
+        // a rate anyone can list at, and they no longer carry a comparison
+        // against direct because that comparison moved with the size of the
+        // ask.
+        card = card.child(
+            div()
+                .pt_1()
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META))
+                .child(report.sweep_average_note.to_owned()),
+        );
         for (label, tier) in [
             (report.tier_closed, &accounting.closed),
             (report.tier_theoretical, &accounting.theoretical),
@@ -578,6 +601,102 @@ impl AppShell {
             );
         }
         card
+    }
+
+    /// One candidate route: the rate it can be listed at, where that stands
+    /// against trading direct, what this size projects to, and how deep the
+    /// front rows behind it are.
+    ///
+    /// **Rate first and quantity second, in that visual order.** The reader
+    /// types one exchange rate into the game; the exchange fills it at that
+    /// rate or better or leaves it listed, so the rate is the decision. How
+    /// much of their stack the market can absorb at it is a warning printed
+    /// after, never a reason to leave the route off the page — a currency can
+    /// be the league's store of value with three of it listed, and the
+    /// program has no way to know that.
+    ///
+    /// The percentage here never moves with the size in the box. That is the
+    /// invariant the model guarantees (`reports::RouteQuote`), and it is what
+    /// makes it safe for a worse-priced route to be dropped upstream instead
+    /// of shown as a loss.
+    fn quote_row(
+        &self,
+        quote: &RouteQuote,
+        size: u64,
+        language: ptt_settings::UiLanguage,
+    ) -> gpui::Div {
+        let report = report_text::report(language);
+        let hops: Vec<String> = quote
+            .route_asset_ids
+            .iter()
+            .skip(1)
+            .take(quote.route_asset_ids.len().saturating_sub(2))
+            .map(|asset| self.display_name(asset.as_str()))
+            .collect();
+        let source = self.display_name(quote.route_asset_ids.first().map_or("", |id| id.as_str()));
+        let standing = if quote.is_direct {
+            report.route_baseline.to_owned()
+        } else {
+            report_text::versus_direct(
+                language,
+                quote.direction,
+                quote.delta_output,
+                quote.versus_direct_bps,
+            )
+        };
+        let colour = match (quote.is_direct, quote.direction) {
+            (true, _) => TEXT_SECONDARY,
+            (_, Some(ptt_runtime::domain::ComparisonDirection::Improved)) => ACCENT_TEXT,
+            (_, Some(ptt_runtime::domain::ComparisonDirection::Worse)) => DANGER,
+            (_, Some(ptt_runtime::domain::ComparisonDirection::Equal)) => TEXT_SECONDARY,
+            (_, None) => TEXT_META,
+        };
+        let depth = report_text::route_depth_notes(language, quote, size, &source);
+        let thin = quote.fillable_input.is_some_and(|fillable| fillable < size);
+        div()
+            .flex()
+            .items_start()
+            .gap_2()
+            .py(px(3.))
+            .text_size(fs(FS_11_5))
+            .child(
+                div()
+                    .w(px(150.))
+                    .flex_none()
+                    .min_w(px(0.))
+                    .text_color(c(TEXT_PRIMARY))
+                    .child(report_text::route_quote_label(language, &hops)),
+            )
+            .child(
+                mono(
+                    quote
+                        .rate
+                        .map_or_else(|| report.route_no_front_price.to_owned(), RouteRate::text),
+                )
+                .w(px(110.))
+                .flex_none()
+                .text_color(c(TEXT_PRIMARY)),
+            )
+            .child(mono(standing).w(px(180.)).flex_none().text_color(c(colour)))
+            .child(
+                mono(
+                    quote
+                        .projected_output
+                        .map_or_else(|| "—".to_owned(), |out| format!("{size} → {out}")),
+                )
+                .w(px(140.))
+                .flex_none()
+                .text_color(c(TEXT_SECONDARY)),
+            )
+            .child(chips(
+                if thin {
+                    StatusKind::Warning
+                } else {
+                    StatusKind::Idle
+                },
+                &depth,
+                2,
+            ))
     }
 
     /// One leg, against the listings it would have to take right now.

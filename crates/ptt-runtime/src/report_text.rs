@@ -115,6 +115,14 @@ pub struct ReportText {
     pub maker_depth: &'static str,
     pub maker_excluded: &'static str,
     pub no_route_for_pair: &'static str,
+    pub route_direct_label: &'static str,
+    pub route_via: &'static str,
+    pub route_baseline: &'static str,
+    pub route_front_depth: &'static str,
+    pub route_front_short: &'static str,
+    pub route_no_front_price: &'static str,
+    pub no_route_beats_direct: &'static str,
+    pub sweep_average_note: &'static str,
     pub valuation_two_sided: &'static str,
     pub valuation_one_sided: &'static str,
     pub anchor_recommendation: &'static str,
@@ -163,6 +171,14 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     stranded: "stranded {} {}   {}",
     no_cost_basis: "no cost basis",
     break_even_at: "break even at 1 : {}",
+    route_direct_label: "direct",
+    route_via: "via {}",
+    route_baseline: "baseline",
+    route_front_depth: "the front rows take {} {} at this rate",
+    route_front_short: "your ask is larger than that",
+    route_no_front_price: "no front price on one of the legs - rate not claimed",
+    no_route_beats_direct: "no route beats going direct - direct is the best rate on this book",
+    sweep_average_note: "below: eating down the book right now, blended across levels - a clearance price, not a rate you can list",
     nothing_to_convert: "nothing to convert yet - capture a book first",
     same_currency: "have and want are the same currency - pick two different ones",
     focus_has_no_targets: "the focus list adds nothing to the settlement set - only the settlement currencies are being compared",
@@ -247,6 +263,14 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     stranded: "剩下 {} {}   {}",
     no_cost_basis: "没有成本基准",
     break_even_at: "保本价 1 : {}",
+    route_direct_label: "直兑",
+    route_via: "经 {}",
+    route_baseline: "基准",
+    route_front_depth: "这个汇率上市面能吃下 {} {}",
+    route_front_short: "少于你要推的量",
+    route_no_front_price: "有一条腿没有首档报价 — 不给汇率结论",
+    no_route_beats_direct: "没有比直兑更好的路线 — 直兑就是这本书上最优的汇率",
+    sweep_average_note: "下面是现在就吃穿多档的均价 — 清仓价，不是你能挂出去的汇率",
     nothing_to_convert: "还没有可兑换的数据 — 先抓一个盘口",
     same_currency: "拥有和想要是同一种通货 — 请选两种不同的",
     focus_has_no_targets: "关注列表没有在结算通货之外添加任何东西 — 现在只在结算通货之间比对",
@@ -449,6 +473,54 @@ pub fn versus_direct(
     }
 }
 
+/// A candidate route's name on the Convert page.
+///
+/// `hops` is the middle of the path, already in the caller's own names for
+/// the currencies — the page uses the catalogue's, the text report uses raw
+/// ids. The endpoints are left out because the page is already about that
+/// pair, and repeating them on every row costs the width the intermediate
+/// currencies need.
+#[must_use]
+pub fn route_quote_label(language: UiLanguage, hops: &[String]) -> String {
+    let text = report(language);
+    if hops.is_empty() {
+        return text.route_direct_label.to_owned();
+    }
+    let arrow = match language {
+        UiLanguage::English => " -> ",
+        UiLanguage::Chinese => " → ",
+    };
+    fill(text.route_via, &[&hops.join(arrow)])
+}
+
+/// What one route's front rows say about the size being asked for.
+///
+/// Always the number first. How much the market can absorb at this rate is a
+/// fact the reader weighs themselves — the program has no idea whether they
+/// are willing to leave the rest listed for an hour — so this states the
+/// depth and, when the ask is larger, says plainly that the remainder waits.
+/// It never withholds the route: see `reports::route_quotes`.
+#[must_use]
+pub fn route_depth_notes(
+    language: UiLanguage,
+    quote: &crate::reports::RouteQuote,
+    size: u64,
+    source: &str,
+) -> Vec<String> {
+    let text = report(language);
+    let Some(fillable) = quote.fillable_input else {
+        return Vec::new();
+    };
+    let mut notes = vec![fill(
+        text.route_front_depth,
+        &[&fillable.to_string(), source],
+    )];
+    if fillable < size {
+        notes.push(text.route_front_short.to_owned());
+    }
+    notes
+}
+
 /// What qualifies one leg: the verdict first, then whatever the verdict does
 /// not say on its own.
 ///
@@ -513,6 +585,31 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "no_route_for_pair",
             REPORT_ENGLISH.no_route_for_pair,
             REPORT_CHINESE.no_route_for_pair,
+        ),
+        (
+            "route_via",
+            REPORT_ENGLISH.route_via,
+            REPORT_CHINESE.route_via,
+        ),
+        (
+            "route_front_depth",
+            REPORT_ENGLISH.route_front_depth,
+            REPORT_CHINESE.route_front_depth,
+        ),
+        (
+            "route_front_short",
+            REPORT_ENGLISH.route_front_short,
+            REPORT_CHINESE.route_front_short,
+        ),
+        (
+            "no_route_beats_direct",
+            REPORT_ENGLISH.no_route_beats_direct,
+            REPORT_CHINESE.no_route_beats_direct,
+        ),
+        (
+            "sweep_average_note",
+            REPORT_ENGLISH.sweep_average_note,
+            REPORT_CHINESE.sweep_average_note,
         ),
         (
             "valuation_two_sided",

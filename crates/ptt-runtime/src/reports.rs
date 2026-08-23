@@ -73,8 +73,71 @@ pub struct SizeRoute {
     pub size: u64,
     /// `None` when the search found no path at this size.
     pub accounting: Option<Box<ptt_strategy::RouteAccounting>>,
-    /// One entry per leg of the route above, in order. Empty when there was
-    /// no route to measure.
+    /// Every route worth putting in front of the reader at this size, in the
+    /// order `compare_paths` ranked them. The direct trade is always here;
+    /// see [`route_quotes`] for what the others had to clear to join it.
+    pub quotes: Vec<RouteQuote>,
+    /// Every other candidate priced worse than going direct, so the list is
+    /// down to the baseline alone. A conclusion — "nothing beats direct" —
+    /// and not the same thing as finding no route, which is why it is a flag
+    /// rather than an empty list.
+    pub direct_is_the_only_one: bool,
+}
+
+/// An exact rate: whole units of the target per whole unit of the source.
+///
+/// A fraction rather than a decimal because every comparison on this page is
+/// between two of these, and 8.3 keeps floats at the drawing edge. Rendering
+/// truncates ([`RouteRate::text`]); nothing that decides anything does.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RouteRate {
+    pub numerator: u128,
+    pub denominator: u128,
+}
+
+/// One candidate route, priced at the rate the reader can actually list it
+/// at.
+///
+/// **Rate first, quantity second, and never the other way round.** The
+/// reader types one exchange rate into the game and lists it; the exchange
+/// fills that listing at their rate or at a better one, or leaves it sitting.
+/// An order does not slide down to the next level the way a sweep does, so
+/// the number that decides whether a route is worth taking is its rate, and
+/// how much of the reader's stack the market can absorb at that rate is a
+/// separate warning printed beside it. The blended average of eating down
+/// several levels is a different question — "what if I clear the shelf right
+/// now" — and lives under its own label in the tiers below.
+///
+/// The direct consequence, and the invariant the tests pin: **the sign of
+/// the profit never depends on the size of the ask.** Ten and five thousand
+/// give the same percentage on the same book, because the percentage is a
+/// ratio of two rates and neither of them knows the size.
+#[derive(Clone, Debug)]
+pub struct RouteQuote {
+    pub route_asset_ids: Vec<MarketAssetId>,
+    /// One hop: the trade the other routes are measured against.
+    pub is_direct: bool,
+    /// The front row of every leg, multiplied together. `None` when a leg had
+    /// no priced front row, in which case nothing about this route is
+    /// claimed — and it is still shown, because an unmeasured route is not a
+    /// bad one.
+    pub rate: Option<RouteRate>,
+    /// `size` run through the legs at [`RouteQuote::rate`], flooring at each
+    /// leg the way the game does.
+    pub projected_output: Option<u64>,
+    /// Signed basis points against the direct route's own front rate. Size
+    /// plays no part: this is one rate over another.
+    pub versus_direct_bps: Option<i64>,
+    pub direction: Option<ptt_trade_engine::ComparisonDirection>,
+    /// Difference from what the direct trade produces at this same size. The
+    /// one number here that does scale with the ask, which is why the
+    /// percentage beside it is computed separately rather than derived from
+    /// this.
+    pub delta_output: Option<u64>,
+    /// Whole units of the starting asset the front rows absorb before the
+    /// price moves off [`RouteQuote::rate`]. A warning, never a filter.
+    pub fillable_input: Option<u64>,
+    /// This route's legs against the listings each would have to take.
     pub legs: Vec<LegTakeCoverage>,
 }
 
@@ -610,15 +673,307 @@ fn route_leg_coverage(
     legs
 }
 
-fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
-    let profit = crate::report_text::versus_direct(
+impl RouteRate {
+    const ONE: Self = Self {
+        numerator: 1,
+        denominator: 1,
+    };
+
+    /// Kept in lowest terms after every multiply, which is what keeps the
+    /// four-hop products inside `u128` and the comparisons below total.
+    fn reduced(numerator: u128, denominator: u128) -> Option<Self> {
+        if denominator == 0 || numerator == 0 {
+            return None;
+        }
+        let (mut a, mut b) = (numerator, denominator);
+        while b != 0 {
+            let next = a % b;
+            a = b;
+            b = next;
+        }
+        Some(Self {
+            numerator: numerator / a,
+            denominator: denominator / a,
+        })
+    }
+
+    fn times(self, rate: &ptt_trade_domain::Ratio) -> Option<Self> {
+        Self::reduced(
+            self.numerator.checked_mul(u128::from(rate.numerator))?,
+            self.denominator.checked_mul(u128::from(rate.denominator))?,
+        )
+    }
+
+    /// `amount` of the target asset, expressed back in the source asset.
+    fn back_to_source(self, amount: u64) -> Option<u64> {
+        u64::try_from(u128::from(amount).checked_mul(self.denominator)? / self.numerator).ok()
+    }
+
+    /// `amount` of the source asset, forward into the target asset, floored.
+    fn forward(self, amount: u64) -> Option<u64> {
+        u64::try_from(u128::from(amount).checked_mul(self.numerator)? / self.denominator).ok()
+    }
+
+    fn compare(self, other: Self) -> std::cmp::Ordering {
+        // Cross-multiplied, never divided: integer division would round two
+        // rates the market never tied into a tie, and it is a tie that
+        // decides whether a route is shown at all.
+        (self.numerator * other.denominator).cmp(&(other.numerator * self.denominator))
+    }
+
+    /// This rate against `baseline`, in signed basis points.
+    ///
+    /// Two rates in, one ratio out — the ask never enters, which is the whole
+    /// reason this is computed from rates rather than from the two projected
+    /// outputs. Flooring the outputs first would make the same route read
+    /// -0.93% at ten and -0.02% at five thousand.
+    fn versus(self, baseline: Self) -> Option<i64> {
+        let mine = i128::try_from(self.numerator.checked_mul(baseline.denominator)?).ok()?;
+        let theirs = i128::try_from(baseline.numerator.checked_mul(self.denominator)?).ok()?;
+        if theirs == 0 {
+            return None;
+        }
+        i64::try_from(mine.checked_sub(theirs)?.checked_mul(10_000)? / theirs).ok()
+    }
+
+    /// Up to four decimals, truncated, trailing zeros trimmed.
+    fn decimal(numerator: u128, denominator: u128) -> String {
+        let whole = numerator / denominator;
+        let remainder = numerator % denominator;
+        let Some(scaled) = remainder.checked_mul(10_000) else {
+            return whole.to_string();
+        };
+        let fraction = scaled / denominator;
+        if fraction == 0 {
+            return whole.to_string();
+        }
+        format!("{whole}.{fraction:04}")
+            .trim_end_matches('0')
+            .to_owned()
+    }
+
+    /// The rate the way the game writes one: `10.8 : 1`, or `1 : 57` when
+    /// the target is the dearer of the two.
+    ///
+    /// Whichever side is bigger takes the decimals. Forcing every rate into
+    /// `x : 1` prints an omen at `0.0175 : 1`, and four decimals of a number
+    /// that small is a quarter of a percent of error on a figure the reader
+    /// is about to compare against another one.
+    #[must_use]
+    pub fn text(self) -> String {
+        if self.numerator >= self.denominator {
+            format!("{} : 1", Self::decimal(self.numerator, self.denominator))
+        } else {
+            format!("1 : {}", Self::decimal(self.denominator, self.numerator))
+        }
+    }
+}
+
+/// The front row of one leg: the rate it quotes, and how much of the leg's
+/// input that row alone can absorb.
+///
+/// `fills` is the depth walk's own record and its first entry is the best
+/// level it used, so this is the same row the engine priced against. The
+/// fallback is for a leg that consumed nothing at all — no fills to read,
+/// but the book still has a front row and the reader can still list at it.
+fn leg_front_row(
+    step: &ptt_trade_engine::PairFill,
+    index: &MarketDepthIndex,
+) -> Option<(ptt_trade_domain::Ratio, u64)> {
+    if let Some(front) = step.fills.first() {
+        return Some((front.rate.clone(), front.capacity_from.quanta));
+    }
+    let (rate, stock) = index.top_of_book(&step.from_asset_id, &step.to_asset_id)?;
+    // A taker row's stock counts the asset the leg buys (CORE-TRADING-MODEL
+    // 7.1), so walk it back to what the leg has to spend to take it.
+    let capacity = u64::try_from(
+        u128::from(stock).checked_mul(u128::from(rate.denominator))? / u128::from(rate.numerator),
+    )
+    .ok()?;
+    Some((rate, capacity))
+}
+
+/// The rate a whole route can be listed at, and how much of the starting
+/// asset the front rows absorb at it.
+///
+/// Every leg contributes its front row and nothing deeper. The reader lists
+/// one rate per leg and waits; nobody fills them at a worse price than they
+/// asked for, so the levels behind the front are not part of the price they
+/// get — they are part of how long they will be waiting, which is the
+/// capacity half of the answer.
+fn route_front_quote(
+    path: &ptt_trade_engine::ConversionPath,
+    index: &MarketDepthIndex,
+) -> Option<(RouteRate, u64)> {
+    let mut rate = RouteRate::ONE;
+    let mut fillable: Option<u64> = None;
+    for step in &path.steps {
+        let (leg_rate, leg_capacity) = leg_front_row(step, index)?;
+        // This leg's capacity is denominated in what *it* spends, so it has
+        // to travel back through the legs before it to be comparable with
+        // the reader's stack.
+        let in_source = rate.back_to_source(leg_capacity)?;
+        fillable = Some(fillable.map_or(in_source, |least| least.min(in_source)));
+        rate = rate.times(&leg_rate)?;
+    }
+    Some((rate, fillable?))
+}
+
+/// `size` at the route's own rate: one multiply, one floor.
+///
+/// Deliberately **not** flooring at every leg. Rounding each hop down models
+/// a literal three-orb walk faithfully and then contradicts the line beside
+/// it: on the 2026-08-23 book a three-hop route 3.06% ahead of direct on rate
+/// projected *fewer* chaos than direct at a size of three, because two
+/// intermediate floors ate more than the edge was worth. A row that reads
+/// "3.06% better" and shows a smaller number is worse than a row that is
+/// approximate.
+///
+/// One floor over the composed rate is monotone in that rate — a better rate
+/// can never project less — so the projection, the delta and the percentage
+/// always agree. It is also exactly what the ruling asks for: output = size ×
+/// the rate you can list at.
+fn project_at_front_rates(
+    path: &ptt_trade_engine::ConversionPath,
+    index: &MarketDepthIndex,
+    size: u64,
+) -> Option<u64> {
+    route_front_quote(path, index).and_then(|(rate, _)| rate.forward(size))
+}
+
+/// Every route the reader should see at one size, in the order the engine
+/// ranked them.
+///
+/// **Two rules, and the order between them is the whole design.**
+///
+/// *Rank does not decide visibility.* A route that came fourth is still a
+/// rate the reader can list at, and hiding it because a sort put it fourth
+/// is how a real opportunity gets thrown away — the program does not know
+/// that an orb is the league's store of value, so when in doubt it shows.
+///
+/// *Losing on rate does decide visibility.* A route whose reachable rate is
+/// worse than simply trading direct is not an opportunity at any size, so it
+/// is dropped rather than shown as a negative number nobody wants.
+///
+/// **The second rule is only safe because of the first half of this file.**
+/// While the profit figure was the blended average of a sweep, a route with
+/// an excellent rate that could only fill a sliver of the ask computed as a
+/// loss — hiding negatives then would have hidden exactly the opportunities
+/// the first rule exists to protect. Now the sign comes from the rates alone
+/// and the size lands entirely in the liquidity notes, so a route is dropped
+/// only for being genuinely worse to trade at. **Anyone who makes the profit
+/// figure depend on the ask again must delete this filter in the same
+/// change.**
+///
+/// Liquidity never removes anything. Not enough listed is a note beside the
+/// route, never a reason to withhold it: whether to list into a thin book is
+/// the reader's call, and they can only make it if they can see the book.
+fn route_quotes<'a>(
+    market: &Market,
+    candidates: &[&'a ptt_trade_engine::ConversionPath],
+    direct: Option<&ptt_trade_engine::ConversionPath>,
+    size: u64,
+    sweep_percent: u64,
+) -> Vec<(&'a ptt_trade_engine::ConversionPath, RouteQuote)> {
+    let baseline = direct.and_then(|path| route_front_quote(path, &market.index));
+    let baseline_rate = baseline.map(|(rate, _)| rate);
+    let baseline_output = direct.and_then(|path| project_at_front_rates(path, &market.index, size));
+
+    let mut quotes = Vec::new();
+    for path in candidates {
+        let is_direct = path.steps.len() == 1;
+        let front = route_front_quote(path, &market.index);
+        let rate = front.map(|(rate, _)| rate);
+        if let (false, Some(rate), Some(baseline)) = (is_direct, rate, baseline_rate) {
+            if rate.compare(baseline) == std::cmp::Ordering::Less {
+                continue;
+            }
+        }
+        let projected = project_at_front_rates(path, &market.index, size);
+        let versus_direct_bps = match (rate, baseline_rate) {
+            (Some(rate), Some(baseline)) => rate.versus(baseline),
+            _ => None,
+        };
+        let direction = versus_direct_bps.map(|points| match points.cmp(&0) {
+            std::cmp::Ordering::Greater => ptt_trade_engine::ComparisonDirection::Improved,
+            std::cmp::Ordering::Equal => ptt_trade_engine::ComparisonDirection::Equal,
+            std::cmp::Ordering::Less => ptt_trade_engine::ComparisonDirection::Worse,
+        });
+        quotes.push((
+            *path,
+            RouteQuote {
+                route_asset_ids: path.path_asset_ids.clone(),
+                is_direct,
+                rate,
+                projected_output: projected,
+                versus_direct_bps,
+                direction,
+                delta_output: match (projected, baseline_output) {
+                    (Some(mine), Some(theirs)) => Some(mine.abs_diff(theirs)),
+                    _ => None,
+                },
+                fillable_input: front.map(|(_, fillable)| fillable),
+                legs: route_leg_coverage(market, path, sweep_percent),
+            },
+        ));
+    }
+    quotes
+}
+
+/// One candidate route as a line: name, rate, standing against direct, what
+/// this size projects to, and how deep the front rows are.
+///
+/// The direct trade carries the word "baseline" where the others carry a
+/// percentage, because `+0.00%` against itself is a number that invites the
+/// reader to compare it with something.
+fn quote_line(quote: &RouteQuote, size: u64, have: &MarketAssetId, language: UiLanguage) -> String {
+    let text = crate::report_text::report(language);
+    let hops: Vec<String> = quote
+        .route_asset_ids
+        .iter()
+        .skip(1)
+        .take(quote.route_asset_ids.len().saturating_sub(2))
+        .map(|asset| asset.as_str().to_owned())
+        .collect();
+    let label = crate::report_text::route_quote_label(language, &hops);
+    let rate = quote
+        .rate
+        .map_or_else(|| text.route_no_front_price.to_owned(), RouteRate::text);
+    let standing = if quote.is_direct {
+        text.route_baseline.to_owned()
+    } else {
+        crate::report_text::versus_direct(
+            language,
+            quote.direction,
+            quote.delta_output,
+            quote.versus_direct_bps,
+        )
+    };
+    let projected = quote
+        .projected_output
+        .map_or_else(|| "-".to_owned(), |out| format!("{size} -> {out}"));
+    let depth = crate::report_text::join_text(
         language,
-        tier.direction,
-        tier.delta.as_ref().map(|delta| delta.quanta),
-        tier.basis_points,
+        &crate::report_text::route_depth_notes(language, quote, size, have.as_str())
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
     );
+    format!("{label:<28} {rate:>14}   {standing:<36} {projected:<18} {depth}")
+}
+
+/// One clearance tier: what a sweep down the book right now produces.
+///
+/// No comparison against direct on this line any more. These outputs are the
+/// blended average of walking several levels, and the direct baseline was
+/// its own blended average of a different number of levels — apples against
+/// oranges, and the number it produced moved with the size of the ask, which
+/// is precisely what the rate rows above exist to stop. The comparison lives
+/// there, on rates, where the ask cannot reach it.
+fn tier_line(label: &str, tier: &ProfitTier, language: UiLanguage) -> String {
+    let _ = language;
     format!(
-        "{label:<12} {} in -> {} out   {profit}",
+        "{label:<12} {} in -> {} out",
         tier.input.quanta, tier.output.quanta
     )
 }
@@ -721,7 +1076,11 @@ pub fn convert_model(
                 max_hops,
                 max_paths: 64,
                 max_expansions: 10_000,
-                alternative_limit: 2,
+                // Every route the search ranked, not the top three. Rank is
+                // not a visibility rule on this page (see `route_quotes`),
+                // and a candidate the engine never hands over cannot be
+                // judged on its rate at all. 50 is the engine's ceiling.
+                alternative_limit: 50,
                 allowed_intermediate_asset_ids: None,
                 // Gross by product decision: no monetary fee is modelled.
                 fee_policy: FeePolicy::None,
@@ -734,22 +1093,57 @@ pub fn convert_model(
             routes.push(SizeRoute {
                 size,
                 accounting: None,
-                legs: Vec::new(),
+                quotes: Vec::new(),
+                direct_is_the_only_one: false,
             });
             continue;
         };
-        let accounting = derive_route_accounting(RouteAccountingRequest {
-            path: best,
-            direct_path: conversion.direct_path.as_ref(),
-            mark_rates: &market.mark_rates,
-            thresholds: RiskThresholds::default(),
-            needs_probe: false,
-        })
-        .map_err(|error| format!("accounting: {error}"))?;
+
+        // Everything the engine ranked, with the direct trade guaranteed a
+        // place: it is the baseline every other row is measured against, and
+        // a baseline that can fall off the bottom of `alternatives` is not
+        // one.
+        let mut candidates = vec![best];
+        candidates.extend(conversion.alternatives.iter());
+        if let Some(direct) = &conversion.direct_path {
+            if !candidates
+                .iter()
+                .any(|path| path.path_asset_ids == direct.path_asset_ids)
+            {
+                candidates.push(direct);
+            }
+        }
+        let priced = route_quotes(
+            &market,
+            &candidates,
+            conversion.direct_path.as_ref(),
+            size,
+            tuning.convert.leg_sweep_percent,
+        );
+
+        // The detail below belongs to the route at the top of the list the
+        // reader is looking at, which is not always the one `compare_paths`
+        // put first — that one may have been dropped for pricing worse than
+        // direct.
+        let accounting = priced
+            .first()
+            .map(|(path, _)| {
+                derive_route_accounting(RouteAccountingRequest {
+                    path,
+                    direct_path: conversion.direct_path.as_ref(),
+                    mark_rates: &market.mark_rates,
+                    thresholds: RiskThresholds::default(),
+                    needs_probe: false,
+                })
+            })
+            .transpose()
+            .map_err(|error| format!("accounting: {error}"))?;
+        let quotes: Vec<RouteQuote> = priced.into_iter().map(|(_, quote)| quote).collect();
         routes.push(SizeRoute {
             size,
-            accounting: Some(Box::new(accounting)),
-            legs: route_leg_coverage(&market, best, tuning.convert.leg_sweep_percent),
+            direct_is_the_only_one: quotes.len() == 1 && quotes[0].is_direct,
+            accounting: accounting.map(Box::new),
+            quotes,
         });
     }
 
@@ -788,26 +1182,30 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
             ));
             continue;
         };
-        let route_text = accounting
-            .route_asset_ids
-            .iter()
-            .map(MarketAssetId::as_str)
-            .collect::<Vec<_>>()
-            .join(" -> ");
-        lines.push(format!("{size:>4} {have}   via {route_text}"));
-        for leg in &route.legs {
-            let facts = crate::report_text::leg_take_facts(
-                language,
-                leg.from_asset_id.as_str(),
-                leg.to_asset_id.as_str(),
-                leg,
-            );
-            let notes = crate::report_text::join_text(
-                language,
-                &crate::report_text::leg_take_notes(language, leg),
-            );
-            lines.push(format!("     {facts}   {notes}"));
+        lines.push(format!("{size:>4} {have} -> {need}"));
+        // Rate, then what fills at it. Never the other way round: the reader
+        // lists one rate and controls the quantity themselves, so the rate is
+        // the decision and the quantity is the warning beside it.
+        for quote in &route.quotes {
+            lines.push(format!("     {}", quote_line(quote, size, have, language)));
+            for leg in &quote.legs {
+                let facts = crate::report_text::leg_take_facts(
+                    language,
+                    leg.from_asset_id.as_str(),
+                    leg.to_asset_id.as_str(),
+                    leg,
+                );
+                let notes = crate::report_text::join_text(
+                    language,
+                    &crate::report_text::leg_take_notes(language, leg),
+                );
+                lines.push(format!("       {facts}   {notes}"));
+            }
         }
+        if route.direct_is_the_only_one {
+            lines.push(format!("     {}", text.no_route_beats_direct));
+        }
+        lines.push(format!("     {}", text.sweep_average_note));
         for (label, tier) in [
             (text.tier_closed, &accounting.closed),
             (text.tier_theoretical, &accounting.theoretical),
@@ -4100,7 +4498,15 @@ mod leg_coverage_tests {
             None,
         )
         .expect("convert model");
-        model.sizes.first().expect("one priced size").legs.clone()
+        model
+            .sizes
+            .first()
+            .expect("one priced size")
+            .quotes
+            .first()
+            .expect("one visible route")
+            .legs
+            .clone()
     }
 
     /// The three bands, on one real book. 120 omens are listed against chaos;
@@ -4262,15 +4668,8 @@ mod leg_coverage_tests {
 #[cfg(test)]
 mod versus_direct_wording_tests {
     use super::*;
+    use crate::report_text::versus_direct;
     use ptt_trade_engine::ComparisonDirection;
-
-    fn amount(id: &str, quanta: u64) -> AssetAmount {
-        AssetAmount {
-            asset_id: MarketAssetId::try_new(id).expect("asset id"),
-            quanta,
-            unit: AssetUnit::whole(),
-        }
-    }
 
     /// The 2026-08-23 field reading: a route 1,338 basis points behind the
     /// direct trade.
@@ -4282,23 +4681,24 @@ mod versus_direct_wording_tests {
     /// is ahead or behind.
     #[test]
     fn a_route_behind_direct_says_so_once() {
-        let tier = ProfitTier {
-            input: amount("divine-orb", 5_000),
-            output: amount("chaos-orb", 22_318),
-            baseline_output: Some(amount("chaos-orb", 25_769)),
-            direction: Some(ComparisonDirection::Worse),
-            delta: Some(amount("chaos-orb", 3_451)),
-            basis_points: Some(-1_338),
-        };
-
-        let chinese = tier_line("已结算", &tier, UiLanguage::Chinese);
+        let chinese = versus_direct(
+            UiLanguage::Chinese,
+            Some(ComparisonDirection::Worse),
+            Some(3_451),
+            Some(-1_338),
+        );
         assert!(
             chinese.contains("比直兑低 13.38%"),
             "the direction is stated by the words, not repeated by the sign: {chinese}"
         );
         assert!(!chinese.contains("-13.38%"), "double negative: {chinese}");
 
-        let english = tier_line("closed", &tier, UiLanguage::English);
+        let english = versus_direct(
+            UiLanguage::English,
+            Some(ComparisonDirection::Worse),
+            Some(3_451),
+            Some(-1_338),
+        );
         assert!(
             !english.contains("-13.38%"),
             "the English line repeats the minus too: {english}"
@@ -4306,6 +4706,369 @@ mod versus_direct_wording_tests {
         assert!(
             english.contains("13.38% worse than direct"),
             "English has to say which way as words as well: {english}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod route_quote_tests {
+    use super::*;
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    const CONTEXT: &str = "route-quote-context";
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn edge(
+        tag: &str,
+        edge_id: &str,
+        from: &str,
+        to: &str,
+        side: QuoteSide,
+        role: QuoteEdgeRole,
+        execution: ExecutionType,
+        row: u8,
+        rate: (u64, u64),
+        stock: u64,
+    ) -> MarketEdgeObservation {
+        let captured = Utc::now() - chrono::Duration::minutes(1);
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: edge_id.to_owned(),
+                snapshot_id: format!("snapshot-{tag}"),
+                quote_id: format!("quote-{edge_id}"),
+                context_key: CONTEXT.to_owned(),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                rate: Ratio::from_parts(rate.0, rate.1).expect("rate"),
+                source_side: side,
+                execution_type: execution,
+                role,
+                stock,
+                original_need_asset_id: asset(to),
+                original_have_asset_id: asset(from),
+                original_row_index: row,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(990_000),
+                captured_at: captured,
+                confirmed_at: captured,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    /// One captured panel as the two edges per row the domain builds: a taker
+    /// one way and a maker reference back. Only the taker side is fillable
+    /// under Instant, so `available` is the book a route can actually walk.
+    fn panel(
+        tag: &str,
+        have: &str,
+        need: &str,
+        available: &[((u64, u64), u64)],
+    ) -> Vec<MarketEdgeObservation> {
+        let mut out = Vec::new();
+        for (index, (rate, stock)) in available.iter().enumerate() {
+            let row = u8::try_from(index).expect("row index");
+            out.push(edge(
+                tag,
+                &format!("{tag}-a{index}-f"),
+                have,
+                need,
+                QuoteSide::Available,
+                QuoteEdgeRole::AvailableTaker,
+                ExecutionType::Taker,
+                row,
+                *rate,
+                *stock,
+            ));
+            out.push(edge(
+                tag,
+                &format!("{tag}-a{index}-r"),
+                need,
+                have,
+                QuoteSide::Available,
+                QuoteEdgeRole::AvailableReverseMakerReference,
+                ExecutionType::MakerReference,
+                row,
+                (rate.1, rate.0),
+                *stock,
+            ));
+        }
+        out
+    }
+
+    /// The divine/chaos book off the 2026-08-23 capture: 10.8 at the front
+    /// with 18,576 chaos behind it, then two worse levels. More than one
+    /// level is the point -- a sweep of this book blends out to 10.798, and
+    /// that is the number this change is taking off the profit line.
+    fn direct_book() -> Vec<MarketEdgeObservation> {
+        panel(
+            "dc",
+            "divine-orb",
+            "chaos-orb",
+            &[((54, 5), 18_576), ((1079, 100), 410), ((539, 50), 619_614)],
+        )
+    }
+
+    /// A two-hop route priced better than direct -- 12 chaos a divine against
+    /// 10.8 -- with almost nothing behind either front row.
+    fn thin_but_better() -> Vec<MarketEdgeObservation> {
+        let mut out = panel("db", "divine-orb", "bridge-orb", &[((1, 1), 5)]);
+        out.extend(panel("bc", "bridge-orb", "chaos-orb", &[((12, 1), 60)]));
+        out
+    }
+
+    /// A two-hop route priced worse than direct -- 9 chaos a divine -- with a
+    /// deep book on both legs. The depth is the point: it must not buy this
+    /// route a place on the page.
+    fn deep_but_worse() -> Vec<MarketEdgeObservation> {
+        let mut out = panel("ds", "divine-orb", "sink-orb", &[((1, 1), 100_000)]);
+        out.extend(panel("sc", "sink-orb", "chaos-orb", &[((9, 1), 900_000)]));
+        out
+    }
+
+    /// Two hops that halve and then multiply back: 11 chaos a divine against
+    /// direct's 10.8, but the middle currency costs two divine apiece, so a
+    /// tiny ask rounds away at the halfway point.
+    fn rounding_trap() -> Vec<MarketEdgeObservation> {
+        let mut out = panel("dh", "divine-orb", "half-orb", &[((1, 2), 1_000)]);
+        out.extend(panel("hc", "half-orb", "chaos-orb", &[((22, 1), 100_000)]));
+        out
+    }
+
+    fn model_at(observations: &[MarketEdgeObservation], holdings: u64) -> ConvertModel {
+        convert_model(
+            observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            Some(holdings),
+            &MarketTuning::default(),
+            UiLanguage::English,
+            None,
+        )
+        .expect("convert model")
+    }
+
+    fn quotes_at(observations: &[MarketEdgeObservation], holdings: u64) -> Vec<RouteQuote> {
+        model_at(observations, holdings)
+            .sizes
+            .first()
+            .expect("one priced size")
+            .quotes
+            .clone()
+    }
+
+    fn find(quotes: &[RouteQuote], hop: &str) -> Option<RouteQuote> {
+        quotes
+            .iter()
+            .find(|quote| quote.route_asset_ids.iter().any(|id| id.as_str() == hop))
+            .cloned()
+    }
+
+    fn english_report(observations: &[MarketEdgeObservation], holdings: u64) -> String {
+        convert_report(
+            observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            Some(holdings),
+            &MarketTuning::default(),
+            UiLanguage::English,
+        )
+        .expect("report")
+        .join("\n")
+    }
+
+    /// **The invariant this whole change exists to establish.**
+    ///
+    /// The reader types a size into the game to control how much they list,
+    /// not to ask a different question. Ten and five thousand are the same
+    /// question about the same book, so the answer -- is this route ahead of
+    /// trading direct, and by how much -- has to come out identical. Only the
+    /// absolute numbers and the liquidity warnings may move with the ask.
+    ///
+    /// Every other ruling on this page rests on this one: dropping routes
+    /// that price worse than direct is only safe while the sign belongs to
+    /// the rates and nothing else.
+    #[test]
+    fn the_profit_percentage_does_not_move_with_the_size_of_the_ask() {
+        let mut observations = direct_book();
+        observations.extend(thin_but_better());
+
+        let small = find(&quotes_at(&observations, 10), "bridge-orb").expect("bridge route at 10");
+        let large =
+            find(&quotes_at(&observations, 5_000), "bridge-orb").expect("bridge route at 5000");
+
+        assert_eq!(
+            small.versus_direct_bps, large.versus_direct_bps,
+            "the size of the ask changed the profit percentage: {small:?} vs {large:?}"
+        );
+        assert_eq!(
+            small.versus_direct_bps,
+            Some(1_111),
+            "12 against 10.8 is 11.11% at either size: {small:?}"
+        );
+        assert_eq!(small.rate, large.rate, "{small:?} vs {large:?}");
+        assert_eq!(
+            (small.projected_output, large.projected_output),
+            (Some(120), Some(60_000)),
+            "the absolute numbers are the part that is allowed to scale"
+        );
+    }
+
+    /// A rate worth having behind a book that cannot fill the ask is exactly
+    /// the case that must never be hidden: the currency may be the league's
+    /// store of value and the program has no way to know that. So it is
+    /// listed, with its rate, and the shortage is said out loud beside it.
+    #[test]
+    fn a_better_rate_that_cannot_fill_the_ask_is_still_shown() {
+        let mut observations = direct_book();
+        observations.extend(thin_but_better());
+
+        let quotes = quotes_at(&observations, 5_000);
+        let bridge =
+            find(&quotes, "bridge-orb").expect("a route that beats direct is never hidden");
+        assert_eq!(bridge.rate.map(RouteRate::text), Some("12 : 1".to_owned()));
+        assert_eq!(
+            bridge.fillable_input,
+            Some(5),
+            "five divine is all the front rows hold: {bridge:?}"
+        );
+        assert!(
+            bridge
+                .legs
+                .iter()
+                .any(|leg| leg.verdict == LegTakeVerdict::NotEnoughListed),
+            "the shortage has to be stated: {bridge:?}"
+        );
+
+        let lines = english_report(&observations, 5_000);
+        assert!(lines.contains("via bridge-orb"), "{lines}");
+        assert!(
+            lines.contains("the front rows take 5 divine-orb at this rate"),
+            "{lines}"
+        );
+        assert!(lines.contains("your ask is larger than that"), "{lines}");
+    }
+
+    /// Nine chaos a divine is nine chaos a divine however many of them sit on
+    /// the shelf. A route the reader would come out behind on is not an
+    /// opportunity at any size, so it does not go on the page -- and the
+    /// depth behind it must not talk it back on.
+    #[test]
+    fn a_route_that_prices_worse_than_direct_is_not_listed() {
+        let mut observations = direct_book();
+        observations.extend(deep_but_worse());
+
+        let quotes = quotes_at(&observations, 5_000);
+        assert!(
+            find(&quotes, "sink-orb").is_none(),
+            "a worse rate stays off the page however deep its book: {quotes:?}"
+        );
+        assert!(
+            quotes.iter().any(|quote| quote.is_direct),
+            "the baseline is always shown: {quotes:?}"
+        );
+    }
+
+    /// The common case, and it is a conclusion rather than a fault: this book
+    /// simply has nothing better than trading straight across. Saying "no
+    /// route" there would read as a broken page.
+    #[test]
+    fn when_nothing_beats_direct_the_page_says_so() {
+        let mut observations = direct_book();
+        observations.extend(deep_but_worse());
+
+        let size = model_at(&observations, 5_000)
+            .sizes
+            .first()
+            .cloned()
+            .expect("one priced size");
+        assert_eq!(size.quotes.len(), 1, "{:?}", size.quotes);
+        assert!(size.quotes[0].is_direct, "{:?}", size.quotes);
+        assert!(size.direct_is_the_only_one);
+
+        let english = english_report(&observations, 5_000);
+        assert!(english.contains("no route beats going direct"), "{english}");
+        assert!(
+            !english.contains("no route from divine-orb"),
+            "a conclusion must not read as a failure: {english}"
+        );
+
+        let chinese = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            Some(5_000),
+            &MarketTuning::default(),
+            UiLanguage::Chinese,
+        )
+        .expect("report")
+        .join("\n");
+        assert!(chinese.contains("没有比直兑更好的路线"), "{chinese}");
+    }
+
+    /// A row that says "1.85% better" and shows a smaller number than the row
+    /// above it is worse than a row that is approximate.
+    ///
+    /// Found on the live book at a size of three: a three-hop route 3.06%
+    /// ahead on rate projected fewer chaos than direct, because rounding each
+    /// hop down to a whole orb ate more than the edge was worth. The
+    /// projection is now one multiply and one floor over the composed rate,
+    /// which cannot fall below a worse rate's.
+    #[test]
+    fn a_better_rate_never_projects_a_smaller_number() {
+        let mut observations = direct_book();
+        observations.extend(rounding_trap());
+
+        let quotes = quotes_at(&observations, 3);
+        let direct = quotes
+            .iter()
+            .find(|quote| quote.is_direct)
+            .expect("direct")
+            .clone();
+        let bridged = find(&quotes, "half-orb").expect("a route ahead on rate is shown");
+
+        assert_eq!(bridged.rate.map(RouteRate::text), Some("11 : 1".to_owned()));
+        assert_eq!(bridged.versus_direct_bps, Some(185));
+        assert_eq!(
+            (bridged.projected_output, direct.projected_output),
+            (Some(33), Some(32)),
+            "flooring each hop separately made this 22 against direct's 32: {bridged:?}"
+        );
+        assert_eq!(bridged.delta_output, Some(1));
+    }
+
+    /// The direct row against the real reading it was modelled on: 10.8 at
+    /// the front, 18,576 chaos behind it, and 1,720 divine that can be pushed
+    /// through before the price moves off it. Not the 10.798 a five-level
+    /// sweep blends out to -- that one is a clearance price and lives under
+    /// its own heading further down the card.
+    #[test]
+    fn the_direct_row_prices_the_front_of_its_book() {
+        let quotes = quotes_at(&direct_book(), 5_000);
+        let direct = quotes.iter().find(|quote| quote.is_direct).expect("direct");
+        assert_eq!(
+            direct.rate.map(RouteRate::text),
+            Some("10.8 : 1".to_owned())
+        );
+        assert_eq!(direct.fillable_input, Some(1_720));
+        assert_eq!(direct.projected_output, Some(54_000));
+        assert_eq!(
+            direct.versus_direct_bps,
+            Some(0),
+            "the baseline is level with itself: {direct:?}"
         );
     }
 }
