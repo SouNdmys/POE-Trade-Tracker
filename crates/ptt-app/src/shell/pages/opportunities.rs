@@ -410,6 +410,37 @@ impl RadarTable {
     }
 }
 
+/// What makes a row *this route* and not whatever ends up at its index next
+/// time.
+///
+/// The kind plus the asset sequence: those two come from the market, so two
+/// scans that both find the chaos → exalt → divine conversion agree on them
+/// no matter how the ranking came out. `RadarItem::item_id` looks like the
+/// obvious key and is not one — it is built as `conversion-{n}-…` where `n`
+/// is the row's push position within its own scan, so a route only keeps its
+/// id for as long as every route ahead of it also survives.
+fn route_identity(row: &OpportunityRow) -> (ptt_runtime::domain::RadarItemKind, &[MarketAssetId]) {
+    (row.item.kind, &row.item.path_asset_ids)
+}
+
+/// Where the selected route ends up in a freshly scanned row set.
+///
+/// The table remembers the selection as an index while a scan replaces every
+/// row underneath it, so an index nobody re-points at the route it was chosen
+/// for quietly starts describing a different route. `None` when this scan did
+/// not find that route at all: showing nothing is honest, showing whichever
+/// route inherited the index is not.
+fn remap_selection(
+    selected: Option<usize>,
+    old_rows: &[OpportunityRow],
+    new_rows: &[OpportunityRow],
+) -> Option<usize> {
+    let identity = route_identity(old_rows.get(selected?)?);
+    new_rows
+        .iter()
+        .position(|row| route_identity(row) == identity)
+}
+
 impl AppShell {
     /// Creates the radar's table once, so it keeps its scroll and selection
     /// across every refresh.
@@ -439,6 +470,10 @@ impl AppShell {
         let catalog = self.catalog();
         let table = self.radar_table.clone();
         table.update(cx, |state, cx| {
+            // Worked out before the rows move, because the outgoing row set is
+            // the only place that still says which route the index meant.
+            let selected = state.selected_row();
+            let remapped = remap_selection(selected, &state.delegate().rows, &rows);
             // Refreshing is how a changed column reaches the table, and also
             // how every column loses its measured bounds for a frame — cells
             // laid out against a zero width draw as a blank table until some
@@ -449,6 +484,14 @@ impl AppShell {
                 state.refresh(cx);
             } else {
                 cx.notify();
+            }
+            match remapped {
+                // Only when it actually moved: upstream `set_selected_row`
+                // scrolls the row into view, and a scan that left the route
+                // exactly where it was has no business yanking the list.
+                Some(index) if Some(index) != selected => state.set_selected_row(index, cx),
+                None if selected.is_some() => state.clear_selection(cx),
+                _ => {}
             }
         });
     }
@@ -839,6 +882,76 @@ impl AppShell {
                 report_text::report(language).radar_probe_header,
             ))
             .child(div().p_3().child(row))
+    }
+}
+
+#[cfg(test)]
+mod selection_tests {
+    use super::*;
+    use ptt_runtime::domain::{AssetAmount, AssetUnit, RadarItemKind};
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn amount(id: &str) -> AssetAmount {
+        AssetAmount {
+            asset_id: asset(id),
+            quanta: 10,
+            unit: AssetUnit::whole(),
+        }
+    }
+
+    /// A row that is nothing but its route, because that is all the remap is
+    /// allowed to look at.
+    fn row(path: &[&str]) -> OpportunityRow {
+        let path: Vec<MarketAssetId> = path.iter().map(|id| asset(id)).collect();
+        OpportunityRow {
+            item: RadarItem {
+                item_id: "ignored".to_owned(),
+                kind: RadarItemKind::BestConversion,
+                category: Actionability::InstantExecutable,
+                amount_in: amount(path.first().expect("a route starts somewhere").as_str()),
+                amount_out: amount(path.last().expect("a route ends somewhere").as_str()),
+                path_asset_ids: path,
+                value_basis_points: Some(100),
+                liquidity_capacity: Some(10),
+                reasons: Vec::new(),
+                risk_flags: Vec::new(),
+                blocking_risks: Vec::new(),
+                conversion_path: None,
+                triangle: None,
+            },
+            light: None,
+            structural: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_reordered_scan_keeps_the_selection_on_the_same_route() {
+        let before = vec![row(&["one", "z"]), row(&["two", "z"]), row(&["three", "z"])];
+        // The same three routes, re-ranked: the selected one moved from the
+        // middle to the front.
+        let after = vec![row(&["two", "z"]), row(&["one", "z"]), row(&["three", "z"])];
+        assert_eq!(
+            remap_selection(Some(1), &before, &after),
+            Some(0),
+            "the selection should follow the route it was put on, not stay on \
+             the index that route used to have"
+        );
+    }
+
+    #[test]
+    fn a_scan_without_the_selected_route_clears_the_selection() {
+        let before = vec![row(&["one", "z"]), row(&["two", "z"]), row(&["three", "z"])];
+        // This scan did not find route two at all.
+        let after = vec![row(&["one", "z"]), row(&["three", "z"])];
+        assert_eq!(
+            remap_selection(Some(1), &before, &after),
+            None,
+            "a route this scan did not find has no row, and pointing at a \
+             neighbour instead is how the panel starts lying"
+        );
     }
 }
 

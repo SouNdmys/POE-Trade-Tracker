@@ -282,11 +282,37 @@ UI 问题里唯一能用普通 cargo test 钉住的。
 `apply_ledger_colors(&mut ThemeColor)`（`apply_ledger_theme` 要 `App`，拆开才测得到），
 回归测试 `active_row_highlights_stay_translucent`（`theme.rs` 的 `theme_tests`）。
 
-## 14. 扫描后选中索引不重映射（顺手发现的真 bug，未修）
+## 14. 扫描后选中索引不重映射（已修 2026-08-23）
 
 `set_rows`（`opportunities.rs:127-140`）只换 rows 不动 selected_row；每次扫描后
 选中索引指向新行集里的**另一条路线**，详情面板静悄悄换内容。与第 13 条无关
 （那次索引恰好没错位，详情是对的），单独修。
+
+**已修**：新增纯函数 `remap_selection(旧选中, 旧行集, 新行集) -> 新选中`
+（`opportunities.rs`）。`sync_radar_table` 在把新行集交给 `set_rows` **之前**先算出
+答案——旧行集是唯一还记得"那个索引指的是哪条路线"的东西，行一换就没了。换完之后
+按结果落地：位置真的变了才 `set_selected_row`（上游那个方法顺手把行滚进视野，路线
+没挪的扫描没理由拽一下列表），这次扫描根本没扫到就 `clear_selection`。
+
+**身份键取 `(kind, path_asset_ids)`**：一个是"兑换还是环路"，一个是资产序列，两个
+都由市场决定、扫描只是转述，所以两次扫描对同一条路线给出同一个键。**没有用
+`RadarItem::item_id`**：它长得最像主键，其实是 `conversion-{n}-…`，`n` 是这条路线在
+本次扫描里的入列序号（`radar.rs:723`、`762`），前面任何一条路线这次没扫出来，后面
+所有路线的 id 就整体前移——正是本条要修的那种漂移。
+
+**改在 shell 这一层，不在 delegate**：`set_rows` 在 `RadarTable` 上，而 selected_row
+住在上游的 `TableState`（gpui-component `state.rs:224-269`），delegate 够不着。上游
+库一行没动。
+
+**保守的一处**：同一个环路从不同起点进入时 `path_asset_ids` 是一次旋转，键因此不同，
+会被判成"这次没扫到"而清除选中。清除是安全方向（宁可没有详情，不要错的详情），暂不
+为旋转做归一化。
+
+回归测试在 `opportunities.rs` 底部新的 `selection_tests`，两条，改前都红：
+`a_reordered_scan_keeps_the_selection_on_the_same_route`（三条路线重排，选中的那条
+从中间挪到队首，断言 0；改前恒 1）、
+`a_scan_without_the_selected_route_clears_the_selection`（新行集里没有那条路线，断言
+None；改前恒 Some(1)）。
 
 ## 15. 路径列宽方案（已修 2026-08-23，与第 6 条同一次改动）
 
