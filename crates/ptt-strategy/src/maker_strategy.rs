@@ -544,8 +544,29 @@ pub fn calculate_maker_strategy(request: MakerRequest<'_>) -> Result<MakerStrate
     })
 }
 
-/// The blended rate the instant fill actually achieved.
+/// The best price on offer right now: the front row, not the blend.
+///
+/// **A listing decision is a rate against a rate, and neither side of it may
+/// depend on how much the reader holds.** This used to return the blended
+/// average of however many levels the ask happened to sweep, which made the
+/// advice for an identical order at an identical price read differently at
+/// every holding -- 6.24% at 500, 6.44% at 169, 5.82% at 50,000 on the
+/// owner's real book, and 11.03% against 4.76% on another pair. It is the
+/// same defect the convert rows were cured of: a percentage that moves with
+/// the size of the ask.
+///
+/// The front row is the right baseline on its own terms too. POE fills a
+/// listing at the listed rate or better, so what a listing competes with is
+/// the best price a taker can get, not the average price of clearing a
+/// particular parcel. The blended walk is still reported elsewhere as a
+/// clearance figure; it is not a rate anyone can list against.
 fn instant_rate_of(fill: &PairFill) -> Option<Ratio> {
+    if let Some(front) = fill.fills.first() {
+        return Some(front.rate.clone());
+    }
+    // No level records at all -- a fill the caller synthesised rather than
+    // walked. The blend is then the only rate there is, and with one level
+    // it is the front row anyway.
     let realized = fill
         .net_amount_out
         .as_ref()

@@ -458,3 +458,92 @@ fn the_spread_reads_the_front_of_the_queue_not_the_back() {
         "spread is front over instant, exactly"
     );
 }
+
+/// **A listing decision is a rate against a rate; the holding must not move
+/// the number.**
+///
+/// The listing rate is size-free and so is the best price on offer right
+/// now, so "how much better off am I listing at X than taking now" is the
+/// same answer at ten orbs and at ten thousand. It was not: the baseline was
+/// `instant_rate_of`, the *blended* average of sweeping however many levels
+/// the holding reached, so on the owner's real book the identical row read
+/// 6.24% at a 500 holding, 6.44% at 169 and 5.82% at 50,000 -- and on
+/// another pair 11.03% against 4.76%, more than double, bought with nothing
+/// but a bigger number in the holdings box.
+#[test]
+fn the_listing_gain_does_not_move_with_the_size_of_the_holding() {
+    use ptt_trade_engine::{FillKind, PairFill, QuoteLevelFill};
+
+    // Front row 700 chaos a divine with ten divine behind it, then a much
+    // worse second level. A small ask clears at the front; a big one drags
+    // the blended average down into the second level.
+    let level = |rate: u64, divine: u64| QuoteLevelFill {
+        quote_edge_id: format!("level-{rate}"),
+        snapshot_id: "snapshot-1".to_owned(),
+        captured_at: captured(),
+        rate: Ratio::from_parts(rate, 1).expect("rate"),
+        amount_in: amount("divine-orb", divine),
+        gross_amount_out: amount("chaos-orb", rate * divine),
+        net_amount_out: None,
+        capacity_from: amount("divine-orb", divine),
+        stock: rate * divine,
+        quote_risk_flags: Vec::new(),
+    };
+    let fill = |divine: u64, chaos: u64, levels: Vec<QuoteLevelFill>| PairFill {
+        from_asset_id: asset("divine-orb"),
+        to_asset_id: asset("chaos-orb"),
+        kind: FillKind::TakerDepth,
+        requested_input: amount("divine-orb", divine),
+        consumed_input: amount("divine-orb", divine),
+        unfilled_input: amount("divine-orb", 0),
+        gross_amount_out: amount("chaos-orb", chaos),
+        net_amount_out: None,
+        fills: levels,
+        capture_time_evidence: None,
+        is_fully_filled: true,
+        execution_eligible: true,
+        bottleneck: None,
+        risk_flags: Vec::new(),
+    };
+
+    let book = vec![listing("front", 784, 500), listing("back", 795, 500)];
+
+    // Ten divine never leaves the front row: blended 700, front 700.
+    let small_fill = fill(10, 7_000, vec![level(700, 10)]);
+    let small_in = amount("divine-orb", 10);
+    let small = calculate_maker_strategy(MakerRequest {
+        instant: Some(&small_fill),
+        ..request(&book, &small_in)
+    })
+    .expect("ok");
+
+    // A thousand drags in the 500 level: blended 600, front still 700.
+    let large_fill = fill(1_000, 600_000, vec![level(700, 10), level(500, 990)]);
+    let large_in = amount("divine-orb", 1_000);
+    let large = calculate_maker_strategy(MakerRequest {
+        instant: Some(&large_fill),
+        ..request(&book, &large_in)
+    })
+    .expect("ok");
+
+    assert_eq!(
+        small.instant_rate, large.instant_rate,
+        "the price on offer right now is a rate, not a function of the ask"
+    );
+    for mode in MakerMode::all() {
+        let gain = |strategy: &ptt_strategy::MakerStrategy| {
+            strategy
+                .recommendations
+                .iter()
+                .find(|entry| entry.mode == mode)
+                .and_then(|entry| entry.improvement_basis_points)
+        };
+        assert_eq!(
+            gain(&small),
+            gain(&large),
+            "{mode:?} moved with the holding: {:?} vs {:?}",
+            gain(&small),
+            gain(&large)
+        );
+    }
+}
