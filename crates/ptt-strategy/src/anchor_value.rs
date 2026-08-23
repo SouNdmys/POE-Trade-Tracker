@@ -98,14 +98,28 @@ fn best_rate(
                     FreshnessStatus::Fresh | FreshnessStatus::Usable
                 )
         })
-        // Prefer what you could actually trade against, then the newest, then
-        // the deepest. That last key is the one that decides in practice: a
-        // whole panel is read in one go, so every level of a book carries the
-        // same `captured_at` and the first two keys tie across all of them.
-        // Depth breaks the tie because a two-item listing is the row most
-        // likely to be a fat-fingered price and the first to disappear —
-        // letting it set the valuation pegs the number to the least reliable
-        // line on the screen.
+        // Trust first, price second: what you could actually trade against,
+        // then the newest, then the deepest, and only then the best rate.
+        //
+        // Depth is the key that decides in practice: a whole panel is read in
+        // one go, so every level of a book carries the same `captured_at` and
+        // the first two keys tie across all of them. Depth breaks that tie
+        // because a two-item listing is the row most likely to be a
+        // fat-fingered price and the first to disappear — letting it set the
+        // valuation pegs the number to the least reliable line on the screen.
+        //
+        // Rate has the last word, and not merely to be deterministic. Two
+        // listings that are equally takeable, equally recent and equally deep
+        // are equally trustworthy, so the argument that put depth above price
+        // has nothing left to say about them, and the instant tier is defined
+        // as hitting the best available level: you would sell into the 44:1
+        // order before the 41:1 one sitting next to it, and `rate` is always
+        // `to` per `from`, so "largest wins" is the best bid on one side and
+        // the cheapest ask on the other. It also keeps `spread_basis_points`
+        // meaning what a spread means — best bid against best ask, not two
+        // arbitrary levels. Without this key the winner of a tie at the
+        // deepest level is whoever the candidate list happens to hand over
+        // last, which valued one real book 7.3% apart depending on nothing.
         .max_by(|left, right| {
             let taker = |edge: &EvaluatedQuoteEdge| {
                 edge.observation.edge.execution_type == ExecutionType::Taker
@@ -123,6 +137,12 @@ fn best_rate(
                         .edge
                         .stock
                         .cmp(&right.observation.edge.stock)
+                })
+                .then_with(|| {
+                    left.observation
+                        .edge
+                        .rate
+                        .compare_value(&right.observation.edge.rate)
                 })
         })
         .map(|evaluated| {
@@ -240,15 +260,16 @@ pub fn value_against_anchor(request: ValuationRequest<'_>) -> Valuation {
 mod tests {
     use std::cmp::Ordering;
 
-    use chrono::{TimeZone, Utc};
+    use chrono::{Duration, TimeZone, Utc};
     use ptt_market_book::{EvaluatedQuoteEdge, FreshnessAssessment, FreshnessStatus};
     use ptt_trade_domain::{
         Comparator, ExecutionType, MarketAssetId, MarketEdgeObservation, QuoteEdge, QuoteEdgeRole,
         QuoteSide, Ratio, SnapshotRecordStatus,
     };
 
-    use super::{ValuationMode, ValuationRequest, value_against_anchor};
+    use super::{Valuation, ValuationMode, ValuationRequest, value_against_anchor};
     use crate::exact::Rational;
+    use crate::execution_safety::ExecutionRisk;
 
     fn asset(id: &str) -> MarketAssetId {
         MarketAssetId::try_new(id).expect("asset id")
@@ -303,15 +324,33 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture() {
-        // The ancient-clavicle book as the 2026-08-23 run captured it, taker
-        // levels only and in the order the Instant strategy hands them over
-        // (stock descending). One screenshot, so every level shares a capture
-        // instant and every tie-break above depth is a dead heat.
-        let target = asset("ancient-clavicle");
-        let anchor = asset("chaos-orb");
-        let edges = vec![
+    /// A competing listing: the same row, but on the side of the book you can
+    /// only read off the screen and never trade against.
+    fn maker_edge(from: &str, to: &str, rate: &str, stock: u64) -> EvaluatedQuoteEdge {
+        let mut evaluated = book_edge(from, to, rate, stock);
+        evaluated.observation.edge.execution_type = ExecutionType::MakerReference;
+        evaluated.observation.edge.role = QuoteEdgeRole::CompetingMakerReference;
+        evaluated
+    }
+
+    /// The same row read `minutes` earlier — a second panel of the same book.
+    /// Freshness is an input to this file rather than something it computes,
+    /// so the status stays Fresh and only the age moves with the timestamp.
+    fn aged_edge(from: &str, to: &str, rate: &str, stock: u64, minutes: i64) -> EvaluatedQuoteEdge {
+        let mut evaluated = book_edge(from, to, rate, stock);
+        let earlier = evaluated.observation.edge.captured_at - Duration::minutes(minutes);
+        evaluated.observation.edge.captured_at = earlier;
+        evaluated.observation.edge.confirmed_at = earlier;
+        evaluated.freshness.age_seconds += u64::try_from(minutes.max(0)).unwrap_or(0) * 60;
+        evaluated
+    }
+
+    /// The ancient-clavicle book as the 2026-08-23 run captured it, taker
+    /// levels only and in the order the Instant strategy hands them over
+    /// (stock descending). One screenshot, so every level shares a capture
+    /// instant and every tie-break above depth is a dead heat.
+    fn ancient_clavicle_book() -> Vec<EvaluatedQuoteEdge> {
+        vec![
             book_edge("ancient-clavicle", "chaos-orb", "44:1", 3740),
             book_edge("ancient-clavicle", "chaos-orb", "41:1", 2705),
             book_edge("ancient-clavicle", "chaos-orb", "43:1", 344),
@@ -324,7 +363,48 @@ mod tests {
             book_edge("chaos-orb", "ancient-clavicle", "1:47.5", 4),
             book_edge("chaos-orb", "ancient-clavicle", "1:49", 3),
             book_edge("chaos-orb", "ancient-clavicle", "1:47", 2),
-        ];
+        ]
+    }
+
+    /// Every rotation of a candidate list, each one also reversed. A rotation
+    /// walks every edge through every queue position without disturbing the
+    /// list itself, which is exactly the dependency a valuation must not have;
+    /// for a three-edge list the rotations and their reverses are all six
+    /// permutations.
+    fn every_queue_position(edges: &[EvaluatedQuoteEdge]) -> Vec<Vec<EvaluatedQuoteEdge>> {
+        let mut orderings = Vec::new();
+        for offset in 0..edges.len() {
+            let mut rotated = edges[offset..].to_vec();
+            rotated.extend_from_slice(&edges[..offset]);
+            let mut reversed = rotated.clone();
+            reversed.reverse();
+            orderings.push(rotated);
+            orderings.push(reversed);
+        }
+        orderings
+    }
+
+    fn clavicle_valuation(edges: &[EvaluatedQuoteEdge]) -> Valuation {
+        value_against_anchor(ValuationRequest {
+            asset_id: &asset("ancient-clavicle"),
+            anchor_asset_id: &asset("chaos-orb"),
+            mode: ValuationMode::Midpoint,
+            edges,
+            include_historical: false,
+        })
+    }
+
+    fn is_rate(actual: Option<&Ratio>, expected: &str) -> bool {
+        actual.is_some_and(|rate| {
+            rate.compare_value(&Ratio::parse(expected).expect("expected rate")) == Ordering::Equal
+        })
+    }
+
+    #[test]
+    fn a_valuation_reads_the_deepest_level_when_the_whole_book_shares_one_capture() {
+        let target = asset("ancient-clavicle");
+        let anchor = asset("chaos-orb");
+        let edges = ancient_clavicle_book();
         let valuation = value_against_anchor(ValuationRequest {
             asset_id: &target,
             anchor_asset_id: &anchor,
@@ -346,6 +426,100 @@ mod tests {
             Ordering::Equal,
             "buy cost came from the thin stock=2 level instead of stock=99"
         );
+    }
+
+    #[test]
+    fn the_same_book_values_the_same_however_the_candidate_list_is_ordered() {
+        // A valuation has to be a property of the book, not of the order the
+        // book happens to arrive in. This is what tells "compare depth out
+        // loud" apart from "take whichever one is first", which agree on a
+        // stock-descending list and so cannot be told apart by the fixture
+        // above on its own.
+        let book = ancient_clavicle_book();
+        let expected = clavicle_valuation(&book);
+        for (index, ordering) in every_queue_position(&book).into_iter().enumerate() {
+            let valuation = clavicle_valuation(&ordering);
+            assert_eq!(
+                valuation, expected,
+                "ordering {index} valued the same book differently"
+            );
+            assert!(
+                is_rate(valuation.sell_value.as_ref(), "44:1"),
+                "ordering {index} sold at {:?} instead of the deepest level",
+                valuation.sell_value
+            );
+            assert!(
+                is_rate(valuation.buy_cost.as_ref(), "49:1"),
+                "ordering {index} bought at {:?} instead of the deepest level",
+                valuation.buy_cost
+            );
+        }
+    }
+
+    #[test]
+    fn a_takeable_listing_outranks_a_reference_price_of_the_same_depth() {
+        // Same instant, same depth, and the one you cannot trade against
+        // quotes the better rate — so every key below the first points at it.
+        // Only "prefer what you could actually trade against" keeps the
+        // valuation on the 41:1 order that is really there to be sold into.
+        let edges = vec![
+            maker_edge("ancient-clavicle", "chaos-orb", "44:1", 500),
+            book_edge("ancient-clavicle", "chaos-orb", "41:1", 500),
+        ];
+        for (index, ordering) in every_queue_position(&edges).into_iter().enumerate() {
+            let valuation = clavicle_valuation(&ordering);
+            assert!(
+                is_rate(valuation.sell_value.as_ref(), "41:1"),
+                "ordering {index} valued at {:?}, a price nobody is offering to trade at",
+                valuation.sell_value
+            );
+            assert!(
+                !valuation.risks.contains(&ExecutionRisk::MakerReference),
+                "ordering {index} reported a reference-price risk for a takeable quote"
+            );
+        }
+    }
+
+    #[test]
+    fn the_newest_quote_wins_when_two_reads_of_a_book_disagree() {
+        // Two panels of one book half an hour apart, equally deep, and the
+        // older read quotes the better rate. Age has to decide here: a price
+        // from thirty minutes ago is a price that may not exist any more,
+        // however flattering it is.
+        let edges = vec![
+            aged_edge("ancient-clavicle", "chaos-orb", "44:1", 500, 30),
+            book_edge("ancient-clavicle", "chaos-orb", "41:1", 500),
+        ];
+        for (index, ordering) in every_queue_position(&edges).into_iter().enumerate() {
+            let valuation = clavicle_valuation(&ordering);
+            assert!(
+                is_rate(valuation.sell_value.as_ref(), "41:1"),
+                "ordering {index} valued at {:?}, taken from the half-hour-old panel",
+                valuation.sell_value
+            );
+        }
+    }
+
+    #[test]
+    fn a_tie_at_the_deepest_level_is_settled_by_price_not_by_position() {
+        // Two listings tied at the deepest stock this book has, and a thin one
+        // under them. Depth cannot separate the top two, so without a key
+        // below it the winner was whichever one the candidate list handed over
+        // last: the same three rows valued the clavicle at 44 or at 41 — 7.3%
+        // apart — depending on nothing at all.
+        let edges = vec![
+            book_edge("ancient-clavicle", "chaos-orb", "44:1", 500),
+            book_edge("ancient-clavicle", "chaos-orb", "41:1", 500),
+            book_edge("ancient-clavicle", "chaos-orb", "43:1", 12),
+        ];
+        for (index, ordering) in every_queue_position(&edges).into_iter().enumerate() {
+            let valuation = clavicle_valuation(&ordering);
+            assert!(
+                is_rate(valuation.sell_value.as_ref(), "44:1"),
+                "ordering {index} valued at {:?} instead of the better of the two deepest",
+                valuation.sell_value
+            );
+        }
     }
 
     #[test]
