@@ -410,7 +410,7 @@ fn make_path(
     }
 }
 
-/// Coverage, executability, liquidity risk, then the price the route got.
+/// Executability, liquidity risk, then the price the route got.
 ///
 /// The order the ruling asks for (CORE-TRADING-MODEL, "兑换路线排序"), and
 /// the same one section 5 already binds the radar to: liquidity outranks the
@@ -420,6 +420,16 @@ fn make_path(
 /// that eats 4,000 at 10.9. What a smaller order cannot dodge is a leg with
 /// nobody on the other side, so that question is asked first.
 ///
+/// Coverage (`is_fully_filled`) led this list until 2026-08-23 and was
+/// defended as a coarse liquidity gate. It is not one: its ruler is the
+/// number the user typed, not anything about the market. One book, two
+/// clean routes, a fixed rate on each -- and the winner changes when the
+/// request goes from 10 to 5,000, because the 11.0 route stops swallowing
+/// the whole stake while the 10.0 route still does. Flipping on the size of
+/// the ask is the definition of a size key, and it also contradicted the
+/// stranding key below, which argues at length that coming up short on the
+/// first leg traps nothing at all.
+///
 /// The price key used to be raw `amount_out`, which pays a route for burning
 /// capital: on 2026-08-23 a detour that ate 2,526 divine for 21,786 chaos
 /// outranked a direct fill that ate 1,855 for 20,030, even though the direct
@@ -427,15 +437,19 @@ fn make_path(
 /// Absolute output only means something when both routes spent the same
 /// input, and two partial fills never do.
 ///
-/// Routes that swallow the whole stake all spent exactly the requested
-/// amount, so for them the ratio is the old key over a shared denominator
-/// and their order is unchanged -- there is a test below holding that half
-/// of the ranking still.
+/// `execution_eligible` survives the cut, but only on a technicality worth
+/// stating plainly: `make_path` builds it out of "swallowed the whole
+/// request" too, so it is the same size gate wearing another name -- flip
+/// `product_execution_allowed` on and `complete_route_wins_over_a_higher_
+/// output_partial_quote` (tests/engine.rs) shows a rate ten times worse
+/// winning again. What keeps it harmless is that no shipped policy ever
+/// sets that flag, so the field is `false` on every path the app can
+/// build and a constant key reorders nothing. That is a contingency, not
+/// a proof, so the test below pins the constant rather than trusting it.
 fn compare_paths(left: &ConversionPath, right: &ConversionPath) -> Ordering {
     right
-        .is_fully_filled
-        .cmp(&left.is_fully_filled)
-        .then_with(|| right.execution_eligible.cmp(&left.execution_eligible))
+        .execution_eligible
+        .cmp(&left.execution_eligible)
         .then_with(|| compare_shares(worst_stranded_share(left), worst_stranded_share(right)))
         .then_with(|| compare_realized_price(right, left))
         .then_with(|| left.residuals.len().cmp(&right.residuals.len()))
@@ -816,6 +830,85 @@ mod compare_paths_tests {
             vec![asset("divine"), asset("chaos")],
             "between full fills the order is still the rate and nothing else"
         );
+    }
+
+    /// One market, two routes, and the only thing that changes is the
+    /// number the user typed into the box.
+    ///
+    /// The direct book is deep and pays 10 chaos per divine; the detour
+    /// pays 11 but its first leg has ten divine of room. Neither strands
+    /// anything in the middle. Ask for ten and the detour is the better
+    /// trade; ask for five thousand and it is *still* the better trade,
+    /// because a route is a rate -- the user lists a smaller order at 11.0
+    /// rather than a larger one at 10.0. Any key that asks "did this eat
+    /// the whole request" flips the winner between the two runs, and that
+    /// flip is exactly the ruling's "dropped the more profitable option
+    /// because the computed amount was small".
+    fn market_at(stake: u64) -> Vec<ConversionPath> {
+        let direct_eaten = stake.min(5_000);
+        let detour_eaten = stake.min(10);
+        let mut direct = path(
+            &["divine", "chaos"],
+            vec![leg(
+                "divine",
+                "chaos",
+                stake,
+                direct_eaten,
+                direct_eaten * 10,
+            )],
+            direct_eaten * 10,
+        );
+        direct.requested_input = amount("divine", stake);
+        let mut detour = path(
+            &["divine", "exalted", "chaos"],
+            vec![
+                leg("divine", "exalted", stake, detour_eaten, detour_eaten * 2),
+                leg(
+                    "exalted",
+                    "chaos",
+                    detour_eaten * 2,
+                    detour_eaten * 2,
+                    detour_eaten * 11,
+                ),
+            ],
+            detour_eaten * 11,
+        );
+        detour.requested_input = amount("divine", stake);
+        vec![direct, detour]
+    }
+
+    #[test]
+    fn the_winner_does_not_change_when_only_the_requested_amount_does() {
+        for stake in [10, 5_000] {
+            let mut paths = market_at(stake);
+            paths.sort_by(compare_paths);
+
+            assert_eq!(
+                paths[0].path_asset_ids,
+                vec![asset("divine"), asset("exalted"), asset("chaos")],
+                "asking for {stake} must not move the 11.0 route off the top"
+            );
+        }
+    }
+
+    /// Why the executability key may stay above the rate even though it
+    /// asks a size question inside itself.
+    ///
+    /// `make_path` only sets `execution_eligible` on a path that swallowed
+    /// the whole request, so as a sort key it would flip winners on size
+    /// the same way coverage did -- except it also demands
+    /// `product_execution_allowed`, which the one policy production ever
+    /// builds hard-wires off. Every `ConversionPath` the app can produce
+    /// therefore carries `false`, and a key that is constant cannot
+    /// reorder anything. Turn this default on and the size flip comes
+    /// back, so the day this assert goes red it is the key that needs
+    /// revisiting, not the test.
+    #[test]
+    fn the_shipped_policy_never_allows_product_execution() {
+        let policy = QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+            .expect("policy");
+
+        assert!(!policy.product_execution_allowed);
     }
 
     /// The ruling nailed down: size is not a key and must never become one.

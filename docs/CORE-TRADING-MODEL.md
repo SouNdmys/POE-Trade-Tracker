@@ -514,11 +514,15 @@ POE 的兑换不是撮合一个具体的包裹，是按**汇率**成交：你把
 
 实现现状（写在这里是为了让读者不把文档和代码对不上时当成文档错了）：
 `compare_paths`（`ptt-trade-engine/src/route.rs`）现在是
-**覆盖 → 可执行 → 中途搁浅比例 → 单价**。单价那一层于 2026-08-23 从绝对产出改过来
-（见下文「否掉的方案 · 排序与风险」），流动性那一层同日补上，两次改动分开提交。
-首键的覆盖标志（`is_fully_filled`）不是一个数量键：它问的是"这次请求吃不吃得满"，
-吃不满即当前深度不够，实际充当着一个很粗的流动性闸——粗在它的尺子是用户自己填的
-那个请求量，而不是市场本身的性质。
+**可执行 → 中途搁浅比例 → 已实现单价 → 残余腿数 → 跳数 → 资产名**。单价那一层于
+2026-08-23 从绝对产出改过来，流动性那一层同日补上，覆盖键同日拿掉，三次改动分开提交
+（都见下文「否掉的方案 · 排序与风险」）。
+
+**覆盖键（`is_fully_filled`）已于 2026-08-23 从排序里移除。** 这份文档此前替它辩护过，
+说它"实际充当着一个很粗的流动性闸"——**这个说法站不住，现予撤回**。判据很简单：一个
+会随请求量翻转胜者的键，行为上就是尺寸键。反例见下文「否掉的方案」。字段本身没有删，
+展示层、`compare_best_to_direct` 的 `IncomparableCoverage` 保护、雷达的探针分流都还在
+读它——**它作为一个事实是有用的（"这次没吃满"），只是不该拿来排名次**。
 
 **流动性闸的判据：中途搁浅比例（`worst_stranded_share`）**
 
@@ -553,15 +557,19 @@ POE 的兑换不是撮合一个具体的包裹，是按**汇率**成交：你把
 排序，雷达在给**值不值得盯**排序。真要统一，得把 `listed_stock` 顺着 `PairFill` 带出
 引擎（现在只活在 `MarketDepthIndex` 里面），那是一次独立改动。
 
-**这次改动对雷达页排序无影响，可证**：`radar.rs` 只在 `best.is_fully_filled` 时才把
+**搁浅闸对雷达页排序无影响，可证**：`radar.rs` 只在 `best.is_fully_filled` 时才把
 路线交给 `compare_items`，否则 `continue` 去推探针；而 `is_fully_filled` 的定义是
 "每一条腿都吃满"，吃满的腿 `unfilled_input` 必为 0，所以**任何吃满的路线搁浅比例恒为
-`0/1`**，新键在它们之间是平局。又因为覆盖仍是首键，吃满的路线永远排在部分成交之前，
-`best_path` 是不是吃满的这件事也不变。于是雷达拿到的还是原来那条路线，§5「流动性 >
-利润 > 跳数」的输入一个都没动。回归测试
+`0/1`**，这个键在它们之间是平局。回归测试
 `a_fully_filled_route_strands_nothing_so_the_radar_keeps_its_pick` 把这条性质写成断言。
-即便将来它真的动了雷达，方向也是**符合**§5 而不是违反：新键把流动性放在单价之前，
-正是 §5 那一行要求的次序。
+
+**但拿掉覆盖键动了雷达的分流，要记明白（2026-08-23）**：覆盖还是首键的时候，只要存在
+一条吃满的路线，`best_path` 必定是它，于是 `radar.rs` 那道 `if !best.is_fully_filled`
+基本不会误伤。现在不是了——一条**部分成交但单价更好**的路线可以当上 `best_path`，雷达
+就会把这个对判成"待确认"，推一个 `confirm_conversion_probe` 而不是把它列进机会表。
+**排序键没变，变的是喂给它的那条路线**：§5 那行「流动性 > 利润 > 跳数」一个字没动，
+`compare_items` 也没动。这个分流该不该跟着改（比如雷达改用"单价最好的那条"而不是
+"吃满的那条"）是**另一次裁定**，见 `P10-FOLLOWUPS.md` 第 9 条，这次没动。
 
 **影响面（补记 2026-08-23）**：`compare_paths` 只被 `find_best_conversion` 用一次
 （`route.rs` 的 `search.paths.sort_by`），而 `find_best_conversion` 全仓有 5 个调用点。
@@ -570,7 +578,7 @@ POE 的兑换不是撮合一个具体的包裹，是按**汇率**成交：你把
 | 调用点 | 是什么 | 会不会变 |
 |---|---|---|
 | `ptt-runtime/src/reports.rs:503`（`convert_model`） | 兑换页每档尺寸的最佳路线 | **会**，这正是要修的那一页 |
-| `ptt-workflows/src/radar.rs:330` | 雷达每个目标对的最佳路线 | 不会，见上文可证段 |
+| `ptt-workflows/src/radar.rs:330` | 雷达每个目标对的最佳路线 | 搁浅闸不会（见上文可证段）；**拿掉覆盖键之后会**——`best_path` 可能变成部分成交的那条，该对就从机会表挪进探针队列 |
 | `ptt-runtime/src/analysis.rs:44`（`pair_analysis_lines`） | 设置/诊断里的单对文本分析，经 `pipeline.rs:401` | 会跟着变（同一条排序） |
 | `ptt-runtime/src/reports.rs:1946`（`debug_radar`） | `coverage_probe` 的诊断转储 | 会跟着变 |
 | `ptt-runtime/src/bin/engine_replay_probe.rs:317` | 验证探针 | 会跟着变 |
@@ -685,6 +693,34 @@ stock 降序），但那等于把结论押在上游排序永远不变上，读�
   划算，它排第一是对的。写下来是为了钉住结论：纯单价缺的是**流动性**那一层，
   **不是**覆盖度那一层。下次再有人拿"这条路的量太小"来质疑排序，答案在这里。
   （流动性那一层已于 2026-08-23 补上，判据见上文「流动性闸的判据」。）
+- **拿覆盖度 `is_fully_filled` 当首键**——最初就是这么写的，2026-08-23 第二次裁定后
+  拿掉。当时替它辩护的说法是"它其实是个很粗的流动性闸"，站不住。**反例（同一个市场、
+  同样的汇率、两条路线中途都零搁浅，只改用户填的请求量）**：直兑很深、单价 10.0；
+  绕路单价 11.0，但首腿只吃得下 10 枚。填 10 时两条都吃满，覆盖键平局，单价说了算，
+  11.0 那条第一；填 5000 时绕路吃不满，覆盖键把它一脚踢到后面，胜者变成 10.0 那条。
+  **同一个市场，因为用户填的数字变了，最好的路线就换了人**——这正是裁定里那句"不能
+  因为计算数量过大而忽略了利润更高的可能性"。而且它和同一函数里搁浅闸的论证自相矛盾：
+  搁浅闸花了一整段说明"首腿吃不满什么都没困住，只是这一趟换少了"，覆盖键却对首腿吃不满
+  罚得最狠。回归测试
+  `the_winner_does_not_change_when_only_the_requested_amount_does`（`route.rs`）把这个
+  反例钉死：同一组路线跑两遍，只改请求量，胜者必须相同。
+- **顺手把 `execution_eligible` 也从排序里拿掉**——想过，没做，理由和保留的代价都记在这里。
+  它**确实**也是个尺寸键：`make_path` 里 `execution_eligible` 的合取项之一就是
+  `is_fully_filled`（每条腿的 `step.execution_eligible` 本身也是"这条腿吃满了"），所以它
+  会原样重演上面那个翻转。**实证**：把这个键从 `compare_paths` 里删掉，
+  `tests/engine.rs` 的 `complete_route_wins_over_a_higher_output_partial_quote` 与
+  `partial_direct_is_never_compared_as_if_it_used_the_full_input` 立刻变红——也就是说在那
+  两个 fixture 里，撑着"吃满的赢"这个结论的正是它，而不是已经拿掉的覆盖键。
+  留着它的理由只有一条，而且是**偶然而非结构性的**：`execution_eligible` 还要求
+  `product_execution_allowed`，而这个标志在 `QuoteSelectionPolicy::personal_default`
+  （`ptt-market-book/src/lib.rs:504`）里恒为 `false`，没有任何设置能打开它。生产上每一条
+  `ConversionPath` 的 `execution_eligible` 因此恒为 `false`，一个常数键排不动任何东西。
+  上面那两个 fixture 之所以能让它活过来，是因为测试自己把 `product_execution_allowed`
+  打开了。这个前提用 `the_shipped_policy_never_allows_product_execution`（`route.rs`）
+  钉住：哪天它变红，要改的是键而不是测试。**"能不能立刻执行"和"够不够大"本来是两个维度**，
+  真正的修法是把 `execution_eligible` 的语义从"能按请求量整口吃下"改成"这条路的性质允许
+  即时吃"——但那会改动 reports、radar、triangle、execution_safety 一起在读的一个字段的
+  含义，是另一次裁定，记在 `P10-FOLLOWUPS.md` 第 9 条。
 - **流动性闸用"腿上可见库存的绝对深度"**——想过直接把最薄腿的可见库存拿来排序，
   像雷达那样"深的在前"。否掉两条理由：一是引擎层根本看不到整侧的 `listed_stock`
   （它只活在 `MarketDepthIndex` 里，`PairFill` 不带），能看到的只有走过的那几档，

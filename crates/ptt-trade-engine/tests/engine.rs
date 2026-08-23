@@ -669,6 +669,14 @@ fn partial_direct_is_never_compared_as_if_it_used_the_full_input() {
     assert!(result.comparison.delta.is_none());
 }
 
+/// Note on why this still holds after coverage stopped being a sort key
+/// (2026-08-23): it does not hold because the route is complete. It holds
+/// because `selection` above turns `product_execution_allowed` on, which
+/// makes `execution_eligible` live -- and that field is itself built out
+/// of "swallowed the whole request", so it re-imposes the coverage gate
+/// this fixture was written for. On the shipped policy the flag is off,
+/// the key is constant, and the 10-per-`a` partial direct would win here
+/// on rate. See P10-FOLLOWUPS item 9.
 #[test]
 fn complete_route_wins_over_a_higher_output_partial_quote() {
     let catalog = whole_catalog(&["a", "b", "c"]);
