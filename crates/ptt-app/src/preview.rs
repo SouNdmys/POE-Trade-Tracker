@@ -411,7 +411,17 @@ impl Gallery {
                                 .child(kv_row("in", "10 divine-orb"))
                                 .child(kv_row("out", "2000 exalted-orb"))
                                 .child(kv_row("captured", "earliest 4m ago, skew 91s"))
-                                .child(kv_row("risks", &risks.join(", "))),
+                                // Deliberately wider than the ~212px the value
+                                // column gets inside a 340px panel, and CJK so
+                                // there are no spaces to break on: this is the
+                                // "structural liquidity" row from the live app,
+                                // the one that used to run off the window edge.
+                                // If it stops wrapping here, the min_w(0) on
+                                // the value container has been lost again.
+                                .child(kv_row(
+                                    "risks",
+                                    "神聖石 供需均衡，混沌石 供需均衡，骷髏馬克的邀請 供需均衡",
+                                )),
                         ),
                     )
                     .child(inline_section("empty state"))

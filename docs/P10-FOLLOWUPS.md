@@ -112,7 +112,7 @@ scrollbar_visible），实机窄窗口能不能横滚值得确认——滚不动
 钉法：普通测试钉不住（无 gpui test-support）；给画廊加一个照抄雷达页外壳
 （两层包裹 + 底部探针条 + 详情面板）的 "radar frame" 页。
 
-## 7. 路线明细内容被右边界裁掉（已定因 2026-08-23，未修）
+## 7. 路线明细内容被右边界裁掉（已修 2026-08-23）
 
 两层根因：**gpui 文本的最小内容宽 = 不换行的整行宽**（gpui-0.2.2
 `text.rs:347-376`，MinContent 与 MaxContent 量出同一个值的缓存短路）；`kv_row`
@@ -125,6 +125,12 @@ scrollbar_visible），实机窄窗口能不能横滚值得确认——滚不动
 换行是既定意图，只是没生效。风险：面板变高，必要时给 radar_detail 内层套
 `scrollable()`。画廊 kit 页的 `kv_row("risks", …)` 是现成回归用例（改前溢出、
 改后换行）。
+
+**已修**：`ui.rs` 的 kv_row 值容器与 detail_panel 都加了 `.min_w(px(0.))`，
+`kv_row` 的文档注释里记了"最小内容宽 = 整行宽"这条机制。回归用例是画廊 kit 页的
+risks 行，值换成一串没有空格可断的长中文（实机那条"结构性流动性"），普通 cargo
+test 钉不住（无 gpui test-support），靠肉眼看画廊 + `PTT_PREVIEW_PROBE=1` 的
+探针门。
 
 ## 8. 最大化时的字号密度（设计问题，需要设计稿）
 

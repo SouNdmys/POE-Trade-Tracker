@@ -698,6 +698,9 @@ pub fn chips(kind: StatusKind, labels: &[String], limit: usize) -> Div {
 pub fn detail_panel(title: &str) -> Div {
     panel()
         .w(px(340.))
+        // 340 是宽度上限,不只是初始宽:没有 min_w(0),一个不换行的长值会把这一栏
+        // 顶到 340 以上,溢出到窗口外面去(理由见 kv_row)。
+        .min_w(px(0.))
         .flex_none()
         .flex()
         .flex_col()
@@ -708,6 +711,11 @@ pub fn detail_panel(title: &str) -> Div {
 ///
 /// 与 `metric_row` 的区别是这行不定高——路径、风险原因这类值会长到两三行,
 /// 定高会把它们裁掉。
+///
+/// 值容器上的 `min_w(0)` 是换行能不能发生的开关:gpui 量出的文本最小内容宽
+/// **就是不换行的整行宽**(它把 MinContent 和 MaxContent 算成同一个数),而 flex
+/// 子项默认 min-width:auto = 最小内容宽,于是 `flex_1` 永远压不下去,值永远拿不到
+/// 一个比整行窄的确定宽度,也就永远不换行——只会把面板一起撑宽、被窗口边界裁掉。
 pub fn kv_row(label: &str, value: &str) -> Div {
     div()
         .flex()
@@ -725,6 +733,7 @@ pub fn kv_row(label: &str, value: &str) -> Div {
         .child(
             div()
                 .flex_1()
+                .min_w(px(0.))
                 .font_family(FONT_MONO)
                 .text_color(c(TEXT_PRIMARY))
                 .child(SharedString::from(value.to_string())),
