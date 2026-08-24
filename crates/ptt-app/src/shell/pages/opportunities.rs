@@ -575,10 +575,16 @@ impl AppShell {
                 mono(report_text::fill(
                     report_text::report(language).scanning_from,
                     &[
+                        // The catalogue's names, like every other currency on
+                        // this page. The raw ids belong to the text report,
+                        // which is read beside the database; printing them
+                        // here put English into the middle of a Chinese
+                        // sentence and named the scan's anchors differently
+                        // from every row under them.
                         &scan
                             .starts
                             .iter()
-                            .map(MarketAssetId::as_str)
+                            .map(|asset| self.display_name(asset.as_str()))
                             .collect::<Vec<_>>()
                             .join(", "),
                         &scan.diagnostics.target_count.to_string(),
