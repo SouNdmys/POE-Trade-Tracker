@@ -104,13 +104,15 @@ pub fn inline_section(title: &str) -> Div {
 pub enum StatusKind {
     /// ready / idle · 中性灰,无底色
     Idle,
-    /// 正在监控 · 墨青
+    /// 正在监控 · 金(主题色:这是状态,不是数据新鲜度)
     Monitoring,
+    /// 数据新鲜 · 语义绿。色块=语义:绿只上圆点,文字保持灰阶。
+    Fresh,
     /// 已命中 · 砖红
     Hit,
-    /// 需要注意 · 琥珀
+    /// 需要注意 / 偏旧 · 琥珀
     Warning,
-    /// 错误 · 砖红
+    /// 错误 / 过期 · 砖红
     Error,
     /// 只读 / 不可用
     Disabled,
@@ -121,18 +123,21 @@ impl StatusKind {
         match self {
             StatusKind::Idle => NEUTRAL_DOT,
             StatusKind::Monitoring => ACCENT,
+            StatusKind::Fresh => FRESH,
             StatusKind::Hit | StatusKind::Error => DANGER,
             StatusKind::Warning => WARN,
             StatusKind::Disabled => DISABLED_DOT,
         }
     }
 
+    /// 状态行文字。三档语义永远带汉字,颜色只是加速识别——所以 Fresh 的
+    /// 文字是灰的:绿点已经说了"新鲜",绿字就是把同一句话喊两遍。
     pub fn text(self) -> u32 {
         match self {
-            StatusKind::Idle => TEXT_SECONDARY,
+            StatusKind::Idle | StatusKind::Fresh => TEXT_SECONDARY,
             StatusKind::Monitoring => ACCENT_TEXT,
-            StatusKind::Hit | StatusKind::Error => DANGER,
-            StatusKind::Warning => WARN,
+            StatusKind::Hit | StatusKind::Error => DANGER_TEXT,
+            StatusKind::Warning => WARN_TEXT,
             StatusKind::Disabled => TEXT_DISABLED,
         }
     }
@@ -287,9 +292,10 @@ pub fn button(id: impl Into<gpui::ElementId>, kind: LedgerButton, label: &str, c
             H_BUTTON,
         ),
         LedgerButton::Secondary => (
+            // 原型 1a 的「停止」:panel 底 + hairline 边 + 次级灰字。
             ButtonCustomVariant::new(cx)
                 .color(hsla_of(PANEL))
-                .foreground(hsla_of(TEXT_PRIMARY))
+                .foreground(hsla_of(TEXT_SECONDARY))
                 .border(hsla_of(HAIRLINE))
                 .hover(hsla_of(HOVER))
                 .active(hsla_of(PRESSED)),
@@ -523,7 +529,7 @@ pub fn metric_row(label: &str, value: &str, last: bool) -> Div {
         div()
             .ml_auto()
             .font_family(FONT_MONO)
-            .text_color(c(TEXT_PRIMARY))
+            .text_color(c(TEXT_DATA))
             .child(SharedString::from(value.to_string())),
     )
 }
@@ -540,7 +546,7 @@ pub struct StatusSegment<'a> {
 /// 状态栏:rail 底,10px 等宽,段间 soft 竖线;最后一个右对齐段自动推到最右。
 pub fn status_bar(segments: &[StatusSegment], trailing: Option<&str>) -> Div {
     let mut bar = div()
-        .h(px(H_ROW))
+        .h(px(H_STATUS_BOTTOM))
         .flex_none()
         .h_flex()
         .items_center()
@@ -640,37 +646,77 @@ pub fn el(d: Div) -> AnyElement {
 pub fn freshness_kind(status: ptt_runtime::domain::FreshnessStatus) -> StatusKind {
     use ptt_runtime::domain::FreshnessStatus;
     match status {
-        FreshnessStatus::Fresh => StatusKind::Monitoring,
+        FreshnessStatus::Fresh => StatusKind::Fresh,
         FreshnessStatus::Usable => StatusKind::Warning,
         FreshnessStatus::Stale | FreshnessStatus::Archived => StatusKind::Error,
     }
 }
 
-/// 徽章:22px 高,状态色描边与文字,底色为该状态的 wash。
+/// 新鲜度单元格:6px 色点 + 11px 灰字(新鲜 / 偏旧 / 过期)。
 ///
-/// 用来承载 typed 的枚举名(可执行性、风险、覆盖状态),所以只收已经翻译
-/// 好的字符串——徽章不认识枚举,免得多出第二处需要双语的地方。
-pub fn chip(kind: StatusKind, label: &str) -> Div {
-    let (background, border) = match kind {
-        StatusKind::Monitoring => (ACCENT_WASH, ACCENT_LINE),
-        StatusKind::Warning => (WARN_WASH, WARN_LINE),
-        StatusKind::Hit | StatusKind::Error => (DANGER_WASH, DANGER_LINE),
-        StatusKind::Idle | StatusKind::Disabled => (PANEL, HAIRLINE),
-    };
+/// 表格第一列的标准形态。文字永远是次级灰——色弱、以及缩到迷你浮窗时,
+/// 汉字仍然读得出来,颜色只是加速识别。
+pub fn freshness_cell(kind: StatusKind, label: &str) -> Div {
     div()
-        .h(px(H_CHIP))
+        .h_flex()
+        .items_center()
+        .gap(px(5.))
+        .child(
+            div()
+                .size(px(6.))
+                .flex_none()
+                .rounded_full()
+                .bg(c(kind.dot())),
+        )
+        .child(
+            div()
+                .text_size(fs(FS_11))
+                .text_color(c(TEXT_SECONDARY))
+                .whitespace_nowrap()
+                .child(SharedString::from(label.to_string())),
+        )
+}
+
+/// 徽章底色与描边:透明底 + 1px 语义描边 + 语义色字(原型 1a 定稿)。
+///
+/// 旧版给徽章铺 wash 底;新设计里徽章是「描边=色块」规则的载体,透明底
+/// 让它在斑马行和 panel 上都不用配第二套底色。
+fn chip_stroke(kind: StatusKind) -> u32 {
+    match kind {
+        StatusKind::Monitoring => ACCENT_LINE,
+        StatusKind::Warning => WARN_LINE,
+        StatusKind::Hit | StatusKind::Error => DANGER_LINE,
+        StatusKind::Idle | StatusKind::Fresh | StatusKind::Disabled => HAIRLINE,
+    }
+}
+
+fn chip_sized(kind: StatusKind, label: &str, height: f32) -> Div {
+    div()
+        .h(px(height))
         .flex_none()
         .h_flex()
         .items_center()
         .px(px(SP_6))
         .rounded(px(RADIUS_BUTTON))
-        .bg(c(background))
         .border_1()
-        .border_color(c(border))
+        .border_color(c(chip_stroke(kind)))
         .text_size(fs(FS_10_5))
         .text_color(c(kind.text()))
         .whitespace_nowrap()
         .child(SharedString::from(label.to_string()))
+}
+
+/// 面板内徽章:22px 高。
+///
+/// 用来承载 typed 的枚举名(可执行性、风险、覆盖状态),所以只收已经翻译
+/// 好的字符串——徽章不认识枚举,免得多出第二处需要双语的地方。
+pub fn chip(kind: StatusKind, label: &str) -> Div {
+    chip_sized(kind, label, H_CHIP)
+}
+
+/// 表内徽章:18px 高,放得进 28px 固定行。
+pub fn chip_table(kind: StatusKind, label: &str) -> Div {
+    chip_sized(kind, label, H_BADGE_TABLE)
 }
 
 /// 一行徽章,超出数量的折成 "+N"。
@@ -713,9 +759,9 @@ pub fn chips_capped(kind: StatusKind, labels: &[String], limit: usize) -> Div {
 /// 由它承担。
 pub fn detail_panel(title: &str) -> Div {
     panel()
-        .w(px(340.))
-        // 340 是宽度上限,不只是初始宽:没有 min_w(0),一个不换行的长值会把这一栏
-        // 顶到 340 以上,溢出到窗口外面去(理由见 kv_row)。
+        .w(px(W_DETAIL))
+        // 300 是宽度上限,不只是初始宽:没有 min_w(0),一个不换行的长值会把这一栏
+        // 顶到 300 以上,溢出到窗口外面去(理由见 kv_row)。
         .min_w(px(0.))
         .flex_none()
         .flex()
@@ -751,7 +797,7 @@ pub fn kv_row(label: &str, value: &str) -> Div {
                 .flex_1()
                 .min_w(px(0.))
                 .font_family(FONT_MONO)
-                .text_color(c(TEXT_PRIMARY))
+                .text_color(c(TEXT_DATA))
                 .child(SharedString::from(value.to_string())),
         )
 }
