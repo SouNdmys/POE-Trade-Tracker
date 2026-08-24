@@ -18,7 +18,7 @@ use gpui_component::{
     table::{Column, Table, TableDelegate, TableState},
 };
 use ptt_runtime::domain::{
-    Actionability, CaptureTimeEvidence, FreshnessStatus, PairFill, RadarItem, RadarItemKind,
+    Actionability, CaptureTimeEvidence, FreshnessStatus, RadarItem, RadarItemKind,
 };
 use ptt_runtime::report_text;
 use ptt_runtime::reports::{OpportunitiesModel, OpportunityRow, RadarScan, RadarUnavailable};
@@ -379,15 +379,16 @@ impl RadarTable {
                 .justify_end(),
             )
             .into_any_element(),
+            // The composed front rate where the walked payout used to be:
+            // the scan runs at a canonical size nobody holds, so its output
+            // said nothing about the reader — the rate is what they act on,
+            // and the detail panel prices their own ask at this same rate.
             4 => cell(
-                mono(format!(
-                    "{} {}",
-                    item.amount_out.quanta,
-                    item.path_asset_ids.last().map_or_else(
-                        || "?".to_owned(),
-                        |asset| crate::names::asset_name(self.catalog, language, asset.as_str())
-                    )
-                ))
+                mono(
+                    ptt_runtime::reports::walk_route(&row.leg_books, 1)
+                        .rate
+                        .map_or_else(|| "-".to_owned(), |rate| rate.text()),
+                )
                 .text_size(fs(FS_11_5))
                 .justify_end(),
             )
@@ -538,7 +539,7 @@ impl AppShell {
                 RadarUnavailable::NotEnoughMarket => {
                     report_text::report(language).not_enough_market
                 }
-                RadarUnavailable::CannotStake { .. } => report.no_pair_yet,
+                RadarUnavailable::NoStartUnits { .. } => report.no_pair_yet,
             };
             return div().flex_grow().flex().p_3().child(
                 panel()
@@ -572,9 +573,8 @@ impl AppShell {
             }))
             .child(
                 mono(report_text::fill(
-                    report_text::report(language).staking,
+                    report_text::report(language).scanning_from,
                     &[
-                        &scan.stake.to_string(),
                         &scan
                             .starts
                             .iter()
@@ -721,16 +721,6 @@ impl AppShell {
         let text = self.text();
         let item = &row.item;
 
-        let steps: &[PairFill] = item
-            .conversion_path
-            .as_ref()
-            .map(|path| path.steps.as_slice())
-            .or_else(|| {
-                item.triangle
-                    .as_ref()
-                    .map(|triangle| triangle.steps.as_slice())
-            })
-            .unwrap_or_default();
         let evidence: Option<&CaptureTimeEvidence> = item
             .conversion_path
             .as_ref()
@@ -748,29 +738,26 @@ impl AppShell {
             .child(kv_row(
                 text.detail_route,
                 &route_text(self.catalog(), language, &item.path_asset_ids),
-            ))
-            .child(kv_row(
-                text.detail_stake,
-                &format!("{} {}", item.amount_in.quanta, item.amount_in.asset_id),
-            ))
-            .child(kv_row(
-                text.detail_return,
-                &format!(
-                    "{} {}",
-                    item.amount_out.quanta,
-                    self.display_name(item.amount_out.asset_id.as_str())
-                ),
             ));
 
-        // Per leg, because a route is only as good as the leg that fails.
-        for (index, step) in steps.iter().enumerate() {
+        // Per leg the front rate, because a route is only as good as the leg
+        // that fails. The consumed→produced amounts that used to sit here
+        // described the scan's canonical-size walk — numbers about nobody.
+        // The reader's own numbers come from the walk box below.
+        for (index, leg) in row.leg_books.iter().enumerate() {
             inner = inner.child(kv_row(
                 &crate::i18n::leg_label(language, index + 1),
                 &format!(
-                    "{}   {} → {}",
-                    self.pair_label(step.from_asset_id.as_str(), step.to_asset_id.as_str()),
-                    step.consumed_input.quanta,
-                    step.gross_amount_out.quanta,
+                    "{}   {}",
+                    self.pair_label(leg.from_asset_id.as_str(), leg.to_asset_id.as_str()),
+                    leg.rate.as_ref().map_or_else(
+                        || "-".to_owned(),
+                        |rate| ptt_runtime::reports::RouteRate {
+                            numerator: u128::from(rate.numerator),
+                            denominator: u128::from(rate.denominator),
+                        }
+                        .text()
+                    ),
                 ),
             ));
         }

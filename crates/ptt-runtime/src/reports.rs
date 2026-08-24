@@ -488,16 +488,13 @@ pub enum RadarUnavailable {
     /// No settlement currency, so there is nowhere to start or return to.
     NoCoreCurrency,
     NotEnoughMarket,
-    /// Every settlement currency is missing a unit, so no stake can be built.
-    CannotStake {
-        stake: u64,
-        anchor: Option<MarketAssetId>,
-    },
+    /// Every settlement currency is missing a unit — the window has data,
+    /// just none of it touching a currency the scan could start from.
+    NoStartUnits { anchor: Option<MarketAssetId> },
 }
 
 #[derive(Clone, Debug)]
 pub struct RadarScanResult {
-    pub stake: u64,
     pub starts: Vec<MarketAssetId>,
     pub items: Vec<OpportunityRow>,
     pub probe_candidates: Vec<ptt_workflows::ProbeCandidate>,
@@ -2098,10 +2095,16 @@ pub fn opportunities_model(
     // One start per settlement currency the book can actually stake — a
     // configured settlement asset the window has never seen has no unit yet
     // and is skipped rather than failing the whole scan.
-    let stake = tuning.radar.stake.max(1);
+    //
+    // The scan runs at the same canonical size the Convert page enumerates
+    // at, never at anything the reader holds (their ruling: the radar finds
+    // rates, the reader brings the size in the detail panel). The amount
+    // exists only because the engine needs one to walk with.
     let mut starts = Vec::new();
     for asset in &policy.core_liquidity {
-        if let Ok(amount_in) = AssetAmount::from_whole_units(asset.clone(), stake, &market.units) {
+        if let Ok(amount_in) =
+            AssetAmount::from_whole_units(asset.clone(), ROUTE_ENUMERATION_SIZE, &market.units)
+        {
             starts.push(RadarStart {
                 start_asset_id: asset.clone(),
                 amount_in,
@@ -2111,8 +2114,7 @@ pub fn opportunities_model(
     if starts.is_empty() {
         return Ok(OpportunitiesModel {
             notes: Vec::new(),
-            scan: RadarScan::Unavailable(RadarUnavailable::CannotStake {
-                stake,
+            scan: RadarScan::Unavailable(RadarUnavailable::NoStartUnits {
                 anchor: policy.core_liquidity.first().cloned(),
             }),
         });
@@ -2213,7 +2215,6 @@ pub fn opportunities_model(
     Ok(OpportunitiesModel {
         notes,
         scan: RadarScan::Ran(Box::new(RadarScanResult {
-            stake,
             starts: start_names,
             items,
             probe_candidates,
@@ -2234,13 +2235,10 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
         RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket) => {
             return vec![text.not_enough_market.to_owned()];
         }
-        RadarScan::Unavailable(RadarUnavailable::CannotStake { stake, anchor }) => {
+        RadarScan::Unavailable(RadarUnavailable::NoStartUnits { anchor }) => {
             return vec![fill(
-                text.cannot_stake,
-                &[
-                    &stake.to_string(),
-                    anchor.as_ref().map_or("?", MarketAssetId::as_str),
-                ],
+                text.no_start_units,
+                &[anchor.as_ref().map_or("?", MarketAssetId::as_str)],
             )];
         }
         RadarScan::Ran(scan) => scan,
@@ -2248,9 +2246,8 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
 
     let mut lines = model.notes.clone();
     lines.push(fill(
-        text.staking,
+        text.scanning_from,
         &[
-            &scan.stake.to_string(),
             &scan
                 .starts
                 .iter()
@@ -2307,7 +2304,12 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
     }
 
     for row in &scan.items {
-        lines.extend(radar_item_lines(&row.item, row.light, language));
+        lines.extend(radar_item_lines(
+            &row.item,
+            walk_route(&row.leg_books, 1).rate,
+            row.light,
+            language,
+        ));
     }
     lines.extend(probe_lines);
     lines
@@ -2326,10 +2328,10 @@ const fn risks_label(language: UiLanguage) -> &'static str {
 
 fn radar_item_lines(
     item: &ptt_workflows::RadarItem,
+    rate: Option<RouteRate>,
     freshness: Option<FreshnessStatus>,
     language: UiLanguage,
 ) -> Vec<String> {
-    use crate::report_text::fill;
     let text = crate::report_text::report(language);
     let route = item
         .path_asset_ids
@@ -2348,23 +2350,17 @@ fn radar_item_lines(
             crate::report_text::freshness_light(language, status)
         )
     });
+    // The composed front rate where the walked amount used to be: the scan
+    // runs at a canonical size nobody holds, so its output is not a number
+    // about the reader — the rate is, and it is the same one the detail
+    // panel's walk prices their own ask at.
+    let rate = rate.map_or_else(|| text.unpriced.to_owned(), RouteRate::text);
     let mut lines = vec![
         format!(
             "{edge:>8}  {}  {route}",
             crate::report_text::radar_item_kind(language, item.kind)
         ),
-        format!(
-            "          {category}   {}{light}",
-            fill(
-                text.out_amount,
-                &[
-                    item.amount_out.quanta.to_string().as_str(),
-                    item.path_asset_ids
-                        .last()
-                        .map_or("?", MarketAssetId::as_str),
-                ],
-            )
-        ),
+        format!("          {category}   {rate}{light}"),
     ];
     if !item.blocking_risks.is_empty() {
         lines.push(format!(
@@ -2784,10 +2780,12 @@ pub fn debug_radar(
                     scope.edge_allowed(&entry.from_asset_id, &entry.to_asset_id),
                 ),
             };
-            // What the radar actually asks the engine, at several stakes: a
-            // path that appears only at a larger stake was never a data gap.
+            // What the radar actually asks the engine, at several sizes: a
+            // path that appears only at a larger size was never a data gap.
+            // The first entry is the canonical scan size the radar itself
+            // uses now that it no longer assumes a stake.
             let mut routed = String::new();
-            for stake in [tuning.radar.stake.max(1), 100, 10_000] {
+            for stake in [ROUTE_ENUMERATION_SIZE, 100, 10_000] {
                 let Ok(amount_in) =
                     AssetAmount::from_whole_units(start.clone(), stake, &market.units)
                 else {
@@ -3394,7 +3392,15 @@ mod radar_tests {
             conversion_path: None,
             triangle: None,
         };
-        let lines = radar_item_lines(&item, None, UiLanguage::English);
+        let lines = radar_item_lines(
+            &item,
+            Some(RouteRate {
+                numerator: 400,
+                denominator: 1,
+            }),
+            None,
+            UiLanguage::English,
+        );
         let joined = lines.join(
             "
 ",
@@ -3411,9 +3417,16 @@ mod radar_tests {
             joined.contains("executable now"),
             "the execution category is missing: {joined}"
         );
+        // The rate where the walked payout used to be: the scan's own walk
+        // runs at a canonical size nobody holds, so its output said nothing
+        // about the reader — the rate is what they act on.
         assert!(
-            joined.contains("out 4000 exalted-orb"),
-            "the payout is missing: {joined}"
+            joined.contains("400 : 1"),
+            "the route's front rate is missing: {joined}"
+        );
+        assert!(
+            !joined.contains("out 4000"),
+            "the canonical-size payout is not a number about the reader: {joined}"
         );
         assert!(
             joined.contains("better than direct"),
@@ -3424,7 +3437,7 @@ mod radar_tests {
         // language-specific except its words, so a row that renders in one
         // language and not the other means a value reached the screen as a
         // bare Rust identifier -- which is what this whole path replaced.
-        let chinese = radar_item_lines(&item, None, UiLanguage::Chinese).join(
+        let chinese = radar_item_lines(&item, None, None, UiLanguage::Chinese).join(
             "
 ",
         );
@@ -3476,13 +3489,13 @@ mod radar_tests {
             conversion_path: None,
             triangle: None,
         };
-        let joined = radar_item_lines(&item, None, UiLanguage::English).join(
+        let joined = radar_item_lines(&item, None, None, UiLanguage::English).join(
             "
 ",
         );
         assert!(joined.contains("unpriced"), "{joined}");
         assert!(joined.contains("capture more before trusting"), "{joined}");
-        let chinese = radar_item_lines(&item, None, UiLanguage::Chinese).join(
+        let chinese = radar_item_lines(&item, None, None, UiLanguage::Chinese).join(
             "
 ",
         );
@@ -3603,7 +3616,7 @@ mod settlement_tests {
         );
 
         assert!(
-            joined.contains("staking 1000 divine-orb, chaos-orb"),
+            joined.contains("scanning from divine-orb, chaos-orb"),
             "both settlement currencies must be scanned from: {joined}"
         );
         // The kind column, not the word: reason lines also say "loop".
