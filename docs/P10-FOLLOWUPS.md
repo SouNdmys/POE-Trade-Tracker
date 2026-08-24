@@ -890,3 +890,41 @@ across 40 targets」。条目仍为 0——不是新闸门，是库里最新抓�
    `RiskAssessment::blocking()` 因此只是 `risks` 换了个名字。不是 bug，但名字在说谎。
 3. `RadarReason::StakeRaisedToMinimum` 和那段最小手数重试，在扫描量变成一百万之后
    基本不可达了，是去本金改造留下的死重。
+
+## 34. 「要等人吃单」不是抓取覆盖问题，是移植过来的错标（2026-08-24）
+
+第 32 条那段"否定结论"只对了一半：把每行钉死的确实是 `CompetingReference` 而不是尺寸
+产物——但它的成因不是"反方向没抓过"，而是 POE1 逐字移植过来、从未重新裁定的错标。
+第 33 条给出的"去抓反方向"是**错的建议，且照做有害**，已在 `8f3c0ca` 划掉。
+
+完整证据、镜像逐行验证和裁定见 `CORE-TRADING-MODEL.md`「竞争行是能吃的单，不是要挂的
+单」。落地 `2bbc5e1`。
+
+**三轮独立调查 + 三轮对抗核查的过程结论**，值得记下来：
+
+- 三轮调查一致 `FLAG_IS_WRONG`，但三轮**全被驳回**——不是驳核心结论，是驳细节，而且
+  两次是**替结论找到了更硬的证据**：仓里本来就有一个绿着的测试
+  `mirrored_books_are_one_market_not_two`（「同一批挂单从两个面板朝向看到；密的那次
+  胜出，数量不能翻倍」），和 F6 那条测试注释。我和三个调查方都是从散落的注释里论证的，
+  没人先找到这两处可执行的先例。
+- 对抗核查抓到我给用户说错的一句话：我说"修完不会变绿"。**对闭环行是错的**——闭环不走
+  标准枚举量，尺寸产物根本不出现，剩余风险可以为 0。实测确实变绿了两条。
+- 它还否掉了调查方的两个处方：`ModelCaveat` 的文档说它是"对每个结果都成立的模型限制"
+  （其实 `SearchTruncated`、`CapacityRoundedToUnit` 早就是逐结果的了，文档在说谎，
+  已一并改正）；以及那条建议的红测试**根本不可能变绿**，因为单档盘口必触发
+  `SingleListingBook`。
+
+### 仍然待办
+
+1. `ExecutionRisk::blocks_instant_execution()` 对全部 18 个变体恒返回 `true`，
+   `RiskAssessment::blocking()` 只是 `risks` 换了名字。名字在说谎。
+2. `every_market_risk_blocks_instant_execution` 只列了 18 个变体里的 17 个，漏了
+   `SingleListingBook`——它是手写清单不是穷尽 match，加变体时不会报错。
+   `report_text.rs` 的 `check!` 数组同理。
+3. `ExecutionRisk::CompetingReference` 现在只由 `ReverseFromAvailable` 触发，而它的
+   中文名「竞争方参考价」对那个来源是错的——那是**可换取**行的反面。低影响（只在 maker
+   路径出现，且那里 `MakerReference` 无条件也会插），但名字不对。
+4. `RadarReason::StakeRaisedToMinimum` 和最小手数重试在去本金之后基本不可达。
+5. **可执行性仍有一半是尺寸产物**：兑换行的「路径不完整/受流动性限制/有零头库存」全是
+   一百万枚举量扫出来的。要让那一列彻底有意义，结论也得改成首档汇率口径——**这是裁定，
+   不是 bug，需要用户拍板。**
