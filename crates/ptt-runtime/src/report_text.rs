@@ -109,6 +109,8 @@ pub struct ReportText {
     pub maker_spread: &'static str,
     pub maker_depth: &'static str,
     pub maker_excluded: &'static str,
+    /// Heading for the hazards that hold whichever way you price in a book.
+    pub maker_risks: &'static str,
     pub no_route_for_pair: &'static str,
     pub route_direct_label: &'static str,
     pub route_via: &'static str,
@@ -208,6 +210,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_spread: "front over instant: {}",
     maker_depth: "visible depth {} {}, max single order {} {}",
     maker_excluded: "excluded listing at {} (stock {}): {}",
+    maker_risks: "risks on this pair",
     no_route_for_pair: "{} -> {}: no route yet",
     valuation_two_sided: "{} (both sides)",
     valuation_one_sided: "{} (one side only)",
@@ -292,6 +295,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_spread: "队首高出立即成交 {}",
     maker_depth: "可见深度 {} {}，单笔建议不超过 {} {}",
     maker_excluded: "已排除挂单 {}（库存 {}）：{}",
+    maker_risks: "这一对通货的风险",
     no_route_for_pair: "{} → {}：还没有路线",
     valuation_two_sided: "{}（两侧都有）",
     valuation_one_sided: "{}（只有一侧）",
@@ -721,6 +725,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "maker_excluded",
             REPORT_ENGLISH.maker_excluded,
             REPORT_CHINESE.maker_excluded,
+        ),
+        (
+            "maker_risks",
+            REPORT_ENGLISH.maker_risks,
+            REPORT_CHINESE.maker_risks,
         ),
         (
             "better_than_direct",

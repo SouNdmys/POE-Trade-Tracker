@@ -452,6 +452,45 @@ pub struct MakerModel {
     /// second evaluation, so the trade-off stays visible without a third mode
     /// existing anywhere.
     pub match_front: Option<ptt_strategy::MakerRecommendation>,
+    /// The risks every drawn mode carries, so the panel says them once.
+    ///
+    /// A hazard that holds for the undercut, the match and the greedy listing
+    /// alike is a property of the pair — the quote is an aggregate row, the
+    /// book is one listing deep — not of where inside the queue you price.
+    /// Printed per mode it was the same sentence three times, which buried
+    /// the one thing a mode row can say for itself.
+    ///
+    /// The **intersection of the drawn rows**, not `strategy.assessment`:
+    /// that one adds hazards about excluded listings no mode row ever
+    /// carried. And an intersection rather than "they are always the same",
+    /// because they are not — only the greedy listing can sit behind a wall,
+    /// and only the undercut can fail to undercut. Such a remainder stays on
+    /// its own row rather than being promoted to a claim about the pair.
+    ///
+    /// Read by the text report only. The GPUI panel draws no risk text at all
+    /// and deliberately still does not: this page was just cut down to focus
+    /// on rates, and the way to honour that is not to add a warning row to it
+    /// — the same reason the all-clear leg chips went. If it ever grows one,
+    /// it must use this field and [`MakerModel::mode_only_risks`] rather than
+    /// `blocking()`, or the two renderers will disagree about whose risk it is.
+    pub shared_risks: Vec<ptt_strategy::ExecutionRisk>,
+}
+
+impl MakerModel {
+    /// What one mode adds on top of [`MakerModel::shared_risks`] — usually
+    /// nothing, which is the point.
+    #[must_use]
+    pub fn mode_only_risks(
+        &self,
+        recommendation: &ptt_strategy::MakerRecommendation,
+    ) -> Vec<ptt_strategy::ExecutionRisk> {
+        recommendation
+            .assessment
+            .blocking()
+            .into_iter()
+            .filter(|risk| !self.shared_risks.contains(risk))
+            .collect()
+    }
 }
 
 /// "Is what I am watching healthy": coverage, valuations, and what to promote.
@@ -1609,10 +1648,40 @@ fn maker_model(
                 .find(|item| item.mode == MakerMode::Opportunity)
         })
     };
+    let shared_risks = shared_maker_risks(&strategy, match_front.as_ref());
     Some(MakerModel {
         size,
         strategy,
         match_front,
+        shared_risks,
+    })
+}
+
+/// The blocking risks common to every mode the panel will draw.
+///
+/// Intersected over exactly the rows that get drawn — the strategy's own
+/// recommendations plus the match-front evaluation — and nothing else.
+/// Hoisting a risk that no drawn row carries would invent a warning about the
+/// pair out of a hazard the reader was never shown.
+fn shared_maker_risks(
+    strategy: &ptt_strategy::MakerStrategy,
+    match_front: Option<&ptt_strategy::MakerRecommendation>,
+) -> Vec<ptt_strategy::ExecutionRisk> {
+    let mut rows = strategy
+        .recommendations
+        .iter()
+        .chain(match_front)
+        .map(|item| item.assessment.blocking());
+    let Some(first) = rows.next() else {
+        return Vec::new();
+    };
+    // Filtering only ever removes, so the header list and every remainder
+    // keep the one canonical order `blocking()` hands out.
+    rows.fold(first, |common, next| {
+        common
+            .into_iter()
+            .filter(|risk| next.contains(risk))
+            .collect()
     })
 }
 
@@ -1642,6 +1711,19 @@ fn render_maker(
         lines.push(format!("     {}", text.maker_no_book));
         return lines;
     }
+    // The book's own hazards hold whichever way you price inside it, so the
+    // panel states them once instead of once per mode.
+    if !model.shared_risks.is_empty() {
+        lines.push(format!(
+            "     {} {}",
+            text.maker_risks,
+            crate::report_text::join(
+                language,
+                &model.shared_risks,
+                crate::report_text::execution_risk
+            )
+        ));
+    }
 
     let mode_line = |template: &str, recommendation: &MakerRecommendation| -> Vec<String> {
         let mut block = vec![format!(
@@ -1669,7 +1751,8 @@ fn render_maker(
         if let Some(verdict) = verdict {
             block.push(format!("        {verdict}"));
         }
-        let blocking = recommendation.assessment.blocking();
+        // Only what this mode adds; the rest is on the panel's own line.
+        let blocking = model.mode_only_risks(recommendation);
         if !blocking.is_empty() {
             block.push(format!(
                 "        {} {}",
@@ -4579,6 +4662,72 @@ mod convert_tests {
         .join("\n");
         assert!(chinese.contains("挂单策略"), "{chinese}");
         assert!(chinese.contains("价格离群"), "{chinese}");
+    }
+
+    /// **A hazard that holds however you price inside a book is a property of
+    /// the book, so the panel says it once.**
+    ///
+    /// The three modes differ only in *where* in the queue they list. The
+    /// risks they were each printing — the quote is an aggregate row, the
+    /// book is one listing deep, the reference is a maker quote — are true of
+    /// the pair whichever way you price, so the panel repeated the same
+    /// sentence three times and buried the one thing a mode row can say for
+    /// itself.
+    ///
+    /// This book is deliberately plain: three competing rows too close
+    /// together to form a wall, an instant every listing beats, and a front
+    /// that undercuts cleanly. So no mode earns a risk of its own and the
+    /// hoisted line carries all of it.
+    #[test]
+    fn the_pairs_risks_are_said_once_not_once_per_mode() {
+        let observations = vec![
+            taker("take-700", 0, (700, 1), 100_000),
+            competing("front", 1, (784, 1), 40),
+            competing("second", 2, (785, 1), 60),
+            competing("back", 3, (795, 1), 80),
+        ];
+        let lines = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            None,
+            &MarketTuning::default(),
+            UiLanguage::English,
+        )
+        .expect("report");
+        let joined = lines.join("\n");
+
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|line| line.trim_start().starts_with("risks"))
+                .count(),
+            1,
+            "the pair's risks belong to the pair, so the panel says them once, \
+             not once per mode:\n{joined}"
+        );
+        assert!(
+            joined.contains("risks on this pair"),
+            "and the surviving line says whose risks they are:\n{joined}"
+        );
+
+        let chinese = convert_report(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            None,
+            &MarketTuning::default(),
+            UiLanguage::Chinese,
+        )
+        .expect("report")
+        .join("\n");
+        assert_eq!(
+            chinese.matches("风险").count(),
+            1,
+            "the hoisted line goes through the bilingual catalogue too:\n{chinese}"
+        );
     }
 }
 
