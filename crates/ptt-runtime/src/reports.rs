@@ -100,6 +100,46 @@ pub struct SizeRoute {
     pub direct_is_the_only_one: bool,
 }
 
+impl SizeRoute {
+    /// The one step every pinching route on this card pinches at, and how
+    /// many routes that is — `None` when they pinch in different places, or
+    /// when only one of them pinches at all.
+    ///
+    /// A book is hub-and-spoke, so the detours out of a currency nearly all
+    /// leave through the same bridge and therefore pinch on the same step
+    /// with the same two numbers. Printing one warning row per route was
+    /// still a wall of thirteen identical sentences on the owner's real card.
+    /// Saying it once and naming the count is strictly more information in
+    /// one line than in thirteen.
+    ///
+    /// Routes that pinch nowhere are not counted and do not veto the
+    /// collapse: they print no row either way, so they cannot be part of a
+    /// wall. That is why the sentence carries a count rather than the words
+    /// "every route" — a clean direct trade sitting beside three pinched
+    /// detours must not be swept into a claim about all four.
+    ///
+    /// Lives on the model rather than in a renderer because this page has two
+    /// of them, and a rule that lives in one is a rule the other drifts away
+    /// from.
+    #[must_use]
+    pub fn shared_pinch(&self) -> Option<(&LegTakeCoverage, usize)> {
+        let mut pinches = self.quotes.iter().filter_map(RouteQuote::pinch);
+        let first = pinches.next()?;
+        let mut count = 1_usize;
+        for leg in pinches {
+            // Whole-struct equality: two routes pinching on the same pair for
+            // different amounts are two different warnings and must stay
+            // apart, or the collapsed row would print numbers true of only
+            // one of them.
+            if leg != first {
+                return None;
+            }
+            count += 1;
+        }
+        (count > 1).then_some((first, count))
+    }
+}
+
 /// An exact rate: whole units of the target per whole unit of the source.
 ///
 /// A fraction rather than a decimal because every comparison on this page is
@@ -1441,6 +1481,32 @@ pub fn convert_model(
     })
 }
 
+/// One pinch row: the step's own numbers, then what qualifies it.
+///
+/// `shared` carries how many routes pinch here when they all pinch at the
+/// same step, and it leads the notes because it is the reason there is one
+/// row instead of one per route.
+fn pinch_line(language: UiLanguage, leg: &LegTakeCoverage, shared: Option<usize>) -> String {
+    let text = crate::report_text::report(language);
+    let facts = crate::report_text::leg_take_facts(
+        language,
+        leg.from_asset_id.as_str(),
+        leg.to_asset_id.as_str(),
+        leg,
+    );
+    let shared_note =
+        shared.map(|count| crate::report_text::fill(text.pinch_shared, &[&count.to_string()]));
+    let mut notes: Vec<&str> = Vec::new();
+    if let Some(note) = shared_note.as_deref() {
+        notes.push(note);
+    }
+    notes.extend(crate::report_text::leg_take_notes(language, leg));
+    format!(
+        "{facts}   {}",
+        crate::report_text::join_text(language, &notes)
+    )
+}
+
 /// The Convert page as display lines.
 fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
     use crate::report_text::fill;
@@ -1457,6 +1523,13 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
             continue;
         }
         lines.push(format!("{size:>4} {have} -> {need}"));
+        // When every route pinches at the same step the warning is about the
+        // card, not about any one row, so it is said once above the rates
+        // rather than repeated under each of them.
+        let shared = route.shared_pinch();
+        if let Some((leg, count)) = shared {
+            lines.push(format!("       {}", pinch_line(language, leg, Some(count))));
+        }
         // Rate, then what fills at it. Never the other way round: the reader
         // lists one rate and controls the quantity themselves, so the rate is
         // the decision and the quantity is the warning beside it.
@@ -1465,18 +1538,10 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
             // One row at most, naming where the route pinches. The rate
             // line above already carries the summary; three rows repeating
             // it is how a card becomes a wall of warnings.
-            if let Some(leg) = quote.pinch() {
-                let facts = crate::report_text::leg_take_facts(
-                    language,
-                    leg.from_asset_id.as_str(),
-                    leg.to_asset_id.as_str(),
-                    leg,
-                );
-                let notes = crate::report_text::join_text(
-                    language,
-                    &crate::report_text::leg_take_notes(language, leg),
-                );
-                lines.push(format!("       {facts}   {notes}"));
+            if shared.is_none()
+                && let Some(leg) = quote.pinch()
+            {
+                lines.push(format!("       {}", pinch_line(language, leg, None)));
             }
         }
         if route.direct_is_the_only_one {
@@ -5371,6 +5436,112 @@ mod route_quote_tests {
                 .count(),
             1,
             "one warning row on the whole card:
+{lines}"
+        );
+    }
+
+    /// Three detours that all leave through the same narrow door.
+    ///
+    /// Forty hub-orbs are listed against divine and nothing else on these
+    /// routes is tight, so all three pinch at `divine-orb -> hub-orb` and
+    /// print the same two numbers about the same step.
+    fn one_narrow_door() -> Vec<MarketEdgeObservation> {
+        let mut out = panel("dh", "divine-orb", "hub-orb", &[((2, 1), 40)]);
+        out.extend(panel("hc", "hub-orb", "chaos-orb", &[((6, 1), 10_000_000)]));
+        out.extend(panel("ha", "hub-orb", "alpha-orb", &[((3, 1), 1_000_000)]));
+        out.extend(panel("ac", "alpha-orb", "chaos-orb", &[((2, 1), 10_000_000)]));
+        out.extend(panel("hb", "hub-orb", "beta-orb", &[((3, 1), 1_000_000)]));
+        out.extend(panel("bc", "beta-orb", "chaos-orb", &[((2, 1), 10_000_000)]));
+        out
+    }
+
+    /// **Every detour leaving through the same door is one warning, not one
+    /// per detour.**
+    ///
+    /// The third de-noise cut got a card down to one warning row *per route*.
+    /// That is still a wall when the routes share their narrow step, which
+    /// they usually do -- a book is hub-and-spoke, so the detours out of a
+    /// currency nearly all leave through the same bridge. On the owner's real
+    /// card at a holding of 49,500, thirteen routes printed the identical
+    /// sentence about 機會石 -> 神聖石 thirteen times.
+    ///
+    /// Saying it once and naming how many routes it speaks for is strictly
+    /// more information than saying it thirteen times, in one line instead of
+    /// thirteen.
+    #[test]
+    fn every_route_leaving_through_the_same_door_is_warned_about_once() {
+        let mut observations = direct_book();
+        observations.extend(one_narrow_door());
+
+        let lines = english_report(&observations, 5_000);
+        assert_eq!(
+            lines
+                .lines()
+                .filter(|line| line.starts_with("       ") && line.contains(" -> "))
+                .count(),
+            1,
+            "the step every detour pinches at is one row, not one per route:
+{lines}"
+        );
+        assert!(
+            lines.contains("all 3 routes pinch at this step"),
+            "and the row says how many routes it speaks for:
+{lines}"
+        );
+        assert!(
+            lines.contains("divine-orb -> hub-orb"),
+            "the collapsed row still names the step:
+{lines}"
+        );
+
+        let route = model_at(&observations, 5_000)
+            .sizes
+            .into_iter()
+            .next()
+            .expect("one priced size");
+        let (leg, count) = route
+            .shared_pinch()
+            .expect("every detour pinches at the same step");
+        assert_eq!(leg.to_asset_id.as_str(), "hub-orb", "{route:?}");
+        assert_eq!(count, 3, "{route:?}");
+        assert!(
+            route.quotes.len() > count,
+            "the clean direct trade is on the card and is not counted: {route:?}"
+        );
+    }
+
+    /// The collapse must not reach past the case it exists for.
+    ///
+    /// One route pinching is not a wall, and a count of one would read as a
+    /// claim about a set. The same fixture as
+    /// `one_route_shows_one_step_and_it_is_the_one_that_pinches`: one pinched
+    /// detour beside a direct trade that clears.
+    #[test]
+    fn one_pinching_route_is_not_collapsed_into_a_claim_about_a_set() {
+        let mut observations = direct_book();
+        observations.extend(panel("dn", "divine-orb", "near-orb", &[((1, 1), 400)]));
+        observations.extend(panel("nt", "near-orb", "tight-orb", &[((1, 1), 40)]));
+        observations.extend(panel(
+            "tc",
+            "tight-orb",
+            "chaos-orb",
+            &[((12, 1), 1_000_000)],
+        ));
+
+        let route = model_at(&observations, 5_000)
+            .sizes
+            .into_iter()
+            .next()
+            .expect("one priced size");
+        assert!(
+            route.shared_pinch().is_none(),
+            "only one route pinches, so there is no shared step: {route:?}"
+        );
+
+        let lines = english_report(&observations, 5_000);
+        assert!(
+            !lines.contains("routes pinch at this step"),
+            "and the card does not speak for a set of one:
 {lines}"
         );
     }

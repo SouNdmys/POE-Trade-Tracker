@@ -56,6 +56,8 @@ pub struct ReportText {
     pub leg_no_listings: &'static str,
     pub leg_bound_by_next: &'static str,
     pub leg_single_listing: &'static str,
+    /// How many routes pinch at the one step this row stands for.
+    pub pinch_shared: &'static str,
     pub nothing_to_convert: &'static str,
     /// Both pickers on one currency. Not a failure — a question with no
     /// content, which the page has to say plainly so the reader knows to
@@ -156,6 +158,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     leg_no_listings: "nothing listed this way - no data, not a shortage",
     leg_bound_by_next: "the next leg is the tighter one",
     leg_single_listing: "one listing only",
+    pinch_shared: "all {} routes pinch at this step",
     route_direct_label: "direct",
     route_via: "via {}",
     route_baseline: "baseline",
@@ -239,6 +242,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     leg_no_listings: "这个方向没抓到挂单 — 是没数据，不是不够",
     leg_bound_by_next: "下一步更紧",
     leg_single_listing: "只有一个盘口",
+    pinch_shared: "{} 条路线都卡在这一步",
     route_direct_label: "直兑",
     route_via: "经 {}",
     route_baseline: "基准",
@@ -763,6 +767,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "leg_single_listing",
             REPORT_ENGLISH.leg_single_listing,
             REPORT_CHINESE.leg_single_listing,
+        ),
+        (
+            "pinch_shared",
+            REPORT_ENGLISH.pinch_shared,
+            REPORT_CHINESE.pinch_shared,
         ),
         (
             "nothing_to_convert",

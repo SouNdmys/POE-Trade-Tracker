@@ -512,13 +512,22 @@ impl AppShell {
         // nothing else: a route four places down is still a rate the reader
         // can list at. What is missing here priced worse than trading direct,
         // which is the one thing no size can fix.
+        // When every route pinches at the same step the warning belongs to
+        // the card, not to any one row -- see `SizeRoute::shared_pinch`. Said
+        // once above the rates rather than repeated under each of them.
+        let shared = route.shared_pinch();
+        if let Some((leg, count)) = shared {
+            card = card.child(self.leg_row(leg, Some(count), language));
+        }
         for quote in &route.quotes {
             card = card.child(self.quote_row(quote, size, language));
             // One row at most, naming where the route pinches -- see
             // `RouteQuote::pinch`. The rate row above already carries the
             // summary; repeating it per step is what made a wall of amber.
-            if let Some(leg) = quote.pinch() {
-                card = card.child(self.leg_row(leg, language));
+            if shared.is_none()
+                && let Some(leg) = quote.pinch()
+            {
+                card = card.child(self.leg_row(leg, None, language));
             }
         }
         if route.direct_is_the_only_one {
@@ -636,7 +645,15 @@ impl AppShell {
     /// of the book and walks into worse levels; red means the listings do not
     /// cover the trip at all. Neither says anything about an order the reader
     /// lists — that question is not answered on this page.
-    fn leg_row(&self, leg: &LegTakeCoverage, language: ptt_settings::UiLanguage) -> gpui::Div {
+    /// `shared_routes` is how many routes pinch here when they all pinch at
+    /// the same step; it leads the chips because it is the reason this row
+    /// stands in for all of them.
+    fn leg_row(
+        &self,
+        leg: &LegTakeCoverage,
+        shared_routes: Option<usize>,
+        language: ptt_settings::UiLanguage,
+    ) -> gpui::Div {
         let kind = match leg.verdict {
             LegTakeVerdict::Covered => StatusKind::Idle,
             LegTakeVerdict::NotEnoughListed => StatusKind::Hit,
@@ -648,10 +665,20 @@ impl AppShell {
             &self.display_name(leg.to_asset_id.as_str()),
             leg,
         );
-        let notes = report_text::leg_take_notes(language, leg)
+        let mut notes: Vec<String> = shared_routes
+            .map(|count| {
+                report_text::fill(
+                    report_text::report(language).pinch_shared,
+                    &[&count.to_string()],
+                )
+            })
             .into_iter()
-            .map(str::to_owned)
-            .collect::<Vec<_>>();
+            .collect();
+        notes.extend(
+            report_text::leg_take_notes(language, leg)
+                .into_iter()
+                .map(str::to_owned),
+        );
         div()
             .flex()
             .items_start()
@@ -669,7 +696,9 @@ impl AppShell {
                     .text_color(c(TEXT_PRIMARY))
                     .child(gpui::SharedString::from(facts)),
             )
-            .child(chips(kind, &notes, 3))
+            // Four, not three: the shared-routes clause can ride alongside a
+            // verdict, a bound-by-next note and a single-listing note.
+            .child(chips(kind, &notes, 4))
     }
 
     /// A size the search could not route, and the probe that would fix it.
