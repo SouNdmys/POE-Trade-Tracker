@@ -90,7 +90,7 @@ pub const RADAR_TABLE_WIDTH_BUDGET: f32 = 1090.0;
 const COL_KIND_WIDTH: f32 = 80.0;
 const COL_EDGE_WIDTH: f32 = 80.0;
 const COL_DEPTH_WIDTH: f32 = 90.0;
-const COL_OUT_WIDTH: f32 = 120.0;
+const COL_RATE_WIDTH: f32 = 120.0;
 const COL_VERDICT_WIDTH: f32 = 120.0;
 const COL_LIGHT_WIDTH: f32 = 90.0;
 const COL_RISKS_WIDTH: f32 = 120.0;
@@ -99,7 +99,7 @@ const COL_RISKS_WIDTH: f32 = 120.0;
 const RADAR_FIXED_COLUMNS_WIDTH: f32 = COL_KIND_WIDTH
     + COL_EDGE_WIDTH
     + COL_DEPTH_WIDTH
-    + COL_OUT_WIDTH
+    + COL_RATE_WIDTH
     + COL_VERDICT_WIDTH
     + COL_LIGHT_WIDTH
     + COL_RISKS_WIDTH;
@@ -216,15 +216,15 @@ impl RadarTable {
                     .width(px(COL_EDGE_WIDTH))
                     .text_right()
                     .sortable(),
-                // Depth before amount: it is what the list is ordered by, and
+                // Depth before rate: depth is what the list is ordered by, and
                 // an order the reader cannot see is one they will read as
-                // wrong. The amount stays beside it because it is what the
-                // trade actually produces at that depth.
+                // wrong. The rate sits beside it because a depth is only worth
+                // reading next to the price it holds at.
                 Column::new("depth", chrome.radar_column_depth)
                     .width(px(COL_DEPTH_WIDTH))
                     .text_right(),
-                Column::new("out", chrome.radar_column_out)
-                    .width(px(COL_OUT_WIDTH))
+                Column::new("rate", chrome.radar_column_rate)
+                    .width(px(COL_RATE_WIDTH))
                     .text_right(),
                 Column::new("verdict", chrome.radar_column_verdict).width(px(COL_VERDICT_WIDTH)),
                 Column::new("light", chrome.radar_column_light).width(px(COL_LIGHT_WIDTH)),

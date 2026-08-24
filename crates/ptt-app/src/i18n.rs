@@ -314,7 +314,10 @@ pub struct Text {
     pub radar_column_kind: &'static str,
     pub radar_column_route: &'static str,
     pub radar_column_edge: &'static str,
-    pub radar_column_out: &'static str,
+    /// The route's composed front rate — the same number the detail panel
+    /// names `detail_walk_rate`. Named for the rate and not for a payout
+    /// because the scan walks a canonical size nobody holds.
+    pub radar_column_rate: &'static str,
     /// How much of the route's currencies the market is showing, in the
     /// settlement anchor. The list's primary sort key, so it has to be on
     /// screen — and named for circulation rather than for a ceiling, because
@@ -536,7 +539,7 @@ impl Text {
             ("radar_column_kind", self.radar_column_kind),
             ("radar_column_route", self.radar_column_route),
             ("radar_column_edge", self.radar_column_edge),
-            ("radar_column_out", self.radar_column_out),
+            ("radar_column_rate", self.radar_column_rate),
             ("radar_column_depth", self.radar_column_depth),
             ("radar_column_verdict", self.radar_column_verdict),
             ("radar_column_light", self.radar_column_light),
@@ -761,7 +764,7 @@ pub static ENGLISH: Text = Text {
     radar_column_kind: "kind",
     radar_column_route: "route",
     radar_column_edge: "edge",
-    radar_column_out: "out",
+    radar_column_rate: "rate",
     radar_column_depth: "liquidity",
     radar_column_verdict: "verdict",
     radar_column_light: "data",
@@ -984,7 +987,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     radar_column_kind: "种类",
     radar_column_route: "路径",
     radar_column_edge: "收益",
-    radar_column_out: "得到",
+    radar_column_rate: "汇率",
     radar_column_depth: "流动性",
     radar_column_verdict: "可执行性",
     radar_column_light: "数据",
