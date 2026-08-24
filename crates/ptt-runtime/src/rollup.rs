@@ -322,7 +322,11 @@ pub fn today_stats(
         .filter(|observation| observation.edge.captured_at >= start)
         .cloned()
         .collect();
-    fold_window_stats(&todays, &today.format("%Y-%m-%d").to_string(), outlier_factor)
+    fold_window_stats(
+        &todays,
+        &today.format("%Y-%m-%d").to_string(),
+        outlier_factor,
+    )
 }
 
 /// A whole observation window folded as one pseudo-day: median across every

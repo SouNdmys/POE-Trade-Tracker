@@ -464,11 +464,7 @@ pub fn run_opportunity_radar(
             // theory until one confirms it. Keyed on the shown ones only —
             // "confirm this opportunity" is not a sentence about a pair the
             // page never shows.
-            if !evidence_fresh(
-                best.capture_time_evidence,
-                selection.policy.freshness,
-                now,
-            ) {
+            if !evidence_fresh(best.capture_time_evidence, selection.policy.freshness, now) {
                 confirm_route_probes(&best, &mut probe_candidates);
             }
             let capacity = anchor.as_ref().and_then(|anchor| {
@@ -491,9 +487,9 @@ pub fn run_opportunity_radar(
             // headed "profit floor 1.00%". An *unknown* round trip keeps its
             // place: the book pricing no way home is not the same as a way
             // home that loses, and 错杀 is the worse error.
-            if item_round_trip
-                .is_some_and(|points| points < i64::from(request.minimum_conversion_improvement_basis_points))
-            {
+            if item_round_trip.is_some_and(|points| {
+                points < i64::from(request.minimum_conversion_improvement_basis_points)
+            }) {
                 continue;
             }
             // Judged on what its own front rows carry; priced, ranked and
@@ -872,8 +868,7 @@ fn round_trip_basis_points(
     // silently reports "no way home" for every target dearer than what it
     // buys -- one divine fetching half a chaos disappears. Only ever used to
     // enumerate; every number below comes off the front rows.
-    let amount_in =
-        AssetAmount::from_whole_units(target.clone(), HOME_SEARCH_SIZE, units).ok()?;
+    let amount_in = AssetAmount::from_whole_units(target.clone(), HOME_SEARCH_SIZE, units).ok()?;
     let home = find_best_conversion(
         index,
         &ConversionRequest {

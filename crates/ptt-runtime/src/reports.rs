@@ -569,7 +569,9 @@ pub enum RadarUnavailable {
     NotEnoughMarket,
     /// Every settlement currency is missing a unit — the window has data,
     /// just none of it touching a currency the scan could start from.
-    NoStartUnits { anchor: Option<MarketAssetId> },
+    NoStartUnits {
+        anchor: Option<MarketAssetId>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -1104,8 +1106,11 @@ fn route_leg_books(market: &Market, steps: &[ptt_trade_engine::PairFill]) -> Vec
         .iter()
         .map(|step| {
             let front = leg_front_row(step, &market.index);
-            let (listed, rows) =
-                leg_book(&market.instant_selection, &step.from_asset_id, &step.to_asset_id);
+            let (listed, rows) = leg_book(
+                &market.instant_selection,
+                &step.from_asset_id,
+                &step.to_asset_id,
+            );
             RouteLegBook {
                 from_asset_id: step.from_asset_id.clone(),
                 to_asset_id: step.to_asset_id.clone(),
@@ -2411,9 +2416,9 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
                 .collect::<Vec<_>>()
                 .join(", "),
             // Distinct targets, not the (start, target) pairs the budget
-                        // is divided over: two settlement starts search every target
-                        // twice, so the pair count read as twice the scope.
-                        &scan.diagnostics.distinct_target_count.to_string(),
+            // is divided over: two settlement starts search every target
+            // twice, so the pair count read as twice the scope.
+            &scan.diagnostics.distinct_target_count.to_string(),
         ],
     ));
     // Two different facts, and they used to share one alarming sentence: a
@@ -5629,9 +5634,19 @@ mod route_quote_tests {
         let mut out = panel("dh", "divine-orb", "hub-orb", &[((2, 1), 40)]);
         out.extend(panel("hc", "hub-orb", "chaos-orb", &[((6, 1), 10_000_000)]));
         out.extend(panel("ha", "hub-orb", "alpha-orb", &[((3, 1), 1_000_000)]));
-        out.extend(panel("ac", "alpha-orb", "chaos-orb", &[((2, 1), 10_000_000)]));
+        out.extend(panel(
+            "ac",
+            "alpha-orb",
+            "chaos-orb",
+            &[((2, 1), 10_000_000)],
+        ));
         out.extend(panel("hb", "hub-orb", "beta-orb", &[((3, 1), 1_000_000)]));
-        out.extend(panel("bc", "beta-orb", "chaos-orb", &[((2, 1), 10_000_000)]));
+        out.extend(panel(
+            "bc",
+            "beta-orb",
+            "chaos-orb",
+            &[((2, 1), 10_000_000)],
+        ));
         out
     }
 

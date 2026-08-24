@@ -267,8 +267,10 @@ fn outlier_quote_ids_per_snapshot(
     edges: &[MarketEdgeObservation],
     factor: u64,
 ) -> BTreeMap<((MarketAssetId, MarketAssetId), String), BTreeSet<String>> {
-    let mut buckets: BTreeMap<((MarketAssetId, MarketAssetId), String), Vec<MarketEdgeObservation>> =
-        BTreeMap::new();
+    let mut buckets: BTreeMap<
+        ((MarketAssetId, MarketAssetId), String),
+        Vec<MarketEdgeObservation>,
+    > = BTreeMap::new();
     for observation in edges {
         buckets
             .entry(snapshot_book_key(observation))

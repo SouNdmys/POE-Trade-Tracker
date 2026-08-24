@@ -20,8 +20,7 @@ use ptt_trade_domain::{
 use ptt_trade_engine::{AssetAmount, AssetUnit, AssetUnitCatalog, FeePolicy, SearchCancellation};
 use ptt_workflows::{
     FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, ProbeCandidate, ProbePriority,
-    ProbeReason,
-    RadarBudget, RadarItemKind, RadarRequest, RadarStart, run_opportunity_radar,
+    ProbeReason, RadarBudget, RadarItemKind, RadarRequest, RadarStart, run_opportunity_radar,
 };
 
 fn asset(value: &str) -> MarketAssetId {

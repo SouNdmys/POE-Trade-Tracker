@@ -31,8 +31,7 @@ use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
     LedgerButton, StatusKind, button, chip, chips_capped, detail_panel, empty_state,
-    freshness_kind,
-    kv_row, mono, panel, panel_header,
+    freshness_kind, kv_row, mono, panel, panel_header,
 };
 
 /// Execution category → status colour.
@@ -765,14 +764,10 @@ impl AppShell {
                     .and_then(|triangle| triangle.capture_time_evidence.as_ref())
             });
 
-        let mut inner = div()
-            .p_3()
-            .flex()
-            .flex_col()
-            .child(kv_row(
-                text.detail_route,
-                &route_text(self.catalog(), language, &item.path_asset_ids),
-            ));
+        let mut inner = div().p_3().flex().flex_col().child(kv_row(
+            text.detail_route,
+            &route_text(self.catalog(), language, &item.path_asset_ids),
+        ));
 
         // The headline column states what closing the route nets. This is the
         // other number the route has: how much better it is than simply
@@ -1056,7 +1051,7 @@ mod selection_tests {
                 amount_out: amount(path.last().expect("a route ends somewhere").as_str()),
                 path_asset_ids: path,
                 round_trip_basis_points: Some(100),
-            value_basis_points: Some(100),
+                value_basis_points: Some(100),
                 liquidity_capacity: Some(10),
                 reasons: Vec::new(),
                 risk_flags: Vec::new(),
@@ -1136,7 +1131,7 @@ mod column_width_tests {
                 amount_in: amount(&from),
                 amount_out: amount(&to),
                 round_trip_basis_points: Some(100),
-            value_basis_points: Some(100),
+                value_basis_points: Some(100),
                 liquidity_capacity: Some(10),
                 reasons: Vec::new(),
                 risk_flags: Vec::new(),
