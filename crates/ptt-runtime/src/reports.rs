@@ -3595,13 +3595,7 @@ mod settlement_tests {
             taker("chaos-orb", "exalted-orb", (2, 1), 10_000_000),
             taker("exalted-orb", "divine-orb", (1, 100), 10_000_000),
         ];
-        let tuning = MarketTuning {
-            radar: ptt_settings::RadarTuning {
-                stake: 1_000,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
+        let tuning = MarketTuning::default();
         let lines = opportunities_report(
             &observations,
             CONTEXT,
@@ -3646,10 +3640,6 @@ mod settlement_tests {
             taker("exalted-orb", "divine-orb", (1, 100), 10_000_000),
         ];
         let tuning = MarketTuning {
-            radar: ptt_settings::RadarTuning {
-                stake: 1_000,
-                ..Default::default()
-            },
             risk: ptt_settings::RiskTuning {
                 thin_liquidity_stock: 20_000_000,
                 ..Default::default()

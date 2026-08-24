@@ -307,10 +307,6 @@ impl Default for ConvertTuning {
 /// Knobs for the opportunity radar.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RadarTuning {
-    /// What the radar assumes you are willing to put in, in whole units of
-    /// each settlement currency it scans from.
-    #[serde(default = "default_radar_stake")]
-    pub stake: u64,
     /// Total node-expansion budget shared across the whole scan.
     #[serde(default = "default_radar_expansions")]
     pub max_total_expansions: u64,
@@ -337,9 +333,6 @@ fn default_radar_max_cycle_length() -> u64 {
     6
 }
 
-fn default_radar_stake() -> u64 {
-    10
-}
 fn default_radar_expansions() -> u64 {
     60_000
 }
@@ -353,7 +346,6 @@ fn default_minimum_profit_basis_points() -> u64 {
 impl Default for RadarTuning {
     fn default() -> Self {
         Self {
-            stake: default_radar_stake(),
             max_total_expansions: default_radar_expansions(),
             max_results: default_radar_results(),
             minimum_profit_basis_points: default_minimum_profit_basis_points(),
@@ -798,7 +790,6 @@ mod tests {
         assert_eq!(tuning.freshness.fresh_seconds, 3600);
         assert_eq!(tuning.freshness.usable_seconds, 21600);
         assert_eq!(tuning.convert.sizes, [1, 10, 100]);
-        assert_eq!(tuning.radar.stake, 10);
         assert_eq!(tuning.risk.thin_liquidity_stock, 100);
         // The other game is untouched by poe2's entry.
         assert_eq!(
@@ -821,7 +812,6 @@ mod tests {
             ];
             tuning.focus_assets = vec!["perfect-chaos-orb".to_owned()];
             tuning.freshness.fresh_seconds = 1800;
-            tuning.radar.stake = 100;
             tuning.report_window_hours = 48;
         }
         store.save(&settings).unwrap();
