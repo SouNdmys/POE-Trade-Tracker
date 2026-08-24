@@ -185,7 +185,7 @@ pub fn warning_band(tag: &str, text: &str) -> Div {
         .py_2()
         .bg(c(WARN_WASH))
         .border_l_2()
-        .border_color(c(WARN_BAR))
+        .border_color(c(WARN))
         .child(
             div()
                 .font_family(FONT_MONO)
@@ -653,7 +653,7 @@ pub fn freshness_kind(status: ptt_runtime::domain::FreshnessStatus) -> StatusKin
 pub fn chip(kind: StatusKind, label: &str) -> Div {
     let (background, border) = match kind {
         StatusKind::Monitoring => (ACCENT_WASH, ACCENT_LINE),
-        StatusKind::Warning => (WARN_WASH, WARN_BAR),
+        StatusKind::Warning => (WARN_WASH, WARN_LINE),
         StatusKind::Hit | StatusKind::Error => (DANGER_WASH, DANGER_LINE),
         StatusKind::Idle | StatusKind::Disabled => (PANEL, HAIRLINE),
     };

@@ -29,7 +29,7 @@ pub const WORKBENCH_SIZE: (f32, f32) = (1180.0, 640.0);
 pub fn run() {
     Application::new().run(move |cx: &mut App| {
         gpui_component::init(cx);
-        theme::apply_ledger_theme(cx);
+        theme::apply_app_theme(cx);
 
         let (width, height) = WORKBENCH_SIZE;
         let bounds = Bounds::centered(None, size(px(width), px(height)), cx);

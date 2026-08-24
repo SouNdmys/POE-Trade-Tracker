@@ -522,7 +522,7 @@ impl Render for Gallery {
 fn main() {
     Application::new().run(move |cx: &mut App| {
         gpui_component::init(cx);
-        theme::apply_ledger_theme(cx);
+        theme::apply_app_theme(cx);
 
         let (width, height) = PREVIEW_SIZE;
         let bounds = Bounds::centered(None, size(px(width), px(height)), cx);

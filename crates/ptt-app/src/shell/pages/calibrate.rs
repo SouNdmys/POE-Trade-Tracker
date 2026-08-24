@@ -341,7 +341,7 @@ impl AppShell {
                     .w(px(guide.2 as f32 * view.zoom))
                     .h(px(guide.3 as f32 * view.zoom))
                     .border_1()
-                    .border_color(c(WARN_BAR))
+                    .border_color(c(WARN))
             }))
             .children(
                 // The rectangle as it is being dragged. Needed to draw at all
