@@ -280,13 +280,37 @@ fn undercut_by_displayed_tick(rate: &Ratio) -> Option<Ratio> {
     if left_coefficient == 1 && left_scale == 0 {
         // "1 : X" — a larger X is a lower rate.
         let numerator = 10_u64.checked_pow(right_scale)?;
-        Ratio::from_parts(numerator, right_coefficient.checked_add(1)?).ok()
+        let stepped = right_coefficient.checked_add(1)?;
+        let mut rate = Ratio::from_parts(numerator, stepped).ok()?;
+        // Written back in the notation it was read in. `from_parts` reduces
+        // and prints "{n}:{d}", so a tick below "1:93.33" comes out
+        // "50:4667" — the same number wearing a form nothing else on the
+        // listing card uses, in the one row whose job is to say what to type.
+        // Every other rate on that card is a captured one carrying the game's
+        // own text; this is the only one the program writes itself.
+        rate.text = format_display_tick(stepped, right_scale);
+        Some(rate)
     } else {
         let left_coefficient = left_coefficient.checked_sub(1).filter(|value| *value > 0)?;
         let numerator = left_coefficient.checked_mul(10_u64.checked_pow(right_scale)?)?;
         let denominator = right_coefficient.checked_mul(10_u64.checked_pow(left_scale)?)?;
         Ratio::from_parts(numerator, denominator).ok()
     }
+}
+
+/// `(9334, 2)` back into `"1:93.34"` — the inverse of
+/// [`coefficient_and_scale`] for the right-hand side of a `1 : X` quote.
+fn format_display_tick(coefficient: u64, scale: u32) -> String {
+    if scale == 0 {
+        return format!("1:{coefficient}");
+    }
+    let divisor = 10_u64.pow(scale);
+    let scale = scale as usize;
+    format!(
+        "1:{}.{:0scale$}",
+        coefficient / divisor,
+        coefficient % divisor
+    )
 }
 
 /// Splits "10.33" into (1033, 2).
@@ -747,6 +771,47 @@ mod tests {
         assert_eq!(
             left.compare_value(&rate("783:1")),
             std::cmp::Ordering::Equal
+        );
+    }
+
+    /// **A tick computed in display space has to come back in display
+    /// space.**
+    ///
+    /// `undercut_by_displayed_tick` reads the panel's own notation, steps one
+    /// tick, and then hands the result to `Ratio::from_parts`, which
+    /// gcd-reduces and writes `"{n}:{d}"`. One tick below `1:93.33` is
+    /// `100:9334`, which reduces to `50:4667` — the same number, in a
+    /// notation nothing else on the panel uses. On the owner's live screen
+    /// the listing card read
+    ///
+    /// ```text
+    ///   立即成交价 1:94
+    ///   机会（压一档），挂 50:4667      <-- the only computed rate
+    ///   跟价，挂 1:93.33
+    ///   贪婪，挂 1:38
+    /// ```
+    ///
+    /// Every other rate there is a captured one carrying the game's own text,
+    /// so the one the program works out for itself is the one that looks
+    /// foreign — in the row whose entire job is to tell the reader what to
+    /// type.
+    #[test]
+    fn a_tick_is_written_in_the_notation_the_quote_was_written_in() {
+        assert_eq!(
+            undercut(&rate("1:93.33")).expect("tick").text,
+            "1:93.34",
+            "a tick below a hundredths quote is a hundredths quote"
+        );
+        assert_eq!(
+            undercut(&rate("1:130")).expect("tick").text,
+            "1:131",
+            "and a whole-unit quote stays whole"
+        );
+        assert_eq!(
+            undercut(&rate("784:1")).expect("tick").text,
+            "783:1",
+            "the left-hand form is already what from_parts would write, and \
+             must not change"
         );
     }
 
