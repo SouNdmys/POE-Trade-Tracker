@@ -354,9 +354,13 @@ fn edge_risks(evaluated: &EvaluatedQuoteEdge, risks: &mut BTreeSet<ExecutionRisk
             QuoteRiskFlag::IsolatedRecord | QuoteRiskFlag::DeletedRecord => {
                 risks.insert(ExecutionRisk::UnsupportedRecord);
             }
-            QuoteRiskFlag::ReverseFromAvailable | QuoteRiskFlag::ReverseFromCompeting => {
+            // Only the available-side reverse; the mirror of a competing row
+            // is a takeable order, not a reference price. Same split as
+            // `execution_safety::absorb_quote_flag`.
+            QuoteRiskFlag::ReverseFromAvailable => {
                 risks.insert(ExecutionRisk::CompetingReference);
             }
+            QuoteRiskFlag::ReverseFromCompeting => {}
         }
     }
 }

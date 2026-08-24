@@ -118,8 +118,14 @@ impl ExecutionRisk {
     }
 }
 
-/// A standing limitation of the model, true of every result this product
-/// produces. Reported for honesty; never used to gate.
+/// Something the reader should know about how a number was arrived at.
+///
+/// Some are standing limitations of the model (no fee is modelled; the
+/// product never places orders); others are true of one result and not the
+/// next (this search hit its budget; this rate is a mirror). What they share
+/// is the contract that matters: **reported for honesty, never used to
+/// gate.** A fact that should change what a route is allowed to be is an
+/// [`ExecutionRisk`].
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelCaveat {
@@ -140,6 +146,15 @@ pub enum ModelCaveat {
     ExtrapolatedBeyondObservedDepth,
     /// The search hit its budget before exhausting the space.
     SearchTruncated,
+    /// The rate for this direction was read off the competing table of a
+    /// panel captured the other way round, rather than off an available table
+    /// captured in this direction.
+    ///
+    /// A provenance, not a hazard: the two are the same standing orders seen
+    /// from the two ends. It is reported because the reader's own listings can
+    /// sit in that table (they cannot take their own), and because a
+    /// mis-labelled panel side would surface nowhere else.
+    MirroredFromCompeting,
 }
 
 /// How far a result can be trusted, worst to best.
@@ -297,8 +312,12 @@ fn absorb_execution_flag(
     caveats: &mut BTreeSet<ModelCaveat>,
 ) {
     match flag {
+        // Provenance, not a hazard -- see `ModelCaveat::MirroredFromCompeting`.
+        // The competing table of one orientation IS the available table of the
+        // other; calling it maker-shaped told the reader someone had to fill
+        // their order on a book where nobody has to.
         ExecutionRiskFlag::ReverseFromCompeting => {
-            risks.insert(ExecutionRisk::CompetingReference);
+            caveats.insert(ModelCaveat::MirroredFromCompeting);
         }
         ExecutionRiskFlag::MakerReference
         | ExecutionRiskFlag::FillNotGuaranteed
@@ -346,9 +365,14 @@ fn absorb_execution_flag(
 
 fn absorb_quote_flag(flag: QuoteRiskFlag, risks: &mut BTreeSet<ExecutionRisk>) {
     match flag {
-        QuoteRiskFlag::ReverseFromCompeting | QuoteRiskFlag::ReverseFromAvailable => {
+        // Only the available-side reverse. That one is a `MakerReference`
+        // edge -- a price nobody stands behind in that direction -- so it
+        // really does need a counterparty. Its mirror image does not: see
+        // `absorb_execution_flag`.
+        QuoteRiskFlag::ReverseFromAvailable => {
             risks.insert(ExecutionRisk::CompetingReference);
         }
+        QuoteRiskFlag::ReverseFromCompeting => {}
         QuoteRiskFlag::ComparatorBoundary => {
             risks.insert(ExecutionRisk::ComparatorBoundary);
         }
@@ -523,6 +547,67 @@ mod tests {
         assert!(risks.is_empty(), "model limits are not market hazards");
         assert_eq!(caveats.len(), 3);
         assert_eq!(actionability_for(&risks), Actionability::InstantExecutable);
+    }
+
+    /// **A rate read off the competing table is a trade you can take, not an
+    /// order you must place.**
+    ///
+    /// One panel capture records both sides. The available rows are offers to
+    /// take with the `have` currency; the competing rows are other players'
+    /// standing orders to pay out `have` for `need`, which is an offer to take
+    /// with the `need` currency. The two are the same orders seen from the two
+    /// ends — proved on the owner's own database, where a pair captured in both
+    /// orientations produced six rows whose stocks matched to the unit
+    /// (268/89/2904/435/1040/2071).
+    ///
+    /// The domain layer has always said so: `CompetingReverseTaker` carries
+    /// `ExecutionType::Taker`, the depth walk fills against it like any other
+    /// taker level, and the F6 test doc spells out "taking an available offer,
+    /// **or selling into a competing bid at their listed price**". Only the
+    /// risk ladder disagreed, inherited verbatim from the POE1 port and never
+    /// re-adjudicated: it called the mirror maker-shaped, which pinned every
+    /// route touching one to `MakerTheoretical` — "someone has to fill your
+    /// order" — on a book where nobody has to.
+    ///
+    /// Provenance is still worth showing (the owner's own listings can sit in
+    /// that table, and a mis-labelled panel side would surface nowhere else),
+    /// so it becomes a caveat: reported, never gating.
+    #[test]
+    fn a_rate_mirrored_from_the_competing_side_is_still_a_trade_you_can_take() {
+        let mut risks = BTreeSet::new();
+        let mut caveats = BTreeSet::new();
+        absorb_execution_flag(
+            ExecutionRiskFlag::ReverseFromCompeting,
+            &mut risks,
+            &mut caveats,
+        );
+        assert!(
+            risks.is_empty(),
+            "a mirrored rate is not a hazard, it is a provenance: {risks:?}"
+        );
+        assert_eq!(
+            actionability_for(&risks),
+            Actionability::InstantExecutable,
+            "and nothing else is wrong with it"
+        );
+        assert!(
+            caveats.contains(&ModelCaveat::MirroredFromCompeting),
+            "but the reader is still told where the number came from: {caveats:?}"
+        );
+    }
+
+    /// The other reverse flag keeps its guard. An available row's reverse is a
+    /// `MakerReference` edge — a price nobody is standing behind in that
+    /// direction — and that one really does need someone to fill it.
+    #[test]
+    fn the_reverse_of_an_available_row_is_still_maker_shaped() {
+        let mut risks = BTreeSet::new();
+        absorb_quote_flag(QuoteRiskFlag::ReverseFromAvailable, &mut risks);
+        assert_eq!(
+            actionability_for(&risks),
+            Actionability::MakerTheoretical,
+            "{risks:?}"
+        );
     }
 
     #[test]

@@ -60,6 +60,10 @@ pub enum RadarReason {
     ResidualInventory,
     MakerReference,
     SearchTruncated,
+    /// This direction's price came off the competing table of a panel
+    /// captured the other way round. The same standing orders, read from the
+    /// other end — provenance, not a hazard.
+    MirroredFromCompeting,
     CaptureSkewUnverified,
     CaptureSkewExceeded,
     /// The configured stake could not buy one whole unit of this target, so
@@ -929,6 +933,12 @@ fn append_path_reasons(path: &ConversionPath, reasons: &mut Vec<RadarReason>) {
         .contains(&ExecutionRiskFlag::SearchTruncated)
     {
         reasons.push(RadarReason::SearchTruncated);
+    }
+    if path
+        .risk_flags
+        .contains(&ExecutionRiskFlag::ReverseFromCompeting)
+    {
+        reasons.push(RadarReason::MirroredFromCompeting);
     }
     append_capture_skew_reasons(&path.risk_flags, reasons);
 }

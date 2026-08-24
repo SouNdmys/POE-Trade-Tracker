@@ -1180,6 +1180,11 @@ pub const fn radar_reason(language: UiLanguage, value: RadarReason) -> &'static 
         RadarReason::GrossTheoryOnly => pick(language, "gross theory only", "仅理论毛利"),
         RadarReason::ResidualInventory => pick(language, "residual inventory", "有零头库存"),
         RadarReason::MakerReference => pick(language, "maker reference", "挂单参考价"),
+        RadarReason::MirroredFromCompeting => pick(
+            language,
+            "priced off the competing table",
+            "价格取自对侧的竞争挂单",
+        ),
         RadarReason::SearchTruncated => pick(language, "search truncated", "搜索被截断"),
         RadarReason::CaptureSkewUnverified => {
             pick(language, "capture gap unverified", "抓取时差未验证")
