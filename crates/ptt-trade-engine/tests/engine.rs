@@ -608,8 +608,15 @@ fn best_conversion_uses_one_engine_and_floors_after_every_leg() {
     );
 }
 
+/// Until 2026-08-24 this test pinned `IncomparableCoverage` here — a partial
+/// fill was declared incomparable outright, because the old swept-total basis
+/// really would have compared the partial direct as if it had used the full
+/// input. The front-rate basis removed that hazard: the direct's rate is its
+/// front row whatever its stock, so the honest answer is a comparison at the
+/// two rates, not a refusal. What the old name guarded against still cannot
+/// happen, and the assertions below say so in its place.
 #[test]
-fn partial_direct_is_never_compared_as_if_it_used_the_full_input() {
+fn a_partial_direct_is_compared_at_its_front_rate_not_its_swept_total() {
     let catalog = whole_catalog(&["a", "b", "c"]);
     let index = index(
         QuoteSelectionStrategy::Instant,
@@ -664,9 +671,15 @@ fn partial_direct_is_never_compared_as_if_it_used_the_full_input() {
     assert!(!result.direct_path.as_ref().expect("direct").is_fully_filled);
     assert_eq!(
         result.comparison.status,
-        ConversionComparisonStatus::IncomparableCoverage
+        ConversionComparisonStatus::ComparableNet
     );
-    assert!(result.comparison.delta.is_none());
+    assert_eq!(
+        result.comparison.direction,
+        Some(ComparisonDirection::Worse),
+        "the bridge's 2-per-a front rate loses to the direct 3-per-a, \
+         however little of the direct is on the shelf"
+    );
+    assert_eq!(result.comparison.basis_points, Some(-3_333));
 }
 
 /// Note on why this still holds after coverage stopped being a sort key
@@ -739,10 +752,20 @@ fn complete_route_wins_over_a_higher_output_partial_quote() {
     assert_eq!(best.amount_out.quanta, 2);
     assert!(!direct.is_fully_filled);
     assert_eq!(direct.amount_out.quanta, 10);
+    // Since 2026-08-24 the comparison answers even here: the ranking above
+    // put the complete route first (the technicality the doc comment names),
+    // and the comparison then says plainly that its rate is ten times worse
+    // than the partial direct's — which is exactly the sentence a reader
+    // needs to distrust this ranking's winner.
     assert_eq!(
         result.comparison.status,
-        ConversionComparisonStatus::IncomparableCoverage
+        ConversionComparisonStatus::ComparableNet
     );
+    assert_eq!(
+        result.comparison.direction,
+        Some(ComparisonDirection::Worse)
+    );
+    assert_eq!(result.comparison.basis_points, Some(-9_000));
 }
 
 #[test]
@@ -1501,5 +1524,87 @@ fn listed_liquidity_counts_only_the_side_denominated_in_what_the_leg_buys() {
         index.listed_liquidity(&asset("a"), &asset("b")),
         Some(11),
         "only the rows paying out in b count toward how much b is listed"
+    );
+}
+
+/// The radar scans at a canonical size nobody holds, so on a real book
+/// *every* fill is partial — and a comparison that answers "incomparable"
+/// whenever a fill is partial answers it for every pair on the page. The
+/// front rates are known for both paths here; how much of an arbitrary ask
+/// they swallowed is not part of either rate.
+#[test]
+fn an_ask_no_book_can_swallow_still_compares_the_front_rates() {
+    let catalog = whole_catalog(&["a", "b", "c"]);
+    let index = index(
+        QuoteSelectionStrategy::Instant,
+        catalog.clone(),
+        vec![
+            PairSpec {
+                from: "a",
+                to: "c",
+                levels: vec![LevelSpec {
+                    id: "thin-direct",
+                    rate: "3:1",
+                    stock: 3,
+                }],
+            },
+            PairSpec {
+                from: "a",
+                to: "b",
+                levels: vec![LevelSpec {
+                    id: "thin-a-b",
+                    rate: "1:1",
+                    stock: 10,
+                }],
+            },
+            // Deep enough to absorb everything the thin first leg hands
+            // over: the bridge is partial only at its entrance, so nothing
+            // strands in the middle and the ranking judges it on rate.
+            PairSpec {
+                from: "b",
+                to: "c",
+                levels: vec![LevelSpec {
+                    id: "thin-b-c",
+                    rate: "4:1",
+                    stock: 400,
+                }],
+            },
+        ],
+    );
+    let result = find_best_conversion(
+        &index,
+        &ConversionRequest {
+            from_asset_id: asset("a"),
+            to_asset_id: asset("c"),
+            // Far past every book above: both the direct and the bridge
+            // fill partially at this ask.
+            amount_in: amount("a", 100, &catalog),
+            max_hops: 2,
+            max_paths: 20,
+            max_expansions: 100,
+            alternative_limit: 5,
+            allowed_intermediate_asset_ids: None,
+            fee_policy: FeePolicy::None,
+        },
+        &SearchCancellation::default(),
+    )
+    .expect("conversion");
+    assert!(!result.best_path.as_ref().expect("best").is_fully_filled);
+    assert!(!result.direct_path.as_ref().expect("direct").is_fully_filled);
+    assert_eq!(
+        result.comparison.status,
+        ConversionComparisonStatus::ComparableNet,
+        "front rates are known for both paths: {:?}",
+        result.comparison
+    );
+    assert_eq!(
+        result.comparison.direction,
+        Some(ComparisonDirection::Improved),
+        "the bridge multiplies to 4-per-a against the direct 3-per-a"
+    );
+    assert_eq!(
+        result.comparison.basis_points,
+        Some(3_333),
+        "one rate over the other, no size in it"
     );
 }

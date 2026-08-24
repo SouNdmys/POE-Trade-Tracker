@@ -597,6 +597,12 @@ fn compare_best_to_direct(
             basis_points: None,
         });
     };
+    // A partial fill is deliberately *not* incomparable. The comparison is
+    // one front rate over another, and neither rate knows how much of the
+    // ask its book happened to swallow — the radar asks at a canonical size
+    // nobody holds, so on a real book every fill is partial, and gating on
+    // coverage here blanked the whole page. The only thing that genuinely
+    // breaks the comparison is a leg with no priced front row at all.
     let (Some(best_rate), Some(direct_rate)) =
         (front_rate_product(best), front_rate_product(direct))
     else {
@@ -607,14 +613,6 @@ fn compare_best_to_direct(
             basis_points: None,
         });
     };
-    if !best.is_fully_filled || !direct.is_fully_filled {
-        return Ok(ConversionComparison {
-            status: ConversionComparisonStatus::IncomparableCoverage,
-            direction: None,
-            delta: None,
-            basis_points: None,
-        });
-    }
     // Cross-multiplied, never divided: integer division rounds two rates the
     // market never tied into a tie, and this tie decides whether the radar
     // calls a pair an opportunity at all.
