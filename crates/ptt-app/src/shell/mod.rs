@@ -1294,7 +1294,13 @@ fn load_analytics(request: &PageRequest) -> Result<ptt_runtime::reports::Analyti
         .map_err(|error| format!("storage: {error}"))?;
     let game = request.profile.game.as_str();
     let now = chrono::Utc::now();
-    let _ = rollup::ensure_daily_rollups(&mut store, game, now, rollup::MAX_ROLLUP_DAYS_PER_RUN);
+    let _ = rollup::ensure_daily_rollups(
+        &mut store,
+        game,
+        now,
+        rollup::MAX_ROLLUP_DAYS_PER_RUN,
+        request.tuning.risk.top_book_outlier_factor,
+    );
     if request.tuning.analytics.raw_retention_days > 0 {
         let _ = rollup::prune_raw_days(
             &mut store,

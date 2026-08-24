@@ -120,7 +120,7 @@ fn now() -> DateTime<Utc> {
 }
 
 fn ensure(store: &mut MarketStore) -> ptt_runtime::rollup::RollupOutcome {
-    ensure_daily_rollups(store, "poe2", now(), MAX_ROLLUP_DAYS_PER_RUN).expect("ensure")
+    ensure_daily_rollups(store, "poe2", now(), MAX_ROLLUP_DAYS_PER_RUN, 3).expect("ensure")
 }
 
 // ----- builder -----

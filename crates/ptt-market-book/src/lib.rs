@@ -630,7 +630,8 @@ pub fn select_quote_edges(
         if view.context_key != book.context_key {
             return Err(MarketBookError::ContextInvariantViolation);
         }
-        let outlier_quotes = top_book_outlier_quote_ids(view, policy.top_book_outlier_factor);
+        let outlier_quotes =
+            top_book_outlier_quote_ids(&view.observations, policy.top_book_outlier_factor);
         for observation in &view.observations {
             directional
                 .entry((
@@ -813,9 +814,27 @@ fn evaluate_edge(
     }
 }
 
-fn top_book_outlier_quote_ids(view: &CoherentBookView, factor: u64) -> BTreeSet<String> {
+/// The quote ids whose rate sits outside their own side's band, by `factor`.
+///
+/// Public because there are two doors into the same rows and only one of them
+/// used to have this on it. `select_quote_edges` walks the trading path; the
+/// day rollup that feeds every valuation reads raw observations and never
+/// comes through here — so an OCR row that lost its decimal point priced the
+/// Convert page correctly and the market-analysis page a thousand times
+/// wrong. Taking a plain slice rather than a `CoherentBookView` is what lets
+/// the second caller reach it, and keeps one adjudicator of outlier-ness.
+///
+/// **The caller must hand in one panel side's worth of rows at most.** The
+/// baseline is a median within `source_side`, and pooling two books or two
+/// snapshots would compute it against rows that never sat on the same shelf —
+/// quote ids are only unique within a snapshot besides.
+#[must_use]
+pub fn top_book_outlier_quote_ids(
+    observations: &[MarketEdgeObservation],
+    factor: u64,
+) -> BTreeSet<String> {
     let mut current_edges = BTreeMap::<QuoteSide, Vec<&QuoteEdge>>::new();
-    for observation in &view.observations {
+    for observation in observations {
         let edge = &observation.edge;
         if matches!(
             edge.role,

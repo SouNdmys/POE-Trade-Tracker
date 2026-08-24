@@ -1730,7 +1730,11 @@ fn focus_suggestions(
         .filter_map(|id| MarketAssetId::try_new(id).ok())
         .collect();
     let day_key = Utc::now().format("%Y-%m-%d").to_string();
-    let stats = crate::rollup::fold_window_stats(observations, &day_key);
+    let stats = crate::rollup::fold_window_stats(
+        observations,
+        &day_key,
+        tuning.risk.top_book_outlier_factor,
+    );
     let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
     let pulse = ptt_strategy::market_pulse(&stats, &policy.core_liquidity, &thresholds);
 
@@ -3036,7 +3040,11 @@ pub fn analytics_model(
 
     let (mut stats, row_notes) = crate::rollup::stats_from_rollup_rows(rollup_rows);
     notes.extend(row_notes);
-    stats.extend(crate::rollup::today_stats(window_observations, Utc::now()));
+    stats.extend(crate::rollup::today_stats(
+        window_observations,
+        Utc::now(),
+        tuning.risk.top_book_outlier_factor,
+    ));
 
     let (policy, policy_note) = market_policy_from(tuning, league, language);
     notes.extend(policy_note);

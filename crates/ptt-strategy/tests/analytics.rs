@@ -154,7 +154,7 @@ fn fold_uses_floor_division_per_row_before_summing() {
         at(20, 10),
     ));
 
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     assert_eq!(rollups.len(), 1);
     let rollup = &rollups[0];
     assert_eq!(rollup.median_available_sum_need_units, 21);
@@ -182,7 +182,7 @@ fn fold_ignores_reverse_role_edges() {
         Comparator::Exact,
         at(20, 10),
     );
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     assert_eq!(rollups.len(), 1);
     assert_eq!(rollups[0].median_available_rows, 1);
     assert_eq!(rollups[0].median_available_sum_need_units, 920);
@@ -222,7 +222,7 @@ fn top_taker_rate_is_max_by_exact_cross_multiply() {
         at(20, 10),
     ));
 
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     let top = rollups[0]
         .median_top_taker_rate
         .as_ref()
@@ -234,6 +234,60 @@ fn top_taker_rate_is_max_by_exact_cross_multiply() {
     );
     // The aggregate row's stock still counts toward circulation.
     assert_eq!(rollups[0].median_available_sum_need_units, 5_200);
+}
+
+/// The day's rate is a *maximum*, which is the single most outlier-fragile
+/// statistic there is — and OCR drops decimal points.
+///
+/// The live book on 2026-08-24: `divine-orb -> orb-of-annulment` carried
+/// `2131 : 1` beside the true `23 : 10` and `9 : 4`, because 2.131 was read
+/// without its point. A maximum hands the whole day to that row, and every
+/// valuation downstream then divides by it — 188,175 annulments came out
+/// worth 88 divine. The trading path never saw this: the Convert page runs
+/// through `select_quote_edges`, which applies the median-baseline outlier
+/// band. The valuation path reads raw observations and had no gate at all.
+///
+/// The bad row's *quantity* still counts. An outlier price does not make the
+/// currency behind it imaginary, and `leg_book` already reasons this way for
+/// the aggregate row it likewise refuses to price from.
+#[test]
+fn an_ocr_row_that_lost_its_decimal_point_does_not_set_the_day_rate() {
+    let mut edges = Vec::new();
+    for (index, rate, stock) in [
+        // 2.131 read without its decimal point: a thousand times its side.
+        (0u8, ratio(2131, 1), 74u64),
+        (1u8, ratio(23, 10), 500),
+        (2u8, ratio(9, 4), 300),
+    ] {
+        edges.extend(panel_row(
+            "s1",
+            "ctx",
+            "orb-of-annulment",
+            "divine-orb",
+            QuoteSide::Available,
+            index,
+            rate,
+            stock,
+            Comparator::Exact,
+            at(24, 10),
+        ));
+    }
+
+    let rollups = build_pair_day_rollups(&edges, 3);
+    let top = rollups[0]
+        .median_top_taker_rate
+        .as_ref()
+        .expect("priced day");
+    assert_eq!(
+        top.compare_value(&ratio(23, 10)),
+        std::cmp::Ordering::Equal,
+        "a row a thousand times off its side's median must not set the day's \
+         rate, got {top:?}"
+    );
+    assert_eq!(
+        rollups[0].median_available_sum_need_units, 874,
+        "the outlier row's stock is still currency on the market"
+    );
 }
 
 #[test]
@@ -250,7 +304,7 @@ fn maker_only_snapshot_has_no_top_rate() {
         Comparator::Exact,
         at(20, 10),
     );
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     assert_eq!(rollups[0].median_top_taker_rate, None);
     assert_eq!(rollups[0].median_competing_rows, 1);
 }
@@ -272,7 +326,7 @@ fn median_takes_lower_middle_for_even_counts() {
             at(20, 10),
         ));
     }
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     assert_eq!(rollups[0].snapshot_count, 4);
     assert_eq!(
         rollups[0].median_available_sum_need_units, 20,
@@ -297,7 +351,7 @@ fn median_rate_is_an_observed_ratio_never_averaged() {
             at(20, 10),
         ));
     }
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     let median = rollups[0]
         .median_top_taker_rate
         .as_ref()
@@ -328,7 +382,7 @@ fn rollup_merges_snapshots_across_two_context_keys() {
             at(20, 10),
         ));
     }
-    let rollups = build_pair_day_rollups(&edges);
+    let rollups = build_pair_day_rollups(&edges, 3);
     assert_eq!(rollups.len(), 1, "one book, not one per context");
     assert_eq!(rollups[0].snapshot_count, 2);
     assert_eq!(rollups[0].contexts_merged, 2);

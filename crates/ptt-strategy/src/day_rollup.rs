@@ -15,7 +15,7 @@
 //!   and the same standing orders recaptured must not count twice. The rate
 //!   median is therefore always an actually-observed ratio, never averaged.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use ptt_trade_domain::{Comparator, MarketAssetId, MarketEdgeObservation, QuoteEdgeRole, Ratio};
@@ -74,10 +74,23 @@ pub struct PairDayRollup {
 /// The caller scopes the slice to exactly one UTC day; this function does not
 /// re-check timestamps. Snapshots from different context keys land in the
 /// same book group because grouping keys on the original need/have assets.
+///
+/// `outlier_factor` is the same band the trading path uses
+/// (`risk.top_book_outlier_factor`). It keeps a row whose rate sits wildly
+/// outside its own side from becoming the day's price: `top_taker_rate` is a
+/// *maximum*, and OCR that drops a decimal point produces exactly the row a
+/// maximum is blind to. Only the rate is gated — an outlier row's **stock
+/// still counts**, because a price nobody believes does not make the currency
+/// behind it imaginary, which is the same reasoning `leg_book` gives for
+/// counting the aggregate row it likewise refuses to price from.
 #[must_use]
-pub fn build_pair_day_rollups(edges: &[MarketEdgeObservation]) -> Vec<PairDayRollup> {
+pub fn build_pair_day_rollups(
+    edges: &[MarketEdgeObservation],
+    outlier_factor: u64,
+) -> Vec<PairDayRollup> {
     let mut books: BTreeMap<(MarketAssetId, MarketAssetId), BTreeMap<String, SnapshotPairFold>> =
         BTreeMap::new();
+    let outliers = outlier_quote_ids_per_snapshot(edges, outlier_factor);
 
     for observation in edges {
         let edge = &observation.edge;
@@ -88,12 +101,9 @@ pub fn build_pair_day_rollups(edges: &[MarketEdgeObservation]) -> Vec<PairDayRol
         ) {
             continue;
         }
-        let key = (
-            edge.original_need_asset_id.clone(),
-            edge.original_have_asset_id.clone(),
-        );
+        let bucket = snapshot_book_key(observation);
         let fold = books
-            .entry(key)
+            .entry(bucket.0.clone())
             .or_default()
             .entry(edge.snapshot_id.clone())
             .or_insert_with(|| SnapshotPairFold {
@@ -119,7 +129,11 @@ pub fn build_pair_day_rollups(edges: &[MarketEdgeObservation]) -> Vec<PairDayRol
                 fold.available_sum_need_units += stock;
                 // need -> have: multiply first, floor divide (per row).
                 fold.available_sum_have_units += stock * denominator / numerator;
-                if edge.comparator == Comparator::Exact {
+                let priceable = edge.comparator == Comparator::Exact
+                    && !outliers
+                        .get(&bucket)
+                        .is_some_and(|flagged| flagged.contains(&edge.quote_id));
+                if priceable {
                     // Max by exact value; equal-value ties resolve to the
                     // smaller (numerator, denominator) so the winner does not
                     // depend on input order.
@@ -219,6 +233,55 @@ pub fn build_pair_day_rollups(edges: &[MarketEdgeObservation]) -> Vec<PairDayRol
                         .collect(),
                 ),
             }
+        })
+        .collect()
+}
+
+/// Which book and which capture one row belongs to.
+///
+/// The pair alone is not enough to group by. `ensure_daily_rollups` hands this
+/// function every context key of the game concatenated into one slice, so a
+/// pair-only bucket would pool rows that never sat on the same shelf — and
+/// `quote_id` is only unique within a snapshot, so those pools would collide
+/// ids as well.
+fn snapshot_book_key(
+    observation: &MarketEdgeObservation,
+) -> ((MarketAssetId, MarketAssetId), String) {
+    let edge = &observation.edge;
+    (
+        (
+            edge.original_need_asset_id.clone(),
+            edge.original_have_asset_id.clone(),
+        ),
+        edge.snapshot_id.clone(),
+    )
+}
+
+/// The outlier quote ids of every (book, snapshot) this day holds.
+///
+/// One call to market-book's band per bucket, because the band is a median
+/// *within one panel side of one capture* — the adjudication of what counts as
+/// an outlier stays in the one place that owns it rather than being re-derived
+/// here with a second set of rules that could disagree.
+fn outlier_quote_ids_per_snapshot(
+    edges: &[MarketEdgeObservation],
+    factor: u64,
+) -> BTreeMap<((MarketAssetId, MarketAssetId), String), BTreeSet<String>> {
+    let mut buckets: BTreeMap<((MarketAssetId, MarketAssetId), String), Vec<MarketEdgeObservation>> =
+        BTreeMap::new();
+    for observation in edges {
+        buckets
+            .entry(snapshot_book_key(observation))
+            .or_default()
+            .push(observation.clone());
+    }
+    buckets
+        .into_iter()
+        .map(|(key, observations)| {
+            (
+                key,
+                ptt_market_book::top_book_outlier_quote_ids(&observations, factor),
+            )
         })
         .collect()
 }

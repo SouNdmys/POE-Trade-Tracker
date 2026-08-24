@@ -32,8 +32,13 @@ fn main() -> Result<(), String> {
         .map_err(|error| format!("storage: {error}"))?;
 
     if run_rollup {
-        let outcome =
-            rollup::ensure_daily_rollups(&mut store, game, now, rollup::MAX_ROLLUP_DAYS_PER_RUN)?;
+        let outcome = rollup::ensure_daily_rollups(
+            &mut store,
+            game,
+            now,
+            rollup::MAX_ROLLUP_DAYS_PER_RUN,
+            tuning.risk.top_book_outlier_factor,
+        )?;
         println!(
             "rollup: contexts={} processed={} already-done={} skipped={}",
             outcome.contexts,

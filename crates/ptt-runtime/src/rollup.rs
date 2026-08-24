@@ -103,6 +103,7 @@ pub fn ensure_daily_rollups(
     game: &str,
     now: DateTime<Utc>,
     max_days_per_run: usize,
+    outlier_factor: u64,
 ) -> Result<RollupOutcome, String> {
     let keys = game_context_keys(store, game)?;
     let mut outcome = RollupOutcome {
@@ -160,7 +161,7 @@ pub fn ensure_daily_rollups(
         let day_snapshots = u32::try_from(snapshots.len())
             .map_err(|_| format!("snapshot count on {day_key} exceeds u32"))?;
 
-        let rollups = build_pair_day_rollups(&edges);
+        let rollups = build_pair_day_rollups(&edges, outlier_factor);
         let mut rows = Vec::with_capacity(rollups.len());
         let mut overflow: Option<String> = None;
         for rollup in rollups {
@@ -312,6 +313,7 @@ pub fn stats_from_rollup_rows(rows: &[PairDayRollupRow]) -> (Vec<DailyPairStat>,
 pub fn today_stats(
     observations: &[MarketEdgeObservation],
     now: DateTime<Utc>,
+    outlier_factor: u64,
 ) -> Vec<DailyPairStat> {
     let today = now.date_naive();
     let start = day_start(today);
@@ -320,7 +322,7 @@ pub fn today_stats(
         .filter(|observation| observation.edge.captured_at >= start)
         .cloned()
         .collect();
-    fold_window_stats(&todays, &today.format("%Y-%m-%d").to_string())
+    fold_window_stats(&todays, &today.format("%Y-%m-%d").to_string(), outlier_factor)
 }
 
 /// A whole observation window folded as one pseudo-day: median across every
@@ -331,8 +333,9 @@ pub fn today_stats(
 pub fn fold_window_stats(
     observations: &[MarketEdgeObservation],
     day_key: &str,
+    outlier_factor: u64,
 ) -> Vec<DailyPairStat> {
-    build_pair_day_rollups(observations)
+    build_pair_day_rollups(observations, outlier_factor)
         .into_iter()
         .map(|rollup| stat_from_rollup(day_key, &rollup))
         .collect()
