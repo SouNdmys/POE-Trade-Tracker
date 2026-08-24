@@ -2416,19 +2416,29 @@ fn render_opportunities(model: &OpportunitiesModel, language: UiLanguage) -> Vec
                         &scan.diagnostics.distinct_target_count.to_string(),
         ],
     ));
-    // Said before the results, not after: a truncated search that looks like a
-    // complete one is how "there is nothing better" gets believed.
-    if scan.diagnostics.budget_exhausted || scan.diagnostics.results_truncated {
+    // Two different facts, and they used to share one alarming sentence: a
+    // scan that ran out of budget may have missed something, while a list cut
+    // to its page limit missed nothing at all. Said together, the routine
+    // case printed "扫描不完整 — 跳过 0 个目标", which reads as broken and
+    // trains the reader to ignore the one warning that matters.
+    //
+    // Said before the results either way: a truncated search that looks like
+    // a complete one is how "there is nothing better" gets believed.
+    if scan.diagnostics.budget_exhausted {
         lines.push(fill(
             text.partial_scan,
             &[
                 &scan.diagnostics.skipped_target_count.to_string(),
                 &scan.diagnostics.expansions_used.to_string(),
-                if scan.diagnostics.results_truncated {
-                    text.results_cut
-                } else {
-                    ""
-                },
+            ],
+        ));
+    }
+    if scan.diagnostics.results_truncated {
+        lines.push(fill(
+            text.results_cut,
+            &[
+                &scan.diagnostics.item_count_before_limit.to_string(),
+                &scan.items.len().to_string(),
             ],
         ));
     }

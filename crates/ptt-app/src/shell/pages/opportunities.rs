@@ -621,24 +621,39 @@ impl AppShell {
             .text_size(fs(FS_11_5))
             .text_color(c(TEXT_META)),
         );
-        // Said above the results, not below: a truncated search that looks
+        // Two different facts, and they used to share one amber sentence: a
+        // scan that ran out of budget may have missed something, while a list
+        // cut to its page limit missed nothing at all. Together they printed
+        // "扫描不完整 — 跳过 0 个目标" on the routine case, which reads as
+        // broken and teaches the reader to ignore the warning that matters.
+        //
+        // Said above the results either way: a truncated search that looks
         // complete is how "there is nothing better" gets believed.
-        if scan.diagnostics.budget_exhausted || scan.diagnostics.results_truncated {
+        if scan.diagnostics.budget_exhausted {
             header = header.child(
                 mono(report_text::fill(
                     report_text::report(language).partial_scan,
                     &[
                         &scan.diagnostics.skipped_target_count.to_string(),
                         &scan.diagnostics.expansions_used.to_string(),
-                        if scan.diagnostics.results_truncated {
-                            report_text::report(language).results_cut
-                        } else {
-                            ""
-                        },
                     ],
                 ))
                 .text_size(fs(FS_11_5))
                 .text_color(c(WARN_TEXT)),
+            );
+        }
+        // Not amber: nothing was missed, the page is just a page.
+        if scan.diagnostics.results_truncated {
+            header = header.child(
+                mono(report_text::fill(
+                    report_text::report(language).results_cut,
+                    &[
+                        &scan.diagnostics.item_count_before_limit.to_string(),
+                        &scan.items.len().to_string(),
+                    ],
+                ))
+                .text_size(fs(FS_11_5))
+                .text_color(c(TEXT_META)),
             );
         }
 
