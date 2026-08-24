@@ -70,6 +70,8 @@ cargo test -p ptt-runtime --lib <测试名>
 - 一次只做被要求的事，不要顺手重构
 - **一次只做一件事，做完提交再做下一件。** 不要把多个改动混进一个 commit：
   混在一起出了问题，就分不清是哪个改动弄坏的
+- **每次提交前先跑 `cargo fmt --all`。** 格式漂移不该占掉 review 的名额：
+  上一轮 ultrareview 的两条 finding 全是缩进，真正的 bug 一条都没有
 
 ## docs/
 
