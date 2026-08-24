@@ -470,6 +470,53 @@ fn a_closed_route_is_priced_on_the_round_trip_not_on_the_margin_over_direct() {
     );
 }
 
+/// **The verdict describes the rate, so it must not be read off a sweep the
+/// rate never claimed to cover.**
+///
+/// The scan enumerates at a canonical million so no bridge currency rounds
+/// away. Every risk collected by *that* walk is a fact about the million: a
+/// sweep that deep is partial by construction, strands residue by
+/// construction, and touches every thin level in the tail. Assessed on it,
+/// the verdict column said the same thing about every route on the owner's
+/// page — and a constant is not a verdict.
+///
+/// Loops never had this problem: `find_triangle_opportunities` sizes each
+/// cycle from its own thinnest leg. This gives conversions the same
+/// treatment, so both row kinds finally answer one question — can I act on
+/// this rate right now.
+#[test]
+fn the_verdict_is_not_read_off_a_sweep_the_rate_never_claimed_to_cover() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    let selection = aged_selection(&bridge_pairs(), 60, FreshnessStatus::Fresh);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 1_000, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    let item = result
+        .items
+        .iter()
+        .find(|item| item.kind == RadarItemKind::BestConversion)
+        .expect("the route is shown");
+    for artefact in [
+        ptt_strategy::ExecutionRisk::PartialRoute,
+        ptt_strategy::ExecutionRisk::LiquidityCapped,
+        ptt_strategy::ExecutionRisk::ResidualInventory,
+    ] {
+        assert!(
+            !item.blocking_risks.contains(&artefact),
+            "{artefact:?} is a fact about the enumeration size, not about the              route: {:?}",
+            item.blocking_risks
+        );
+    }
+}
+
 /// A shown route whose every leg is fresh has nothing left to confirm — the
 /// same silence the loops earned, for the same reason: a suggestion that
 /// fires on every scan regardless of the data is noise.

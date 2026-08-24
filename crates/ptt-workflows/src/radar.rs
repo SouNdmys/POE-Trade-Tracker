@@ -485,9 +485,22 @@ pub fn run_opportunity_radar(
                 request.fee_policy,
                 cancellation,
             );
+            // Judged on what its own front rows carry; priced, ranked and
+            // displayed from the enumeration walk as before.
+            let judged = at_front_row_capacity(
+                &index,
+                units,
+                &best,
+                &routable,
+                request.max_hops,
+                request.fee_policy,
+                cancellation,
+            )
+            .unwrap_or_else(|| best.clone());
             items.push(conversion_item(
                 items.len(),
                 best,
+                judged,
                 result.comparison.status,
                 result.comparison.basis_points,
                 &request.thresholds,
@@ -761,6 +774,66 @@ fn anchor_capacity(
 /// "Best" by rate rather than by [`ConversionPath`] ranking, because the
 /// question is what the trip is worth, not which walk the engine would pick
 /// for a given size. `None` when the book prices no way home at all.
+/// The same route re-walked at the largest size its own front rows carry.
+///
+/// **The verdict describes the rate, so it must not be read off a sweep the
+/// rate never claimed to cover.** The scan enumerates at a canonical million
+/// so that no bridge currency rounds to zero and disappears -- but every risk
+/// that walk collects is then a fact about the million, not about the route:
+/// a sweep that deep is partial by construction, strands residue by
+/// construction, and touches every thin level in the tail on its way down.
+/// Assessed on it, every row on the page carried the same four risks and the
+/// verdict column stopped saying anything.
+///
+/// Cycles never had this problem -- `find_triangle_opportunities` sizes each
+/// one from its own thinnest leg -- so this gives conversions the same
+/// treatment and both row kinds answer one question: can I act on this rate
+/// right now.
+///
+/// `None` when the chain cannot be priced or the re-walk does not find the
+/// same route, in which case the caller keeps the enumeration walk rather
+/// than losing the row.
+fn at_front_row_capacity(
+    index: &MarketDepthIndex,
+    units: &AssetUnitCatalog,
+    path: &ConversionPath,
+    routable: &[MarketAssetId],
+    max_hops: u8,
+    fee_policy: FeePolicy,
+    cancellation: &SearchCancellation,
+) -> Option<ConversionPath> {
+    let (start, target) = (path.path_asset_ids.first()?, path.path_asset_ids.last()?);
+    let capacity = chain_rates(index, &path.path_asset_ids, fee_policy)
+        .ok()
+        .flatten()?
+        .top_of_book_capacity()
+        .filter(|capacity| *capacity > 0)?;
+    let amount_in = AssetAmount::from_whole_units(start.clone(), capacity, units).ok()?;
+    let found = find_best_conversion(
+        index,
+        &ConversionRequest {
+            from_asset_id: start.clone(),
+            to_asset_id: target.clone(),
+            amount_in,
+            max_hops,
+            max_paths: 32,
+            max_expansions: 4_000,
+            alternative_limit: 16,
+            allowed_intermediate_asset_ids: Some(routable.to_vec()),
+            fee_policy,
+        },
+        cancellation,
+    )
+    .ok()?;
+    // The same route, not merely the best one at this smaller size: the row
+    // being judged is the row on the page.
+    found
+        .best_path
+        .into_iter()
+        .chain(found.alternatives)
+        .find(|candidate| candidate.path_asset_ids == path.path_asset_ids)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn round_trip_basis_points(
     index: &MarketDepthIndex,
@@ -824,6 +897,10 @@ fn round_trip_basis_points(
 fn conversion_item(
     index: usize,
     path: ConversionPath,
+    // The same route walked at its own front-row capacity: what the risk
+    // ladder judges, so the verdict is about the rate rather than about the
+    // enumeration size. See `at_front_row_capacity`.
+    judged: ConversionPath,
     comparison_status: ConversionComparisonStatus,
     basis_points: Option<i64>,
     thresholds: &RiskThresholds,
@@ -831,7 +908,7 @@ fn conversion_item(
     liquidity_capacity: Option<u64>,
     round_trip_basis_points: Option<i64>,
 ) -> RadarItem {
-    let assessment = assess_path(&path, thresholds, false);
+    let assessment = assess_path(&judged, thresholds, false);
     let mut reasons = Vec::new();
     if stake_raised {
         reasons.push(RadarReason::StakeRaisedToMinimum);
@@ -844,7 +921,7 @@ fn conversion_item(
     } else if comparison_status == ConversionComparisonStatus::NoDirectPath {
         reasons.push(RadarReason::NoDirectBaseline);
     }
-    append_path_reasons(&path, &mut reasons);
+    append_path_reasons(&judged, &mut reasons);
     RadarItem {
         item_id: format!(
             "conversion-{index}-{}",
@@ -863,7 +940,7 @@ fn conversion_item(
         round_trip_basis_points,
         liquidity_capacity,
         reasons,
-        risk_flags: path.risk_flags.clone(),
+        risk_flags: judged.risk_flags.clone(),
         blocking_risks: assessment.blocking(),
         conversion_path: Some(path),
         triangle: None,
