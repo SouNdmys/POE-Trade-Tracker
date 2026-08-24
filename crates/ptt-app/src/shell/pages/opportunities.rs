@@ -590,7 +590,10 @@ impl AppShell {
                             .map(|asset| self.display_name(asset.as_str()))
                             .collect::<Vec<_>>()
                             .join(", "),
-                        &scan.diagnostics.target_count.to_string(),
+                        // Distinct targets, not the (start, target) pairs the budget
+                        // is divided over: two settlement starts search every target
+                        // twice, so the pair count read as twice the scope.
+                        &scan.diagnostics.distinct_target_count.to_string(),
                     ],
                 ))
                 .text_size(fs(FS_11_5))

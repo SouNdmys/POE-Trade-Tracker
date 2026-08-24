@@ -182,7 +182,15 @@ pub struct RadarItem {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RadarDiagnostics {
+    /// (start, target) pairs the scan walked — one search each, which is what
+    /// the budget is divided over and what `scanned_conversion_count` counts.
     pub target_count: u32,
+    /// Distinct target currencies behind those pairs.
+    ///
+    /// Separate from `target_count` because two settlement starts search
+    /// every target twice: reporting the pair count as "targets" made the
+    /// scope read twice as broad as it is.
+    pub distinct_target_count: u32,
     pub scanned_conversion_count: u32,
     pub complete_conversion_count: u32,
     pub missing_conversion_count: u32,
@@ -268,6 +276,9 @@ pub fn run_opportunity_radar(
                 .map(move |target| (start, target.clone()))
         })
         .collect::<Vec<_>>();
+    let distinct_targets: std::collections::BTreeSet<&MarketAssetId> =
+        pairs.iter().map(|(_, target)| target).collect();
+    let distinct_target_count = count(distinct_targets.len())?;
     let total_units = count(pairs.len())?
         .checked_add(1)
         .ok_or(WorkflowError::NumericOverflow)?;
@@ -588,6 +599,7 @@ pub fn run_opportunity_radar(
         probe_candidates,
         diagnostics: RadarDiagnostics {
             target_count: count(pairs.len())?,
+            distinct_target_count,
             scanned_conversion_count,
             complete_conversion_count,
             missing_conversion_count,
