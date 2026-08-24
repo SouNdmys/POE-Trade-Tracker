@@ -30,7 +30,8 @@ use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, button, chip, chips, detail_panel, empty_state, freshness_kind,
+    LedgerButton, StatusKind, button, chip, chips_capped, detail_panel, empty_state,
+    freshness_kind,
     kv_row, mono, panel, panel_header,
 };
 
@@ -413,8 +414,10 @@ impl RadarTable {
                     .child("—")
                     .into_any_element(),
             },
+            // Capped and silent about it: what did not fit is in the detail
+            // panel, which is where a reader who cares is going anyway.
             _ => cell(div())
-                .child(chips(
+                .child(chips_capped(
                     StatusKind::Warning,
                     &item
                         .blocking_risks

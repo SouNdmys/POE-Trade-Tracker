@@ -691,6 +691,22 @@ pub fn chips(kind: StatusKind, labels: &[String], limit: usize) -> Div {
     row
 }
 
+/// The same row of chips, but silent about what did not fit.
+///
+/// A bare `+3` says "there is more" and not what, so the only thing a reader
+/// can do with it is open the detail panel -- which is where the full list
+/// already is, and where they were going anyway. In a table column it spends
+/// attention to deliver nothing: the owner's ruling on the radar's risk
+/// column, and the same "silence is the all-clear" rule the Convert page's
+/// leg chips were cut down by.
+pub fn chips_capped(kind: StatusKind, labels: &[String], limit: usize) -> Div {
+    let mut row = div().h_flex().items_center().gap_1();
+    for label in labels.iter().take(limit) {
+        row = row.child(chip(kind, label));
+    }
+    row
+}
+
 /// 详情面板:选中一行以后右侧那一栏。
 ///
 /// 表格行高是固定的(虚拟化的代价),行内展开做不到,所以"看细节"这件事
