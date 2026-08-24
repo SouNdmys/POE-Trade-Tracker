@@ -229,16 +229,22 @@ impl RouteQuote {
     /// largest share of what is listed against it.
     #[must_use]
     pub fn pinch(&self) -> Option<&LegTakeCoverage> {
-        self.legs
-            .iter()
-            .filter(|leg| leg.is_noteworthy())
-            .max_by(|left, right| {
-                left.bound_by_next_leg
-                    .cmp(&right.bound_by_next_leg)
-                    .reverse()
-                    .then_with(|| compare_shortfall(left, right))
-            })
+        pinch_of(&self.legs)
     }
+}
+
+/// The selection rule behind [`RouteQuote::pinch`] and [`RouteWalk::pinch`],
+/// written once so the Convert page and the radar's detail panel can never
+/// disagree about which step a route pinches at.
+fn pinch_of(legs: &[LegTakeCoverage]) -> Option<&LegTakeCoverage> {
+    legs.iter()
+        .filter(|leg| leg.is_noteworthy())
+        .max_by(|left, right| {
+            left.bound_by_next_leg
+                .cmp(&right.bound_by_next_leg)
+                .reverse()
+                .then_with(|| compare_shortfall(left, right))
+        })
 }
 
 /// Which of two steps is the tighter, by the share of its book it takes.
@@ -271,6 +277,128 @@ impl LegTakeCoverage {
         !matches!(self.verdict, LegTakeVerdict::Covered)
             || self.bound_by_next_leg
             || self.single_listing
+    }
+}
+
+/// One leg's front row and listed book, carried out of the scan.
+///
+/// The radar deliberately knows nothing about the reader's holdings — its
+/// ruling is that it finds rates and the reader brings the size. This is the
+/// bridge that makes the split workable: the model saves each leg's rate and
+/// book while the market is still in hand, so the detail panel can price any
+/// ask the reader types later without a second trip to the store.
+#[derive(Clone, Debug)]
+pub struct RouteLegBook {
+    pub from_asset_id: MarketAssetId,
+    pub to_asset_id: MarketAssetId,
+    /// The front row's rate. `None` when the direction has no priced row,
+    /// which breaks the walk from this leg on rather than inventing one.
+    pub rate: Option<ptt_trade_domain::Ratio>,
+    /// Whole units of `from_asset_id` the front row alone can absorb.
+    pub front_capacity: Option<u64>,
+    /// Whole units of `to_asset_id` listed on the side this leg takes from.
+    /// `None` when the direction was never captured.
+    pub listed: Option<u64>,
+    /// One listing backs the whole figure, so nothing corroborates it.
+    pub single_listing: bool,
+}
+
+/// A typed ask walked through a route's saved front rows: what it projects
+/// to, how much the books absorb at that rate, and where it pinches.
+#[derive(Clone, Debug)]
+pub struct RouteWalk {
+    /// The composed front rate of the whole route.
+    pub rate: Option<RouteRate>,
+    /// The ask at that rate, floored once — see [`project_at_front_rates`]
+    /// for why the floor never happens per hop.
+    pub projected_output: Option<u64>,
+    /// Whole units of the start asset the front rows absorb before the price
+    /// moves off [`RouteWalk::rate`]. A warning, never a filter.
+    pub fillable_input: Option<u64>,
+    pub legs: Vec<LegTakeCoverage>,
+}
+
+impl RouteWalk {
+    /// The one step worth printing, by the same rule as
+    /// [`RouteQuote::pinch`].
+    #[must_use]
+    pub fn pinch(&self) -> Option<&LegTakeCoverage> {
+        pinch_of(&self.legs)
+    }
+}
+
+/// Walks `amount` through a route's saved front rows.
+///
+/// Pure arithmetic on [`RouteLegBook`]s, so the detail panel can re-run it on
+/// every keystroke without touching the store. Same shape as the Convert
+/// page's pricing on purpose: every step is measured against the ask through
+/// the prefix of front rates, never against what the step before it managed
+/// to fill, and the rate itself never depends on the ask.
+#[must_use]
+pub fn walk_route(legs: &[RouteLegBook], amount: u64) -> RouteWalk {
+    if legs.is_empty() {
+        return RouteWalk {
+            rate: None,
+            projected_output: None,
+            fillable_input: None,
+            legs: Vec::new(),
+        };
+    }
+    let mut rate: Option<RouteRate> = Some(RouteRate::ONE);
+    let mut fillable: Option<u64> = None;
+    // One unknown capacity makes the whole figure unknown: "the thinnest of
+    // the rows I could see" is not the thinnest row.
+    let mut fillable_known = true;
+    let mut takes: Vec<Option<u64>> = Vec::with_capacity(legs.len());
+    for leg in legs {
+        // This leg's front-row capacity, walked back through the legs before
+        // it so it is denominated in the reader's own asset.
+        let capacity = rate
+            .zip(leg.front_capacity)
+            .and_then(|(prefix, capacity)| prefix.back_to_source(capacity));
+        match capacity {
+            Some(capacity) => {
+                fillable = Some(fillable.map_or(capacity, |held| held.min(capacity)));
+            }
+            None => fillable_known = false,
+        }
+        rate = rate
+            .zip(leg.rate.as_ref())
+            .and_then(|(prefix, leg_rate)| prefix.times(leg_rate));
+        takes.push(rate.and_then(|composed| composed.forward(amount)));
+    }
+    let mut coverage: Vec<LegTakeCoverage> = legs
+        .iter()
+        .zip(&takes)
+        .map(|(leg, take)| {
+            let taking = take.unwrap_or(0);
+            let listed = leg.listed.unwrap_or(0);
+            LegTakeCoverage {
+                from_asset_id: leg.from_asset_id.clone(),
+                to_asset_id: leg.to_asset_id.clone(),
+                taking,
+                listed: leg.listed,
+                // Floored, and left off under one percent, for the reason
+                // `route_leg_coverage` gives: "0%" beside a five-figure
+                // amount reads as a broken number rather than a small one.
+                share_percent: (listed > 0)
+                    .then(|| {
+                        u64::try_from(u128::from(taking) * 100 / u128::from(listed))
+                            .unwrap_or(u64::MAX)
+                    })
+                    .filter(|share| *share > 0),
+                verdict: leg_take_verdict(taking, listed),
+                bound_by_next_leg: false,
+                single_listing: leg.single_listing,
+            }
+        })
+        .collect();
+    escalate_middle_legs(&mut coverage);
+    RouteWalk {
+        rate,
+        projected_output: rate.and_then(|rate| rate.forward(amount)),
+        fillable_input: if fillable_known { fillable } else { None },
+        legs: coverage,
     }
 }
 
@@ -387,6 +515,10 @@ pub struct OpportunityRow {
     /// the current snapshot depth is real even when a leg's market is
     /// structurally thin (user ruling: sort stays liquidity > profit > hops).
     pub structural: Vec<StructuralNote>,
+    /// Each leg's front row and book, saved so the detail panel can price
+    /// whatever ask the reader types there ([`walk_route`]) — the radar
+    /// itself never assumes a size on their behalf.
+    pub leg_books: Vec<RouteLegBook>,
 }
 
 /// One asset's market-pulse context, attached to a route or a pair.
@@ -740,6 +872,16 @@ fn route_leg_coverage(
         })
         .collect();
 
+    escalate_middle_legs(&mut legs);
+    legs
+}
+
+/// The middle-currency rule, shared with [`walk_route`]: a currency picked up
+/// in the middle of a route is immediately spent taking the next leg, and
+/// that second book can be the tighter of the two — so a leg that buys a
+/// middle currency inherits its neighbour's verdict when the neighbour is
+/// worse, while keeping its own numbers on display.
+fn escalate_middle_legs(legs: &mut [LegTakeCoverage]) {
     let own: Vec<LegTakeVerdict> = legs.iter().map(|leg| leg.verdict).collect();
     for (index, leg) in legs.iter_mut().enumerate() {
         // "Never captured" is not evidence about anything, so it neither
@@ -753,7 +895,6 @@ fn route_leg_coverage(
         leg.verdict = exit;
         leg.bound_by_next_leg = true;
     }
-    legs
 }
 
 impl RouteRate {
@@ -874,6 +1015,31 @@ fn leg_front_row(
     )
     .ok()?;
     Some((rate, capacity))
+}
+
+/// Each leg of a scanned route, read off the market while it is still in
+/// hand, in the form [`walk_route`] prices asks against later.
+///
+/// Reads through [`leg_front_row`] and [`leg_book`] so the bridge and the
+/// Convert page are looking at the same rows: a route must not price one way
+/// on the page that found it and another on the page that evaluates it.
+fn route_leg_books(market: &Market, steps: &[ptt_trade_engine::PairFill]) -> Vec<RouteLegBook> {
+    steps
+        .iter()
+        .map(|step| {
+            let front = leg_front_row(step, &market.index);
+            let (listed, rows) =
+                leg_book(&market.instant_selection, &step.from_asset_id, &step.to_asset_id);
+            RouteLegBook {
+                from_asset_id: step.from_asset_id.clone(),
+                to_asset_id: step.to_asset_id.clone(),
+                rate: front.as_ref().map(|(rate, _)| rate.clone()),
+                front_capacity: front.map(|(_, capacity)| capacity),
+                listed: (listed > 0).then_some(listed),
+                single_listing: rows == 1,
+            }
+        })
+        .collect()
 }
 
 /// The rate a whole route can be listed at, and how much of the starting
@@ -2021,10 +2187,22 @@ pub fn opportunities_model(
                         .status
                 });
             let structural = structural_notes_for(&item.path_asset_ids, pulse);
+            let leg_books = item
+                .conversion_path
+                .as_ref()
+                .map(|path| path.steps.as_slice())
+                .or_else(|| {
+                    item.triangle
+                        .as_ref()
+                        .map(|triangle| triangle.steps.as_slice())
+                })
+                .map(|steps| route_leg_books(&market, steps))
+                .unwrap_or_default();
             OpportunityRow {
                 item,
                 light,
                 structural,
+                leg_books,
             }
         })
         .collect();
@@ -5630,6 +5808,139 @@ mod route_quote_tests {
             direct.versus_direct_bps,
             Some(0),
             "the baseline is level with itself: {direct:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod route_walk_tests {
+    use super::*;
+    use ptt_trade_domain::Ratio;
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// One saved leg: `rate` as target-per-source, `capacity` in the leg's
+    /// own input units, `listed` in what the leg buys.
+    fn leg(
+        from: &str,
+        to: &str,
+        rate: (u64, u64),
+        capacity: u64,
+        listed: Option<u64>,
+    ) -> RouteLegBook {
+        RouteLegBook {
+            from_asset_id: asset(from),
+            to_asset_id: asset(to),
+            rate: Some(Ratio::from_parts(rate.0, rate.1).expect("rate")),
+            front_capacity: Some(capacity),
+            listed,
+            single_listing: false,
+        }
+    }
+
+    /// The ruling in one assertion: the ask scales the output linearly and
+    /// the rate does not move at all — the walk is a ratio, not a parcel.
+    #[test]
+    fn the_ask_scales_the_output_but_never_the_rate() {
+        let legs = vec![
+            leg("a", "b", (2, 1), 1_000, Some(10_000)),
+            leg("b", "c", (3, 1), 1_000, Some(10_000)),
+        ];
+        let small = walk_route(&legs, 10);
+        let large = walk_route(&legs, 5_000);
+        assert_eq!(small.projected_output, Some(60));
+        assert_eq!(large.projected_output, Some(30_000));
+        assert_eq!(
+            (small.rate, large.rate),
+            (large.rate, small.rate),
+            "ten and five thousand walk the same rate: {small:?}"
+        );
+        assert_eq!(small.rate.map(RouteRate::text), Some("6 : 1".to_owned()));
+    }
+
+    /// The absorbable size is the thinnest front row, restated in the
+    /// reader's own asset: a 50-unit row in the middle currency is 25 units
+    /// of a source that doubles on the way in.
+    #[test]
+    fn fillable_is_the_thinnest_row_in_the_readers_own_units() {
+        let legs = vec![
+            leg("a", "b", (2, 1), 100, Some(10_000)),
+            leg("b", "c", (3, 1), 50, Some(10_000)),
+        ];
+        let walk = walk_route(&legs, 10);
+        assert_eq!(walk.fillable_input, Some(25));
+    }
+
+    /// Every step is measured against the ask through the prefix of front
+    /// rates — a big ask reads big on every leg, and the leg asked for more
+    /// than its book is the one the pinch names.
+    #[test]
+    fn the_leg_asked_for_more_than_its_book_is_the_pinch() {
+        let legs = vec![
+            leg("a", "b", (2, 1), 1_000, Some(100_000)),
+            leg("b", "c", (3, 1), 1_000, Some(500)),
+        ];
+        let walk = walk_route(&legs, 1_000);
+        assert_eq!(walk.legs[1].taking, 6_000, "1000 × 2 × 3 lands on leg two");
+        assert_eq!(walk.legs[1].verdict, LegTakeVerdict::NotEnoughListed);
+        let pinch = walk.pinch().expect("the short leg is the pinch");
+        assert_eq!(pinch.to_asset_id, asset("c"));
+    }
+
+    /// The middle-currency rule holds here exactly as it does on the Convert
+    /// page: the leg that buys the middle currency wears the tighter verdict
+    /// of the book it is spent into.
+    #[test]
+    fn a_middle_currency_wears_the_tighter_of_its_two_books() {
+        let legs = vec![
+            leg("a", "b", (2, 1), 1_000, Some(100_000)),
+            leg("b", "c", (3, 1), 1_000, Some(500)),
+        ];
+        let walk = walk_route(&legs, 1_000);
+        assert_eq!(walk.legs[0].verdict, LegTakeVerdict::NotEnoughListed);
+        assert!(walk.legs[0].bound_by_next_leg);
+    }
+
+    /// A leg with no priced front row breaks the walk from itself onward
+    /// rather than inventing a number — and one unknown row makes the whole
+    /// absorbable figure unknown, because "the thinnest of the rows I could
+    /// see" is not the thinnest row.
+    #[test]
+    fn an_unpriced_leg_breaks_the_walk_instead_of_inventing_a_number() {
+        let legs = vec![
+            leg("a", "b", (2, 1), 1_000, Some(10_000)),
+            RouteLegBook {
+                from_asset_id: asset("b"),
+                to_asset_id: asset("c"),
+                rate: None,
+                front_capacity: None,
+                listed: None,
+                single_listing: false,
+            },
+        ];
+        let walk = walk_route(&legs, 100);
+        assert_eq!(walk.projected_output, None);
+        assert_eq!(walk.fillable_input, None);
+        assert_eq!(walk.legs[1].verdict, LegTakeVerdict::NoListings);
+    }
+
+    /// A loop hands back the currency it started from, so the walk needs no
+    /// special case for it: the closing leg is a leg like any other and the
+    /// projection lands back in the start asset.
+    #[test]
+    fn a_loop_projects_back_into_its_own_start_asset() {
+        let legs = vec![
+            leg("a", "b", (3, 1), 10_000, Some(100_000)),
+            leg("b", "c", (2, 1), 10_000, Some(100_000)),
+            leg("c", "a", (1, 5), 10_000, Some(100_000)),
+        ];
+        let walk = walk_route(&legs, 100);
+        assert_eq!(
+            walk.projected_output,
+            Some(120),
+            "3 × 2 × 1/5 = 6/5, so 100 comes back as 120"
         );
     }
 }

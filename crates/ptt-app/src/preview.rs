@@ -149,6 +149,9 @@ fn density_rows(count: usize) -> Vec<OpportunityRow> {
                 } else {
                     Vec::new()
                 },
+                // The gallery's rows never open a detail panel, so there is
+                // nothing for the walk to price.
+                leg_books: Vec::new(),
             }
         })
         .collect()

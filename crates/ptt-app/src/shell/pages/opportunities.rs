@@ -940,6 +940,7 @@ mod selection_tests {
             },
             light: None,
             structural: Vec::new(),
+            leg_books: Vec::new(),
         }
     }
 
@@ -1018,6 +1019,7 @@ mod column_width_tests {
             },
             light: None,
             structural: Vec::new(),
+            leg_books: Vec::new(),
         }
     }
 
