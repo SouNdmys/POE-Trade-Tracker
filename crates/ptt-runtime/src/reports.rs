@@ -2508,7 +2508,9 @@ fn radar_item_lines(
         .map(MarketAssetId::as_str)
         .collect::<Vec<_>>()
         .join(" -> ");
-    let edge = item.value_basis_points.map_or_else(
+    // What closing the route nets. `value_basis_points` means two different
+    // things on the two row kinds; this one means one thing on both.
+    let edge = item.round_trip_basis_points.map_or_else(
         || text.unpriced.to_owned(),
         crate::report_text::percent_from_basis_points,
     );
@@ -3558,6 +3560,7 @@ mod radar_tests {
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 4000, &units)
                 .expect("out"),
             value_basis_points: Some(30_012),
+            round_trip_basis_points: Some(1_200),
             liquidity_capacity: None,
             reasons: vec![ptt_workflows::RadarReason::BetterThanDirect],
             risk_flags: Vec::new(),
@@ -3582,9 +3585,19 @@ mod radar_tests {
             joined.contains("divine-orb -> chaos-orb -> exalted-orb"),
             "the route is not shown: {joined}"
         );
+        // The round trip, not the margin over direct. Until 2026-08-24 this
+        // asserted 300.12% -- `value_basis_points` -- but that number means a
+        // cycle's own edge on one row kind and a conversion's margin over its
+        // pair's direct trade on the other, and the two are nowhere near the
+        // same size. The fixture's route is 300.12% better than trading
+        // direct and comes home at 12.00%.
         assert!(
-            joined.contains("300.12%"),
+            joined.contains("12.00%"),
             "basis points are not rendered as a percentage: {joined}"
+        );
+        assert!(
+            !joined.contains("300.12%"),
+            "the margin over direct is not the headline; it belongs to the              detail panel: {joined}"
         );
         assert!(
             joined.contains("executable now"),
@@ -3618,7 +3631,7 @@ mod radar_tests {
             chinese.contains("divine-orb -> chaos-orb -> exalted-orb"),
             "asset ids are the game's, not the interface's: {chinese}"
         );
-        assert!(chinese.contains("300.12%"), "{chinese}");
+        assert!(chinese.contains("12.00%"), "{chinese}");
         assert!(
             chinese.contains("现在就能成交"),
             "the execution category is still English: {chinese}"
@@ -3655,6 +3668,7 @@ mod radar_tests {
             amount_out: AssetAmount::from_whole_units(asset("exalted-orb"), 11, &units)
                 .expect("out"),
             value_basis_points: None,
+            round_trip_basis_points: None,
             liquidity_capacity: None,
             reasons: Vec::new(),
             risk_flags: Vec::new(),

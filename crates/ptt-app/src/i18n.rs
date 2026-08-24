@@ -103,6 +103,9 @@ pub struct Text {
     pub detail_risks: &'static str,
     pub detail_structural: &'static str,
     pub detail_reasons: &'static str,
+    /// The margin over the pair's own direct trade — a saving on a purchase,
+    /// which the headline column no longer states because it is not a profit.
+    pub detail_versus_direct: &'static str,
     /// The detail panel's "price my own amount" box and its result rows —
     /// the bridge that lets the radar stay size-blind while the reader still
     /// gets their own ask evaluated (their ruling).
@@ -371,6 +374,7 @@ impl Text {
             ("detail_risks", self.detail_risks),
             ("detail_structural", self.detail_structural),
             ("detail_reasons", self.detail_reasons),
+            ("detail_versus_direct", self.detail_versus_direct),
             ("detail_walk", self.detail_walk),
             ("detail_walk_rate", self.detail_walk_rate),
             ("detail_walk_out", self.detail_walk_out),
@@ -584,6 +588,7 @@ pub static ENGLISH: Text = Text {
     detail_risks: "risks",
     detail_structural: "liquidity context",
     detail_reasons: "why",
+    detail_versus_direct: "vs direct",
     detail_walk: "try a size",
     detail_walk_rate: "route rate",
     detail_walk_out: "projects to",
@@ -807,6 +812,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     detail_risks: "风险",
     detail_structural: "结构性流动性",
     detail_reasons: "依据",
+    detail_versus_direct: "比直兑",
     detail_walk: "试算数量",
     detail_walk_rate: "整条汇率",
     detail_walk_out: "预计换到",

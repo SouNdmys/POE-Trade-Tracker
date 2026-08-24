@@ -425,6 +425,51 @@ fn radar_probes_rank_confirmation_above_missing_data() {
     );
 }
 
+/// **A conversion's margin over direct is not what closing it earns.**
+///
+/// On the owner's book a route reading +17.53% against its own direct trade
+/// came home at +2.09%, and one reading +1.80% came home at **−0.66%** — a
+/// loss wearing the shape of the fourth-best opportunity on the page. Both
+/// numbers are real; only one of them is comparable with a cycle's, and only
+/// one of them answers "what does this earn".
+///
+/// Here: chaos buys exalt at 1:2 and exalt buys divine at 2:1, so a chaos
+/// buys one divine. The way home prices a divine at 3 chaos, so closing the
+/// trip triples the stake — and that is the number the row must carry,
+/// whatever the outbound leg looks like against a direct chaos→divine quote.
+#[test]
+fn a_closed_route_is_priced_on_the_round_trip_not_on_the_margin_over_direct() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    let mut pairs = bridge_pairs().to_vec();
+    // The way home: one divine fetches three chaos.
+    pairs.push(("divine", "chaos", "3:1", 10_000));
+    let selection = aged_selection(&pairs, 60, FreshnessStatus::Fresh);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 1_000, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    let item = result
+        .items
+        .iter()
+        .find(|item| {
+            item.kind == RadarItemKind::BestConversion
+                && item.path_asset_ids.last().map(MarketAssetId::as_str) == Some("divine")
+        })
+        .expect("the conversion to divine is shown");
+    assert_eq!(
+        item.round_trip_basis_points,
+        Some(20_000),
+        "out at 1 divine per chaos, home at 3 chaos per divine: {item:?}"
+    );
+}
+
 /// A shown route whose every leg is fresh has nothing left to confirm — the
 /// same silence the loops earned, for the same reason: a suggestion that
 /// fires on every scan regardless of the data is noise.

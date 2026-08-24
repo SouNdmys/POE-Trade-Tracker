@@ -161,6 +161,22 @@ pub struct RadarItem {
     pub amount_in: AssetAmount,
     pub amount_out: AssetAmount,
     pub value_basis_points: Option<i64>,
+    /// What this route nets if you **close it** — go out along it and come
+    /// back to where you started by the best route home.
+    ///
+    /// The one number that means the same thing on every row, which is why
+    /// the list is ordered by it. `value_basis_points` is not: on a cycle it
+    /// is already a round trip, but on a conversion it is "better than this
+    /// pair's own direct trade", and the two are not remotely the same size.
+    /// On the owner's book a route reading +17.53% against direct came home
+    /// at +2.09%, and one reading +1.80% came home at **−0.66%** — a loss
+    /// wearing the shape of the fourth-best opportunity on the page.
+    ///
+    /// A saving on a purchase is still worth knowing, so the comparison
+    /// against direct stays on the row; it just stops being the headline.
+    /// `None` when the book prices no way home, which is not the same as a
+    /// round trip that loses.
+    pub round_trip_basis_points: Option<i64>,
     /// How much of this route's currencies the market is showing, in the
     /// settlement anchor.
     ///
@@ -454,6 +470,17 @@ pub fn run_opportunity_radar(
             let capacity = anchor.as_ref().and_then(|anchor| {
                 anchor_capacity(&index, &best.path_asset_ids, anchor, request.fee_policy)
             });
+            // Priced only for the rows that survive, because it costs a
+            // second search each and a row nobody sees needs no answer.
+            let round_trip = round_trip_basis_points(
+                &index,
+                units,
+                &best.path_asset_ids,
+                &routable,
+                request.max_hops,
+                request.fee_policy,
+                cancellation,
+            );
             items.push(conversion_item(
                 items.len(),
                 best,
@@ -462,6 +489,7 @@ pub fn run_opportunity_radar(
                 &request.thresholds,
                 stake_raised,
                 capacity,
+                round_trip,
             ));
         }
     }
@@ -723,6 +751,72 @@ fn anchor_capacity(
     .ok()
 }
 
+/// What a route nets once you come home: its own front-rate product times the
+/// best-priced way back, as signed basis points around par.
+///
+/// "Best" by rate rather than by [`ConversionPath`] ranking, because the
+/// question is what the trip is worth, not which walk the engine would pick
+/// for a given size. `None` when the book prices no way home at all.
+#[allow(clippy::too_many_arguments)]
+fn round_trip_basis_points(
+    index: &MarketDepthIndex,
+    units: &AssetUnitCatalog,
+    path: &[MarketAssetId],
+    routable: &[MarketAssetId],
+    max_hops: u8,
+    fee_policy: FeePolicy,
+    cancellation: &SearchCancellation,
+) -> Option<i64> {
+    let (start, target) = (path.first()?, path.last()?);
+    if start == target {
+        return None;
+    }
+    let out = chain_rates(index, path, fee_policy).ok().flatten()?;
+    // One unit is only the walk the engine needs to enumerate with; every
+    // number below comes off the front rows, not off this size.
+    let amount_in = AssetAmount::from_whole_units(target.clone(), 1, units).ok()?;
+    let home = find_best_conversion(
+        index,
+        &ConversionRequest {
+            from_asset_id: target.clone(),
+            to_asset_id: start.clone(),
+            amount_in,
+            max_hops,
+            max_paths: 32,
+            max_expansions: 4_000,
+            alternative_limit: 16,
+            allowed_intermediate_asset_ids: Some(routable.to_vec()),
+            fee_policy,
+        },
+        cancellation,
+    )
+    .ok()?;
+    let back = home
+        .best_path
+        .iter()
+        .chain(home.alternatives.iter())
+        .filter_map(|candidate| {
+            chain_rates(index, &candidate.path_asset_ids, fee_policy)
+                .ok()
+                .flatten()
+        })
+        .max_by(|left, right| {
+            (left.numerator * right.denominator).cmp(&(right.numerator * left.denominator))
+        })?;
+    let numerator = out.numerator.checked_mul(back.numerator)?;
+    let denominator = out.denominator.checked_mul(back.denominator)?;
+    let numerator = i128::try_from(numerator).ok()?;
+    let denominator = i128::try_from(denominator).ok()?;
+    i64::try_from(
+        numerator
+            .checked_sub(denominator)?
+            .checked_mul(10_000)?
+            .checked_div(denominator)?,
+    )
+    .ok()
+}
+
+#[allow(clippy::too_many_arguments)]
 fn conversion_item(
     index: usize,
     path: ConversionPath,
@@ -731,6 +825,7 @@ fn conversion_item(
     thresholds: &RiskThresholds,
     stake_raised: bool,
     liquidity_capacity: Option<u64>,
+    round_trip_basis_points: Option<i64>,
 ) -> RadarItem {
     let assessment = assess_path(&path, thresholds, false);
     let mut reasons = Vec::new();
@@ -761,6 +856,7 @@ fn conversion_item(
         amount_in: path.requested_input.clone(),
         amount_out: path.amount_out.clone(),
         value_basis_points: basis_points,
+        round_trip_basis_points,
         liquidity_capacity,
         reasons,
         risk_flags: path.risk_flags.clone(),
@@ -802,6 +898,9 @@ fn triangle_item(
         // The exact rate-space edge, not the walked one: the walk floors
         // once per leg at whatever size the book allowed.
         value_basis_points: Some(triangle.edge_basis_points()),
+        // A cycle already ends where it began, so its edge *is* the round
+        // trip. Restating it here is what lets one column mean one thing.
+        round_trip_basis_points: Some(triangle.edge_basis_points()),
         liquidity_capacity,
         reasons,
         risk_flags: triangle.risk_flags.clone(),
@@ -926,6 +1025,17 @@ fn compare_items(left: &RadarItem, right: &RadarItem) -> Ordering {
                 .liquidity_capacity
                 .unwrap_or(0)
                 .cmp(&left.liquidity_capacity.unwrap_or(0))
+        })
+        // Ordered by what closing the route actually nets, which is the one
+        // number that means the same thing on every row. Ranking on
+        // `value_basis_points` put a conversion reading +17.53% against its
+        // own direct trade above a cycle reading +3.31% of free money, when
+        // closing that conversion came home at +2.09%.
+        .then_with(|| {
+            right
+                .round_trip_basis_points
+                .unwrap_or(i64::MIN)
+                .cmp(&left.round_trip_basis_points.unwrap_or(i64::MIN))
         })
         .then_with(|| {
             right

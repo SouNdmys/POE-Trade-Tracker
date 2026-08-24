@@ -58,10 +58,17 @@ pub fn route_text(
     crate::names::route_name(catalog, language, path)
 }
 
-/// The profit column: a signed percentage, or the fact that there is none.
+/// The profit column: what closing this route nets, signed, or the fact that
+/// the book prices no way home.
+///
+/// The round trip and not `value_basis_points`, because that one means two
+/// different things on the two row kinds -- a cycle's own edge, but a
+/// conversion's margin over its pair's direct trade -- and they are nowhere
+/// near the same size. The comparison against direct is still worth having
+/// and is on the detail panel.
 #[must_use]
 pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, u32) {
-    item.value_basis_points.map_or_else(
+    item.round_trip_basis_points.map_or_else(
         || (report_text::report(language).unpriced.to_owned(), TEXT_META),
         |points| {
             (
@@ -767,6 +774,19 @@ impl AppShell {
                 &route_text(self.catalog(), language, &item.path_asset_ids),
             ));
 
+        // The headline column states what closing the route nets. This is the
+        // other number the route has: how much better it is than simply
+        // trading the pair direct. A saving on a purchase rather than a
+        // profit, so it sits here rather than on the row -- but on the owner's
+        // book the two were 17.53% and 2.09% for the same route, and reading
+        // the first as the second is the mistake this panel exists to stop.
+        if let Some(points) = item.value_basis_points {
+            inner = inner.child(kv_row(
+                text.detail_versus_direct,
+                &report_text::percent_from_basis_points(points),
+            ));
+        }
+
         // Per leg the front rate, because a route is only as good as the leg
         // that fails. The consumed→produced amounts that used to sit here
         // described the scan's canonical-size walk — numbers about nobody.
@@ -1035,7 +1055,8 @@ mod selection_tests {
                 amount_in: amount(path.first().expect("a route starts somewhere").as_str()),
                 amount_out: amount(path.last().expect("a route ends somewhere").as_str()),
                 path_asset_ids: path,
-                value_basis_points: Some(100),
+                round_trip_basis_points: Some(100),
+            value_basis_points: Some(100),
                 liquidity_capacity: Some(10),
                 reasons: Vec::new(),
                 risk_flags: Vec::new(),
@@ -1114,7 +1135,8 @@ mod column_width_tests {
                 path_asset_ids: vec![asset(&from), asset(&to)],
                 amount_in: amount(&from),
                 amount_out: amount(&to),
-                value_basis_points: Some(100),
+                round_trip_basis_points: Some(100),
+            value_basis_points: Some(100),
                 liquidity_capacity: Some(10),
                 reasons: Vec::new(),
                 risk_flags: Vec::new(),
