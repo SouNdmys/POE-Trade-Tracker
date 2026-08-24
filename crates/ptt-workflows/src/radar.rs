@@ -769,9 +769,8 @@ fn triangle_item(
     if !triangle.execution_eligible {
         reasons.push(RadarReason::GrossTheoryOnly);
     }
-    if !triangle.residuals.is_empty() {
-        reasons.push(RadarReason::ResidualInventory);
-    }
+    // Residual inventory is an `ExecutionRisk` and shows in the risk row; see
+    // `append_path_reasons`.
     append_capture_skew_reasons(&triangle.risk_flags, &mut reasons);
     RadarItem {
         item_id: format!(
@@ -800,15 +799,19 @@ fn triangle_item(
     }
 }
 
+/// Why this route is on the list — and **only** things the risk row cannot
+/// already say.
+///
+/// The detail panel draws both from one item: 风险 out of `blocking_risks`,
+/// 依据 out of these. Residual inventory, a maker reference and exceeded
+/// capture skew are all `ExecutionRisk`s, so pushing them here printed the
+/// same words twice under two headings, one of which claimed the hazard was a
+/// *reason the route qualified*. What survives is the set that
+/// `absorb_execution_flag` files as a `ModelCaveat` rather than a risk: those
+/// appear nowhere else.
 fn append_path_reasons(path: &ConversionPath, reasons: &mut Vec<RadarReason>) {
     if path.gross_only {
         reasons.push(RadarReason::GrossTheoryOnly);
-    }
-    if !path.residuals.is_empty() {
-        reasons.push(RadarReason::ResidualInventory);
-    }
-    if path.risk_flags.contains(&ExecutionRiskFlag::MakerReference) {
-        reasons.push(RadarReason::MakerReference);
     }
     if path
         .risk_flags
@@ -819,12 +822,11 @@ fn append_path_reasons(path: &ConversionPath, reasons: &mut Vec<RadarReason>) {
     append_capture_skew_reasons(&path.risk_flags, reasons);
 }
 
+/// Only the uncalibrated half. `CaptureSkewExceeded` is a risk and is shown
+/// as one; see [`append_path_reasons`].
 fn append_capture_skew_reasons(risks: &[ExecutionRiskFlag], reasons: &mut Vec<RadarReason>) {
     if risks.contains(&ExecutionRiskFlag::CaptureSkewUnverified) {
         reasons.push(RadarReason::CaptureSkewUnverified);
-    }
-    if risks.contains(&ExecutionRiskFlag::CaptureSkewExceeded) {
-        reasons.push(RadarReason::CaptureSkewExceeded);
     }
 }
 
@@ -983,6 +985,92 @@ mod tests {
             budget.per_target(1_000),
             1,
             "a starved target gets a token scan rather than silently none"
+        );
+    }
+
+    /// A minimal path carrying `residuals` and `risk_flags`, and nothing else
+    /// the reason list looks at.
+    fn path_with(residuals: bool, risk_flags: Vec<ExecutionRiskFlag>) -> ConversionPath {
+        let asset = MarketAssetId::try_new("a").expect("asset");
+        let units = AssetUnitCatalog::try_new(BTreeMap::from([(
+            asset.clone(),
+            ptt_trade_engine::AssetUnit::whole(),
+        )]))
+        .expect("units");
+        let amount = AssetAmount::from_whole_units(asset.clone(), 1, &units).expect("amount");
+        ConversionPath {
+            path_asset_ids: vec![asset.clone()],
+            requested_input: amount.clone(),
+            amount_out: amount.clone(),
+            gross_only: false,
+            steps: Vec::new(),
+            capture_time_evidence: None,
+            residuals: if residuals {
+                vec![ptt_trade_engine::ResidualAmount {
+                    after_step: 0,
+                    amount,
+                }]
+            } else {
+                Vec::new()
+            },
+            is_fully_filled: false,
+            execution_eligible: false,
+            bottleneck: None,
+            risk_flags,
+        }
+    }
+
+    /// **"Why is this on the list" must not restate "what is wrong with it".**
+    ///
+    /// The detail panel draws two rows from one item: 风险 from
+    /// `blocking_risks`, and 依据 from `reasons`. Three of the reasons were
+    /// pushed on exactly the conditions that already produce a risk, and they
+    /// render to the same words — so the owner's screen said 有零头库存 twice,
+    /// once as a hazard and once as a *reason the route qualified*. That is
+    /// worse than noise: it makes the 依据 row unreadable as an answer to its
+    /// own question.
+    ///
+    /// A reason earns its place only when the risk row cannot say it. That is
+    /// exactly the set that lands in `ModelCaveat` rather than
+    /// `ExecutionRisk` (`execution_safety.rs` `absorb_execution_flag`):
+    /// truncated searches and uncalibrated skew.
+    #[test]
+    fn a_reason_never_restates_something_the_risk_row_already_shows() {
+        let mut reasons = Vec::new();
+        append_path_reasons(
+            &path_with(
+                true,
+                vec![
+                    ExecutionRiskFlag::MakerReference,
+                    ExecutionRiskFlag::CaptureSkewExceeded,
+                ],
+            ),
+            &mut reasons,
+        );
+        assert!(
+            reasons.is_empty(),
+            "all three of these already appear under 风险: {reasons:?}"
+        );
+
+        // The caveats stay: nothing else on the panel says them.
+        let mut reasons = Vec::new();
+        append_path_reasons(
+            &path_with(
+                false,
+                vec![
+                    ExecutionRiskFlag::SearchTruncated,
+                    ExecutionRiskFlag::CaptureSkewUnverified,
+                ],
+            ),
+            &mut reasons,
+        );
+        assert_eq!(
+            reasons,
+            vec![
+                RadarReason::SearchTruncated,
+                RadarReason::CaptureSkewUnverified
+            ],
+            "these are caveats, not risks, so the risk row never shows them"
         );
     }
 
