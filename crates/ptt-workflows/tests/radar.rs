@@ -19,7 +19,8 @@ use ptt_trade_domain::{
 };
 use ptt_trade_engine::{AssetAmount, AssetUnit, AssetUnitCatalog, FeePolicy, SearchCancellation};
 use ptt_workflows::{
-    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, ProbePriority, ProbeReason,
+    FocusGroupItem, FocusRole, FocusScope, FocusScopePolicy, ProbeCandidate, ProbePriority,
+    ProbeReason,
     RadarBudget, RadarItemKind, RadarRequest, RadarStart, run_opportunity_radar,
 };
 
@@ -117,6 +118,58 @@ fn selection(pairs: &[(&str, &str, &str, u64)]) -> QuoteSelectionResult {
         policy,
         selections,
     }
+}
+
+/// Like [`selection`], but with every capture stamped `age_seconds` ago —
+/// for the tests that vary how old the book is *now*.
+fn aged_selection(
+    pairs: &[(&str, &str, &str, u64)],
+    age_seconds: i64,
+    status: FreshnessStatus,
+) -> QuoteSelectionResult {
+    let strategy = QuoteSelectionStrategy::Instant;
+    let mut policy = QuoteSelectionPolicy::personal_default(strategy).expect("policy");
+    policy.identity.policy_id = "test_verified_policy".to_owned();
+    policy.identity.source = "test-only calibrated fixture".to_owned();
+    policy.identity.calibration_status = PolicyCalibrationStatus::Verified;
+    policy.cost_verification = CostVerification {
+        fee_verified: true,
+        minimum_lots_verified: true,
+    };
+    policy.product_execution_allowed = true;
+    policy.validate().expect("test policy");
+    let selections = pairs
+        .iter()
+        .map(|(from, to, rate, stock)| {
+            let candidate = aged_taker_edge(from, to, rate, *stock, age_seconds, status);
+            SelectedQuoteEdge {
+                pair_key: format!("{from}->{to}"),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                strategy,
+                selected_edge: Some(candidate.clone()),
+                candidate_edges: vec![candidate],
+                rejections: Vec::new(),
+                execution_eligible: true,
+                needs_probe: false,
+            }
+        })
+        .collect();
+    QuoteSelectionResult {
+        context_key: "context".to_owned(),
+        policy,
+        selections,
+    }
+}
+
+/// The bridge book the de-stake tests share: chaos reaches divine only
+/// through exalt, and the exalt book is three deep — far under any large
+/// ask, so the walk always comes back partial.
+fn bridge_pairs() -> [(&'static str, &'static str, &'static str, u64); 2] {
+    [
+        ("chaos", "exalt", "1:2", 3),
+        ("exalt", "divine", "2:1", 500),
+    ]
 }
 
 fn request(start: &str, stake: u64, units: &AssetUnitCatalog) -> RadarRequest {
@@ -249,20 +302,66 @@ fn a_stake_that_already_clears_the_minimum_lot_is_unaffected() {
     assert_eq!(result.diagnostics.missing_conversion_count, 0);
 }
 
+/// The user's ruling, verbatim: the radar has no business knowing what they
+/// hold. A book that cannot swallow the scan's ask in one pass still names a
+/// rate, so the route stays on the page — before 2026-08-24 this item was
+/// gated out on its fill and refiled as a probe, which is how a stale-but-
+/// real book produced "scanned 40, shown 0".
+#[test]
+fn a_route_the_book_cannot_swallow_whole_is_still_an_opportunity() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    let selection = aged_selection(&bridge_pairs(), 30 * 60, FreshnessStatus::Usable);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 1_000, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    let item = result
+        .items
+        .iter()
+        .find(|item| item.kind == RadarItemKind::BestConversion)
+        .expect("the partially filled route is still shown");
+    assert_eq!(
+        item.path_asset_ids,
+        vec![asset("chaos"), asset("exalt"), asset("divine")]
+    );
+    assert!(
+        !item
+            .conversion_path
+            .as_ref()
+            .expect("conversion item carries its path")
+            .is_fully_filled,
+        "the premise: the exalt book is three deep against a thousand-chaos ask"
+    );
+    assert_eq!(
+        result.diagnostics.complete_conversion_count, 1,
+        "a found route counts as an answered pair, whatever its fill"
+    );
+    assert_eq!(result.diagnostics.missing_conversion_count, 0);
+}
+
 /// Two suggestions, two urgencies.
 ///
 /// The page shows four probes. When the radar files more than four, the ones
 /// that survive the cut should be the ones a single capture can turn into a
-/// trade: a partial fill is one capture from executable, a pair with no quotes
-/// at all is a guess. Neither starts at High — that would leave the
-/// scarce-currency boost nothing to raise, which is what made the whole field
-/// meaningless on this path.
+/// trade: a shown opportunity leaning on aged captures is one capture from a
+/// verdict, a pair with no quotes at all is a guess. Neither starts at High —
+/// that would leave the scarce-currency boost nothing to raise, which is what
+/// made the whole field meaningless on this path. (Until 2026-08-24 the
+/// confirmation half keyed on partial fills; with the radar size-blind, a
+/// partial fill says nothing and the trigger is age, same as the loops.)
 #[test]
 fn radar_probes_rank_confirmation_above_missing_data() {
-    let units = whole_catalog(&["chaos", "divine", "mirror"]);
-    // Priced, but only two divine on offer against a thousand-chaos stake:
-    // the path exists and cannot be filled.
-    let selection = selection(&[("chaos", "divine", "1:11", 2)]);
+    let units = whole_catalog(&["chaos", "divine", "exalt", "mirror"]);
+    // Half an hour old: past the fresh window, so the shown route's legs are
+    // worth one capture each. Mirror has no quotes at all.
+    let selection = aged_selection(&bridge_pairs(), 30 * 60, FreshnessStatus::Usable);
     let scope = FocusScope::try_new(
         &[
             FocusGroupItem {
@@ -272,6 +371,10 @@ fn radar_probes_rank_confirmation_above_missing_data() {
             FocusGroupItem {
                 asset_id: asset("divine"),
                 role: FocusRole::Target,
+            },
+            FocusGroupItem {
+                asset_id: asset("exalt"),
+                role: FocusRole::Bridge,
             },
             FocusGroupItem {
                 asset_id: asset("mirror"),
@@ -292,25 +395,69 @@ fn radar_probes_rank_confirmation_above_missing_data() {
     )
     .expect("radar");
 
-    let graded: std::collections::BTreeMap<&str, (ProbeReason, ProbePriority)> = result
+    let graded: std::collections::BTreeMap<String, (ProbeReason, ProbePriority)> = result
         .probe_candidates
         .iter()
         .map(|candidate| {
             (
-                candidate.to_asset_id.as_str(),
+                format!(
+                    "{}->{}",
+                    candidate.from_asset_id.as_str(),
+                    candidate.to_asset_id.as_str()
+                ),
                 (candidate.reason, candidate.priority),
             )
         })
         .collect();
     assert_eq!(
-        graded.get("divine"),
+        graded.get("chaos->exalt"),
         Some(&(ProbeReason::OpportunityConfirmation, ProbePriority::Medium)),
-        "a partial fill is one capture away from a trade"
+        "each aged leg of a shown route is one capture from a verdict"
     );
     assert_eq!(
-        graded.get("mirror"),
+        graded.get("exalt->divine"),
+        Some(&(ProbeReason::OpportunityConfirmation, ProbePriority::Medium))
+    );
+    assert_eq!(
+        graded.get("chaos->mirror"),
         Some(&(ProbeReason::MissingForwardQuote, ProbePriority::Low)),
         "an unpriced pair is exploratory, and must leave the boost room to raise it"
+    );
+}
+
+/// A shown route whose every leg is fresh has nothing left to confirm — the
+/// same silence the loops earned, for the same reason: a suggestion that
+/// fires on every scan regardless of the data is noise.
+#[test]
+fn a_fresh_route_is_not_filed_for_confirmation() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    let selection = aged_selection(&bridge_pairs(), 60, FreshnessStatus::Fresh);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 1_000, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    assert!(
+        result
+            .items
+            .iter()
+            .any(|item| item.kind == RadarItemKind::BestConversion),
+        "the route itself is shown either way"
+    );
+    let confirmations: Vec<&ProbeCandidate> = result
+        .probe_candidates
+        .iter()
+        .filter(|candidate| candidate.reason == ProbeReason::OpportunityConfirmation)
+        .collect();
+    assert!(
+        confirmations.is_empty(),
+        "every leg was captured a minute ago; asked for {confirmations:?}"
     );
 }
 

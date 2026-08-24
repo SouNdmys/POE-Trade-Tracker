@@ -9,10 +9,10 @@ use ptt_market_book::{
 use ptt_strategy::{Actionability, ExecutionRisk, RiskThresholds, assess_path, assess_triangle};
 use ptt_trade_domain::MarketAssetId;
 use ptt_trade_engine::{
-    AssetAmount, AssetUnitCatalog, ComparisonDirection, ConversionComparisonStatus, ConversionPath,
-    ConversionRequest, EngineError, ExecutionRiskFlag, FeePolicy, MarketDepthIndex,
-    SearchCancellation, TriangleEvaluation, TriangleRequest, canonical_cycle_key, chain_rates,
-    find_best_conversion, find_triangle_opportunities,
+    AssetAmount, AssetUnitCatalog, CaptureTimeEvidence, ComparisonDirection,
+    ConversionComparisonStatus, ConversionPath, ConversionRequest, EngineError, ExecutionRiskFlag,
+    FeePolicy, MarketDepthIndex, SearchCancellation, TriangleEvaluation, TriangleRequest,
+    canonical_cycle_key, chain_rates, find_best_conversion, find_triangle_opportunities,
 };
 use serde::{Deserialize, Serialize};
 
@@ -292,6 +292,9 @@ pub fn run_opportunity_radar(
     let mut unfillable_conversion_count = 0_u32;
     let mut expansions_used = 0_u32;
     let mut budget_exhausted = false;
+    // One clock for the whole scan, so two routes sharing a leg cannot
+    // disagree about whether that leg is still fresh.
+    let now = Utc::now();
     let per_target_budget = request
         .budget
         .per_target(pairs.len())
@@ -403,13 +406,11 @@ pub fn run_opportunity_radar(
             }
             continue;
         };
-        if !best.is_fully_filled {
-            missing_conversion_count = missing_conversion_count
-                .checked_add(1)
-                .ok_or(WorkflowError::NumericOverflow)?;
-            probe_candidates.push(confirm_conversion_probe(start, target, &best));
-            continue;
-        }
+        // A partial fill is deliberately not a gate any more (the user's
+        // ruling: the radar has no idea what the reader holds, so how much of
+        // an arbitrary ask the book swallowed says nothing about the route).
+        // A found route is an answered pair, whatever its fill; how much of
+        // the reader's own stake fits is the detail panel's question.
         complete_conversion_count = complete_conversion_count
             .checked_add(1)
             .ok_or(WorkflowError::NumericOverflow)?;
@@ -427,6 +428,18 @@ pub fn run_opportunity_radar(
             | ConversionComparisonStatus::NoPath => false,
         };
         if should_include {
+            // What still merits a capture is age, same as the loops below: a
+            // shown route priced from captures outside the fresh window is
+            // theory until one confirms it. Keyed on the shown ones only —
+            // "confirm this opportunity" is not a sentence about a pair the
+            // page never shows.
+            if !evidence_fresh(
+                best.capture_time_evidence,
+                selection.policy.freshness,
+                now,
+            ) {
+                confirm_route_probes(&best, &mut probe_candidates);
+            }
             let capacity = anchor.as_ref().and_then(|anchor| {
                 anchor_capacity(&index, &best.path_asset_ids, anchor, request.fee_policy)
             });
@@ -492,9 +505,6 @@ pub fn run_opportunity_radar(
             }
         }
     }
-    // One clock for the whole batch, so two loops sharing a leg cannot
-    // disagree about whether that leg is still fresh.
-    let now = Utc::now();
     for triangle in best_by_cycle.into_values() {
         // `execution_eligible` is off for every product cycle by
         // construction — `product_execution_allowed` is a constant, not a
@@ -504,7 +514,11 @@ pub fn run_opportunity_radar(
         // priced and on file. Ask only once the prices behind the loop have
         // aged out of the fresh window.
         if !triangle.execution_eligible
-            && !legs_all_fresh(&triangle, selection.policy.freshness, now)
+            && !evidence_fresh(
+                triangle.capture_time_evidence,
+                selection.policy.freshness,
+                now,
+            )
         {
             for step in &triangle.steps {
                 probe_candidates.push(ProbeCandidate {
@@ -635,18 +649,19 @@ fn validate_request(
     Ok(())
 }
 
-/// Whether every leg of a cycle was captured inside the policy's fresh
+/// Whether every leg of a route was captured inside the policy's fresh
 /// window.
 ///
-/// Read off the oldest leg, because a loop is only as current as its stalest
-/// price. A cycle with no capture stamps at all counts as not fresh — an
-/// unstamped walk is precisely the case a capture would settle.
-fn legs_all_fresh(
-    triangle: &TriangleEvaluation,
+/// Read off the oldest leg, because a walk is only as current as its stalest
+/// price. A route with no capture stamps at all counts as not fresh — an
+/// unstamped walk is precisely the case a capture would settle. Shared by
+/// conversions and loops so "worth confirming" means the same age on both.
+fn evidence_fresh(
+    evidence: Option<CaptureTimeEvidence>,
     freshness: FreshnessPolicy,
     now: DateTime<Utc>,
 ) -> bool {
-    triangle.capture_time_evidence.is_some_and(|evidence| {
+    evidence.is_some_and(|evidence| {
         freshness
             .classify(evidence.earliest_captured_at, now)
             .status
@@ -831,27 +846,26 @@ fn missing_conversion_probe(start: &RadarStart, target: &MarketAssetId) -> Probe
     }
 }
 
-fn confirm_conversion_probe(
-    start: &RadarStart,
-    target: &MarketAssetId,
-    path: &ConversionPath,
-) -> ProbeCandidate {
-    ProbeCandidate {
-        from_asset_id: start.start_asset_id.clone(),
-        to_asset_id: target.clone(),
-        reason: ProbeReason::OpportunityConfirmation,
-        source: ProbeSource::OpportunityRadar,
-        // One capture from a verdict: the path is already there and only the
-        // depth is in doubt.
-        priority: ProbePriority::Medium,
-        related_focus_group_id: None,
-        last_seen_at: None,
-        freshness_status: None,
-        expected_value_hint: None,
-        notes: Some(format!(
-            "partial path with {} residual entries",
-            path.residuals.len()
-        )),
+/// One capture per leg of a shown route whose prices have aged, mirroring
+/// the loop confirmations: the legs are what the rate is built from, so the
+/// legs are what a capture can re-verify — the endpoint pair alone might not
+/// even be a panel the game can show.
+fn confirm_route_probes(path: &ConversionPath, candidates: &mut Vec<ProbeCandidate>) {
+    for step in &path.steps {
+        candidates.push(ProbeCandidate {
+            from_asset_id: step.from_asset_id.clone(),
+            to_asset_id: step.to_asset_id.clone(),
+            reason: ProbeReason::OpportunityConfirmation,
+            source: ProbeSource::OpportunityRadar,
+            // One capture from a verdict: the route is already on the page
+            // and only the age of its prices is in doubt.
+            priority: ProbePriority::Medium,
+            related_focus_group_id: None,
+            last_seen_at: None,
+            freshness_status: None,
+            expected_value_hint: None,
+            notes: Some("shown route leans on aged captures".to_owned()),
+        });
     }
 }
 
@@ -905,7 +919,9 @@ fn compare_items(left: &RadarItem, right: &RadarItem) -> Ordering {
                 .unwrap_or(i64::MIN)
                 .cmp(&left.value_basis_points.unwrap_or(i64::MIN))
         })
-        .then_with(|| right.amount_out.quanta.cmp(&left.amount_out.quanta))
+        // `amount_out` used to break ties here — a size key in disguise
+        // (the user's ruling: the radar never assumes a stake), and gone
+        // for the same reason coverage stopped being one in the engine.
         .then_with(|| left.path_asset_ids.cmp(&right.path_asset_ids))
         .then_with(|| left.item_id.cmp(&right.item_id))
 }
