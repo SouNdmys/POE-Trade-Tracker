@@ -878,14 +878,24 @@ impl AppShell {
             &strategy.visible_depth_from,
             &strategy.suggested_max_single_order,
         ) {
+            // The row's label already says "visible depth", so the value
+            // carries the depth and then the ceiling *in words*. It used to
+            // join them with a bare "≤", which reads as the claim that
+            // 104,178 is at most 19,823 -- two facts wearing the shape of one
+            // false comparison.
             body = body.child(kv_row(
                 text.maker_depth_label,
                 &format!(
-                    "{} {}   ≤ {} {}",
+                    "{} {}   {}",
                     depth.quanta,
                     self.display_name(strategy.from_asset_id.as_str()),
-                    cap.quanta,
-                    self.display_name(strategy.from_asset_id.as_str())
+                    report_text::fill(
+                        report.maker_max_single,
+                        &[
+                            &cap.quanta.to_string(),
+                            &self.display_name(strategy.from_asset_id.as_str()),
+                        ],
+                    ),
                 ),
             ));
         }

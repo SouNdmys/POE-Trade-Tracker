@@ -108,6 +108,9 @@ pub struct ReportText {
     pub maker_not_worth: &'static str,
     pub maker_spread: &'static str,
     pub maker_depth: &'static str,
+    /// The size ceiling, as its own phrase: the GPUI panel already has a
+    /// "visible depth" label on the row, so it needs this half alone.
+    pub maker_max_single: &'static str,
     pub maker_excluded: &'static str,
     /// Heading for the hazards that hold whichever way you price in a book.
     pub maker_risks: &'static str,
@@ -208,7 +211,8 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     maker_improvement: "+{} {} vs taking ({})",
     maker_not_worth: "no better than taking - trade instead",
     maker_spread: "front over instant: {}",
-    maker_depth: "visible depth {} {}, max single order {} {}",
+    maker_depth: "visible depth {} {}",
+    maker_max_single: "at most {} {} in one order",
     maker_excluded: "excluded listing at {} (stock {}): {}",
     maker_risks: "risks on this pair",
     no_route_for_pair: "{} -> {}: no route yet",
@@ -293,7 +297,8 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     maker_improvement: "比立即成交多 {} {}（{}）",
     maker_not_worth: "不比立即成交好 — 不如直接吃单",
     maker_spread: "队首高出立即成交 {}",
-    maker_depth: "可见深度 {} {}，单笔建议不超过 {} {}",
+    maker_depth: "可见深度 {} {}",
+    maker_max_single: "单笔建议不超过 {} {}",
     maker_excluded: "已排除挂单 {}（库存 {}）：{}",
     maker_risks: "这一对通货的风险",
     no_route_for_pair: "{} → {}：还没有路线",
@@ -720,6 +725,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "maker_depth",
             REPORT_ENGLISH.maker_depth,
             REPORT_CHINESE.maker_depth,
+        ),
+        (
+            "maker_max_single",
+            REPORT_ENGLISH.maker_max_single,
+            REPORT_CHINESE.maker_max_single,
         ),
         (
             "maker_excluded",

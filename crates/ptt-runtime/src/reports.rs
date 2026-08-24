@@ -1796,13 +1796,17 @@ fn render_maker(
     ) {
         lines.push(format!(
             "     {}",
-            fill(
-                text.maker_depth,
+            crate::report_text::join_text(
+                language,
                 &[
-                    &depth.quanta.to_string(),
-                    have.as_str(),
-                    &cap.quanta.to_string(),
-                    have.as_str(),
+                    &fill(
+                        text.maker_depth,
+                        &[&depth.quanta.to_string(), have.as_str()],
+                    ),
+                    &fill(
+                        text.maker_max_single,
+                        &[&cap.quanta.to_string(), have.as_str()],
+                    ),
                 ],
             )
         ));
