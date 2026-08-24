@@ -14,10 +14,11 @@ use gpui::{
 };
 use gpui_component::{
     Sizable, Size, StyledExt as _,
+    input::Input,
     table::{Column, Table, TableDelegate, TableState},
 };
 use ptt_runtime::domain::{
-    Actionability, CaptureTimeEvidence, FreshnessStatus, PairFill, RadarItem,
+    Actionability, CaptureTimeEvidence, FreshnessStatus, PairFill, RadarItem, RadarItemKind,
 };
 use ptt_runtime::report_text;
 use ptt_runtime::reports::{OpportunitiesModel, OpportunityRow, RadarScan, RadarUnavailable};
@@ -704,6 +705,17 @@ impl AppShell {
     }
 
     /// The parts of the selected route.
+    /// The amount typed into the detail panel's box, when it holds a number.
+    fn walk_amount(&self, cx: &gpui::App) -> Option<u64> {
+        self.walk_input
+            .read(cx)
+            .value()
+            .trim()
+            .parse::<u64>()
+            .ok()
+            .filter(|count| *count > 0)
+    }
+
     fn radar_detail(&self, row: &OpportunityRow, cx: &mut Context<Self>) -> gpui::Div {
         let language = self.language();
         let text = self.text();
@@ -808,6 +820,85 @@ impl AppShell {
                     .collect::<Vec<_>>()
                     .join(", "),
             ));
+        }
+
+        // The bridge (user ruling): the radar found this rate without ever
+        // asking what the reader holds — this box is where they bring the
+        // size. Priced at draw time from the row's saved leg books, so typing
+        // re-answers instantly without rebuilding the page.
+        inner = inner.child(
+            div()
+                .pt_2()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(text.detail_walk),
+                )
+                .child(
+                    div()
+                        .w(px(110.))
+                        .child(Input::new(&self.walk_input).with_size(Size::Small)),
+                ),
+        );
+        if let Some(amount) = self.walk_amount(cx) {
+            let walk = ptt_runtime::reports::walk_route(&row.leg_books, amount);
+            if let Some(rate) = walk.rate {
+                inner = inner.child(kv_row(text.detail_walk_rate, &rate.text()));
+            }
+            if let Some(out) = walk.projected_output {
+                let mut projected = format!("{amount} → {out}");
+                // A loop hands back the currency it started from, so the
+                // difference is the whole answer and it rides on the row.
+                if item.kind == RadarItemKind::Loop {
+                    if out >= amount {
+                        projected.push_str(&format!("  (+{})", out - amount));
+                    } else {
+                        projected.push_str(&format!("  (-{})", amount - out));
+                    }
+                }
+                inner = inner.child(kv_row(text.detail_walk_out, &projected));
+            }
+            if let Some(fillable) = walk.fillable_input {
+                let start = item
+                    .path_asset_ids
+                    .first()
+                    .map_or_else(String::new, |asset| self.display_name(asset.as_str()));
+                let depth = report_text::fill(
+                    report_text::report(language).route_front_depth,
+                    &[&fillable.to_string(), &start],
+                );
+                let value = if fillable < amount {
+                    report_text::join_text(
+                        language,
+                        &[
+                            depth.as_str(),
+                            report_text::report(language).route_front_short,
+                        ],
+                    )
+                } else {
+                    depth
+                };
+                inner = inner.child(kv_row(text.detail_walk_depth, &value));
+            }
+            if let Some(leg) = walk.pinch() {
+                let facts = report_text::leg_take_facts(
+                    language,
+                    &self.display_name(leg.from_asset_id.as_str()),
+                    &self.display_name(leg.to_asset_id.as_str()),
+                    leg,
+                );
+                let notes = report_text::leg_take_notes(language, leg);
+                let value = if notes.is_empty() {
+                    facts
+                } else {
+                    format!("{facts}   {}", report_text::join_text(language, &notes))
+                };
+                inner = inner.child(kv_row(text.detail_walk_pinch, &value));
+            }
         }
 
         // A route that needs confirming is the one worth queueing, so the

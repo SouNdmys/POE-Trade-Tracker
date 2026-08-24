@@ -250,6 +250,11 @@ pub struct AppShell {
     /// The settings page's picker for adding a settlement currency.
     settlement_select: pages::convert::AssetSelect,
     holdings_input: gpui::Entity<gpui_component::input::InputState>,
+    /// The radar detail panel's "try a size" box. The radar itself never
+    /// assumes a stake (user ruling); this is where the reader brings one,
+    /// and the walk is priced at draw time from the row's saved leg books —
+    /// no page rebuild, no second trip to the store.
+    walk_input: gpui::Entity<gpui_component::input::InputState>,
     /// What the pickers were last filled for: the catalogue in play and the
     /// language its labels were written in. Rebuilding a thousand-entry list
     /// on a frame that changed neither is work nobody asked for.
@@ -373,6 +378,8 @@ impl AppShell {
         let convert_need = Self::new_asset_select(window, cx);
         let settlement_select = Self::new_asset_select(window, cx);
         let holdings_input = Self::new_holdings_input(window, cx);
+        // Same box as the convert holding: empty or a whole number.
+        let walk_input = Self::new_holdings_input(window, cx);
         let season_input =
             cx.new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("0.6"));
         // A picked currency or a typed holding is a new question, so the page
@@ -393,6 +400,14 @@ impl AppShell {
         cx.subscribe(&holdings_input, |this: &mut AppShell, _, event, cx| {
             if matches!(event, gpui_component::input::InputEvent::Change) {
                 this.report_stale = true;
+                cx.notify();
+            }
+        })
+        .detach();
+        // A typed walk amount only redraws the panel: the evaluation is pure
+        // arithmetic on the row's saved leg books, so nothing needs reloading.
+        cx.subscribe(&walk_input, |_: &mut AppShell, _, event, cx| {
+            if matches!(event, gpui_component::input::InputEvent::Change) {
                 cx.notify();
             }
         })
@@ -428,6 +443,7 @@ impl AppShell {
             convert_need,
             settlement_select,
             holdings_input,
+            walk_input,
             convert_choices_key: None,
             convert_choices: Vec::new(),
             convert_synced_pair: None,
