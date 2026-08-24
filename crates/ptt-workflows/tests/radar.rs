@@ -517,6 +517,65 @@ fn the_verdict_is_not_read_off_a_sweep_the_rate_never_claimed_to_cover() {
     }
 }
 
+/// **The profit floor has to apply to the number the page calls profit.**
+///
+/// The header states 收益门槛 1.00% and the 收益 column now shows the round
+/// trip, so a row earning −0.66% when closed cannot be on the page — least of
+/// all wearing 现在就能成交, which is what it wore once the verdict stopped
+/// being read off the enumeration sweep. The floor was still being applied to
+/// the old headline, the margin over the pair's own direct trade.
+///
+/// An unknown round trip is not a failed one: a route the book prices no way
+/// home from keeps its place, because 错杀 is the worse error.
+#[test]
+fn a_route_that_loses_on_the_round_trip_is_not_an_opportunity() {
+    let units = whole_catalog(&["chaos", "divine", "exalt"]);
+    let mut pairs = bridge_pairs().to_vec();
+    // Out: one chaos buys one divine. Home: one divine fetches half a chaos.
+    // Closing it halves the stake, and nothing about the outbound leg says so.
+    pairs.push(("divine", "chaos", "1:2", 10_000));
+    let selection = aged_selection(&pairs, 60, FreshnessStatus::Fresh);
+
+    let result = run_opportunity_radar(
+        &selection,
+        &units,
+        &loop_scope(),
+        &request("chaos", 1_000, &units),
+        &SearchCancellation::default(),
+        |_| {},
+    )
+    .expect("radar");
+
+    let losers: Vec<&str> = result
+        .items
+        .iter()
+        .filter(|item| {
+            item.round_trip_basis_points
+                .is_some_and(|points| points < 100)
+        })
+        .map(|item| item.item_id.as_str())
+        .collect();
+    let shown: Vec<(String, Option<i64>)> = result
+        .items
+        .iter()
+        .map(|item| {
+            (
+                item.path_asset_ids
+                    .iter()
+                    .map(MarketAssetId::as_str)
+                    .collect::<Vec<_>>()
+                    .join(">"),
+                item.round_trip_basis_points,
+            )
+        })
+        .collect();
+    assert!(
+        losers.is_empty(),
+        "the floor is 1.00%; these were listed anyway: {losers:?}
+all: {shown:?}"
+    );
+}
+
 /// A shown route whose every leg is fresh has nothing left to confirm — the
 /// same silence the loops earned, for the same reason: a suggestion that
 /// fires on every scan regardless of the data is noise.

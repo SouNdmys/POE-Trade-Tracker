@@ -476,7 +476,7 @@ pub fn run_opportunity_radar(
             });
             // Priced only for the rows that survive, because it costs a
             // second search each and a row nobody sees needs no answer.
-            let round_trip = round_trip_basis_points(
+            let item_round_trip = round_trip_basis_points(
                 &index,
                 units,
                 &best.path_asset_ids,
@@ -485,6 +485,17 @@ pub fn run_opportunity_radar(
                 request.fee_policy,
                 cancellation,
             );
+            // The floor applies to the number the page calls profit, which
+            // is the round trip. Applying it to the margin over direct while
+            // showing the round trip put a route losing 0.66% on a page
+            // headed "profit floor 1.00%". An *unknown* round trip keeps its
+            // place: the book pricing no way home is not the same as a way
+            // home that loses, and 错杀 is the worse error.
+            if item_round_trip
+                .is_some_and(|points| points < i64::from(request.minimum_conversion_improvement_basis_points))
+            {
+                continue;
+            }
             // Judged on what its own front rows carry; priced, ranked and
             // displayed from the enumeration walk as before.
             let judged = at_front_row_capacity(
@@ -506,7 +517,7 @@ pub fn run_opportunity_radar(
                 &request.thresholds,
                 stake_raised,
                 capacity,
-                round_trip,
+                item_round_trip,
             ));
         }
     }
@@ -774,6 +785,13 @@ fn anchor_capacity(
 /// "Best" by rate rather than by [`ConversionPath`] ranking, because the
 /// question is what the trip is worth, not which walk the engine would pick
 /// for a given size. `None` when the book prices no way home at all.
+/// The size the way-home search enumerates at.
+///
+/// Mirrors `reports::ROUTE_ENUMERATION_SIZE` and exists for the same reason:
+/// the walk drops any path whose next hop floors to zero quanta, so a small
+/// ask deletes every route through a currency dearer than itself.
+const HOME_SEARCH_SIZE: u64 = 1_000_000;
+
 /// The same route re-walked at the largest size its own front rows carry.
 ///
 /// **The verdict describes the rate, so it must not be read off a sweep the
@@ -849,9 +867,13 @@ fn round_trip_basis_points(
         return None;
     }
     let out = chain_rates(index, path, fee_policy).ok().flatten()?;
-    // One unit is only the walk the engine needs to enumerate with; every
-    // number below comes off the front rows, not off this size.
-    let amount_in = AssetAmount::from_whole_units(target.clone(), 1, units).ok()?;
+    // Big enough that the way home does not round itself away. The walk drops
+    // a path the moment a hop floors to zero quanta, so asking for one unit
+    // silently reports "no way home" for every target dearer than what it
+    // buys -- one divine fetching half a chaos disappears. Only ever used to
+    // enumerate; every number below comes off the front rows.
+    let amount_in =
+        AssetAmount::from_whole_units(target.clone(), HOME_SEARCH_SIZE, units).ok()?;
     let home = find_best_conversion(
         index,
         &ConversionRequest {
