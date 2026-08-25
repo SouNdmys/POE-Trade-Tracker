@@ -2087,8 +2087,9 @@ pub fn watchlist_model(
         &seen,
         Some(&market),
     ) {
-        Ok((status, entries, mut candidates)) => {
+        Ok((status, mut entries, mut candidates)) => {
             drop_ignored_probes(&mut candidates, tuning);
+            drop_ignored_coverage(&mut entries, tuning);
             boost_probe_candidates(&mut candidates, pulse);
             CoverageOutcome::Ready(CoverageModel {
                 status,
@@ -2607,9 +2608,10 @@ pub fn probe_queue_model(
         });
     }
 
-    let (_status, coverage, mut candidates) =
+    let (_status, mut coverage, mut candidates) =
         focus_coverage(observations, context_key, &policy, tuning, &seen, None)?;
     drop_ignored_probes(&mut candidates, tuning);
+    drop_ignored_coverage(&mut coverage, tuning);
     boost_probe_candidates(&mut candidates, pulse);
     let missing = coverage
         .iter()
@@ -3258,6 +3260,18 @@ fn drop_ignored_probes(candidates: &mut Vec<ptt_workflows::ProbeCandidate>, tuni
             candidate.from_asset_id.as_str(),
             candidate.to_asset_id.as_str(),
         )
+    });
+}
+
+/// Drops ignored pairs from the coverage entries the gap list is drawn from.
+///
+/// 忽略静音的是"缺口提醒",不是数据:已经 Complete 的对照常留在覆盖里
+/// 计数,只有还缺着的被忽略对退出——否则右栏排队区消失了,底下的
+/// 缺口明细和 74/82 计数还在为同一对报警,两条逻辑各说各话。
+fn drop_ignored_coverage(entries: &mut Vec<ptt_workflows::FocusCoverage>, tuning: &MarketTuning) {
+    entries.retain(|entry| {
+        entry.status == ptt_workflows::FocusCoverageStatus::Complete
+            || !tuning.is_probe_ignored(entry.from_asset_id.as_str(), entry.to_asset_id.as_str())
     });
 }
 
@@ -4212,6 +4226,60 @@ mod structural_tests {
         drop_ignored_probes(&mut candidates, &tuning);
         assert_eq!(candidates.len(), 1, "only the ignored direction goes");
         assert_eq!(candidates[0].from_asset_id.as_str(), "greater-chaos-orb");
+    }
+
+    /// Ignoring a pair silences the gap everywhere, not only the probe
+    /// queue: the coverage entries — the source of the gap list and the
+    /// complete/total count — lose the pair too. Unless it is Complete,
+    /// because ignoring mutes the reminder, not the data.
+    #[test]
+    fn an_ignored_gap_leaves_the_coverage_entries_too() {
+        let entry = |from: &str, to: &str, status| ptt_workflows::FocusCoverage {
+            from_asset_id: asset(from),
+            to_asset_id: asset(to),
+            status,
+            instant_available: false,
+            maker_reference_available: false,
+            latest_observation_at: None,
+            freshness_status: None,
+            priority: ptt_workflows::ProbePriority::Low,
+        };
+        let mut tuning = MarketTuning::default();
+        for (from, to) in [("river-flow", "chaos-orb"), ("river-flow", "divine-orb")] {
+            tuning.ignored_probes.push(ptt_settings::IgnoredProbe {
+                from_asset_id: from.to_owned(),
+                to_asset_id: to.to_owned(),
+            });
+        }
+        let mut entries = vec![
+            // Ignored while still a gap: this is the one that goes.
+            entry(
+                "river-flow",
+                "chaos-orb",
+                ptt_workflows::FocusCoverageStatus::MissingBoth,
+            ),
+            // Ignored but the data arrived anyway: stays and counts.
+            entry(
+                "river-flow",
+                "divine-orb",
+                ptt_workflows::FocusCoverageStatus::Complete,
+            ),
+            // A gap nobody ignored: stays.
+            entry(
+                "chaos-orb",
+                "divine-orb",
+                ptt_workflows::FocusCoverageStatus::MissingInstant,
+            ),
+        ];
+        drop_ignored_coverage(&mut entries, &tuning);
+        assert_eq!(entries.len(), 2, "only the ignored gap goes");
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.to_asset_id.as_str() == "chaos-orb"
+                    && entry.from_asset_id.as_str() == "river-flow"),
+            "the ignored gap must not survive"
+        );
     }
 
     /// A gap touching a scarce or high-turnover currency jumps the probe
