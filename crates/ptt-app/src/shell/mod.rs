@@ -65,14 +65,16 @@ pub enum Page {
 }
 
 impl Page {
+    // 用户定的导航序:按"每天先看什么"排——先看市场活没活(监视器),再看行情
+    // (市场分析/关注列表),再找机会(雷达/兑换),历史和一次性的校准、设置沉底。
     const ALL: [Self; 8] = [
         Self::Monitor,
-        Self::Calibrate,
+        Self::Analytics,
+        Self::Watchlist,
         Self::Opportunities,
         Self::Convert,
-        Self::Watchlist,
         Self::History,
-        Self::Analytics,
+        Self::Calibrate,
         Self::Settings,
     ];
 
