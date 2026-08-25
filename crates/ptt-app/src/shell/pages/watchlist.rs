@@ -1063,7 +1063,7 @@ impl AppShell {
 /// Integer arithmetic with explicit rounding — `91:2` becomes `45.50`, and
 /// `58469137:200000` becomes `292.35` instead of a wall of digits. Display
 /// only; every decision still runs on the exact ratio.
-fn per_unit_text(value: &ptt_trade_domain::Ratio) -> String {
+pub(crate) fn per_unit_text(value: &ptt_trade_domain::Ratio) -> String {
     if value.denominator == 0 {
         return value.text.clone();
     }

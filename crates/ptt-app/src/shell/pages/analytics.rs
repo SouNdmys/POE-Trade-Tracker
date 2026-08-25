@@ -10,7 +10,7 @@
 //! Quantities are drawn as proportional bars scaled within each asset's own
 //! day range: display geometry only, nothing flows back into a model.
 
-use gpui::{Context, InteractiveElement as _, ParentElement, Styled, div, px};
+use gpui::{Context, InteractiveElement as _, IntoElement, ParentElement, Styled, div, px};
 use gpui_component::StyledExt as _;
 use ptt_runtime::report_text;
 use ptt_runtime::reports::AnalyticsModel;
@@ -19,9 +19,11 @@ use ptt_settings::UiLanguage;
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
-use crate::ui::{StatusKind, chip, empty_state, kv_row, mono, panel, panel_header, scrollable};
+use crate::ui::{
+    StatusKind, chip, chip_table, empty_state, kv_row, mono, panel, panel_header, scrollable,
+};
 
-/// Liquidity class → chip colour: scarce is the interesting green-ish state,
+/// Liquidity class → chip colour: scarce is the interesting gold state,
 /// oversupplied and quiet are warnings, balanced is neutral.
 fn class_kind(class: ptt_runtime::domain::LiquidityClass) -> StatusKind {
     match class {
@@ -39,6 +41,99 @@ fn class_kind(class: ptt_runtime::domain::LiquidityClass) -> StatusKind {
 /// one of them is a sign rule the other will drift away from.
 fn signed_percent(value: i64) -> String {
     report_text::signed_percent_from_basis_points(value)
+}
+
+/// 大数字用万(§6):12141911 → 1214万。十万以下保持原样——18531 还读得动,
+/// 精确值永远在明细栏。
+fn wan(units: u128) -> String {
+    if units >= 100_000 {
+        format!("{}万", units / 10_000)
+    } else {
+        units.to_string()
+    }
+}
+
+/// 供需比:买压是在售的几倍,一位小数。标签旁边的依据(§6 规则 3)。
+fn demand_supply_ratio(demand: Option<u128>, supply: Option<u128>) -> Option<String> {
+    let demand = demand?;
+    let supply = supply?;
+    if supply == 0 {
+        return None;
+    }
+    #[allow(clippy::cast_precision_loss)]
+    Some(format!("{:.1}×", demand as f64 / supply as f64))
+}
+
+/// ±2% 以内算持平(§6):一半的行都在这里,全上色就没重点了。
+const FLAT_BAND_BASIS_POINTS: i64 = 200;
+
+/// 趋势判定要求的基线天数。
+const TREND_BASELINE_DAYS: u64 = 7;
+
+/// The 110×22 area sparkline: the curve *is* the trend column.
+///
+/// 每条曲线用自身窗口的最高/最低撑满 22px,只看形状不看绝对值——否则
+/// 52635 的魔鏡和 1.39 的迴響之兆没法画在同一列。涨用金(绿被新鲜度占了),
+/// 跌用砖红,持平灰。
+fn sparkline(points: Vec<f32>, line_color: u32, fill_color: u32) -> impl IntoElement {
+    gpui::canvas(
+        |_, _, _| {},
+        move |bounds, (), window, _| {
+            if points.len() < 2 {
+                return;
+            }
+            let min = points.iter().copied().fold(f32::INFINITY, f32::min);
+            let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            let span = (max - min).max(f32::EPSILON);
+            let width = f32::from(bounds.size.width);
+            let height = f32::from(bounds.size.height);
+            let origin = bounds.origin;
+            #[allow(clippy::cast_precision_loss)]
+            let step = width / (points.len() - 1) as f32;
+            // 上下各让 1px,线帽不被裁。
+            let plot = |index: usize, value: f32| {
+                gpui::point(
+                    origin.x + px(step * index as f32),
+                    origin.y + px(1.0 + (height - 2.0) * (1.0 - (value - min) / span)),
+                )
+            };
+
+            let mut fill = gpui::PathBuilder::fill();
+            fill.move_to(gpui::point(origin.x, origin.y + px(height)));
+            for (index, value) in points.iter().enumerate() {
+                fill.line_to(plot(index, *value));
+            }
+            fill.line_to(gpui::point(origin.x + px(width), origin.y + px(height)));
+            fill.close();
+            if let Ok(path) = fill.build() {
+                window.paint_path(path, c(fill_color));
+            }
+
+            let mut stroke = gpui::PathBuilder::stroke(px(1.5));
+            stroke.move_to(plot(0, points[0]));
+            for (index, value) in points.iter().enumerate().skip(1) {
+                stroke.line_to(plot(index, *value));
+            }
+            if let Ok(path) = stroke.build() {
+                window.paint_path(path, c(line_color));
+            }
+        },
+    )
+    .w(px(110.))
+    .h(px(22.))
+}
+
+/// 数据不够画曲线时:有几天画几根柱,不画假折线(§6)。
+fn day_bars(points: &[f32]) -> gpui::Div {
+    let min = points.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let span = (max - min).max(f32::EPSILON);
+    let mut row = div().h(px(22.)).h_flex().items_end().gap(px(3.));
+    for value in points {
+        let height = 6.0 + 14.0 * ((value - min) / span);
+        row = row.child(div().w(px(8.)).h(px(height)).bg(c(TEXT_GHOST)));
+    }
+    row
 }
 
 impl AppShell {
@@ -153,6 +248,24 @@ impl AppShell {
                 }));
         }
 
+        // 数据天数不足 7 天时,把「趋势整列都是横杠」的原因写在顶栏,
+        // 而不是让人对着 24 个横杠猜(§6)。
+        if u64::from(model.data_days) < TREND_BASELINE_DAYS {
+            head = head.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(div().size(px(6.)).flex_none().rounded_full().bg(c(WARN)))
+                    .child(div().text_size(fs(FS_10_5)).text_color(c(WARN_TEXT)).child(
+                        gpui::SharedString::from(report_text::fill(
+                            text.analytics_trend_baseline,
+                            &[&model.data_days.to_string()],
+                        )),
+                    )),
+            );
+        }
+
         // Column headers, then one row per currency, demand-pressure order.
         let header = div()
             .h_flex()
@@ -163,73 +276,72 @@ impl AppShell {
             .text_size(fs(FS_10_5))
             .text_color(c(TEXT_META))
             .child(div().w(px(190.)).child(gpui::SharedString::from("")))
-            .child(cell_text(text.analytics_col_value, 90.))
-            .child(cell_text(text.analytics_col_demand, 110.))
-            .child(cell_text(text.analytics_col_supply, 110.))
-            .child(cell_text(text.analytics_col_class, 90.))
-            .child(cell_text(text.analytics_col_trend, 120.))
+            .child(cell_text(text.analytics_col_value, 96.))
+            .child(cell_text(text.analytics_col_demand, 90.))
+            .child(cell_text(text.analytics_col_supply, 90.))
+            .child(cell_text(text.analytics_col_ratio, 130.))
+            .child(cell_text(text.analytics_col_trend, 166.))
             .child(cell_text(text.analytics_col_rows, 60.));
 
+        let anchor_id = model
+            .pulse
+            .anchor_asset_id
+            .as_ref()
+            .map(|asset| asset.as_str().to_owned());
         let selected = self.analytics_selected.clone();
         let mut rows = div().flex().flex_col();
+        let mut zebra = false;
         for asset in &model.pulse.assets {
             let id = asset.asset_id.as_str().to_owned();
             let is_selected = selected.as_deref() == Some(id.as_str());
+            let is_anchor = anchor_id.as_deref() == Some(id.as_str());
+            // 价值不写比率(§6 规则 1):「91:2」精确但读不动,「45.50」才是
+            // 人要的数。除法只是显示投影,不回写计算。
             let value = asset
                 .value_in_anchor
                 .as_ref()
-                .map_or_else(|| "-".to_owned(), |rate| rate.text.clone());
-            let demand = asset.demand_anchor.map_or_else(
-                || format!("{}?", asset.demand_units),
-                |units| units.to_string(),
-            );
-            let supply = asset.supply_anchor.map_or_else(
-                || format!("{}?", asset.supply_units),
-                |units| units.to_string(),
-            );
-            let trend = asset
-                .trend_bps_relative
-                .map_or_else(|| "-".to_owned(), signed_percent);
-            let verdict = asset
-                .verdict
-                .map_or("", |verdict| report_text::trend_verdict(language, verdict));
-            let click_id = id.clone();
-            let mut row = div()
-                .id(gpui::SharedString::from(format!("pulse-{id}")))
+                .map_or_else(|| "—".to_owned(), super::watchlist::per_unit_text);
+            let demand = asset
+                .demand_anchor
+                .map_or_else(|| format!("{}?", wan(asset.demand_units)), wan);
+            let supply = asset
+                .supply_anchor
+                .map_or_else(|| format!("{}?", wan(asset.supply_units)), wan);
+            let ratio = demand_supply_ratio(asset.demand_anchor, asset.supply_anchor);
+
+            // 默认态不给标签(§6 规则 2):供需均衡就是没事,没事不占眼睛。
+            let mut ratio_cell = div()
+                .w(px(130.))
+                .flex_none()
                 .h_flex()
                 .items_center()
-                .gap_2()
-                .px_2()
-                .py_1()
-                .text_size(fs(FS_11_5))
-                .cursor_pointer()
-                .on_mouse_down(
-                    gpui::MouseButton::Left,
-                    cx.listener(move |this, _, _, cx| {
-                        this.analytics_selected = Some(click_id.clone());
-                        cx.notify();
-                    }),
-                )
+                .gap(px(6.))
                 .child(
-                    div()
-                        .w(px(190.))
-                        .flex_none()
-                        .overflow_hidden()
-                        .child(mono(self.display_name(&id)).text_size(fs(FS_11_5))),
-                )
-                .child(cell_mono(value, 90.))
-                .child(cell_mono(demand, 110.))
-                .child(cell_mono(supply, 110.))
-                .child(div().w(px(90.)).flex_none().child(chip(
+                    mono(ratio.unwrap_or_else(|| "—".to_owned()))
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_DATA)),
+                );
+            if asset.class != ptt_runtime::domain::LiquidityClass::Balanced {
+                ratio_cell = ratio_cell.child(chip_table(
                     class_kind(asset.class),
                     report_text::liquidity_class(language, asset.class),
-                )))
-                .child(cell_mono(format!("{trend} {verdict}"), 120.))
-                .child(cell_mono(asset.listing_rows.to_string(), 60.));
-            if is_selected {
-                row = row.bg(c(ACCENT_WASH));
+                ));
             }
-            rows = rows.child(row);
+
+            rows = rows.child(self.analytics_row(
+                asset,
+                &id,
+                is_selected,
+                is_anchor,
+                zebra,
+                value,
+                demand,
+                supply,
+                ratio_cell,
+                language,
+                cx,
+            ));
+            zebra = !zebra;
         }
 
         panel()
@@ -242,6 +354,144 @@ impl AppShell {
             .child(head)
             .child(header)
             .child(scrollable(rows, "analytics-rows"))
+    }
+
+    /// One pulse row at the fixed 28px height, trend drawn as its shape.
+    #[allow(clippy::too_many_arguments)]
+    fn analytics_row(
+        &self,
+        asset: &ptt_runtime::domain::AssetPulse,
+        id: &str,
+        is_selected: bool,
+        is_anchor: bool,
+        zebra: bool,
+        value: String,
+        demand: String,
+        supply: String,
+        ratio_cell: gpui::Div,
+        language: UiLanguage,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let text = self.text();
+
+        // 趋势列(§6 定稿):曲线就是趋势,不再写词。
+        let trend_cell: gpui::AnyElement = if is_anchor {
+            // 锚对自己恒为 1:画出来是一条直线,是误导不是信息。
+            div()
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_GHOST))
+                .child(text.analytics_anchor_constant)
+                .into_any_element()
+        } else {
+            let points: Vec<f32> = asset
+                .value_by_day
+                .iter()
+                .rev()
+                .take(TREND_BASELINE_DAYS as usize)
+                .rev()
+                .filter_map(|(_, rate)| {
+                    if rate.denominator == 0 {
+                        None
+                    } else {
+                        #[allow(clippy::cast_precision_loss)]
+                        Some(rate.numerator as f32 / rate.denominator as f32)
+                    }
+                })
+                .collect();
+            #[allow(clippy::cast_possible_truncation)]
+            let missing = (TREND_BASELINE_DAYS as usize).saturating_sub(points.len());
+            if points.len() < 2 {
+                div()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED))
+                    .child(gpui::SharedString::from(report_text::fill(
+                        text.analytics_days_short,
+                        &[&missing.to_string()],
+                    )))
+                    .into_any_element()
+            } else if missing > 0 {
+                // 有几天画几根柱 + 还差几天:不画假曲线。
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(day_bars(&points))
+                    .child(
+                        div()
+                            .text_size(fs(FS_10))
+                            .text_color(c(TEXT_DISABLED))
+                            .child(gpui::SharedString::from(report_text::fill(
+                                text.analytics_days_short,
+                                &[&missing.to_string()],
+                            ))),
+                    )
+                    .into_any_element()
+            } else {
+                let relative = asset.trend_bps_relative.unwrap_or(0);
+                // 涨用金(绿被新鲜度占了),跌用砖红,±2% 灰——一半的行都
+                // 持平,全上色就没重点了。
+                let (line, fill, text_color) = if relative >= FLAT_BAND_BASIS_POINTS {
+                    (ACCENT, ACCENT_FILL, ACCENT_TEXT)
+                } else if relative <= -FLAT_BAND_BASIS_POINTS {
+                    (DANGER, DANGER_WASH, DANGER_TEXT)
+                } else {
+                    (TEXT_DISABLED, RAIL_DEEP, TEXT_META)
+                };
+                let delta = asset
+                    .trend_bps_relative
+                    .map_or_else(|| "—".to_owned(), signed_percent);
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(sparkline(points, line, fill))
+                    .child(mono(delta).text_size(fs(FS_10_5)).text_color(c(text_color)))
+                    .into_any_element()
+            }
+        };
+        let _ = language;
+
+        let click_id = id.to_owned();
+        let mut row = div()
+            .id(gpui::SharedString::from(format!("pulse-{id}")))
+            .h(px(H_TABLE_ROW))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .gap_2()
+            .px_2()
+            .border_b_1()
+            .border_color(c(HAIRLINE_SOFT))
+            .text_size(fs(FS_11_5))
+            .cursor_pointer()
+            .on_mouse_down(
+                gpui::MouseButton::Left,
+                cx.listener(move |this, _, _, cx| {
+                    this.analytics_selected = Some(click_id.clone());
+                    cx.notify();
+                }),
+            )
+            .child(
+                div()
+                    .w(px(190.))
+                    .flex_none()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_color(c(if is_anchor { ACCENT_TEXT } else { TEXT_PRIMARY }))
+                    .child(gpui::SharedString::from(self.display_name(id))),
+            )
+            .child(cell_mono(value, 96.))
+            .child(cell_mono(demand, 90.))
+            .child(cell_mono(supply, 90.))
+            .child(ratio_cell)
+            .child(div().w(px(166.)).flex_none().child(trend_cell))
+            .child(cell_mono(asset.listing_rows.to_string(), 60.));
+        if is_selected {
+            row = row.bg(c(SELECTED));
+        } else if zebra {
+            row = row.bg(c(ZEBRA));
+        }
+        row
     }
 
     /// The selected currency's day-by-day story.

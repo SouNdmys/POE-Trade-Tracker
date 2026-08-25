@@ -430,6 +430,16 @@ pub struct Text {
     pub coverage_rest_fine: &'static str,
     /// 建议区的一句话依据。
     pub suggestion_hint: &'static str,
+
+    // -- analytics trend column (§6 迷你曲线) --
+    /// 结算锚那行不画曲线:它对自己恒为 1,画出来是误导。
+    pub analytics_anchor_constant: &'static str,
+    /// 数据不够画曲线时的柱旁说明:`还差 {} 天`
+    pub analytics_days_short: &'static str,
+    /// 顶栏的趋势基线提示:`趋势要 7 天基线，目前 {} 天`
+    pub analytics_trend_baseline: &'static str,
+    /// 供需比列头。
+    pub analytics_col_ratio: &'static str,
 }
 
 impl Text {
@@ -711,6 +721,10 @@ impl Text {
             ("probe_hud_hint", self.probe_hud_hint),
             ("coverage_rest_fine", self.coverage_rest_fine),
             ("suggestion_hint", self.suggestion_hint),
+            ("analytics_anchor_constant", self.analytics_anchor_constant),
+            ("analytics_days_short", self.analytics_days_short),
+            ("analytics_trend_baseline", self.analytics_trend_baseline),
+            ("analytics_col_ratio", self.analytics_col_ratio),
         ]
     }
 }
@@ -1006,6 +1020,11 @@ pub static ENGLISH: Text = Text {
     probe_hud_hint: "queued pairs reach the HUD",
     coverage_rest_fine: "the other {} currencies are complete, nothing to do",
     suggestion_hint: "buy pressure clearly above supply, worth watching",
+
+    analytics_anchor_constant: "anchor · always 1",
+    analytics_days_short: "{} more days",
+    analytics_trend_baseline: "trend needs a 7-day baseline, only {} so far",
+    analytics_col_ratio: "d/s",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1299,6 +1318,11 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     probe_hud_hint: "排队的会进浮窗",
     coverage_rest_fine: "其余 {} 种通货数据齐全，无需处理",
     suggestion_hint: "买压明显高于在售，值得盯",
+
+    analytics_anchor_constant: "结算锚 · 恒为 1",
+    analytics_days_short: "还差 {} 天",
+    analytics_trend_baseline: "趋势要 7 天基线，目前 {} 天",
+    analytics_col_ratio: "供需",
 };
 
 #[cfg(test)]
