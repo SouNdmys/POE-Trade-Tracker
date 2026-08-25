@@ -202,8 +202,16 @@ pub fn c(hex: u32) -> Rgba {
     gpui::rgb(hex)
 }
 
+/// 全局字号缩放。
+///
+/// 用户实机反馈:设计稿的 12px 正文在 2560×1440 上看着吃力。字号整体放大
+/// 一成、布局常量一律不动——28px 的行放 13px 的字没有问题,列宽靠截断
+/// 兜底(截断优于换行是既定规矩)。调回 1.0 就是设计稿原始字号。
+pub const UI_SCALE: f32 = 1.1;
+
+/// 字号 → 像素,带全局缩放,取整到半像素保持清晰。
 pub fn fs(v: f32) -> Pixels {
-    px(v)
+    px((v * UI_SCALE * 2.0).round() / 2.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -218,9 +226,9 @@ pub fn apply_app_theme(cx: &mut App) {
 
     theme.mode = ThemeMode::Dark;
     theme.font_family = FONT_UI.into();
-    theme.font_size = px(FS_12);
+    theme.font_size = fs(FS_12);
     theme.mono_font_family = FONT_MONO.into();
-    theme.mono_font_size = px(FS_10_5);
+    theme.mono_font_size = fs(FS_10_5);
     // 面板/输入 0 圆角;按钮/徽章的 2px 由组件层自己画。
     theme.radius = px(0.);
     theme.radius_lg = px(0.);
