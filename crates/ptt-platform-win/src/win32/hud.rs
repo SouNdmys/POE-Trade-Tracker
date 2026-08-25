@@ -89,7 +89,10 @@ unsafe fn hud_text(
     }
 }
 
-/// Ledger 两态状态卡绘制。
+/// 方案 A 状态卡绘制(§4 浮窗定稿)。
+///
+/// 全部由实心矩形 + 文字构成:`FillRect`/`FrameRect`/`DrawTextW` 直接能画,
+/// 不需要圆角、阴影、渐变。
 unsafe fn paint_hud(hwnd: HWND) {
     let mut paint = PAINTSTRUCT::default();
     // SAFETY: balanced Begin/EndPaint on our HWND.
@@ -102,31 +105,44 @@ unsafe fn paint_hud(hwnd: HWND) {
         .unwrap_or_default()
         .unwrap_or_default();
 
-    let (bar, border, dot, status_color, meta) = if content.monitoring {
-        (
-            hud_rgb(0x0E, 0x6A, 0x64),
-            hud_rgb(0xA6, 0xC9, 0xC4),
-            hud_rgb(0x0E, 0x6A, 0x64),
-            hud_rgb(0x0B, 0x53, 0x4E),
-            hud_rgb(0x52, 0x4C, 0x41),
-        )
+    // 方案 A 深色板(theme.rs 的同名 token)。
+    let panel = hud_rgb(0x17, 0x1B, 0x23);
+    let border = hud_rgb(0x39, 0x42, 0x4F);
+    let hairline = hud_rgb(0x22, 0x28, 0x34);
+    let gold = hud_rgb(0xD9, 0xB9, 0x78);
+    let red = hud_rgb(0xD0, 0x56, 0x4B);
+    let green = hud_rgb(0x45, 0xA9, 0x6B);
+    let amber = hud_rgb(0xE0, 0x8A, 0x3C);
+    let text_primary = hud_rgb(0xE6, 0xE9, 0xEF);
+    let text_secondary = hud_rgb(0xA9, 0xB1, 0xBE);
+    let text_meta = hud_rgb(0x78, 0x82, 0x8F);
+    let text_disabled = hud_rgb(0x59, 0x61, 0x6E);
+    let text_ghost = hud_rgb(0x3F, 0x46, 0x50);
+    let text_data = hud_rgb(0xD9, 0xE0, 0xEA);
+    let amber_text = hud_rgb(0xE5, 0xA2, 0x4E);
+    let red_text = hud_rgb(0xE0, 0x70, 0x5F);
+
+    // 左侧 2px 竖条:金 = 在跑,红 = 停了。
+    let bar_color = if content.monitoring { gold } else { red };
+    let (tone_dot, tone_text) = match content.tone {
+        crate::hud::HudTone::Ok => (green, text_secondary),
+        crate::hud::HudTone::Warn => (amber, amber_text),
+        crate::hud::HudTone::Err => (red, red_text),
+    };
+    // 跳过时数字不抹掉,但不允许它装成刚读到的:整体降一档灰。
+    let (row_rate, row_rate_front, row_stock) = if content.dimmed {
+        (text_meta, text_meta, text_meta)
     } else {
-        (
-            hud_rgb(0xA7, 0x9E, 0x8E),
-            hud_rgb(0xCB, 0xC2, 0xB2),
-            hud_rgb(0xA7, 0x9E, 0x8E),
-            hud_rgb(0x52, 0x4C, 0x41),
-            hud_rgb(0x6F, 0x67, 0x59),
-        )
+        (text_data, text_primary, text_secondary)
     };
 
     // SAFETY: brushes/fonts created and released within this scope.
     unsafe {
-        let canvas = CreateSolidBrush(hud_rgb(0xF5, 0xF2, 0xEC));
+        let panel_brush = CreateSolidBrush(panel);
         let border_brush = CreateSolidBrush(border);
-        let bar_brush = CreateSolidBrush(bar);
-        let dot_brush = CreateSolidBrush(dot);
-        FillRect(dc, &client, canvas);
+        let bar_brush = CreateSolidBrush(bar_color);
+        let hairline_brush = CreateSolidBrush(hairline);
+        FillRect(dc, &client, panel_brush);
         FrameRect(dc, &client, border_brush);
         let left_bar = RECT {
             left: client.left,
@@ -135,73 +151,387 @@ unsafe fn paint_hud(hwnd: HWND) {
             bottom: client.bottom,
         };
         FillRect(dc, &left_bar, bar_brush);
-        let dot_rect = RECT {
-            left: client.left + 11,
-            top: client.top + 12,
-            right: client.left + 17,
-            bottom: client.top + 18,
-        };
-        FillRect(dc, &dot_rect, dot_brush);
         SetBkMode(dc, TRANSPARENT);
 
-        let status_font = hud_font(16, FW_SEMIBOLD.0 as i32);
-        let mono_font = hud_font(14, FW_NORMAL.0 as i32);
-        hud_text(
-            dc,
-            status_font,
-            status_color,
-            &content.status_text,
-            RECT {
-                left: client.left + 24,
-                top: client.top + 6,
-                right: client.right - 70,
-                bottom: client.top + 26,
-            },
-            DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
-        );
-        hud_text(
-            dc,
-            mono_font,
-            meta,
-            &content.elapsed,
-            RECT {
-                left: client.right - 68,
-                top: client.top + 6,
-                right: client.right - 10,
-                bottom: client.top + 26,
-            },
-            DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
-        );
-        // Body lines, stacked until the card runs out of room. Clipping is
-        // deliberate: a HUD that grows to fit its content would cover the
-        // panel it is reporting on.
-        let line_height = 17_i32;
-        let mut top = client.top + 30;
-        for line in &content.lines {
-            if top + line_height > client.bottom - 4 {
-                break;
-            }
+        let status_font = hud_font(15, FW_SEMIBOLD.0 as i32);
+        let body_font = hud_font(14, FW_NORMAL.0 as i32);
+        let small_font = hud_font(12, FW_NORMAL.0 as i32);
+
+        let dot = |dc, x: i32, y: i32, size: i32, color| {
+            let brush = CreateSolidBrush(color);
+            let rect = RECT {
+                left: x,
+                top: y,
+                right: x + size,
+                bottom: y + size,
+            };
+            FillRect(dc, &rect, brush);
+            let _ = DeleteObject(HGDIOBJ(brush.0));
+        };
+        let hline = |dc, y: i32| {
+            let rect = RECT {
+                left: client.left + 2,
+                top: y,
+                right: client.right - 1,
+                bottom: y + 1,
+            };
+            FillRect(dc, &rect, hairline_brush);
+        };
+        let single = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS;
+
+        if content.mini {
+            // 迷你档 88 = 内边距 5+5 + 状态 20 + 通货对 20 + 结论 20 + 待抓 18。
+            let left = client.left + 11;
+            let right = client.right - 8;
+            let mut top = client.top + 5;
+            dot(dc, left, top + 7, 6, bar_color);
             hud_text(
                 dc,
-                mono_font,
-                meta,
-                line,
+                status_font,
+                text_primary,
+                &content.status_text,
                 RECT {
-                    left: client.left + 11,
+                    left: left + 11,
                     top,
-                    right: client.right - 10,
-                    bottom: top + line_height,
+                    right: right - 44,
+                    bottom: top + 20,
                 },
-                DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
+                single,
             );
-            top += line_height;
+            hud_text(
+                dc,
+                small_font,
+                text_disabled,
+                &content.sequence_text,
+                RECT {
+                    left: right - 44,
+                    top,
+                    right,
+                    bottom: top + 20,
+                },
+                DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+            );
+            top += 20;
+            // 通货对:降灰时右侧标「8s 前」。
+            let pair_color = if content.dimmed { text_meta } else { text_data };
+            hud_text(
+                dc,
+                body_font,
+                pair_color,
+                &content.pair_text,
+                RECT {
+                    left,
+                    top,
+                    right: right - 50,
+                    bottom: top + 20,
+                },
+                single,
+            );
+            if content.dimmed {
+                hud_text(
+                    dc,
+                    small_font,
+                    text_disabled,
+                    &content.dimmed_note,
+                    RECT {
+                        left: right - 50,
+                        top,
+                        right,
+                        bottom: top + 20,
+                    },
+                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+                );
+            }
+            top += 20;
+            dot(dc, left, top + 7, 6, tone_dot);
+            hud_text(
+                dc,
+                small_font,
+                tone_text,
+                &content.verdict_text,
+                RECT {
+                    left: left + 11,
+                    top,
+                    right,
+                    bottom: top + 20,
+                },
+                single,
+            );
+            top += 20;
+            if !content.probe_text.is_empty() {
+                hud_text(
+                    dc,
+                    small_font,
+                    text_meta,
+                    &content.probe_text,
+                    RECT {
+                        left,
+                        top,
+                        right: right - 26,
+                        bottom: top + 18,
+                    },
+                    single,
+                );
+                hud_text(
+                    dc,
+                    small_font,
+                    text_ghost,
+                    &content.probe_more,
+                    RECT {
+                        left: right - 26,
+                        top,
+                        right,
+                        bottom: top + 18,
+                    },
+                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+                );
+            }
+        } else {
+            // 展开档:26 头行 | 137 两栏 | 24 结论 | 20 待抓,段间 hairline。
+            let left = client.left + 11;
+            let right = client.right - 10;
+            let header_bottom = client.top + 26;
+            dot(dc, left, client.top + 10, 6, bar_color);
+            hud_text(
+                dc,
+                status_font,
+                text_primary,
+                &content.status_text,
+                RECT {
+                    left: left + 11,
+                    top: client.top,
+                    right: left + 75,
+                    bottom: header_bottom,
+                },
+                single,
+            );
+            hud_text(
+                dc,
+                body_font,
+                text_data,
+                &content.pair_text,
+                RECT {
+                    left: left + 80,
+                    top: client.top,
+                    right: right - 40,
+                    bottom: header_bottom,
+                },
+                single,
+            );
+            hud_text(
+                dc,
+                small_font,
+                text_disabled,
+                &content.sequence_text,
+                RECT {
+                    left: right - 40,
+                    top: client.top,
+                    right,
+                    bottom: header_bottom,
+                },
+                DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+            );
+            hline(dc, header_bottom);
+
+            // 两栏:上边距 6 + 栏头 16 + 6×18 行 + 下边距 4 = 137。
+            let body_top = header_bottom + 1;
+            let column_width = (right - left - 12) / 2;
+            let columns = [
+                (left, &content.column_titles.0, &content.available),
+                (
+                    left + column_width + 12,
+                    &content.column_titles.1,
+                    &content.competing,
+                ),
+            ];
+            for (x, title, rows) in columns {
+                let col_right = x + column_width;
+                let head_top = body_top + 6;
+                hud_text(
+                    dc,
+                    small_font,
+                    text_secondary,
+                    title,
+                    RECT {
+                        left: x,
+                        top: head_top,
+                        right: x + 60,
+                        bottom: head_top + 16,
+                    },
+                    single,
+                );
+                hud_text(
+                    dc,
+                    small_font,
+                    text_ghost,
+                    &content.header_titles.0,
+                    RECT {
+                        left: col_right - 110,
+                        top: head_top,
+                        right: col_right - 56,
+                        bottom: head_top + 16,
+                    },
+                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+                );
+                hud_text(
+                    dc,
+                    small_font,
+                    text_ghost,
+                    &content.header_titles.1,
+                    RECT {
+                        left: col_right - 54,
+                        top: head_top,
+                        right: col_right,
+                        bottom: head_top + 16,
+                    },
+                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+                );
+                let mut row_top = head_top + 16;
+                for (index, row) in rows.iter().take(6).enumerate() {
+                    if row.aggregate {
+                        // 第 6 行(及更差)上方一条 hairline。
+                        hline(dc, row_top);
+                    }
+                    let idx_color = if row.aggregate {
+                        text_ghost
+                    } else {
+                        text_disabled
+                    };
+                    let rate_color = if row.aggregate {
+                        text_meta
+                    } else if index == 0 {
+                        row_rate_front
+                    } else {
+                        row_rate
+                    };
+                    let stock_color = if row.aggregate { text_meta } else { row_stock };
+                    hud_text(
+                        dc,
+                        small_font,
+                        idx_color,
+                        &row.index,
+                        RECT {
+                            left: x,
+                            top: row_top,
+                            right: x + 14,
+                            bottom: row_top + 18,
+                        },
+                        single,
+                    );
+                    hud_text(
+                        dc,
+                        body_font,
+                        rate_color,
+                        &row.rate,
+                        RECT {
+                            left: x + 18,
+                            top: row_top,
+                            right: col_right - 58,
+                            bottom: row_top + 18,
+                        },
+                        single,
+                    );
+                    hud_text(
+                        dc,
+                        body_font,
+                        stock_color,
+                        &row.stock,
+                        RECT {
+                            left: col_right - 56,
+                            top: row_top,
+                            right: col_right,
+                            bottom: row_top + 18,
+                        },
+                        DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+                    );
+                    row_top += 18;
+                }
+            }
+            let body_bottom = body_top + 137;
+            hline(dc, body_bottom);
+
+            // 结论:● 一句人话 + 右侧计数。跳过时加 2px 琥珀左条。
+            let verdict_top = body_bottom + 1;
+            let verdict_bottom = verdict_top + 24;
+            if content.tone == crate::hud::HudTone::Warn {
+                let strip = RECT {
+                    left: client.left + 2,
+                    top: verdict_top,
+                    right: client.left + 4,
+                    bottom: verdict_bottom,
+                };
+                let amber_brush = CreateSolidBrush(amber);
+                FillRect(dc, &strip, amber_brush);
+                let _ = DeleteObject(HGDIOBJ(amber_brush.0));
+            }
+            dot(dc, left, verdict_top + 9, 6, tone_dot);
+            hud_text(
+                dc,
+                body_font,
+                tone_text,
+                &content.verdict_text,
+                RECT {
+                    left: left + 11,
+                    top: verdict_top,
+                    right: right - 150,
+                    bottom: verdict_bottom,
+                },
+                single,
+            );
+            hud_text(
+                dc,
+                small_font,
+                text_disabled,
+                &content.verdict_meta,
+                RECT {
+                    left: right - 150,
+                    top: verdict_top,
+                    right,
+                    bottom: verdict_bottom,
+                },
+                DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+            );
+
+            // 待抓底条:固定最底,只显示最紧的 1 条;不给颜色、不给按钮。
+            if !content.probe_text.is_empty() {
+                hline(dc, verdict_bottom);
+                let probe_top = verdict_bottom + 1;
+                hud_text(
+                    dc,
+                    small_font,
+                    text_meta,
+                    &content.probe_text,
+                    RECT {
+                        left,
+                        top: probe_top,
+                        right: right - 26,
+                        bottom: probe_top + 19,
+                    },
+                    single,
+                );
+                hud_text(
+                    dc,
+                    small_font,
+                    text_ghost,
+                    &content.probe_more,
+                    RECT {
+                        left: right - 26,
+                        top: probe_top,
+                        right,
+                        bottom: probe_top + 19,
+                    },
+                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT,
+                );
+            }
         }
+
         let _ = DeleteObject(HGDIOBJ(status_font.0));
-        let _ = DeleteObject(HGDIOBJ(mono_font.0));
-        let _ = DeleteObject(HGDIOBJ(canvas.0));
+        let _ = DeleteObject(HGDIOBJ(body_font.0));
+        let _ = DeleteObject(HGDIOBJ(small_font.0));
+        let _ = DeleteObject(HGDIOBJ(panel_brush.0));
         let _ = DeleteObject(HGDIOBJ(border_brush.0));
         let _ = DeleteObject(HGDIOBJ(bar_brush.0));
-        let _ = DeleteObject(HGDIOBJ(dot_brush.0));
+        let _ = DeleteObject(HGDIOBJ(hairline_brush.0));
         let _ = EndPaint(hwnd, &paint);
     }
 }
@@ -382,6 +712,12 @@ impl NativeHudWindow {
     }
 
     /// 取走用户拖动结束后的窗口左上角(无新拖动时为 None)。
+    pub(crate) fn set_opacity(&mut self, alpha: u8) -> Result<(), PlatformError> {
+        // SAFETY: `hwnd` is this owner's live layered top-level window.
+        unsafe { SetLayeredWindowAttributes(self.hwnd, COLORREF(0), alpha, LWA_ALPHA) }
+            .map_err(|error| error_from_windows("SetLayeredWindowAttributes", error))
+    }
+
     pub(crate) fn take_user_move(&mut self) -> Option<(i32, i32)> {
         HUD_USER_MOVE.lock().ok().and_then(|mut slot| slot.take())
     }

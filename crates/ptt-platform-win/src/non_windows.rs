@@ -68,6 +68,10 @@ impl NativeHudWindow {
         Err(PlatformError::unsupported("status HUD window"))
     }
 
+    pub(crate) fn set_opacity(&mut self, _alpha: u8) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
     pub(crate) fn take_user_move(&mut self) -> Option<(i32, i32)> {
         None
     }

@@ -531,6 +531,74 @@ pub struct AppSettings {
     /// Absent games use [`MarketTuning::default`].
     #[serde(default)]
     pub market: BTreeMap<String, MarketTuning>,
+    /// The overlay card:档位、不透明度、摆放(§4 浮窗定稿)。
+    #[serde(default)]
+    pub hud: HudSettings,
+}
+
+/// 浮窗两档:迷你只答"识别还活着吗",展开加上十二行报价原样。
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HudTier {
+    Mini,
+    #[default]
+    Expanded,
+}
+
+/// 浮窗摆放。位置存相对比例(千分位整数)不存像素:换分辨率/换显示器
+/// 不会飞到屏幕外(`resolve_hud_position` 已按比例换算)。
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "mode")]
+pub enum HudPlacementSetting {
+    #[default]
+    Automatic,
+    Manual {
+        relative_x_permille: u32,
+        relative_y_permille: u32,
+    },
+}
+
+/// The overlay card's persisted knobs (§4 浮窗:现在只存了热键的历史欠账)。
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HudSettings {
+    #[serde(default)]
+    pub tier: HudTier,
+    /// 60–100,步长 5。下限 60 是因为再低 10px 的灰字就糊了(`3b`)。
+    #[serde(default = "default_hud_opacity")]
+    pub opacity_percent: u8,
+    #[serde(default)]
+    pub placement: HudPlacementSetting,
+}
+
+const fn default_hud_opacity() -> u8 {
+    85
+}
+
+impl Default for HudSettings {
+    fn default() -> Self {
+        Self {
+            tier: HudTier::default(),
+            opacity_percent: default_hud_opacity(),
+            placement: HudPlacementSetting::default(),
+        }
+    }
+}
+
+impl HudSettings {
+    /// The opacity a hand-edited file actually gets: clamped into [60, 100]
+    /// and snapped to the 5% step.
+    #[must_use]
+    pub fn clamped_opacity(&self) -> u8 {
+        (self.opacity_percent.clamp(60, 100) / 5) * 5
+    }
+
+    /// `LWA_ALPHA` 的 0–255 值。
+    #[must_use]
+    pub fn alpha(&self) -> u8 {
+        let percent = u16::from(self.clamped_opacity());
+        u8::try_from(percent * 255 / 100).unwrap_or(216)
+    }
 }
 
 fn default_active_profile() -> ProfileId {
@@ -546,6 +614,7 @@ impl Default for AppSettings {
             profiles: BTreeMap::new(),
             hotkeys: Hotkeys::default(),
             market: BTreeMap::new(),
+            hud: HudSettings::default(),
         }
     }
 }

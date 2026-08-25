@@ -519,6 +519,21 @@ pub struct Text {
     pub hud_hotkey_watch: &'static str,
     pub hud_hotkey_toggle: &'static str,
     pub hud_hotkey_capture: &'static str,
+
+    // -- overlay card (§4 浮窗定稿) --
+    /// 结论行绿态:`{} 行全部读到`
+    pub hud_rows_ok: &'static str,
+    /// 结论行右侧:`{}ms · 已接受 {} · 跳过 {}`
+    pub hud_meta: &'static str,
+    /// 待抓底条的引导词。
+    pub hud_probe_label: &'static str,
+    /// 降灰时的年龄标注:`{}s 前`
+    pub hud_ago: &'static str,
+    /// 浮窗设置:档位与不透明度。
+    pub hud_tier_label: &'static str,
+    pub hud_tier_mini: &'static str,
+    pub hud_tier_expanded: &'static str,
+    pub hud_opacity_label: &'static str,
 }
 
 impl Text {
@@ -855,6 +870,14 @@ impl Text {
             ("hud_hotkey_watch", self.hud_hotkey_watch),
             ("hud_hotkey_toggle", self.hud_hotkey_toggle),
             ("hud_hotkey_capture", self.hud_hotkey_capture),
+            ("hud_rows_ok", self.hud_rows_ok),
+            ("hud_meta", self.hud_meta),
+            ("hud_probe_label", self.hud_probe_label),
+            ("hud_ago", self.hud_ago),
+            ("hud_tier_label", self.hud_tier_label),
+            ("hud_tier_mini", self.hud_tier_mini),
+            ("hud_tier_expanded", self.hud_tier_expanded),
+            ("hud_opacity_label", self.hud_opacity_label),
         ]
     }
 }
@@ -1210,6 +1233,15 @@ pub static ENGLISH: Text = Text {
     hud_hotkey_watch: "watch toggle",
     hud_hotkey_toggle: "overlay toggle",
     hud_hotkey_capture: "capture one frame",
+
+    hud_rows_ok: "all {} rows read",
+    hud_meta: "{}ms · accepted {} · skipped {}",
+    hud_probe_label: "capture next",
+    hud_ago: "{}s ago",
+    hud_tier_label: "tier",
+    hud_tier_mini: "mini",
+    hud_tier_expanded: "expanded",
+    hud_opacity_label: "opacity",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1563,6 +1595,15 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     hud_hotkey_watch: "监视开关",
     hud_hotkey_toggle: "浮窗开关",
     hud_hotkey_capture: "手动抓一帧",
+
+    hud_rows_ok: "{} 行全部读到",
+    hud_meta: "{}ms · 已接受 {} · 跳过 {}",
+    hud_probe_label: "待抓",
+    hud_ago: "{}s 前",
+    hud_tier_label: "档位",
+    hud_tier_mini: "迷你",
+    hud_tier_expanded: "展开",
+    hud_opacity_label: "不透明度",
 };
 
 #[cfg(test)]

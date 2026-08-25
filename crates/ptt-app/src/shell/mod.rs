@@ -31,16 +31,16 @@ const LOG_CAPACITY: usize = 120;
 /// the screen, which is exactly what the card must not cover.
 const HUD_ORIGIN: (i32, i32) = (24, 24);
 
-/// Sized to the panel it mirrors, not to a round number.
+/// §4 定稿的两档尺寸。
 ///
-/// The exchange shows at most twelve rows — six available, six competing — and
-/// the point of the card is to read them without alt-tabbing, so all twelve
-/// have to fit or it answers half the question. The painter stacks 17px lines
-/// from 30px down with a 4px foot, so sixteen lines need 306: twelve rows, the
-/// pair, a blank, and the recognition verdict, with one spare.
-const HUD_SIZE: (i32, i32) = (420, 310);
-/// Twelve rows plus pair, spacer and verdict.
-const HUD_BODY_LINES: usize = 16;
+/// 展开 210 = 头行 26 + 线 1 + 两栏 137(上边距 6 + 栏头 16 + 6×18 行 +
+/// 下边距 4 - 1) + 线 1 + 结论 24 + 线 1 + 待抓 20:左右两栏只要 6 行,
+/// 高度比上下排砍掉三分之一,遮住的游戏画面更少。迷你 88 = 内边距 5+5 +
+/// 状态 20 + 通货对 20 + 结论 20 + 待抓 18。
+const HUD_SIZE_MINI: (i32, i32) = (260, 88);
+const HUD_SIZE_EXPANDED: (i32, i32) = (420, 210);
+/// 待抓队列空了整条消失,浮窗自动矮这么多。
+const HUD_PROBE_STRIP: i32 = 20;
 
 /// The report window when settings hold nonsense. The real value comes from
 /// `MarketTuning::report_window_hours` — wide enough to load the data the
@@ -190,8 +190,6 @@ struct LastBook {
     /// The panel's own two slots, never overridden by a page's selection.
     have: String,
     need: String,
-    /// The rows as sentences, for the card.
-    rows: Vec<String>,
     /// The same rows with their fields intact, for the window.
     order_rows: Vec<ptt_runtime::pipeline::BookRow>,
     /// Typed facts about the pair, drawn as the monitor's earn table.
@@ -585,7 +583,6 @@ impl AppShell {
                         elapsed_ms,
                         need_asset_id,
                         have_asset_id,
-                        rows,
                         order_rows,
                         analysis,
                     } => {
@@ -602,7 +599,6 @@ impl AppShell {
                             elapsed_ms,
                             have: have_asset_id,
                             need: need_asset_id,
-                            rows,
                             order_rows,
                             analysis: *analysis,
                             received_at: std::time::Instant::now(),
@@ -899,19 +895,6 @@ impl AppShell {
                 &[&book.order_rows.len().to_string()]
             ),
         ))
-    }
-
-    /// The rows the card prints, empty until a book lands.
-    ///
-    /// Returned beside [`Self::last_book_pair`] so the two are read from the
-    /// same place; a caller that titles these rows with anything else is
-    /// repeating the bug this pairing exists to prevent.
-    #[cfg(windows)]
-    pub(crate) fn last_book_rows(&self) -> &[String] {
-        match &self.last_book {
-            Some(book) => &book.rows,
-            None => &[],
-        }
     }
 
     /// The pair the last accepted book was read off, as display names.
@@ -1581,21 +1564,6 @@ fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     (total - standby, standby)
 }
 
-fn hud_lines(pair: &str, rows: &[String], waiting: &str, verdict: &str) -> Vec<String> {
-    let mut lines = Vec::with_capacity(HUD_BODY_LINES);
-    lines.push(pair.to_owned());
-    if rows.is_empty() {
-        lines.push(waiting.to_owned());
-    } else {
-        lines.extend(rows.iter().cloned());
-    }
-    // Last, so it sits where the eye lands after reading the rows.
-    lines.push(String::new());
-    lines.push(verdict.to_owned());
-    lines.truncate(HUD_BODY_LINES);
-    lines
-}
-
 #[cfg(test)]
 mod skip_label_tests {
     use super::{skip_label, standby_skip_split};
@@ -1635,56 +1603,31 @@ mod skip_label_tests {
 
 #[cfg(test)]
 mod hud_tests {
-    use super::{HUD_BODY_LINES, HUD_SIZE};
+    use super::{HUD_SIZE_EXPANDED, HUD_SIZE_MINI};
 
-    /// The card must hold a full panel.
-    ///
-    /// Twelve rows is not a target, it is the panel's maximum — six available
-    /// and six competing — and a card that fits eleven answers the question
-    /// wrongly rather than partially: the row it drops is the aggregate, which
-    /// is the one that says how much is behind the front. The painter stacks
-    /// `LINE_HEIGHT` rows from `BODY_TOP` and stops at `FOOT`, silently, so
-    /// this is checked here rather than discovered on screen.
+    /// The expanded card must hold the whole panel: six rows a side plus the
+    /// header, verdict and probe strip. The painter stacks fixed-height rows
+    /// and clips silently, so a height written small eats the bottom row —
+    /// the aggregate, which is the one that says how much is behind the
+    /// front. This mirrors crates/ptt-platform-win/src/win32/hud.rs.
     #[test]
-    fn the_card_has_room_for_twelve_rows_and_what_frames_them() {
-        // Mirrors crates/ptt-platform-win/src/win32/hud.rs.
-        const BODY_TOP: i32 = 30;
-        const LINE_HEIGHT: i32 = 17;
-        const FOOT: i32 = 4;
-
-        let painted = (HUD_SIZE.1 - BODY_TOP - FOOT) / LINE_HEIGHT;
-        assert!(
-            painted >= HUD_BODY_LINES as i32,
-            "the card paints {painted} lines but is asked for {HUD_BODY_LINES}"
-        );
-    }
-
-    /// A full panel survives composition with its verdict.
-    #[test]
-    fn a_full_panel_keeps_every_row_and_the_verdict() {
-        let rows: Vec<String> = (0..6)
-            .map(|index| format!("available #{index} 1:100 stock 5"))
-            .chain((0..6).map(|index| format!("competing #{index} 1:101 stock 5")))
-            .collect();
-        let lines = super::hud_lines("A -> B", &rows, "waiting", "skips need-name");
-        for row in &rows {
-            assert!(lines.contains(row), "{row} was dropped from the card");
-        }
+    fn the_expanded_card_adds_up_to_its_sections() {
+        const HEADER: i32 = 26;
+        const HAIRLINE: i32 = 1;
+        // 上边距 6 + 栏头 16 + 6×18 行 + 聚合行 hairline 1+2 + 下边距 4(§4)。
+        const BODY: i32 = 6 + 16 + 6 * 18 + 1 + 2 + 4;
+        const VERDICT: i32 = 24;
+        const PROBE: i32 = 20;
         assert_eq!(
-            lines.last().map(String::as_str),
-            Some("skips need-name"),
-            "the verdict fell off the end: {lines:#?}"
+            HEADER + HAIRLINE + BODY + HAIRLINE + VERDICT + HAIRLINE + PROBE,
+            HUD_SIZE_EXPANDED.1,
+            "a section changed height without the card following"
         );
-        assert!(lines.len() <= HUD_BODY_LINES);
     }
 
-    /// With nothing captured the card says so rather than showing a bare pair.
+    /// 迷你档 88 = 内边距 5+5 + 状态 20 + 通货对 20 + 结论 20 + 待抓 18。
     #[test]
-    fn an_empty_book_says_it_is_waiting() {
-        let lines = super::hud_lines("A -> B", &[], "waiting for a book", "—");
-        assert!(
-            lines.iter().any(|line| line == "waiting for a book"),
-            "{lines:#?}"
-        );
+    fn the_mini_card_adds_up_to_its_rows() {
+        assert_eq!(5 + 20 + 20 + 20 + 18 + 5, HUD_SIZE_MINI.1);
     }
 }

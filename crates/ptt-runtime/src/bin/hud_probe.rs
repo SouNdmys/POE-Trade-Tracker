@@ -65,8 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     hud.set_content(HudContent {
         monitoring: true,
         status_text: "CAPTURE PROBE".to_owned(),
-        elapsed: "—".to_owned(),
-        lines: vec!["this card must not appear in a capture".to_owned()],
+        pair_text: "this card must not appear in a capture".to_owned(),
+        ..HudContent::default()
     })?;
     hud.show()?;
 

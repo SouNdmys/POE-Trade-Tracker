@@ -144,8 +144,6 @@ mod windows_backend {
             /// The pair as the panel showed it.
             need_asset_id: String,
             have_asset_id: String,
-            /// Rendered lines, for the overlay card.
-            rows: Vec<String>,
             /// The same rows with their fields intact, for the monitor.
             order_rows: Vec<ptt_runtime::pipeline::BookRow>,
             /// Typed facts about the pair; the interface renders them in its
@@ -246,7 +244,6 @@ mod windows_backend {
                         elapsed_ms: book.elapsed.as_millis().min(u128::from(u64::MAX)) as u64,
                         need_asset_id: book.need_asset_id,
                         have_asset_id: book.have_asset_id,
-                        rows: book.rows,
                         order_rows: book.order_rows,
                         analysis: Box::new(book.analysis),
                     });

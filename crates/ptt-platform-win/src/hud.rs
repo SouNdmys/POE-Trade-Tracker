@@ -204,20 +204,63 @@ const fn contains_rect(outer: RectI, inner: RectI) -> bool {
         && inner.bottom() <= outer.bottom()
 }
 
-/// HUD card content (Ledger's two states: cold grey idle, ink-teal watching).
+/// One order row on the card: 序号 | 比率 | 库存(面板原词)。
+#[derive(Clone, Debug, Default)]
+pub struct HudQuoteRow {
+    pub index: String,
+    pub rate: String,
+    pub stock: String,
+    /// 聚合行(「这一档及更差」):上方一条 hairline,整行降灰,文本原样
+    /// 保留 `<1:75` / `>1:60`。
+    pub aggregate: bool,
+}
+
+/// 结论行的三档:绿「全部读到」/ 黄「跳过」/ 红「不可用」。
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum HudTone {
+    #[default]
+    Ok,
+    Warn,
+    Err,
+}
+
+/// HUD card content(§4 浮窗定稿:两档,左右两栏,结论一句人话,待抓底条)。
 ///
-/// The body is a list rather than a single line: this HUD reports the current
-/// pair's opportunities and the next pair to go capture, which is several
-/// facts, not one.
+/// Typed 字段而不是一列行:左右两栏把两侧队首价放到相邻位置,价差一眼
+/// 就出来——一列文本做不到这件事。
 #[derive(Clone, Debug, Default)]
 pub struct HudContent {
+    /// 左侧 2px 竖条:金 = 在跑,红 = 停了。全卡唯一会变色的大色块。
     pub monitoring: bool,
-    /// Header, left.
+    /// 迷你档(260×88)只画状态/通货对/结论/待抓四行。
+    pub mini: bool,
+    /// 头行:● 监视中。
     pub status_text: String,
-    /// Header, right — kept short, it is clipped rather than wrapped.
-    pub elapsed: String,
-    /// Body lines, painted top to bottom until the card runs out of room.
-    pub lines: Vec<String>,
+    /// 头行中段:混沌石 → 削切之兆。
+    pub pair_text: String,
+    /// 头行右侧:#41。
+    pub sequence_text: String,
+    /// 结论行。
+    pub tone: HudTone,
+    pub verdict_text: String,
+    /// 结论行右侧:106ms · 已接受 41 · 跳过 566。
+    pub verdict_meta: String,
+    /// 跳过/故障时整体降一档灰:数字不抹掉(可能正需要它),但不允许它
+    /// 装成刚读到的。
+    pub dimmed: bool,
+    /// 迷你档降灰时右侧的「8s 前」。
+    pub dimmed_note: String,
+    /// 栏头:可用 / 竞争(游戏面板原词)。
+    pub column_titles: (String, String),
+    /// 列名:比率 / 库存。
+    pub header_titles: (String, String),
+    pub available: Vec<HudQuoteRow>,
+    pub competing: Vec<HudQuoteRow>,
+    /// 待抓底条:`待抓  混沌石 → 高階混沌石  缺正向报价`。空则整条不画,
+    /// 窗口应当矮 20px(由外壳算尺寸)。
+    pub probe_text: String,
+    /// 折叠计数,如 `+2`;空则不画。
+    pub probe_more: String,
 }
 
 /// Native HUD construction parameters.
@@ -293,6 +336,11 @@ impl HudWindow {
     /// 取走最近一次用户拖动结束后的窗口左上角(屏幕坐标)。
     pub fn take_user_move(&mut self) -> Option<PointI> {
         self.native.take_user_move().map(|(x, y)| PointI::new(x, y))
+    }
+
+    /// 整窗不透明度,0–255。改完立即生效,不需重建窗口(`LWA_ALPHA`)。
+    pub fn set_opacity(&mut self, alpha: u8) -> Result<(), PlatformError> {
+        self.native.set_opacity(alpha)
     }
 }
 

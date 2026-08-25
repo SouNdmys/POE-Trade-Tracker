@@ -89,43 +89,134 @@ impl AppShell {
         )
     }
 
-    /// 浮窗段:目前是三条热键。档位 / 不透明度 / 摆放随 HUD 定稿一起落地
-    /// (P12),落在这一段里。
+    /// 浮窗段(§4/`3c`):档位、不透明度、热键。摆放模式的入口与顶条交互
+    /// 是余下的未竟项。
     #[cfg(windows)]
-    fn hud_settings_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
+    fn hud_settings_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+        use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+        use gpui_component::StyledExt as _;
         let text = self.text();
-        let row = |label: &'static str, key: String| {
+        let label_col = |label: &'static str| {
+            div()
+                .w(px(150.))
+                .flex_none()
+                .text_size(fs(FS_11_5))
+                .text_color(c(TEXT_META))
+                .child(label)
+        };
+        let hotkey_row = |label: &'static str, key: String| {
             div()
                 .h_flex()
                 .items_center()
                 .gap_2()
                 .py(px(3.))
-                .child(
-                    div()
-                        .w(px(150.))
-                        .flex_none()
-                        .text_size(fs(FS_11_5))
-                        .text_color(c(TEXT_META))
-                        .child(label),
-                )
+                .child(label_col(label))
                 .child(crate::ui::hotkey_chip(&key))
         };
-        use gpui_component::StyledExt as _;
+
+        // 档位:迷你 / 展开,即点即生效。
+        let tier = self.settings.hud.tier;
+        let mut tier_cells = div()
+            .h_flex()
+            .items_center()
+            .flex_none()
+            .border_1()
+            .border_color(c(HAIRLINE));
+        for (index, (label, value)) in [
+            (text.hud_tier_mini, ptt_settings::HudTier::Mini),
+            (text.hud_tier_expanded, ptt_settings::HudTier::Expanded),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut cell = div()
+                .id(("hud-tier", index))
+                .h(px(H_ROW))
+                .px(px(10.))
+                .flex()
+                .items_center()
+                .text_size(fs(FS_11_5))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.set_hud_tier(value);
+                    cx.notify();
+                }));
+            if index > 0 {
+                cell = cell.border_l_1().border_color(c(HAIRLINE));
+            }
+            cell = if value == tier {
+                cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
+            } else {
+                cell.bg(c(PANEL))
+                    .text_color(c(TEXT_SECONDARY))
+                    .hover(|style| style.bg(c(HOVER)))
+            };
+            tier_cells = tier_cells.child(cell.child(label));
+        }
+
+        // 不透明度:60–100%,步长 5。
+        let opacity = self.settings.hud.clamped_opacity();
+        let step_button = |id: &'static str, label: &'static str, step: i16| {
+            div()
+                .id(id)
+                .h(px(H_ROW))
+                .w(px(26.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .border_1()
+                .border_color(c(HAIRLINE))
+                .text_size(fs(FS_12))
+                .text_color(c(TEXT_SECONDARY))
+                .cursor_pointer()
+                .hover(|style| style.bg(c(HOVER)))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.bump_hud_opacity(step);
+                    cx.notify();
+                }))
+                .child(label)
+        };
+        let opacity_row = div()
+            .h_flex()
+            .items_center()
+            .gap_2()
+            .py(px(3.))
+            .child(label_col(text.hud_opacity_label))
+            .child(step_button("hud-opacity-down", "−", -5))
+            .child(
+                mono(format!("{opacity}%"))
+                    .w(px(48.))
+                    .text_center()
+                    .text_size(fs(FS_12))
+                    .text_color(c(TEXT_DATA)),
+            )
+            .child(step_button("hud-opacity-up", "+", 5));
+
         panel().child(panel_header(text.seg_hud)).child(
             div()
                 .p_3()
                 .flex()
                 .flex_col()
                 .gap_1()
-                .child(row(
+                .child(
+                    div()
+                        .h_flex()
+                        .items_center()
+                        .gap_2()
+                        .py(px(3.))
+                        .child(label_col(text.hud_tier_label))
+                        .child(tier_cells),
+                )
+                .child(opacity_row)
+                .child(hotkey_row(
                     text.hud_hotkey_watch,
                     self.settings.hotkeys.toggle_watch.clone(),
                 ))
-                .child(row(
+                .child(hotkey_row(
                     text.hud_hotkey_toggle,
                     self.settings.hotkeys.toggle_hud.clone(),
                 ))
-                .child(row(
+                .child(hotkey_row(
                     text.hud_hotkey_capture,
                     self.settings.hotkeys.manual_capture.clone(),
                 )),
