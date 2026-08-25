@@ -75,6 +75,14 @@ impl NativeHudWindow {
     pub(crate) fn take_user_move(&mut self) -> Option<(i32, i32)> {
         None
     }
+
+    pub(crate) fn take_user_command(&mut self) -> Option<crate::hud::HudCommand> {
+        None
+    }
+
+    pub(crate) fn work_area(&self) -> Option<RectI> {
+        None
+    }
 }
 
 #[derive(Debug, Default)]

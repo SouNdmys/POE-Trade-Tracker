@@ -224,6 +224,34 @@ pub enum HudTone {
     Err,
 }
 
+/// 摆放模式顶条(22px,只此模式可见)的文案。
+///
+/// 布局(矩形几何)由绘制侧写死,这里只带字:命中测试跑在 wndproc 里,
+/// 它和画笔必须对同一套矩形,所以矩形不走内容通道。
+#[derive(Clone, Debug, Default)]
+pub struct HudPlacementBar {
+    /// 左侧提示:「拖动摆放」。
+    pub hint: String,
+    /// 不透明度当前值,如 `85%`。
+    pub opacity_text: String,
+    /// 档位切换钮的字:显示**要切去**的那一档(现在是展开就写「迷你」)。
+    pub tier_label: String,
+    /// 「完成」。
+    pub done_label: String,
+}
+
+/// 摆放顶条上的按钮点击,由服务线程轮询取走(和 `take_user_move` 同型:
+/// wndproc 无法直接调用外壳,只能把事件放进槽里等人来拿)。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HudCommand {
+    /// 「完成」:写回设置并回到点击穿透。
+    PlacementDone,
+    /// 「迷你 / 展开」档位切换。
+    ToggleTier,
+    OpacityDown,
+    OpacityUp,
+}
+
 /// HUD card content(§4 浮窗定稿:两档,左右两栏,结论一句人话,待抓底条)。
 ///
 /// Typed 字段而不是一列行:左右两栏把两侧队首价放到相邻位置,价差一眼
@@ -261,6 +289,9 @@ pub struct HudContent {
     pub probe_text: String,
     /// 折叠计数,如 `+2`;空则不画。
     pub probe_more: String,
+    /// 摆放模式顶条;Some 时卡顶多 22px、外框变金,窗口应当高 22px
+    /// (由外壳算尺寸)。
+    pub placement: Option<HudPlacementBar>,
 }
 
 /// Native HUD construction parameters.
@@ -336,6 +367,17 @@ impl HudWindow {
     /// 取走最近一次用户拖动结束后的窗口左上角(屏幕坐标)。
     pub fn take_user_move(&mut self) -> Option<PointI> {
         self.native.take_user_move().map(|(x, y)| PointI::new(x, y))
+    }
+
+    /// 取走摆放顶条上最近一次按钮点击(无点击为 None)。
+    pub fn take_user_command(&mut self) -> Option<HudCommand> {
+        self.native.take_user_command()
+    }
+
+    /// 窗口当前所在显示器的工作区。摆放坐标存相对比例,换算基准就是它。
+    #[must_use]
+    pub fn work_area(&self) -> Option<RectI> {
+        self.native.work_area()
     }
 
     /// 整窗不透明度,0–255。改完立即生效,不需重建窗口(`LWA_ALPHA`)。

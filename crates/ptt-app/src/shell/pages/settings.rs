@@ -192,6 +192,43 @@ impl AppShell {
             )
             .child(step_button("hud-opacity-up", "+", 5));
 
+        // 摆放:进摆放模式浮窗接住鼠标,拖到位点「完成」(浮窗顶条或这里
+        // 都能点)。
+        let placing = self.hud_placement;
+        let place_row = div()
+            .h_flex()
+            .items_center()
+            .gap_2()
+            .py(px(3.))
+            .child(label_col(text.hud_place_hint))
+            .child(
+                button(
+                    "hud-place",
+                    if placing {
+                        LedgerButton::Primary
+                    } else {
+                        LedgerButton::Secondary
+                    },
+                    if placing {
+                        text.hud_place_done
+                    } else {
+                        text.hud_place_button
+                    },
+                    cx,
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    let next = !this.hud_placement;
+                    this.set_hud_placement(next);
+                    cx.notify();
+                })),
+            )
+            .child(
+                div()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_META))
+                    .child(text.hud_place_help),
+            );
+
         panel().child(panel_header(text.seg_hud)).child(
             div()
                 .p_3()
@@ -208,6 +245,7 @@ impl AppShell {
                         .child(tier_cells),
                 )
                 .child(opacity_row)
+                .child(place_row)
                 .child(hotkey_row(
                     text.hud_hotkey_watch,
                     self.settings.hotkeys.toggle_watch.clone(),

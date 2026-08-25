@@ -30,6 +30,10 @@ const LOG_CAPACITY: usize = 120;
 /// Top-left rather than centred: the currency panel occupies the middle of
 /// the screen, which is exactly what the card must not cover.
 const HUD_ORIGIN: (i32, i32) = (24, 24);
+/// 摆放模式顶条高度;必须和平台侧 `PLACEMENT_BAR_H` 一致,否则顶条会
+/// 挤掉卡片最底一行(高度算在这里,画在平台侧)。
+#[cfg(windows)]
+const HUD_PLACEMENT_BAR: i32 = 22;
 
 /// §4 定稿的两档尺寸。
 ///
@@ -218,6 +222,9 @@ pub struct AppShell {
     #[cfg(windows)]
     hud: Option<ptt_platform_win::HudWindow>,
     hud_visible: bool,
+    /// 摆放模式:浮窗暂时吃鼠标、顶条可见。退出即回点击穿透。
+    #[cfg(windows)]
+    pub(crate) hud_placement: bool,
     #[cfg(windows)]
     calibration: crate::calibrate::Calibration,
     /// Where the calibration canvas landed, written by its paint pass.
@@ -513,6 +520,8 @@ impl AppShell {
             hud: None,
             hud_visible: false,
             #[cfg(windows)]
+            hud_placement: false,
+            #[cfg(windows)]
             calibration: crate::calibrate::Calibration::default(),
             #[cfg(windows)]
             canvas_bounds: std::rc::Rc::new(std::cell::Cell::new(None)),
@@ -549,6 +558,9 @@ impl AppShell {
     fn tick(&mut self, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {
+            // 摆放模式的回声:拖动落点与顶条按钮点击都由 wndproc 留言,
+            // 这里是唯一取走留言的地方。
+            self.poll_hud_placement(cx);
             let mut dirty = false;
             let messages: Vec<ShellMsg> =
                 std::iter::from_fn(|| self.shell_rx.try_recv().ok()).collect();

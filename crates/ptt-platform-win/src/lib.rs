@@ -30,8 +30,8 @@ pub use hotkeys::{
     HotKeyModifiers, HotKeyTarget, HudToggleHotKey, StartMonitoringHotKey,
 };
 pub use hud::{
-    CaptureAffinity, HudContent, HudInteractionMode, HudPlacement, HudQuoteRow, HudTone, HudWindow,
-    HudWindowConfig, HudWindowPolicy, resolve_hud_position,
+    CaptureAffinity, HudCommand, HudContent, HudInteractionMode, HudPlacement, HudPlacementBar,
+    HudQuoteRow, HudTone, HudWindow, HudWindowConfig, HudWindowPolicy, resolve_hud_position,
 };
 pub use mouse_guard::{
     GuardDecision, GuardMode, GuardRelease, GuardSnapshot, MouseButton, MouseButtons,

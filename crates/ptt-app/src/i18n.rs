@@ -534,6 +534,11 @@ pub struct Text {
     pub hud_tier_mini: &'static str,
     pub hud_tier_expanded: &'static str,
     pub hud_opacity_label: &'static str,
+    /// 摆放模式:入口按钮、完成、顶条提示、设置页说明。
+    pub hud_place_button: &'static str,
+    pub hud_place_done: &'static str,
+    pub hud_place_hint: &'static str,
+    pub hud_place_help: &'static str,
 }
 
 impl Text {
@@ -878,6 +883,10 @@ impl Text {
             ("hud_tier_mini", self.hud_tier_mini),
             ("hud_tier_expanded", self.hud_tier_expanded),
             ("hud_opacity_label", self.hud_opacity_label),
+            ("hud_place_button", self.hud_place_button),
+            ("hud_place_done", self.hud_place_done),
+            ("hud_place_hint", self.hud_place_hint),
+            ("hud_place_help", self.hud_place_help),
         ]
     }
 }
@@ -1242,6 +1251,10 @@ pub static ENGLISH: Text = Text {
     hud_tier_mini: "mini",
     hud_tier_expanded: "expanded",
     hud_opacity_label: "opacity",
+    hud_place_button: "place…",
+    hud_place_done: "done",
+    hud_place_hint: "drag to place",
+    hud_place_help: "the card takes the mouse while placing; drag it, then press done",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1604,6 +1617,10 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     hud_tier_mini: "迷你",
     hud_tier_expanded: "展开",
     hud_opacity_label: "不透明度",
+    hud_place_button: "摆放…",
+    hud_place_done: "完成",
+    hud_place_hint: "拖动摆放",
+    hud_place_help: "摆放时浮窗会接住鼠标；拖到位后点「完成」回到点击穿透",
 };
 
 #[cfg(test)]

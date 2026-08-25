@@ -4,30 +4,34 @@ use std::num::NonZeroIsize;
 use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
 
-use windows::Win32::Foundation::{COLORREF, RECT};
+use windows::Win32::Foundation::{COLORREF, POINT, RECT};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, COLOR_WINDOW, CreateFontW,
-    CreateSolidBrush, DEFAULT_CHARSET, DT_END_ELLIPSIS, DT_RIGHT, DT_SINGLELINE, DT_VCENTER,
-    DeleteObject, DrawTextW, EndPaint, FW_NORMAL, FW_SEMIBOLD, FillRect, FrameRect,
-    GetSysColorBrush, HFONT, HGDIOBJ, InvalidateRect, OUT_DEFAULT_PRECIS, PAINTSTRUCT,
-    SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
+    CreateSolidBrush, DEFAULT_CHARSET, DT_CENTER, DT_END_ELLIPSIS, DT_RIGHT, DT_SINGLELINE,
+    DT_VCENTER, DeleteObject, DrawTextW, EndPaint, FW_NORMAL, FW_SEMIBOLD, FillRect, FrameRect,
+    GetMonitorInfoW, GetSysColorBrush, HFONT, HGDIOBJ, InvalidateRect, MONITOR_DEFAULTTONEAREST,
+    MONITORINFO, MonitorFromWindow, OUT_DEFAULT_PRECIS, PAINTSTRUCT, SelectObject, SetBkMode,
+    SetTextColor, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_HREDRAW, CS_VREDRAW, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE,
-    GetWindowLongPtrW, HTCAPTION, HTTRANSPARENT, HWND_TOPMOST, IsWindow, LWA_ALPHA, MA_NOACTIVATE,
-    RegisterClassExW, SET_WINDOW_POS_FLAGS, SW_HIDE, SWP_FRAMECHANGED, SWP_HIDEWINDOW,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
+    GetWindowLongPtrW, HTCAPTION, HTCLIENT, HTTRANSPARENT, HWND_TOPMOST, IsWindow, LWA_ALPHA,
+    MA_NOACTIVATE, RegisterClassExW, SET_WINDOW_POS_FLAGS, SW_HIDE, SWP_FRAMECHANGED,
+    SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
     SetLayeredWindowAttributes, SetWindowDisplayAffinity, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WINDOW_EX_STYLE, WM_EXITSIZEMOVE,
+    ShowWindow, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WINDOW_EX_STYLE, WM_EXITSIZEMOVE, WM_LBUTTONUP,
     WM_MOUSEACTIVATE, WM_NCHITTEST, WM_PAINT, WNDCLASSEXW, WS_POPUP,
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, GetWindowRect};
 use windows::core::{PCWSTR, w};
 
-use crate::hud::{CaptureAffinity, HUD_ALPHA, HudContent, HudWindowConfig, HudWindowPolicy};
+use crate::hud::{
+    CaptureAffinity, HUD_ALPHA, HudCommand, HudContent, HudWindowConfig, HudWindowPolicy,
+};
 use crate::{NativeWindowHandle, PlatformError, RectI};
+use windows::Win32::Graphics::Gdi::ScreenToClient;
 
 use super::error_from_windows;
 
@@ -41,6 +45,61 @@ static HUD_CONTENT: Mutex<Option<HudContent>> = Mutex::new(None);
 
 /// 用户拖动结束后的窗口左上角(屏幕坐标);服务线程轮询取走。
 static HUD_USER_MOVE: Mutex<Option<(i32, i32)>> = Mutex::new(None);
+
+/// 摆放顶条按钮的最近一次点击;服务线程轮询取走(同 `HUD_USER_MOVE`:
+/// wndproc 够不到外壳,只能留言)。
+static HUD_COMMAND: Mutex<Option<HudCommand>> = Mutex::new(None);
+
+/// 摆放顶条高度。Some(placement) 时窗口高度多这一截,由外壳算进尺寸。
+const PLACEMENT_BAR_H: i32 = 22;
+
+/// 摆放顶条上五个可点矩形(客户区坐标)。
+///
+/// 画笔和 `WM_NCHITTEST`/`WM_LBUTTONUP` 必须对同一套矩形——命中一个
+/// 画在别处的按钮,比没有按钮更糟,所以几何只在这一个函数里算。
+struct PlacementRects {
+    minus: RECT,
+    percent: RECT,
+    plus: RECT,
+    tier: RECT,
+    done: RECT,
+}
+
+fn placement_rects(client_width: i32) -> PlacementRects {
+    const TOP: i32 = 3;
+    const BOTTOM: i32 = 19;
+    let button = |right: i32, width: i32| RECT {
+        left: right - width,
+        top: TOP,
+        right,
+        bottom: BOTTOM,
+    };
+    let done = button(client_width - 8, 46);
+    let tier = button(done.left - 6, 46);
+    let plus = button(tier.left - 10, 20);
+    let percent = button(plus.left - 2, 40);
+    let minus = button(percent.left - 2, 20);
+    PlacementRects {
+        minus,
+        percent,
+        plus,
+        tier,
+        done,
+    }
+}
+
+const fn rect_contains(rect: &RECT, x: i32, y: i32) -> bool {
+    x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom
+}
+
+/// 当前内容是否带摆放顶条(= 摆放模式)。
+fn placement_bar_active() -> bool {
+    HUD_CONTENT
+        .lock()
+        .ok()
+        .and_then(|slot| slot.as_ref().map(|content| content.placement.is_some()))
+        .unwrap_or(false)
+}
 
 const fn hud_rgb(r: u8, g: u8, b: u8) -> COLORREF {
     COLORREF((r as u32) | ((g as u32) << 8) | ((b as u32) << 16))
@@ -136,17 +195,29 @@ unsafe fn paint_hud(hwnd: HWND) {
         (text_data, text_primary, text_secondary)
     };
 
+    // 摆放模式:卡顶多 22px 顶条,外框由灰变金——提醒它现在吃鼠标。
+    let placement = content.placement.clone();
+    let top_offset = if placement.is_some() {
+        PLACEMENT_BAR_H
+    } else {
+        0
+    };
+
     // SAFETY: brushes/fonts created and released within this scope.
     unsafe {
         let panel_brush = CreateSolidBrush(panel);
-        let border_brush = CreateSolidBrush(border);
+        let frame_brush = if placement.is_some() {
+            CreateSolidBrush(gold)
+        } else {
+            CreateSolidBrush(border)
+        };
         let bar_brush = CreateSolidBrush(bar_color);
         let hairline_brush = CreateSolidBrush(hairline);
         FillRect(dc, &client, panel_brush);
-        FrameRect(dc, &client, border_brush);
+        FrameRect(dc, &client, frame_brush);
         let left_bar = RECT {
             left: client.left,
-            top: client.top,
+            top: client.top + top_offset,
             right: client.left + 2,
             bottom: client.bottom,
         };
@@ -156,6 +227,76 @@ unsafe fn paint_hud(hwnd: HWND) {
         let status_font = hud_font(15, FW_SEMIBOLD.0 as i32);
         let body_font = hud_font(14, FW_NORMAL.0 as i32);
         let small_font = hud_font(12, FW_NORMAL.0 as i32);
+
+        if let Some(bar) = &placement {
+            // 顶条:rail 底 + 下缘 hairline;右侧一排按钮,左侧提示文案。
+            let rail = hud_rgb(0x1C, 0x21, 0x2B);
+            let rail_brush = CreateSolidBrush(rail);
+            let strip = RECT {
+                left: client.left + 1,
+                top: client.top + 1,
+                right: client.right - 1,
+                bottom: client.top + PLACEMENT_BAR_H,
+            };
+            FillRect(dc, &strip, rail_brush);
+            let _ = DeleteObject(HGDIOBJ(rail_brush.0));
+            let seam = RECT {
+                left: client.left + 1,
+                top: client.top + PLACEMENT_BAR_H,
+                right: client.right - 1,
+                bottom: client.top + PLACEMENT_BAR_H + 1,
+            };
+            FillRect(dc, &seam, hairline_brush);
+
+            let rects = placement_rects(client.right);
+            let centered = DT_SINGLELINE | DT_VCENTER | DT_CENTER;
+            let boxed = |rect: &RECT| {
+                FrameRect(dc, rect, hairline_brush);
+            };
+            boxed(&rects.minus);
+            boxed(&rects.plus);
+            boxed(&rects.tier);
+            boxed(&rects.done);
+            hud_text(
+                dc,
+                small_font,
+                text_secondary,
+                &bar.hint,
+                RECT {
+                    left: client.left + 10,
+                    top: client.top,
+                    right: rects.minus.left - 8,
+                    bottom: client.top + PLACEMENT_BAR_H,
+                },
+                DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS,
+            );
+            hud_text(dc, small_font, text_secondary, "−", rects.minus, centered);
+            hud_text(
+                dc,
+                small_font,
+                text_data,
+                &bar.opacity_text,
+                rects.percent,
+                centered,
+            );
+            hud_text(dc, small_font, text_secondary, "+", rects.plus, centered);
+            hud_text(
+                dc,
+                small_font,
+                text_secondary,
+                &bar.tier_label,
+                rects.tier,
+                centered,
+            );
+            hud_text(
+                dc,
+                small_font,
+                hud_rgb(0xE7, 0xC8, 0x8C),
+                &bar.done_label,
+                rects.done,
+                centered,
+            );
+        }
 
         let dot = |dc, x: i32, y: i32, size: i32, color| {
             let brush = CreateSolidBrush(color);
@@ -183,7 +324,7 @@ unsafe fn paint_hud(hwnd: HWND) {
             // 迷你档 88 = 内边距 5+5 + 状态 20 + 通货对 20 + 结论 20 + 待抓 18。
             let left = client.left + 11;
             let right = client.right - 8;
-            let mut top = client.top + 5;
+            let mut top = client.top + top_offset + 5;
             dot(dc, left, top + 7, 6, bar_color);
             hud_text(
                 dc,
@@ -290,8 +431,9 @@ unsafe fn paint_hud(hwnd: HWND) {
             // 展开档:26 头行 | 137 两栏 | 24 结论 | 20 待抓,段间 hairline。
             let left = client.left + 11;
             let right = client.right - 10;
-            let header_bottom = client.top + 26;
-            dot(dc, left, client.top + 10, 6, bar_color);
+            let card_top = client.top + top_offset;
+            let header_bottom = card_top + 26;
+            dot(dc, left, card_top + 10, 6, bar_color);
             hud_text(
                 dc,
                 status_font,
@@ -299,7 +441,7 @@ unsafe fn paint_hud(hwnd: HWND) {
                 &content.status_text,
                 RECT {
                     left: left + 11,
-                    top: client.top,
+                    top: card_top,
                     right: left + 75,
                     bottom: header_bottom,
                 },
@@ -312,7 +454,7 @@ unsafe fn paint_hud(hwnd: HWND) {
                 &content.pair_text,
                 RECT {
                     left: left + 80,
-                    top: client.top,
+                    top: card_top,
                     right: right - 40,
                     bottom: header_bottom,
                 },
@@ -325,7 +467,7 @@ unsafe fn paint_hud(hwnd: HWND) {
                 &content.sequence_text,
                 RECT {
                     left: right - 40,
-                    top: client.top,
+                    top: card_top,
                     right,
                     bottom: header_bottom,
                 },
@@ -529,7 +671,7 @@ unsafe fn paint_hud(hwnd: HWND) {
         let _ = DeleteObject(HGDIOBJ(body_font.0));
         let _ = DeleteObject(HGDIOBJ(small_font.0));
         let _ = DeleteObject(HGDIOBJ(panel_brush.0));
-        let _ = DeleteObject(HGDIOBJ(border_brush.0));
+        let _ = DeleteObject(HGDIOBJ(frame_brush.0));
         let _ = DeleteObject(HGDIOBJ(bar_brush.0));
         let _ = DeleteObject(HGDIOBJ(hairline_brush.0));
         let _ = EndPaint(hwnd, &paint);
@@ -722,6 +864,30 @@ impl NativeHudWindow {
         HUD_USER_MOVE.lock().ok().and_then(|mut slot| slot.take())
     }
 
+    pub(crate) fn take_user_command(&mut self) -> Option<HudCommand> {
+        HUD_COMMAND.lock().ok().and_then(|mut slot| slot.take())
+    }
+
+    /// 窗口所在显示器的工作区(任务栏除外)。
+    pub(crate) fn work_area(&self) -> Option<RectI> {
+        // SAFETY: hwnd is live; DEFAULTTONEAREST always yields a monitor.
+        let monitor = unsafe { MonitorFromWindow(self.hwnd, MONITOR_DEFAULTTONEAREST) };
+        let mut info = MONITORINFO {
+            cbSize: size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        // SAFETY: info is a properly sized out-parameter for this monitor.
+        if !unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
+            return None;
+        }
+        RectI::new(
+            info.rcWork.left,
+            info.rcWork.top,
+            info.rcWork.right - info.rcWork.left,
+            info.rcWork.bottom - info.rcWork.top,
+        )
+    }
+
     pub(super) fn raw_handle(&self) -> HWND {
         self.hwnd
     }
@@ -781,10 +947,58 @@ unsafe extern "system" fn hud_window_proc(
             let style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
             if style & PASSIVE_STYLE_BITS == PASSIVE_STYLE_BITS {
                 LRESULT(HTTRANSPARENT as isize)
+            } else if placement_bar_active() {
+                // Placement 模式:顶条按钮吃点击(HTCLIENT),其余整卡拖动。
+                // 整卡返回 HTCAPTION 的话按钮永远点不到——命中先于点击。
+                let mut point = POINT {
+                    x: (lparam.0 & 0xFFFF) as i16 as i32,
+                    y: ((lparam.0 >> 16) & 0xFFFF) as i16 as i32,
+                };
+                let mut area = RECT::default();
+                // SAFETY: hwnd is the live HUD window dispatching this message.
+                let hit_button = unsafe {
+                    ScreenToClient(hwnd, &mut point).as_bool()
+                        && GetClientRect(hwnd, &mut area).is_ok()
+                } && {
+                    let rects = placement_rects(area.right);
+                    [rects.minus, rects.plus, rects.tier, rects.done]
+                        .iter()
+                        .any(|rect| rect_contains(rect, point.x, point.y))
+                };
+                if hit_button {
+                    LRESULT(HTCLIENT as isize)
+                } else {
+                    LRESULT(HTCAPTION as isize)
+                }
             } else {
-                // Placement 模式:整张卡都是拖动把手。
                 LRESULT(HTCAPTION as isize)
             }
+        }
+        WM_LBUTTONUP => {
+            if placement_bar_active() {
+                let x = (lparam.0 & 0xFFFF) as i16 as i32;
+                let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
+                let mut area = RECT::default();
+                // SAFETY: hwnd is the live HUD window dispatching this message.
+                if unsafe { GetClientRect(hwnd, &mut area) }.is_ok() {
+                    let rects = placement_rects(area.right);
+                    let command = if rect_contains(&rects.minus, x, y) {
+                        Some(HudCommand::OpacityDown)
+                    } else if rect_contains(&rects.plus, x, y) {
+                        Some(HudCommand::OpacityUp)
+                    } else if rect_contains(&rects.tier, x, y) {
+                        Some(HudCommand::ToggleTier)
+                    } else if rect_contains(&rects.done, x, y) {
+                        Some(HudCommand::PlacementDone)
+                    } else {
+                        None
+                    };
+                    if let (Some(command), Ok(mut slot)) = (command, HUD_COMMAND.lock()) {
+                        *slot = Some(command);
+                    }
+                }
+            }
+            LRESULT(0)
         }
         WM_EXITSIZEMOVE => {
             let mut rect = RECT::default();

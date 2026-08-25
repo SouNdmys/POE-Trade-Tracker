@@ -1,5 +1,7 @@
 //! The overlay card: the same book, readable without leaving the game.
 
+#[cfg(windows)]
+use super::HUD_PLACEMENT_BAR;
 use super::{AppShell, HUD_ORIGIN, HUD_PROBE_STRIP, HUD_SIZE_EXPANDED, HUD_SIZE_MINI, skip_label};
 
 impl AppShell {
@@ -30,29 +32,9 @@ impl AppShell {
     ) -> ptt_platform_win::CaptureAffinity {
         use crate::calibrate::Target;
 
-        let profile = self.settings.active_profile;
-        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
-        let covers = Target::ALL.into_iter().any(|target| {
-            let (x, y, width, height) = match target {
-                Target::Need => layout.need_name,
-                Target::Have => layout.have_name,
-                Target::Tables => layout.tables_for(language),
-            };
-            // The saved rectangle wins where there is one: that is what the
-            // watcher will actually capture.
-            let (x, y, width, height) = self
-                .saved_rect(profile, target)
-                .map_or((x, y, width, height), |rect| {
-                    (rect.x, rect.y, rect.width, rect.height)
-                });
-            ptt_platform_win::RectI::new(
-                x,
-                y,
-                i32::try_from(width).unwrap_or(i32::MAX),
-                i32::try_from(height).unwrap_or(i32::MAX),
-            )
-            .is_some_and(|region| region.intersects(bounds))
-        });
+        let covers = Target::ALL
+            .into_iter()
+            .any(|target| self.calibrated_region(target).intersects(bounds));
         if covers {
             ptt_platform_win::CaptureAffinity::Exclude
         } else {
@@ -60,18 +42,91 @@ impl AppShell {
         }
     }
 
-    /// The card's current size:档位来自设置,待抓条空了矮 20px(§4)。
+    /// 一个校准区域的屏幕矩形:有存的用存的(那才是监视器真正抓的),
+    /// 没存的用预设。
+    #[cfg(windows)]
+    fn calibrated_region(&self, target: crate::calibrate::Target) -> ptt_platform_win::RectI {
+        use crate::calibrate::Target;
+
+        let profile = self.settings.active_profile;
+        let (layout, language) = ptt_runtime::pipeline::route_for(profile);
+        let (x, y, width, height) = match target {
+            Target::Need => layout.need_name,
+            Target::Have => layout.have_name,
+            Target::Tables => layout.tables_for(language),
+        };
+        let (x, y, width, height) = self
+            .saved_rect(profile, target)
+            .map_or((x, y, width, height), |rect| {
+                (rect.x, rect.y, rect.width, rect.height)
+            });
+        ptt_platform_win::RectI::new(
+            x,
+            y,
+            i32::try_from(width).unwrap_or(i32::MAX).max(1),
+            i32::try_from(height).unwrap_or(i32::MAX).max(1),
+        )
+        .expect("calibrated regions have positive dimensions")
+    }
+
+    /// The card's current size:档位来自设置,待抓条空了矮 20px(§4),
+    /// 摆放模式顶上多 22px 顶条。
     #[cfg(windows)]
     pub(crate) fn hud_size(&self) -> (i32, i32) {
         let (width, height) = match self.settings.hud.tier {
             ptt_settings::HudTier::Mini => HUD_SIZE_MINI,
             ptt_settings::HudTier::Expanded => HUD_SIZE_EXPANDED,
         };
-        if self.hud_probe_line().is_some() {
-            (width, height)
+        let height = if self.hud_probe_line().is_some() {
+            height
         } else {
-            (width, height - HUD_PROBE_STRIP)
+            height - HUD_PROBE_STRIP
+        };
+        let height = if self.hud_placement {
+            height + HUD_PLACEMENT_BAR
+        } else {
+            height
+        };
+        (width, height)
+    }
+
+    /// 设置里的摆放,翻成平台类型(千分位 → 0..1 比例)。
+    #[cfg(windows)]
+    fn hud_placement_setting(&self) -> ptt_platform_win::HudPlacement {
+        match self.settings.hud.placement {
+            ptt_settings::HudPlacementSetting::Automatic => {
+                ptt_platform_win::HudPlacement::Automatic
+            }
+            ptt_settings::HudPlacementSetting::Manual {
+                relative_x_permille,
+                relative_y_permille,
+            } => ptt_platform_win::HudPlacement::manual(
+                f64::from(relative_x_permille.min(1000)) / 1000.0,
+                f64::from(relative_y_permille.min(1000)) / 1000.0,
+            )
+            .unwrap_or(ptt_platform_win::HudPlacement::Automatic),
         }
+    }
+
+    /// Where the card goes right now.
+    ///
+    /// 自动模式避开「交易表格」区域(读回自己的影子最伤);手动模式按存的
+    /// 比例换算。窗口还没建、或查不到工作区时退回固定原点。
+    #[cfg(windows)]
+    fn hud_bounds(&self, size: (i32, i32)) -> Option<ptt_platform_win::RectI> {
+        use ptt_platform_win::{RectI, SizeI, resolve_hud_position};
+
+        let fallback = RectI::new(HUD_ORIGIN.0, HUD_ORIGIN.1, size.0, size.1);
+        let Some(work) = self.hud.as_ref().and_then(|hud| hud.work_area()) else {
+            return fallback;
+        };
+        let Some(hud_size) = SizeI::new(size.0, size.1) else {
+            return fallback;
+        };
+        let anchor = self.calibrated_region(crate::calibrate::Target::Tables);
+        let origin =
+            resolve_hud_position(work, hud_size, self.hud_placement_setting(), Some(anchor));
+        RectI::new(origin.x, origin.y, size.0, size.1).or(fallback)
     }
 
     /// The most urgent pair to go capture, and how many more are folded away.
@@ -113,6 +168,101 @@ impl AppShell {
             ));
         }
         None
+    }
+
+    /// 进出摆放模式(§4):进 = 拿掉点击穿透、卡顶出 22px 顶条、外框变金;
+    /// 出 = 写回设置、回到点击穿透。
+    #[cfg(windows)]
+    pub(crate) fn set_hud_placement(&mut self, on: bool) {
+        use ptt_platform_win::HudInteractionMode;
+
+        if self.hud_placement == on {
+            return;
+        }
+        // 摆放的前提是浮窗在屏上,否则没东西可拖。
+        if on && !self.hud_visible {
+            self.toggle_hud();
+            if !self.hud_visible {
+                return;
+            }
+        }
+        self.hud_placement = on;
+        let mode = if on {
+            HudInteractionMode::Placement
+        } else {
+            HudInteractionMode::Passive
+        };
+        if let Some(hud) = self.hud.as_mut()
+            && let Err(error) = hud.set_interaction_mode(mode)
+        {
+            self.push_log(format!("HUD placement mode failed: {error}"));
+        }
+        if !on {
+            // 「完成」的落盘。拖动本身已边拖边存,这里兜底一次,防止
+            // 最后一次拖动与退出之间断电丢位置。
+            if let Err(error) = self.settings_store.save(&self.settings) {
+                self.push_log(format!("settings save failed: {error}"));
+            }
+        }
+        self.refresh_hud();
+    }
+
+    /// 取走 wndproc 留的言:拖动落点存成相对比例,顶条按钮点击照做。
+    #[cfg(windows)]
+    pub(crate) fn poll_hud_placement(&mut self, cx: &mut gpui::Context<Self>) {
+        use ptt_platform_win::HudCommand;
+
+        if self.hud.is_none() {
+            return;
+        }
+        self.absorb_hud_drag();
+        let command = self.hud.as_mut().and_then(|hud| hud.take_user_command());
+        let Some(command) = command else {
+            return;
+        };
+        match command {
+            HudCommand::PlacementDone => self.set_hud_placement(false),
+            HudCommand::ToggleTier => {
+                let next = match self.settings.hud.tier {
+                    ptt_settings::HudTier::Mini => ptt_settings::HudTier::Expanded,
+                    ptt_settings::HudTier::Expanded => ptt_settings::HudTier::Mini,
+                };
+                self.set_hud_tier(next);
+            }
+            HudCommand::OpacityDown => self.bump_hud_opacity(-5),
+            HudCommand::OpacityUp => self.bump_hud_opacity(5),
+        }
+        self.refresh_hud();
+        // 设置页上的摆放按钮/数值要跟着变。
+        cx.notify();
+    }
+
+    /// 拖完的位置 → 相对比例(千分位)→ 设置,立即落盘。
+    ///
+    /// 存比例不存像素:换分辨率/换显示器不会飞到屏幕外(§4)。
+    #[cfg(windows)]
+    fn absorb_hud_drag(&mut self) {
+        if !self.hud_placement {
+            return;
+        }
+        let Some(point) = self.hud.as_mut().and_then(|hud| hud.take_user_move()) else {
+            return;
+        };
+        let Some(work) = self.hud.as_ref().and_then(|hud| hud.work_area()) else {
+            return;
+        };
+        let size = self.hud_size();
+        let permille = |position: i32, base: i32, free: i32| -> u32 {
+            let ratio = f64::from(position - base) / f64::from(free.max(1));
+            (ratio.clamp(0.0, 1.0) * 1000.0).round() as u32
+        };
+        self.settings.hud.placement = ptt_settings::HudPlacementSetting::Manual {
+            relative_x_permille: permille(point.x, work.x, work.width - size.0),
+            relative_y_permille: permille(point.y, work.y, work.height - size.1),
+        };
+        if let Err(error) = self.settings_store.save(&self.settings) {
+            self.push_log(format!("settings save failed: {error}"));
+        }
     }
 
     /// Switches the card between mini and expanded, live.
@@ -170,6 +320,13 @@ impl AppShell {
                     // 不透明度是设置项(60–100%,步长 5),改完立即生效。
                     let _ = hud.set_opacity(self.settings.hud.alpha());
                     self.hud = Some(hud);
+                    // 创建时查不到所在显示器的工作区,位置只能建完再解析,
+                    // 趁窗口还没显示挪过去,免得在角落闪一下。
+                    if let Some(resolved) = self.hud_bounds(size)
+                        && let Some(hud) = self.hud.as_mut()
+                    {
+                        let _ = hud.set_bounds(resolved);
+                    }
                 }
                 Err(error) => {
                     self.push_log(format!("HUD unavailable: {error}"));
@@ -198,7 +355,7 @@ impl AppShell {
     /// can run on the tick without a dirty flag.
     #[cfg(windows)]
     pub(crate) fn refresh_hud(&mut self) {
-        use ptt_platform_win::{HudContent, HudQuoteRow, HudTone, RectI};
+        use ptt_platform_win::{HudContent, HudQuoteRow, HudTone};
 
         if !self.hud_visible {
             return;
@@ -317,12 +474,29 @@ impl AppShell {
             probe_more: probe
                 .filter(|(_, more)| *more > 0)
                 .map_or_else(String::new, |(_, more)| format!("+{more}")),
+            placement: self
+                .hud_placement
+                .then(|| ptt_platform_win::HudPlacementBar {
+                    hint: text.hud_place_hint.to_owned(),
+                    opacity_text: format!("{}%", self.settings.hud.clamped_opacity()),
+                    // 按钮写要切去的那一档,不是现在这档:按钮是动作,不是状态。
+                    tier_label: match self.settings.hud.tier {
+                        ptt_settings::HudTier::Mini => text.hud_tier_expanded,
+                        ptt_settings::HudTier::Expanded => text.hud_tier_mini,
+                    }
+                    .to_owned(),
+                    done_label: text.hud_place_done.to_owned(),
+                }),
         };
+        // 位置解析前先吸收未取走的拖动,否则一次事件驱动的刷新会把刚拖好
+        // 的卡片弹回旧位置。
+        self.absorb_hud_drag();
         // 待抓条随内容出现/消失,窗口高度跟着变(§4:队列空了整条消失,
-        // 浮窗自动矮 20px)。
+        // 浮窗自动矮 20px);摆放模式顶上多 22px。
         let size = self.hud_size();
+        let bounds = self.hud_bounds(size);
         if let Some(hud) = self.hud.as_mut() {
-            if let Some(bounds) = RectI::new(HUD_ORIGIN.0, HUD_ORIGIN.1, size.0, size.1) {
+            if let Some(bounds) = bounds {
                 let _ = hud.set_bounds(bounds);
             }
             if let Err(error) = hud.set_content(content) {
