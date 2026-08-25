@@ -119,70 +119,110 @@ impl AppShell {
             })
             .collect();
 
-        let toolbar = div()
+        // 顶部 52px 进度带(12a):这是一次性任务,「还差什么」比任何数据都
+        // 重要——大数字放最左,引导句在中间,入口按钮(预设/载入)靠右。
+        let framed_count = Target::ALL
+            .into_iter()
+            .filter(|target| !preset_only(*target))
+            .count();
+        let missing_label = Target::ALL
+            .into_iter()
+            .find(|target| preset_only(*target))
+            .map(|target| match target {
+                Target::Need => text.slot_need,
+                Target::Have => text.slot_have,
+                Target::Tables => text.slot_tables,
+            });
+        let all_framed = framed_count == Target::ALL.len();
+        let progress_band = div()
+            .h(px(52.))
             .flex_none()
             .flex()
-            .items_center()
-            .gap_2()
-            .p_3()
+            .bg(c(PANEL))
+            .border_1()
+            .border_color(c(HAIRLINE))
+            // 本页的琥珀是「还没做完」,不是「出问题」(§9 记过一笔)。
             .child(
-                button("cal-load", LedgerButton::Primary, text.load_screenshot, cx).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.load_screenshot();
-                        cx.notify();
-                    }),
-                ),
+                div()
+                    .w(px(4.))
+                    .flex_none()
+                    .bg(c(if all_framed { FRESH } else { WARN })),
             )
             .child(
-                button("cal-zoom-in", LedgerButton::Quiet, text.zoom_in, cx).on_click(cx.listener(
-                    |this, _, _, cx| {
-                        this.zoom_calibration(1.25);
-                        cx.notify();
-                    },
-                )),
+                div()
+                    .flex()
+                    .flex_col()
+                    .justify_center()
+                    .gap(px(2.))
+                    .px(px(14.))
+                    .min_w(px(190.))
+                    .child(
+                        div()
+                            .h_flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                mono(framed_count.to_string())
+                                    .text_size(fs(FS_15))
+                                    .text_color(c(if all_framed { TEXT_DATA } else { WARN_TEXT })),
+                            )
+                            .child(
+                                div()
+                                    .text_size(fs(FS_12))
+                                    .text_color(c(TEXT_PRIMARY))
+                                    .child(text.cal_progress_suffix),
+                            ),
+                    )
+                    .children(missing_label.map(|missing| {
+                        div().text_size(fs(FS_10_5)).text_color(c(TEXT_META)).child(
+                            gpui::SharedString::from(ptt_runtime::report_text::fill(
+                                text.cal_missing,
+                                &[missing],
+                            )),
+                        )
+                    })),
+            )
+            .child(div().w(px(1.)).flex_none().bg(c(HAIRLINE_SOFT)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .flex()
+                    .items_center()
+                    .px(px(14.))
+                    .child(
+                        div()
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(TEXT_SECONDARY))
+                            .child(text.cal_guide),
+                    ),
             )
             .child(
-                button("cal-zoom-out", LedgerButton::Quiet, text.zoom_out, cx).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.zoom_calibration(0.8);
-                        cx.notify();
-                    }),
-                ),
-            )
-            .child(
-                button("cal-fit", LedgerButton::Quiet, text.fit_window, cx).on_click(cx.listener(
-                    |this, _, _, cx| {
-                        this.fit_calibration();
-                        cx.notify();
-                    },
-                )),
-            )
-            .child(
-                button("cal-actual", LedgerButton::Quiet, text.actual_size, cx).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.zoom_calibration_to(1.0);
-                        cx.notify();
-                    }),
-                ),
-            )
-            .child(
-                button("cal-apply", LedgerButton::Primary, text.apply_regions, cx).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.apply_drawn_regions();
-                        cx.notify();
-                    }),
-                ),
-            )
-            .child(
-                // Beside the drawing tools, because it is one of them: at this
-                // resolution it is the accurate way to set these rectangles,
-                // and drawing by hand is the fallback for every other one.
-                button("cal-preset", LedgerButton::Quiet, text.use_preset, cx).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.apply_preset_regions();
-                        cx.notify();
-                    }),
-                ),
+                div()
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px(px(14.))
+                    .child(
+                        button("cal-preset", LedgerButton::Secondary, text.use_preset, cx)
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.apply_preset_regions();
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        button(
+                            "cal-load",
+                            LedgerButton::Secondary,
+                            text.load_screenshot,
+                            cx,
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.load_screenshot();
+                            cx.notify();
+                        })),
+                    ),
             );
 
         let drawn: Vec<(bool, f32, f32, f32, f32)> = Target::ALL
@@ -309,6 +349,8 @@ impl AppShell {
                     .absolute()
                     .size_full()
                     .children(preset_guides.iter().map(|(left, top, width, height)| {
+                        // GPUI 画不了虚线;12a 的「虚线 = 预设」用细灰框替身,
+                        // 图例文案也写的是细灰框。
                         div()
                             .absolute()
                             .left(px(*left))
@@ -316,7 +358,7 @@ impl AppShell {
                             .w(px(*width))
                             .h(px(*height))
                             .border_1()
-                            .border_color(c(WARN))
+                            .border_color(c(TEXT_DISABLED))
                     }))
             }))
             .children(
@@ -340,14 +382,19 @@ impl AppShell {
                     }),
             )
             .children(drawn.into_iter().map(|(active, left, top, w, h)| {
-                div()
+                // 12a:你框好的一律金框;当前正在框的那块加粗一档提示焦点。
+                let frame = div()
                     .absolute()
                     .left(px(left))
                     .top(px(top))
                     .w(px(w))
                     .h(px(h))
-                    .border_2()
-                    .border_color(c(if active { ACCENT } else { HAIRLINE_STRONG }))
+                    .border_color(c(ACCENT));
+                if active {
+                    frame.border_2()
+                } else {
+                    frame.border_1()
+                }
             }))
             .children(magnifier)
             .on_mouse_down(
@@ -400,20 +447,9 @@ impl AppShell {
                 }),
             );
 
-        // 右侧 280px 槽位清单(§9):每个槽位一张卡——状态点、坐标、该框哪里
-        // 的说明。原来三句提示一次只显一条,坐标散在页脚。点卡片选中槽位。
-        let framed_count = Target::ALL
-            .into_iter()
-            .filter(|target| !preset_only(*target))
-            .count();
-        let missing_label = Target::ALL
-            .into_iter()
-            .find(|target| preset_only(*target))
-            .map(|target| match target {
-                Target::Need => text.slot_need,
-                Target::Have => text.slot_have,
-                Target::Tables => text.slot_tables,
-            });
+        // 右侧 280px 槽位清单(§9/12a):每个槽位一张卡——状态点、坐标、该框
+        // 哪里的说明。原来三句提示一次只显一条,坐标散在页脚。点卡片选中
+        // 槽位。进度与「还差什么」在顶部进度带,这里不再重复。
         let mut slot_list = panel()
             .w(px(280.))
             .flex_none()
@@ -431,43 +467,8 @@ impl AppShell {
                     .bg(c(RAIL))
                     .border_b_1()
                     .border_color(c(HAIRLINE))
-                    .child(crate::ui::micro_title(text.cal_list_header))
-                    .child(div().flex_1())
-                    .child(
-                        mono(ptt_runtime::report_text::fill(
-                            text.cal_progress,
-                            &[&framed_count.to_string()],
-                        ))
-                        .text_size(fs(FS_10_5))
-                        .text_color(c(if framed_count == 3 {
-                            TEXT_DATA
-                        } else {
-                            WARN_TEXT
-                        })),
-                    ),
+                    .child(crate::ui::micro_title(text.cal_list_header)),
             );
-        if let Some(missing) = missing_label {
-            slot_list = slot_list.child(
-                div()
-                    .h(px(H_ROW))
-                    .flex_none()
-                    .h_flex()
-                    .items_center()
-                    .gap_2()
-                    .px_3()
-                    .border_b_1()
-                    .border_color(c(HAIRLINE_SOFT))
-                    // 本页的琥珀是"还没做完",不是"出问题"——整套配色里唯一
-                    // 一次琥珀表示待办(§9 记过一笔)。
-                    .child(div().size(px(6.)).flex_none().rounded_full().bg(c(WARN)))
-                    .child(div().text_size(fs(FS_10_5)).text_color(c(WARN_TEXT)).child(
-                        gpui::SharedString::from(ptt_runtime::report_text::fill(
-                            text.cal_missing,
-                            &[missing],
-                        )),
-                    )),
-            );
-        }
         for target in Target::ALL {
             let label = match target {
                 Target::Need => text.slot_need,
@@ -557,6 +558,79 @@ impl AppShell {
                 ),
             );
         }
+        // 「框完之后」(12a):保存这个动作和它的后果写在按钮边上,
+        // 不用去别的页面猜。
+        let pending_count = Target::ALL
+            .into_iter()
+            .filter(|target| {
+                self.calibration.rect(*target).is_some()
+                    && self
+                        .calibration
+                        .differs(*target, self.saved_rect(profile, *target))
+            })
+            .count();
+        slot_list = slot_list
+            .child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.))
+                    .px_3()
+                    .py_2()
+                    .border_b_1()
+                    .border_color(c(HAIRLINE_SOFT))
+                    .child(crate::ui::micro_title_sm(text.cal_after_header))
+                    .child(
+                        div()
+                            .text_size(fs(FS_11))
+                            .line_height(px(FS_11 * 1.6))
+                            .text_color(c(TEXT_SECONDARY))
+                            .child(text.cal_after_body),
+                    ),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .p(px(10.))
+                    .border_t_1()
+                    .border_color(c(HAIRLINE_SOFT))
+                    .child(
+                        button("cal-apply", LedgerButton::Primary, text.cal_save_button, cx)
+                            .w_full()
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.apply_drawn_regions();
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        div()
+                            .h_flex()
+                            .items_center()
+                            .gap(px(6.))
+                            .child(
+                                div()
+                                    .size(px(6.))
+                                    .flex_none()
+                                    .rounded_full()
+                                    .bg(c(if pending_count == 0 { FRESH } else { WARN })),
+                            )
+                            .child(div().text_size(fs(FS_10_5)).text_color(c(TEXT_META)).child(
+                                gpui::SharedString::from(if pending_count == 0 {
+                                    text.cal_in_sync.to_owned()
+                                } else {
+                                    ptt_runtime::report_text::fill(
+                                        text.cal_pending,
+                                        &[&pending_count.to_string()],
+                                    )
+                                }),
+                            )),
+                    ),
+            );
 
         // 底部那行 5 个数字拆开了(§9):坐标回槽位卡、缩放上画布标题栏、
         // 鼠标坐标留在放大镜上——这里只剩状态消息本身。
@@ -568,48 +642,149 @@ impl AppShell {
             }
         });
 
-        // 画布标题栏:缩放与画布尺寸——整页就是这一个变换,错了的时候图
-        // 看着仍然合理,所以数字得在屏上。
+        // 画布标题栏(12a):「截图」+ 原图尺寸 + 缩放控件。缩放收在图的
+        // 标题栏上——整页就是这一个变换,控件必须贴着它作用的东西。
+        use gpui::StatefulInteractiveElement as _;
+        let zoom_button = |id: &'static str, label: gpui::SharedString, gold: bool| {
+            let styled = div()
+                .id(id)
+                .h(px(18.))
+                .px(px(6.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(RADIUS_BUTTON))
+                .border_1()
+                .text_size(fs(FS_10))
+                .cursor_pointer();
+            if gold {
+                styled
+                    .border_color(c(ACCENT_LINE))
+                    .bg(c(ACCENT_WASH))
+                    .text_color(c(ACCENT_TEXT))
+            } else {
+                styled
+                    .border_color(c(HAIRLINE))
+                    .text_color(c(TEXT_SECONDARY))
+                    .hover(|style| style.bg(c(HOVER)))
+            }
+            .child(label)
+        };
         let canvas_header = div()
             .h(px(H_INPUT))
             .flex_none()
             .h_flex()
             .items_center()
-            .gap_3()
+            .gap_2()
             .px_3()
             .bg(c(RAIL))
             .border_1()
             .border_color(c(HAIRLINE))
-            .child(crate::ui::micro_title(text.page_calibrate))
+            .child(crate::ui::micro_title(text.cal_canvas_header))
+            .child(
+                mono(size.map_or_else(
+                    || "—".to_owned(),
+                    |(width, height)| format!("{width}x{height}"),
+                ))
+                .text_size(fs(FS_10))
+                .text_color(c(TEXT_GHOST)),
+            )
             .child(div().flex_1())
             .child(
-                mono(self.canvas_bounds.get().map_or_else(
-                    || "?".to_owned(),
-                    |bounds| {
+                zoom_button("cal-zoom-out", "−".into(), false).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.zoom_calibration(0.8);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                mono(format!("{:.0}%", view.zoom * 100.0))
+                    .w(px(40.))
+                    .text_center()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_SECONDARY)),
+            )
+            .child(
+                zoom_button("cal-zoom-in", "+".into(), false).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.zoom_calibration(1.25);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                zoom_button("cal-fit", text.fit_window.into(), true).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.fit_calibration();
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                zoom_button("cal-actual", text.actual_size.into(), false).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.zoom_calibration_to(1.0);
+                        cx.notify();
+                    },
+                )),
+            );
+
+        // 画布脚注(12a):图例说明两种框,右侧是鼠标的源图坐标。
+        let legend_swatch = |color: u32| {
+            div()
+                .size(px(10.))
+                .flex_none()
+                .border_1()
+                .border_color(c(color))
+        };
+        let canvas_footer = div()
+            .h(px(H_INPUT))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .gap_2()
+            .px_3()
+            .border_1()
+            .border_color(c(HAIRLINE))
+            .border_t_0()
+            .bg(c(PANEL))
+            .child(legend_swatch(TEXT_DISABLED))
+            .child(
+                div()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED))
+                    .child(text.cal_legend_preset),
+            )
+            .child(legend_swatch(ACCENT))
+            .child(
+                div()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED))
+                    .child(text.cal_legend_saved),
+            )
+            .child(div().flex_1())
+            .child(
+                mono(self.calibration.cursor.map_or_else(
+                    || text.cal_mouse_label.to_owned(),
+                    |(x, y)| {
                         format!(
-                            "{}x{}",
-                            f32::from(bounds.size.width).round(),
-                            f32::from(bounds.size.height).round()
+                            "{} {}, {}",
+                            text.cal_mouse_label,
+                            x.round() as i32,
+                            y.round() as i32
                         )
                     },
                 ))
-                .text_size(fs(FS_10_5))
+                .text_size(fs(FS_10))
                 .text_color(c(TEXT_GHOST)),
-            )
-            .child(
-                mono(ptt_runtime::report_text::fill(
-                    text.cal_zoom_label,
-                    &[&format!("{:.2}", view.zoom)],
-                ))
-                .text_size(fs(FS_10_5))
-                .text_color(c(TEXT_META)),
             );
 
         div()
             .flex_grow()
             .flex()
             .flex_col()
-            .child(toolbar)
+            .child(div().flex_none().px_3().pt_2().child(progress_band))
             .child(
                 div()
                     .flex_1()
@@ -617,6 +792,7 @@ impl AppShell {
                     .flex()
                     .gap(px(SP_8))
                     .px_3()
+                    .pt_2()
                     .pb_2()
                     .child(
                         // A flex column, not a bare block. `canvas_area` grows
@@ -631,10 +807,10 @@ impl AppShell {
                             .min_w(px(0.))
                             .flex()
                             .flex_col()
-                            .gap(px(SP_4))
                             .relative()
                             .child(canvas_header)
-                            .child(canvas_area),
+                            .child(canvas_area)
+                            .child(canvas_footer),
                     )
                     .child(slot_list),
             )
