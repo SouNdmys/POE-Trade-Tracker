@@ -1768,8 +1768,26 @@ fn skip_label(key: &str, language: ptt_settings::UiLanguage) -> String {
         "rows-out-of-order" => text.skip_out_of_order.to_owned(),
         "confirmation-mismatch" => text.skip_confirmation.to_owned(),
         "duplicate" => text.skip_duplicate.to_owned(),
+        // The most frequent key of them all, and the one that is not a
+        // problem: the exchange panel simply was not open.
+        "not-book-view" => text.skip_not_book_view.to_owned(),
         other => other.to_owned(),
     }
+}
+
+/// The skip tally, split into (real problems, normal standby).
+///
+/// `not-book-view` means the exchange panel simply was not open — the watcher
+/// idling as designed. Counting those frames among the skips buries the
+/// number that matters: 549 standby frames next to 17 real failures read as
+/// "566 problems", and a reader trained on that learns to ignore the count.
+// The health band (§4 监视器重排, the commit after this one) is the consumer;
+// the split lands with the bug fix because the two are one finding.
+#[allow(dead_code)]
+fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
+    let standby = skips.get("not-book-view").copied().unwrap_or(0);
+    let total: u64 = skips.values().sum();
+    (total - standby, standby)
 }
 
 fn hud_lines(pair: &str, rows: &[String], waiting: &str, verdict: &str) -> Vec<String> {
@@ -1785,6 +1803,43 @@ fn hud_lines(pair: &str, rows: &[String], waiting: &str, verdict: &str) -> Vec<S
     lines.push(verdict.to_owned());
     lines.truncate(HUD_BODY_LINES);
     lines
+}
+
+#[cfg(test)]
+mod skip_label_tests {
+    use super::{skip_label, standby_skip_split};
+    use ptt_settings::UiLanguage;
+
+    /// `not-book-view` is the most frequent skip key of them all — 549 of 566
+    /// frames on the owner's real session — and the label function had no
+    /// branch for it, so the interface printed the English key into a Chinese
+    /// sentence. The bug the 4a design review found.
+    #[test]
+    fn the_most_frequent_skip_reason_has_a_chinese_name() {
+        assert_eq!(
+            skip_label("not-book-view", UiLanguage::Chinese),
+            "面板没开着",
+            "the interface is showing the raw bucket key for the most \
+             common skip reason"
+        );
+        assert_eq!(
+            skip_label("not-book-view", UiLanguage::English),
+            "panel not open",
+        );
+    }
+
+    /// Standby is not failure: counting the closed-panel frames among the
+    /// skips trains the reader to ignore the number that matters.
+    #[test]
+    fn standby_frames_are_counted_apart_from_real_skips() {
+        let mut skips = std::collections::BTreeMap::new();
+        skips.insert("not-book-view".to_owned(), 549_u64);
+        skips.insert("rows:NoBands".to_owned(), 16_u64);
+        skips.insert("confirmation-mismatch".to_owned(), 1_u64);
+        let (real, standby) = standby_skip_split(&skips);
+        assert_eq!(standby, 549);
+        assert_eq!(real, 17);
+    }
 }
 
 #[cfg(test)]
