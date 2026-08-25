@@ -479,6 +479,8 @@ pub struct Text {
     pub history_candle_progress: &'static str,
     /// 右栏两侧队列的标题:面板原词之外多一句它对你意味着什么。
     pub history_available_title: &'static str,
+    /// 右栏两侧队列缺席的原因:最近一帧读的是别的通货对。
+    pub history_book_elsewhere: &'static str,
     pub history_competing_title: &'static str,
 
     // -- calibrate page (§9 定稿 = 12a) --
@@ -860,6 +862,7 @@ impl Text {
             ("history_color_legend", self.history_color_legend),
             ("history_candle_progress", self.history_candle_progress),
             ("history_available_title", self.history_available_title),
+            ("history_book_elsewhere", self.history_book_elsewhere),
             ("history_competing_title", self.history_competing_title),
             ("cal_progress", self.cal_progress),
             ("cal_missing", self.cal_missing),
@@ -1236,6 +1239,7 @@ pub static ENGLISH: Text = Text {
     history_color_legend: "gold = pricier · brick-red = cheaper",
     history_candle_progress: "{} candles so far, 24h needs {}",
     history_available_title: "available · what you pay to take",
+    history_book_elsewhere: "the live panel is reading another pair; both queues show here once a frame of this pair lands",
     history_competing_title: "competing · what you undercut to list",
 
     cal_progress: "{} / 3 regions framed",
@@ -1613,6 +1617,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     history_color_legend: "金 = 变贵 · 砖红 = 变便宜",
     history_candle_progress: "已有 {} 根，24 小时需要 {} 根",
     history_available_title: "可用 · 你买要付",
+    history_book_elsewhere: "盘口面板当前读的是另一对；读到这一对的一帧后，两侧队列会显示在这里",
     history_competing_title: "竞争 · 你挂要压",
 
     cal_progress: "{} / 3 个区域已框好",

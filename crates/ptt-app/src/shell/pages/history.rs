@@ -263,9 +263,23 @@ impl AppShell {
         // 什么)。队列取自最近一帧,且只在那一帧就是这一对时才画——别的
         // 对的盘口画在这里就是张冠李戴。
         let mut side = crate::ui::detail_panel(text.page_history).child(facts);
+        let book_is_this_pair = self.last_book.as_ref().is_some_and(|book| {
+            book.have == model.have.as_str() && book.need == model.need.as_str()
+        });
+        if !book_is_this_pair {
+            // 空得说明原因:静默少一块,读的人只会当这一块没做。
+            side = side.child(
+                div()
+                    .px(px(SP_10))
+                    .py(px(SP_8))
+                    .text_size(fs(FS_10_5))
+                    .line_height(px(FS_10_5 * 1.6))
+                    .text_color(c(TEXT_DISABLED))
+                    .child(text.history_book_elsewhere),
+            );
+        }
         if let Some(book) = &self.last_book
-            && book.have == model.have.as_str()
-            && book.need == model.need.as_str()
+            && book_is_this_pair
         {
             for (title, side_key) in [
                 (text.history_available_title, "available"),
@@ -371,9 +385,7 @@ impl AppShell {
             .flex_col()
             .overflow_hidden()
             .child(header);
-        if candles.len() < 2 {
-            // One candle is a dot, not a shape. The facts panel beside this
-            // still states the price.
+        if candles.is_empty() {
             return body.child(empty_state(text.history_too_short));
         }
         // Oldest first, which is the order the model keeps them in: a chart
