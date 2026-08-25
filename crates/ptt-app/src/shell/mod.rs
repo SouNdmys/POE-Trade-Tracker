@@ -9,15 +9,15 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use gpui::{
-    AppContext as _, Context, FocusHandle, IntoElement, ParentElement, Render, SharedString,
-    Styled, Window, div, px,
+    AppContext as _, Context, FocusHandle, InteractiveElement as _, IntoElement, ParentElement,
+    Render, SharedString, StatefulInteractiveElement as _, Styled, Window, div, px,
 };
 use gpui_component::StyledExt as _;
 
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, button, chip, hairline_soft, mono, panel, panel_header, spaced,
-    status_dot,
+    LedgerButton, StatusKind, breathing_dot, button, chip, hairline_soft, mono, panel,
+    panel_header, spaced,
 };
 
 #[cfg(windows)]
@@ -1092,33 +1092,49 @@ impl AppShell {
         }
     }
 
+    /// 左导航:108px 栏,28px 条目(原型 1a)。
+    ///
+    /// 激活项是「色字=主题」的示范:2px 金左条 + panel 底 + 金字 600。
+    /// 左内边距从 14 减到 12 抵掉 2px 边框,文字不因选中而移位——
+    /// 和表格选中行同一条规矩。
     fn nav_rail(&self, cx: &mut Context<Self>) -> gpui::Div {
         div()
-            .w(px(132.0))
+            .w(px(W_NAV))
             .flex_none()
             .flex()
             .flex_col()
-            .gap_1()
-            .p_2()
+            .gap(px(1.))
+            .py_2()
             .bg(c(RAIL))
             .border_r_1()
             .border_color(c(HAIRLINE))
             .children(Page::ALL.into_iter().map(|page| {
                 let active = page == self.page;
-                button(
-                    page.element_id(),
-                    if active {
-                        LedgerButton::Primary
-                    } else {
-                        LedgerButton::Secondary
-                    },
-                    page.label(self.text()),
-                    cx,
-                )
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.show_page(page);
-                    cx.notify();
-                }))
+                let row = div()
+                    .id(page.element_id())
+                    .h(px(H_BUTTON))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .text_size(fs(FS_12))
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.show_page(page);
+                        cx.notify();
+                    }));
+                let row = if active {
+                    row.pl(px(12.))
+                        .border_l_2()
+                        .border_color(c(ACCENT))
+                        .bg(c(PANEL))
+                        .font_semibold()
+                        .text_color(c(ACCENT_TEXT))
+                } else {
+                    row.pl(px(14.))
+                        .text_color(c(TEXT_SECONDARY))
+                        .hover(|style| style.bg(c(HOVER)))
+                };
+                row.child(SharedString::from(page.label(self.text()).to_string()))
             }))
     }
 
@@ -1475,6 +1491,20 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
     }
 }
 
+/// 顶条里的一对「label 值」:label 走当前容器的 meta 灰,值用等宽数据色。
+fn band_stat(label: &str, value: String) -> gpui::Div {
+    div()
+        .h_flex()
+        .items_center()
+        .gap(px(4.))
+        .child(SharedString::from(label.to_string()))
+        .child(
+            div()
+                .text_color(c(TEXT_DATA))
+                .child(SharedString::from(value)),
+        )
+}
+
 impl Render for AppShell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Rebuilding a select needs a window, which the background answer
@@ -1525,29 +1555,40 @@ impl Render for AppShell {
             .text_color(c(TEXT_PRIMARY))
             .font_family(FONT_UI)
             .child(
-                // Status strip.
+                // 顶部状态条(36px,原型 1a):点 · 标题 · 状态字 · 计数对 · 开关。
                 div()
-                    .h(px(40.0))
+                    .h(px(H_STATUS_TOP))
                     .flex_none()
                     .flex()
                     .items_center()
                     .gap_3()
-                    .px_4()
+                    .px_3()
                     .bg(c(RAIL))
                     .border_b_1()
                     .border_color(c(HAIRLINE_STRONG))
-                    .child(status_dot(dot_kind))
+                    .child(breathing_dot("watch-dot", dot_kind))
                     .child(div().text_size(fs(FS_12_5)).child(spaced(text.app_title)))
                     .child(
-                        mono(format!(
-                            "{state_label}   {} {}   {} {}",
-                            text.accepted_label, self.accepted, text.skips_label, skip_total
-                        ))
-                        .text_color(c(TEXT_META)),
+                        div()
+                            .text_size(fs(FS_12))
+                            .text_color(c(dot_kind.text()))
+                            .child(SharedString::from(state_label.to_string())),
+                    )
+                    .child(
+                        div()
+                            .h_flex()
+                            .items_center()
+                            .gap(px(14.))
+                            .font_family(FONT_MONO)
+                            .text_size(fs(FS_11))
+                            .text_color(c(TEXT_META))
+                            .child(band_stat(text.accepted_label, self.accepted.to_string()))
+                            .child(band_stat(text.skips_label, skip_total.to_string())),
                     )
                     .child(div().flex_grow())
                     .child(
                         button("watch-toggle", button_kind, button_label, cx)
+                            .h(px(H_ROW))
                             .on_click(cx.listener(|this, _, _, cx| this.toggle_watch(cx))),
                     ),
             )
@@ -1575,8 +1616,8 @@ impl Render for AppShell {
                                     .flex_grow()
                                     .flex()
                                     .flex_col()
-                                    .gap_3()
-                                    .p_3()
+                                    .gap(px(SP_8))
+                                    .p(px(SP_10))
                                     .child(self.settings_panel(cx))
                                     .child(self.season_panel(cx))
                                     .child(self.tuning_panel(cx)),
@@ -1586,8 +1627,8 @@ impl Render for AppShell {
                         div()
                             .flex_grow()
                             .flex()
-                            .gap_3()
-                            .p_3()
+                            .gap(px(SP_8))
+                            .p(px(SP_10))
                             .child(
                                 panel()
                                     .flex_grow()
@@ -1600,7 +1641,7 @@ impl Render for AppShell {
                                     .flex_grow()
                                     .flex()
                                     .flex_col()
-                                    .gap_3()
+                                    .gap(px(SP_8))
                                     .child(
                                         panel()
                                             .overflow_hidden()
@@ -1655,8 +1696,8 @@ impl Render for AppShell {
                             .flex_grow()
                             .flex()
                             .flex_col()
-                            .gap_3()
-                            .p_3()
+                            .gap(px(SP_8))
+                            .p(px(SP_10))
                             .child(
                                 mono(match &self.report_pair {
                                     Some((have, need)) => {
@@ -1671,22 +1712,22 @@ impl Render for AppShell {
                     }),
             )
             .child(
-                // Footer: fault or recent log line.
+                // 底部状态栏(22px):故障或最近一条日志。
                 div()
-                    .h(px(24.0))
+                    .h(px(H_STATUS_BOTTOM))
                     .flex_none()
                     .flex()
                     .items_center()
-                    .px_4()
+                    .px_3()
                     .bg(c(RAIL))
                     .border_t_1()
                     .border_color(c(HAIRLINE))
                     .child(match &self.fault {
                         Some(fault) => mono(format!("{}: {fault}", text.fault_prefix))
-                            .text_size(fs(FS_11_5))
-                            .text_color(c(DANGER)),
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(DANGER_TEXT)),
                         None => mono(self.log.back().cloned().unwrap_or_default())
-                            .text_size(fs(FS_11_5))
+                            .text_size(fs(FS_10_5))
                             .text_color(c(TEXT_META)),
                     })
                     .child(hairline_soft()),
