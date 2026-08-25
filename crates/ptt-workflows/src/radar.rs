@@ -621,6 +621,9 @@ pub fn run_opportunity_radar(
         total_units,
     });
     items.sort_by(compare_items);
+    // 排序之后、计数之前剪:被支配的绕路不该进「有得赚 N」——它不是第
+    // N 个机会,是某个机会的重复报数。
+    prune_dominated_items(&mut items);
     // Counted before the page limit, because the count is the part a reader
     // deciding how much to commit actually needs.
     let profitable_loop_count = count(
@@ -1154,6 +1157,42 @@ fn compare_items(left: &RadarItem, right: &RadarItem) -> Ordering {
         .then_with(|| left.item_id.cmp(&right.item_id))
 }
 
+/// Drops routes that are a longer detour on a kept route for no more money.
+///
+/// 用户裁定:起点终点一致、路径只是在另一条已上榜路线里**多塞了一手**
+/// (顺序子序列关系)时,多出来的那一手必须换来更高的收益;不然它不是
+/// 第二个机会,只是同一个机会的绕路写法,不该占榜位。
+///
+/// 依赖调用前 `items` 已按 `compare_items` 排好:先见到的必然不差于后
+/// 见到的,所以后面的路线只要把前面某条整个包着(同类、同起终点、子
+/// 序列),就是"绕了路还没多赚",剪掉。多赚了的绕路会排在短路前面,
+/// 反向包含不成立,两条都留——多一手换来更高收益是正当机会。
+fn prune_dominated_items(items: &mut Vec<RadarItem>) {
+    let mut kept: Vec<RadarItem> = Vec::with_capacity(items.len());
+    for item in items.drain(..) {
+        let dominated = kept.iter().any(|better| {
+            better.kind == item.kind && is_detour_of(&better.path_asset_ids, &item.path_asset_ids)
+        });
+        if !dominated {
+            kept.push(item);
+        }
+    }
+    *items = kept;
+}
+
+/// `long` 是不是「`short` 多塞了几手」:起点终点相同,且 `short` 按原顺序
+/// 整个嵌在 `long` 里。起终点不同就不是同一趟买卖,再像也不算绕路。
+fn is_detour_of(short: &[MarketAssetId], long: &[MarketAssetId]) -> bool {
+    if short.len() >= long.len() {
+        return false;
+    }
+    if short.first() != long.first() || short.last() != long.last() {
+        return false;
+    }
+    let mut rest = long.iter();
+    short.iter().all(|stop| rest.any(|step| step == stop))
+}
+
 fn ensure_not_cancelled(cancellation: &SearchCancellation) -> Result<(), WorkflowError> {
     if cancellation.is_cancelled() {
         Err(WorkflowError::Cancelled)
@@ -1298,6 +1337,113 @@ mod tests {
             ],
             "these are caveats, not risks, so the risk row never shows them"
         );
+    }
+
+    /// A bare route row: kind, path, and the headline number, nothing else.
+    fn route_item(kind: RadarItemKind, path: &[&str], round_trip: i64) -> RadarItem {
+        let assets: Vec<MarketAssetId> = path
+            .iter()
+            .map(|id| MarketAssetId::try_new(*id).expect("asset"))
+            .collect();
+        let first = assets.first().expect("path").clone();
+        let units = AssetUnitCatalog::try_new(BTreeMap::from([(
+            first.clone(),
+            ptt_trade_engine::AssetUnit::whole(),
+        )]))
+        .expect("units");
+        let amount = AssetAmount::from_whole_units(first, 1, &units).expect("amount");
+        RadarItem {
+            item_id: path.join("-"),
+            kind,
+            category: Actionability::MakerTheoretical,
+            path_asset_ids: assets,
+            amount_in: amount.clone(),
+            amount_out: amount,
+            value_basis_points: Some(round_trip),
+            round_trip_basis_points: Some(round_trip),
+            liquidity_capacity: None,
+            reasons: Vec::new(),
+            risk_flags: Vec::new(),
+            blocking_risks: Vec::new(),
+            conversion_path: None,
+            triangle: None,
+        }
+    }
+
+    fn paths(items: &[RadarItem]) -> Vec<String> {
+        items.iter().map(|item| item.item_id.clone()).collect()
+    }
+
+    /// **绕路不多赚就不是第二个机会。**
+    ///
+    /// 实机截图上的原案:`混沌石→無效石→神聖石→混沌石` 收 9.17%,而
+    /// `混沌石→無效石→神聖石→高階混沌石→混沌石` 只收 7.48%——后者把前者
+    /// 整个包在肚子里,多倒的那手高階混沌石纯属白忙。这样的行占掉榜位,
+    /// 读的人还得自己看出两行是同一趟。
+    #[test]
+    fn a_longer_route_that_earns_no_more_is_not_a_second_opportunity() {
+        let mut items = vec![
+            // 排序后的顺序:高收益在前。
+            route_item(
+                RadarItemKind::Loop,
+                &["chaos", "annul", "divine", "chaos"],
+                917,
+            ),
+            route_item(
+                RadarItemKind::Loop,
+                &["chaos", "annul", "divine", "greater-chaos", "chaos"],
+                748,
+            ),
+            route_item(
+                RadarItemKind::BestConversion,
+                &["divine", "chaos", "omen"],
+                500,
+            ),
+            route_item(
+                RadarItemKind::BestConversion,
+                &["divine", "exalt", "chaos", "omen"],
+                400,
+            ),
+        ];
+        prune_dominated_items(&mut items);
+        assert_eq!(
+            paths(&items),
+            vec!["chaos-annul-divine-chaos", "divine-chaos-omen"],
+            "the two detours restate the two kept routes with an unpaid extra hop"
+        );
+    }
+
+    /// 多倒一手**多赚了**就是正当机会,两条都得留;不同起终点、不同种类
+    /// 之间也永远不构成支配。
+    #[test]
+    fn a_detour_that_pays_and_unrelated_routes_survive_pruning() {
+        let mut items = vec![
+            // 绕路更赚:长的排前面,短的也留(有人只想跑两手)。
+            route_item(
+                RadarItemKind::Loop,
+                &["chaos", "annul", "exalt", "divine", "chaos"],
+                950,
+            ),
+            route_item(
+                RadarItemKind::Loop,
+                &["chaos", "annul", "divine", "chaos"],
+                900,
+            ),
+            // 起点不同:不是同一趟,包含关系不成立。
+            route_item(
+                RadarItemKind::BestConversion,
+                &["exalt", "divine", "omen"],
+                300,
+            ),
+            route_item(
+                RadarItemKind::BestConversion,
+                &["divine", "exalt", "divine", "omen"],
+                200,
+            ),
+        ];
+        let before = paths(&items);
+        prune_dominated_items(&mut items);
+        assert_eq!(paths(&items), before, "nothing here is a dominated detour");
     }
 
     #[test]
