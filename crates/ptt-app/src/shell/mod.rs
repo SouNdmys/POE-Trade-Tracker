@@ -239,6 +239,14 @@ pub struct AppShell {
     /// 唯一的后悔药,不藏进设置页——但默认收起,它是给后悔用的,不是给
     /// 每天看的。
     pub(crate) show_ignored_probes: bool,
+    /// 兑换页的排序开关:false = 按汇率(模型的名次),true = 按吃得下的量。
+    ///
+    /// 两种排序并存是 §7 的核心裁定:最优汇率 ≠ 做得完,+78.9% 只吃得下
+    /// 14,而 +75.1% 吃得下 63——真正决定走哪条的常常是深度。
+    pub(crate) convert_sort_by_depth: bool,
+    /// 兑换页选中的路线(在当前排序下的行号对应的路线身份,存路径本身,
+    /// 排序切换后仍指向同一条路线)。
+    pub(crate) convert_selected_route: Option<Vec<String>>,
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
@@ -491,6 +499,8 @@ impl AppShell {
             report_generation: 0,
             probe_queue: crate::state::ProbeQueue::default(),
             show_ignored_probes: false,
+            convert_sort_by_depth: false,
+            convert_selected_route: None,
             report_stale: true,
         }
     }

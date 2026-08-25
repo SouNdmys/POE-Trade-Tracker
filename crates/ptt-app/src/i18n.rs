@@ -440,6 +440,35 @@ pub struct Text {
     pub analytics_trend_baseline: &'static str,
     /// 供需比列头。
     pub analytics_col_ratio: &'static str,
+
+    // -- convert page (§7 定稿 = 11a) --
+    pub convert_routes_header: &'static str,
+    /// `{} 条 · 最多 {} 步`
+    pub convert_routes_meta: &'static str,
+    pub convert_col_route: &'static str,
+    pub convert_col_steps: &'static str,
+    pub convert_col_rate: &'static str,
+    pub convert_col_vs: &'static str,
+    /// `{} 换到`
+    pub convert_col_out: &'static str,
+    pub convert_col_depth: &'static str,
+    /// 表尾的口径说明:能吃下取全路径最窄的那一段。
+    pub convert_depth_definition: &'static str,
+    /// 结论带:`{} {} 理论上最多换到`
+    pub convert_band_best: &'static str,
+    pub convert_band_vs: &'static str,
+    /// `直兑 {}`
+    pub convert_band_direct: &'static str,
+    /// `但最好那条只吃得下 {}`
+    pub convert_band_thin: &'static str,
+    pub convert_sort_rate: &'static str,
+    pub convert_sort_depth: &'static str,
+    /// 挂单三档的代价句(§7:每档配一句代价,不然看不出为什么不总选最贪的)。
+    pub maker_cost_undercut: &'static str,
+    pub maker_cost_match: &'static str,
+    pub maker_cost_greedy: &'static str,
+    /// 路线明细的段行:`这一段吃得下 {}`
+    pub convert_leg_takes: &'static str,
 }
 
 impl Text {
@@ -725,6 +754,25 @@ impl Text {
             ("analytics_days_short", self.analytics_days_short),
             ("analytics_trend_baseline", self.analytics_trend_baseline),
             ("analytics_col_ratio", self.analytics_col_ratio),
+            ("convert_routes_header", self.convert_routes_header),
+            ("convert_routes_meta", self.convert_routes_meta),
+            ("convert_col_route", self.convert_col_route),
+            ("convert_col_steps", self.convert_col_steps),
+            ("convert_col_rate", self.convert_col_rate),
+            ("convert_col_vs", self.convert_col_vs),
+            ("convert_col_out", self.convert_col_out),
+            ("convert_col_depth", self.convert_col_depth),
+            ("convert_depth_definition", self.convert_depth_definition),
+            ("convert_band_best", self.convert_band_best),
+            ("convert_band_vs", self.convert_band_vs),
+            ("convert_band_direct", self.convert_band_direct),
+            ("convert_band_thin", self.convert_band_thin),
+            ("convert_sort_rate", self.convert_sort_rate),
+            ("convert_sort_depth", self.convert_sort_depth),
+            ("maker_cost_undercut", self.maker_cost_undercut),
+            ("maker_cost_match", self.maker_cost_match),
+            ("maker_cost_greedy", self.maker_cost_greedy),
+            ("convert_leg_takes", self.convert_leg_takes),
         ]
     }
 }
@@ -1025,6 +1073,26 @@ pub static ENGLISH: Text = Text {
     analytics_days_short: "{} more days",
     analytics_trend_baseline: "trend needs a 7-day baseline, only {} so far",
     analytics_col_ratio: "d/s",
+
+    convert_routes_header: "ROUTES",
+    convert_routes_meta: "{} routes · up to {} steps",
+    convert_col_route: "route",
+    convert_col_steps: "steps",
+    convert_col_rate: "route rate",
+    convert_col_vs: "vs direct",
+    convert_col_out: "{} yields",
+    convert_col_depth: "absorbs",
+    convert_depth_definition: "'absorbs' is the narrowest leg of the whole route, not the first leg's depth",
+    convert_band_best: "{} {} yields at most",
+    convert_band_vs: "over direct",
+    convert_band_direct: "direct {}",
+    convert_band_thin: "but the best route only absorbs {}",
+    convert_sort_rate: "by rate",
+    convert_sort_depth: "by absorbable size",
+    maker_cost_undercut: "fills fastest",
+    maker_cost_match: "queues behind the original",
+    maker_cost_greedy: "may sit all night",
+    convert_leg_takes: "this leg absorbs {}",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1323,6 +1391,26 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     analytics_days_short: "还差 {} 天",
     analytics_trend_baseline: "趋势要 7 天基线，目前 {} 天",
     analytics_col_ratio: "供需",
+
+    convert_routes_header: "兑换路线",
+    convert_routes_meta: "{} 条 · 最多 {} 步",
+    convert_col_route: "路线",
+    convert_col_steps: "步数",
+    convert_col_rate: "整条汇率",
+    convert_col_vs: "比直兑",
+    convert_col_out: "{} 换到",
+    convert_col_depth: "这条能吃下",
+    convert_depth_definition: "「能吃下」取全路径最窄的那一段，不是第一段的深度",
+    convert_band_best: "{} {} 理论上最多换到",
+    convert_band_vs: "比直兑多",
+    convert_band_direct: "直兑 {}",
+    convert_band_thin: "但最好那条只吃得下 {}",
+    convert_sort_rate: "按汇率",
+    convert_sort_depth: "按吃得下的量",
+    maker_cost_undercut: "最快成交",
+    maker_cost_match: "排在原单之后",
+    maker_cost_greedy: "可能挂到天亮",
+    convert_leg_takes: "这一段吃得下 {}",
 };
 
 #[cfg(test)]

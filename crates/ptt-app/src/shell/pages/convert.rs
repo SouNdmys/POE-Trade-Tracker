@@ -6,7 +6,9 @@
 //! competing front, matching it, or asking above it — against that same fill,
 //! which is the only baseline that makes those three comparable.
 
-use gpui::{AppContext as _, Context, Entity, ParentElement, Styled, div, px};
+use gpui::{
+    AppContext as _, Context, Entity, ParentElement, Styled, div, prelude::FluentBuilder as _, px,
+};
 use gpui_component::{
     Sizable, Size, StyledExt as _,
     input::{Input, InputState},
@@ -14,16 +16,14 @@ use gpui_component::{
 };
 use ptt_runtime::domain::{MakerMode, MakerRecommendation};
 use ptt_runtime::report_text;
-use ptt_runtime::reports::{
-    ConvertModel, LegTakeCoverage, LegTakeVerdict, MakerModel, RouteQuote, RouteRate, SizeRoute,
-};
+use ptt_runtime::reports::{ConvertModel, MakerModel, RouteQuote, RouteRate, SizeRoute};
 
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, button, chip, chips, empty_state, freshness_kind, kv_row, mono,
-    panel, panel_header,
+    LedgerButton, StatusKind, button, chip, empty_state, freshness_kind, kv_row, mono, panel,
+    panel_header,
 };
 
 /// One row of a currency picker: what the reader sees, and what is picked.
@@ -321,9 +321,9 @@ impl AppShell {
             .filter(|count| *count > 0)
     }
 
-    /// The convert page.
+    /// The convert page (§7 定稿 = 11a):一张按持仓算一遍的路线表,深度条
+    /// 是主角,右侧路线明细 + 挂单策略。
     pub(crate) fn render_convert(&mut self, cx: &mut Context<Self>) -> gpui::Div {
-        let text = self.text();
         let language = self.language();
 
         // The bar is chrome, not part of the answer. It used to be built
@@ -353,26 +353,67 @@ impl AppShell {
         };
         let model: ConvertModel = (**model).clone();
 
-        let mut routes = div().flex().flex_col().gap_3().p_3();
+        // 只按一个规模算一遍(§7:不再把同一批路线按 1/10/100 抄三遍)。
+        // 填了持仓就是持仓;没填时取配置候选里最大的那档当默认。
+        let shown = model
+            .sizes
+            .iter()
+            .filter(|size| !size.quotes.is_empty())
+            .max_by_key(|size| {
+                if Some(size.size) == self.holdings_value(cx) {
+                    u64::MAX
+                } else {
+                    size.size
+                }
+            })
+            .cloned();
+
+        let mut column = div().flex_1().min_w(px(0.)).flex().flex_col().gap(px(SP_8));
         for note in &model.notes {
-            routes = routes.child(
+            column = column.child(
                 mono(note.clone())
-                    .text_size(fs(FS_11_5))
+                    .text_size(fs(FS_11))
                     .text_color(c(WARN_TEXT)),
             );
         }
-        if model.sizes.is_empty() {
-            routes = routes.child(empty_state(
-                report_text::report(language).nothing_to_convert,
-            ));
-        }
-        for size in &model.sizes {
-            routes = routes.child(if size.quotes.is_empty() {
-                self.no_route_card(size.size, &model, cx)
-            } else {
-                self.route_card(size, model.have.as_str(), model.need.as_str(), cx)
-            });
-        }
+
+        let body: gpui::Div = if let Some(route) = shown {
+            let quotes = self.sorted_quotes(&route);
+            column = column
+                .child(self.convert_band(&route, &quotes, &model))
+                .child(self.routes_table(&route, &quotes, cx));
+            let selected = self.selected_quote(&quotes).cloned();
+            let mut right = div()
+                .w(px(W_DETAIL))
+                .flex_none()
+                .min_w(px(0.))
+                .flex()
+                .flex_col()
+                .gap(px(SP_8));
+            if let Some(quote) = selected {
+                right = right.child(self.route_detail(&quote, route.size, language));
+            }
+            if let Some(maker) = model.maker.as_ref() {
+                right = right.child(self.maker_panel(maker, model.need_structural.as_ref(), cx));
+            }
+            div()
+                .flex_1()
+                .min_h(px(0.))
+                .flex()
+                .gap(px(SP_8))
+                .overflow_hidden()
+                .child(column)
+                .child(right)
+        } else {
+            let size = model.sizes.first().map_or(1, |size| size.size);
+            column = column.child(self.no_route_card(size, &model, cx));
+            div()
+                .flex_1()
+                .min_h(px(0.))
+                .flex()
+                .overflow_hidden()
+                .child(column)
+        };
 
         div()
             .flex_grow()
@@ -380,29 +421,579 @@ impl AppShell {
             .flex_col()
             .overflow_hidden()
             .child(bar)
+            .child(div().flex_1().min_h(px(0.)).flex().p(px(SP_10)).child(body))
+    }
+
+    /// The quotes in the order the toggle asks for.
+    ///
+    /// 按汇率 = 模型的名次;按吃得下的量 = fillable 降序。两种排序并存,
+    /// 因为最优汇率常常做不完(§7)。
+    fn sorted_quotes(&self, route: &SizeRoute) -> Vec<RouteQuote> {
+        let mut quotes = route.quotes.clone();
+        if self.convert_sort_by_depth {
+            quotes.sort_by(|left, right| {
+                right
+                    .fillable_input
+                    .unwrap_or(0)
+                    .cmp(&left.fillable_input.unwrap_or(0))
+            });
+        }
+        quotes
+    }
+
+    /// The selected route, resolved by identity rather than by row index so
+    /// a sort toggle keeps the selection on the same route.
+    fn selected_quote<'a>(&self, quotes: &'a [RouteQuote]) -> Option<&'a RouteQuote> {
+        let wanted = self.convert_selected_route.as_ref()?;
+        quotes.iter().find(|quote| {
+            quote.route_asset_ids.len() == wanted.len()
+                && quote
+                    .route_asset_ids
+                    .iter()
+                    .zip(wanted.iter())
+                    .all(|(asset, id)| asset.as_str() == id)
+        })
+    }
+
+    /// 52px 结论带:理论上最多换到多少 · 比直兑多多少 · 但最好那条吃得下几个。
+    fn convert_band(
+        &self,
+        route: &SizeRoute,
+        quotes: &[RouteQuote],
+        model: &ConvertModel,
+    ) -> gpui::Div {
+        let text = self.text();
+        let size = route.size;
+        let best = quotes
+            .iter()
+            .filter_map(|quote| quote.projected_output)
+            .max();
+        let direct = quotes
+            .iter()
+            .find(|quote| quote.is_direct)
+            .and_then(|quote| quote.projected_output);
+        let best_quote = quotes
+            .iter()
+            .max_by_key(|quote| quote.projected_output.unwrap_or(0));
+        let thin = best_quote
+            .and_then(|quote| quote.fillable_input)
+            .filter(|fillable| *fillable < size);
+
+        let divider = || {
+            div()
+                .w(px(1.))
+                .flex_none()
+                .my(px(SP_10))
+                .bg(c(HAIRLINE_SOFT))
+        };
+        let mut band = div()
+            .h(px(52.))
+            .flex_none()
+            .flex()
+            .bg(c(PANEL))
+            .border_1()
+            .border_color(c(HAIRLINE))
             .child(
                 div()
-                    .flex_1()
-                    .min_h(px(0.))
+                    .flex_none()
                     .flex()
-                    .gap_3()
-                    .overflow_hidden()
+                    .flex_col()
+                    .justify_center()
+                    .gap(px(2.))
+                    .px(px(SP_16))
                     .child(
-                        panel()
-                            .flex_1()
-                            .min_h(px(0.))
-                            .flex()
-                            .flex_col()
-                            .overflow_hidden()
-                            .child(panel_header(text.page_convert))
-                            .child(crate::ui::scrollable(routes, "convert-routes")),
+                        div()
+                            .h_flex()
+                            .items_baseline()
+                            .gap(px(6.))
+                            .child(
+                                mono(best.map_or_else(|| "—".to_owned(), |out| out.to_string()))
+                                    .text_size(fs(FS_20))
+                                    .text_color(c(ACCENT_TEXT)),
+                            )
+                            .child(div().text_size(fs(FS_12)).child(gpui::SharedString::from(
+                                self.display_name(model.need.as_str()),
+                            ))),
                     )
-                    .children(
-                        model.maker.as_ref().map(|maker| {
-                            self.maker_panel(maker, model.need_structural.as_ref(), cx)
-                        }),
+                    .child(div().text_size(fs(FS_10_5)).text_color(c(TEXT_META)).child(
+                        gpui::SharedString::from(report_text::fill(
+                            text.convert_band_best,
+                            &[&size.to_string(), &self.display_name(model.have.as_str())],
+                        )),
+                    )),
+            );
+        if let (Some(best), Some(direct)) = (best, direct) {
+            band = band.child(divider()).child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .flex_col()
+                    .justify_center()
+                    .gap(px(2.))
+                    .px(px(SP_16))
+                    .child(
+                        div()
+                            .h_flex()
+                            .items_baseline()
+                            .gap(px(6.))
+                            .child(
+                                mono(format!("+{}", best.saturating_sub(direct)))
+                                    .text_size(fs(FS_15))
+                                    .text_color(c(ACCENT_TEXT)),
+                            )
+                            .child(
+                                div()
+                                    .text_size(fs(FS_10_5))
+                                    .text_color(c(TEXT_META))
+                                    .child(text.convert_band_vs),
+                            ),
+                    )
+                    .child(
+                        mono(report_text::fill(
+                            text.convert_band_direct,
+                            &[&direct.to_string()],
+                        ))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DISABLED)),
+                    ),
+            );
+        }
+        if let Some(fillable) = thin {
+            band = band.child(divider()).child(
+                div()
+                    .flex_1()
+                    .h_flex()
+                    .items_center()
+                    .gap(px(SP_10))
+                    .px(px(SP_16))
+                    .child(div().size(px(6.)).flex_none().rounded_full().bg(c(WARN)))
+                    .child(div().text_size(fs(FS_12)).text_color(c(WARN_TEXT)).child(
+                        gpui::SharedString::from(report_text::fill(
+                            text.convert_band_thin,
+                            &[&fillable.to_string()],
+                        )),
+                    )),
+            );
+        }
+        band
+    }
+
+    /// The route table: 路线 | 步数 | 整条汇率 | 比直兑 | {size} 换到 | 深度条。
+    fn routes_table(
+        &self,
+        route: &SizeRoute,
+        quotes: &[RouteQuote],
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+        let text = self.text();
+        let language = self.language();
+        let report = report_text::report(language);
+        let size = route.size;
+        let max_steps = quotes
+            .iter()
+            .map(|quote| quote.route_asset_ids.len().saturating_sub(1))
+            .max()
+            .unwrap_or(1);
+
+        let mut table = panel()
+            .flex_1()
+            .min_h(px(0.))
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .child(
+                div()
+                    .h(px(H_INPUT))
+                    .flex_none()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .px_3()
+                    .bg(c(RAIL))
+                    .border_b_1()
+                    .border_color(c(HAIRLINE))
+                    .child(crate::ui::micro_title(text.convert_routes_header))
+                    .child(
+                        mono(report_text::fill(
+                            text.convert_routes_meta,
+                            &[&quotes.len().to_string(), &max_steps.to_string()],
+                        ))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DISABLED)),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        div()
+                            .h_flex()
+                            .border_1()
+                            .border_color(c(HAIRLINE))
+                            .rounded(px(RADIUS_BUTTON))
+                            .child(
+                                div()
+                                    .id("convert-sort-rate")
+                                    .h(px(20.))
+                                    .px(px(SP_8))
+                                    .flex()
+                                    .items_center()
+                                    .text_size(fs(FS_10_5))
+                                    .cursor_pointer()
+                                    .map(|cell| {
+                                        if self.convert_sort_by_depth {
+                                            cell.text_color(c(TEXT_SECONDARY))
+                                        } else {
+                                            cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
+                                        }
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.convert_sort_by_depth = false;
+                                        cx.notify();
+                                    }))
+                                    .child(text.convert_sort_rate),
+                            )
+                            .child(
+                                div()
+                                    .id("convert-sort-depth")
+                                    .h(px(20.))
+                                    .px(px(SP_8))
+                                    .flex()
+                                    .items_center()
+                                    .border_l_1()
+                                    .border_color(c(HAIRLINE))
+                                    .text_size(fs(FS_10_5))
+                                    .cursor_pointer()
+                                    .map(|cell| {
+                                        if self.convert_sort_by_depth {
+                                            cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
+                                        } else {
+                                            cell.text_color(c(TEXT_SECONDARY))
+                                        }
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.convert_sort_by_depth = true;
+                                        cx.notify();
+                                    }))
+                                    .child(text.convert_sort_depth),
+                            ),
                     ),
             )
+            .child(
+                div()
+                    .h(px(H_ROW))
+                    .flex_none()
+                    .h_flex()
+                    .items_center()
+                    .px_3()
+                    .border_b_1()
+                    .border_color(c(HAIRLINE_SOFT))
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_META))
+                    .child(div().flex_1().child(text.convert_col_route))
+                    .child(
+                        div()
+                            .w(px(44.))
+                            .flex_none()
+                            .text_center()
+                            .child(text.convert_col_steps),
+                    )
+                    .child(
+                        div()
+                            .w(px(96.))
+                            .flex_none()
+                            .text_right()
+                            .pr_2()
+                            .child(text.convert_col_rate),
+                    )
+                    .child(
+                        div()
+                            .w(px(76.))
+                            .flex_none()
+                            .text_right()
+                            .pr_2()
+                            .child(text.convert_col_vs),
+                    )
+                    .child(div().w(px(80.)).flex_none().text_right().pr_2().child(
+                        gpui::SharedString::from(report_text::fill(
+                            text.convert_col_out,
+                            &[&size.to_string()],
+                        )),
+                    ))
+                    .child(div().w(px(154.)).flex_none().child(text.convert_col_depth)),
+            );
+
+        let mut zebra = false;
+        for (row, quote) in quotes.iter().enumerate() {
+            table = table.child(self.route_row(quote, row, size, zebra, cx));
+            zebra = !zebra;
+        }
+        if route.direct_is_the_only_one {
+            table = table.child(
+                div()
+                    .px_3()
+                    .py_1()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_META))
+                    .child(gpui::SharedString::from(
+                        report.no_route_beats_direct.to_owned(),
+                    )),
+            );
+        }
+        // 表尾口径:「能吃下」取全路径最窄的那一段(§7)。
+        table.child(div().flex_1()).child(
+            div()
+                .h(px(H_ROW))
+                .flex_none()
+                .h_flex()
+                .items_center()
+                .px_3()
+                .border_t_1()
+                .border_color(c(HAIRLINE_SOFT))
+                .text_size(fs(FS_10))
+                .text_color(c(TEXT_GHOST))
+                .child(text.convert_depth_definition),
+        )
+    }
+
+    /// One route row; the depth bar is the protagonist (§7).
+    fn route_row(
+        &self,
+        quote: &RouteQuote,
+        row: usize,
+        size: u64,
+        zebra: bool,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+        let steps = quote.route_asset_ids.len().saturating_sub(1);
+        let selected = self.selected_quote(std::slice::from_ref(quote)).is_some();
+
+        // 深度条:满 = 吃得下你全部,琥珀 = 部分,砖红 = 远远不够。
+        // 14 条路线的汇率只差 5%,深度却差 100 倍——这根条才是决定。
+        let depth_cell = match quote.fillable_input {
+            Some(fillable) => {
+                #[allow(clippy::cast_precision_loss)]
+                let ratio = (fillable as f32 / size.max(1) as f32).min(1.0);
+                let (bar_color, text_color) = if fillable >= size {
+                    (FRESH, TEXT_DATA)
+                } else if ratio >= 0.33 {
+                    (WARN, WARN_TEXT)
+                } else {
+                    (DANGER, DANGER_TEXT)
+                };
+                div()
+                    .w(px(154.))
+                    .flex_none()
+                    .h_flex()
+                    .items_center()
+                    .gap(px(SP_8))
+                    .child(
+                        div()
+                            .w(px(88.))
+                            .h(px(6.))
+                            .flex_none()
+                            .bg(c(HAIRLINE))
+                            .child(
+                                div()
+                                    .w(px(88.0 * ratio.max(0.02)))
+                                    .h(px(6.))
+                                    .bg(c(bar_color)),
+                            ),
+                    )
+                    .child(
+                        mono(fillable.to_string())
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(text_color)),
+                    )
+                    .child(
+                        div()
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META))
+                            .child(gpui::SharedString::from(format!("/ {size}"))),
+                    )
+            }
+            None => div()
+                .w(px(154.))
+                .flex_none()
+                .text_size(fs(FS_11))
+                .text_color(c(TEXT_GHOST))
+                .child(gpui::SharedString::from("—")),
+        };
+
+        // 比直兑:正金负红(唯一批准的色字例外);直兑行自己是基准,给横杠。
+        let vs = if quote.is_direct {
+            mono("—".to_owned())
+                .text_size(fs(FS_11_5))
+                .text_color(c(TEXT_GHOST))
+        } else {
+            let (label, color) = match quote.versus_direct_bps {
+                Some(points) => (
+                    report_text::signed_percent_from_basis_points(points),
+                    if points >= 0 {
+                        ACCENT_TEXT
+                    } else {
+                        DANGER_TEXT
+                    },
+                ),
+                None => ("—".to_owned(), TEXT_GHOST),
+            };
+            mono(label).text_size(fs(FS_11_5)).text_color(c(color))
+        };
+
+        let route_ids: Vec<String> = quote
+            .route_asset_ids
+            .iter()
+            .map(|asset| asset.as_str().to_owned())
+            .collect();
+
+        let mut line = div()
+            .id(("convert-route", row))
+            .h(px(H_TABLE_ROW))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .px_3()
+            .border_b_1()
+            .border_color(c(HAIRLINE_SOFT))
+            .text_size(fs(FS_12))
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.convert_selected_route = Some(route_ids.clone());
+                cx.notify();
+            }));
+        if selected {
+            line = line
+                .pl(px(10.))
+                .border_l_2()
+                .border_color(c(ACCENT))
+                .bg(c(SELECTED));
+        } else if zebra {
+            line = line.bg(c(ZEBRA));
+            line = line.hover(|style| style.bg(c(HOVER)));
+        } else {
+            line = line.hover(|style| style.bg(c(HOVER)));
+        }
+
+        // 路线铺全路径,幽灵箭头,截断优于换行。
+        let mut path = div()
+            .flex_1()
+            .min_w(px(0.))
+            .h_flex()
+            .items_center()
+            .gap(px(4.))
+            .overflow_hidden()
+            .text_color(c(TEXT_PRIMARY));
+        for (index, asset) in quote.route_asset_ids.iter().enumerate() {
+            if index > 0 {
+                path = path.child(
+                    div()
+                        .flex_none()
+                        .text_color(c(TEXT_GHOST))
+                        .child(gpui::SharedString::from("→")),
+                );
+            }
+            path = path.child(
+                div()
+                    .whitespace_nowrap()
+                    .child(gpui::SharedString::from(self.display_name(asset.as_str()))),
+            );
+        }
+
+        line.child(path)
+            .child(
+                mono(steps.to_string())
+                    .w(px(44.))
+                    .flex_none()
+                    .text_center()
+                    .text_size(fs(FS_11))
+                    .text_color(c(TEXT_SECONDARY)),
+            )
+            .child(
+                mono(quote.rate.map_or_else(|| "—".to_owned(), RouteRate::text))
+                    .w(px(96.))
+                    .flex_none()
+                    .text_right()
+                    .pr_2()
+                    .text_color(c(TEXT_DATA)),
+            )
+            .child(div().w(px(76.)).flex_none().text_right().pr_2().child(vs))
+            .child(
+                mono(
+                    quote
+                        .projected_output
+                        .map_or_else(|| "—".to_owned(), |out| out.to_string()),
+                )
+                .w(px(80.))
+                .flex_none()
+                .text_right()
+                .pr_2()
+                .text_color(c(TEXT_PRIMARY)),
+            )
+            .child(depth_cell)
+    }
+
+    /// 路线明细(右上):每一段的汇率、这一段吃得下多少,卡点标出来。
+    fn route_detail(
+        &self,
+        quote: &RouteQuote,
+        size: u64,
+        language: ptt_settings::UiLanguage,
+    ) -> gpui::Div {
+        let text = self.text();
+        let pinch = quote.pinch().map(std::ptr::from_ref);
+        let mut body = div().px(px(SP_10)).py(px(SP_8)).flex().flex_col();
+        body = body.child(crate::ui::kv_headline(
+            text.detail_walk_rate,
+            &quote.rate.map_or_else(|| "—".to_owned(), RouteRate::text),
+            ACCENT_TEXT,
+        ));
+        body = body.child(kv_row(
+            &report_text::fill(text.convert_col_out, &[&size.to_string()]),
+            &quote
+                .projected_output
+                .map_or_else(|| "—".to_owned(), |out| out.to_string()),
+        ));
+        for (index, leg) in quote.legs.iter().enumerate() {
+            let is_pinch = pinch == Some(std::ptr::from_ref(leg));
+            let facts = report_text::leg_take_facts(
+                language,
+                &self.display_name(leg.from_asset_id.as_str()),
+                &self.display_name(leg.to_asset_id.as_str()),
+                leg,
+            );
+            let mut row = div()
+                .flex()
+                .items_start()
+                .gap_2()
+                .py(px(3.))
+                .text_size(fs(FS_11))
+                .child(
+                    div()
+                        .w(px(64.))
+                        .flex_none()
+                        .text_color(c(if is_pinch { WARN_TEXT } else { TEXT_META }))
+                        .child(gpui::SharedString::from(crate::i18n::leg_label(
+                            language,
+                            index + 1,
+                        ))),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .font_family(FONT_MONO)
+                        .text_size(fs(FS_11))
+                        .text_color(c(TEXT_SECONDARY))
+                        .child(gpui::SharedString::from(facts)),
+                );
+            if is_pinch {
+                row = row.child(crate::ui::chip_table(
+                    StatusKind::Warning,
+                    text.detail_walk_pinch,
+                ));
+            }
+            body = body.child(row);
+        }
+        crate::ui::detail_panel(text.detail_header).child(body)
     }
 
     /// The two pickers and the holdings box.
@@ -471,234 +1062,6 @@ impl AppShell {
                     }),
                 ),
             )
-    }
-
-    /// One size, priced.
-    fn route_card(
-        &self,
-        route: &SizeRoute,
-        have: &str,
-        need: &str,
-        _cx: &mut Context<Self>,
-    ) -> gpui::Div {
-        let language = self.language();
-        let report = report_text::report(language);
-        let size = route.size;
-
-        let pair = format!("{} → {}", self.display_name(have), self.display_name(need));
-
-        let mut card = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .p_2()
-            .border_1()
-            .border_color(c(HAIRLINE_SOFT))
-            .bg(c(WELL))
-            .child(
-                div()
-                    .h_flex()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        mono(format!("{size} {}", self.display_name(have))).text_size(fs(FS_12_5)),
-                    )
-                    .child(mono(pair).text_size(fs(FS_11_5)).text_color(c(TEXT_META)))
-                    .child(div().flex_grow()),
-            );
-
-        // Every route worth showing, rate first, each with its legs against
-        // the listings they would have to take. Rank decided the order and
-        // nothing else: a route four places down is still a rate the reader
-        // can list at. What is missing here priced worse than trading direct,
-        // which is the one thing no size can fix.
-        // When every route pinches at the same step the warning belongs to
-        // the card, not to any one row -- see `SizeRoute::shared_pinch`. Said
-        // once above the rates rather than repeated under each of them.
-        let shared = route.shared_pinch();
-        if let Some((leg, count)) = shared {
-            card = card.child(self.leg_row(leg, Some(count), language));
-        }
-        for quote in &route.quotes {
-            card = card.child(self.quote_row(quote, size, language));
-            // One row at most, naming where the route pinches -- see
-            // `RouteQuote::pinch`. The rate row above already carries the
-            // summary; repeating it per step is what made a wall of amber.
-            if shared.is_none()
-                && let Some(leg) = quote.pinch()
-            {
-                card = card.child(self.leg_row(leg, None, language));
-            }
-        }
-        if route.direct_is_the_only_one {
-            card = card.child(
-                div()
-                    .text_size(fs(FS_11_5))
-                    .text_color(c(TEXT_META))
-                    .child(report.no_route_beats_direct.to_owned()),
-            );
-        }
-
-        card
-    }
-
-    /// One candidate route: the rate it can be listed at, where that stands
-    /// against trading direct, what this size projects to, and how deep the
-    /// front rows behind it are.
-    ///
-    /// **Rate first and quantity second, in that visual order.** The reader
-    /// types one exchange rate into the game; the exchange fills it at that
-    /// rate or better or leaves it listed, so the rate is the decision. How
-    /// much of their stack the market can absorb at it is a warning printed
-    /// after, never a reason to leave the route off the page — a currency can
-    /// be the league's store of value with three of it listed, and the
-    /// program has no way to know that.
-    ///
-    /// The percentage here never moves with the size in the box. That is the
-    /// invariant the model guarantees (`reports::RouteQuote`), and it is what
-    /// makes it safe for a worse-priced route to be dropped upstream instead
-    /// of shown as a loss.
-    fn quote_row(
-        &self,
-        quote: &RouteQuote,
-        size: u64,
-        language: ptt_settings::UiLanguage,
-    ) -> gpui::Div {
-        let report = report_text::report(language);
-        let hops: Vec<String> = quote
-            .route_asset_ids
-            .iter()
-            .skip(1)
-            .take(quote.route_asset_ids.len().saturating_sub(2))
-            .map(|asset| self.display_name(asset.as_str()))
-            .collect();
-        let source = self.display_name(quote.route_asset_ids.first().map_or("", |id| id.as_str()));
-        let standing = if quote.is_direct {
-            report.route_baseline.to_owned()
-        } else {
-            report_text::versus_direct(
-                language,
-                quote.direction,
-                quote.delta_output,
-                quote.versus_direct_bps,
-            )
-        };
-        let colour = match (quote.is_direct, quote.direction) {
-            (true, _) => TEXT_SECONDARY,
-            (_, Some(ptt_runtime::domain::ComparisonDirection::Improved)) => ACCENT_TEXT,
-            (_, Some(ptt_runtime::domain::ComparisonDirection::Worse)) => DANGER,
-            (_, Some(ptt_runtime::domain::ComparisonDirection::Equal)) => TEXT_SECONDARY,
-            (_, None) => TEXT_META,
-        };
-        let depth = report_text::route_depth_notes(language, quote, size, &source);
-        let thin = quote.fillable_input.is_some_and(|fillable| fillable < size);
-        div()
-            .flex()
-            .items_start()
-            .gap_2()
-            .py(px(3.))
-            .text_size(fs(FS_11_5))
-            .child(
-                div()
-                    .w(px(150.))
-                    .flex_none()
-                    .min_w(px(0.))
-                    .text_color(c(TEXT_PRIMARY))
-                    .child(report_text::route_quote_label(language, &hops)),
-            )
-            .child(
-                mono(
-                    quote
-                        .rate
-                        .map_or_else(|| report.route_no_front_price.to_owned(), RouteRate::text),
-                )
-                .w(px(110.))
-                .flex_none()
-                .text_color(c(TEXT_PRIMARY)),
-            )
-            .child(mono(standing).w(px(180.)).flex_none().text_color(c(colour)))
-            .child(
-                mono(
-                    quote
-                        .projected_output
-                        .map_or_else(|| "—".to_owned(), |out| format!("{size} → {out}")),
-                )
-                .w(px(140.))
-                .flex_none()
-                .text_color(c(TEXT_SECONDARY)),
-            )
-            .child(chips(
-                if thin {
-                    StatusKind::Warning
-                } else {
-                    StatusKind::Idle
-                },
-                &depth,
-                2,
-            ))
-    }
-
-    /// One leg, against the listings it would have to take right now.
-    ///
-    /// Colour is the coarse screen and the numbers are the signal, so the row
-    /// prints both and never only the chip. Amber means the fill sweeps most
-    /// of the book and walks into worse levels; red means the listings do not
-    /// cover the trip at all. Neither says anything about an order the reader
-    /// lists — that question is not answered on this page.
-    /// `shared_routes` is how many routes pinch here when they all pinch at
-    /// the same step; it leads the chips because it is the reason this row
-    /// stands in for all of them.
-    fn leg_row(
-        &self,
-        leg: &LegTakeCoverage,
-        shared_routes: Option<usize>,
-        language: ptt_settings::UiLanguage,
-    ) -> gpui::Div {
-        let kind = match leg.verdict {
-            LegTakeVerdict::Covered => StatusKind::Idle,
-            LegTakeVerdict::NotEnoughListed => StatusKind::Hit,
-            LegTakeVerdict::NoListings => StatusKind::Disabled,
-        };
-        let facts = report_text::leg_take_facts(
-            language,
-            &self.display_name(leg.from_asset_id.as_str()),
-            &self.display_name(leg.to_asset_id.as_str()),
-            leg,
-        );
-        let mut notes: Vec<String> = shared_routes
-            .map(|count| {
-                report_text::fill(
-                    report_text::report(language).pinch_shared,
-                    &[&count.to_string()],
-                )
-            })
-            .into_iter()
-            .collect();
-        notes.extend(
-            report_text::leg_take_notes(language, leg)
-                .into_iter()
-                .map(str::to_owned),
-        );
-        div()
-            .flex()
-            .items_start()
-            .gap_2()
-            .py(px(3.))
-            .text_size(fs(FS_11_5))
-            .child(div().w(px(96.)).flex_none().text_color(c(TEXT_META)).child(
-                gpui::SharedString::from(self.text().convert_leg.to_string()),
-            ))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .font_family(FONT_MONO)
-                    .text_color(c(TEXT_PRIMARY))
-                    .child(gpui::SharedString::from(facts)),
-            )
-            // Four, not three: the shared-routes clause can ride alongside a
-            // verdict, a bound-by-next note and a single-listing note.
-            .child(chips(kind, &notes, 4))
     }
 
     /// A size the search could not route, and the probe that would fix it.
@@ -771,7 +1134,6 @@ impl AppShell {
 
         if strategy.queue.is_empty() {
             return panel()
-                .w(px(420.))
                 .flex_none()
                 .flex()
                 .flex_col()
@@ -779,24 +1141,31 @@ impl AppShell {
                 .child(body.child(empty_state(report.maker_no_book)));
         }
 
-        let modes: Vec<(&str, Option<&MakerRecommendation>)> = vec![
+        // 每档配一句代价(§7):原来只有百分比,看不出为什么不总选最贪的。
+        let modes: Vec<(&str, &'static str, Option<&MakerRecommendation>)> = vec![
             (
                 report.maker_undercut,
+                text.maker_cost_undercut,
                 strategy
                     .recommendations
                     .iter()
                     .find(|item| item.mode == MakerMode::Opportunity),
             ),
-            (report.maker_match, maker.match_front.as_ref()),
+            (
+                report.maker_match,
+                text.maker_cost_match,
+                maker.match_front.as_ref(),
+            ),
             (
                 report.maker_greedy,
+                text.maker_cost_greedy,
                 strategy
                     .recommendations
                     .iter()
                     .find(|item| item.mode == MakerMode::Greedy),
             ),
         ];
-        for (label, recommendation) in modes {
+        for (label, cost, recommendation) in modes {
             let Some(recommendation) = recommendation else {
                 continue;
             };
@@ -836,17 +1205,14 @@ impl AppShell {
                                     .text_size(fs(FS_11_5)),
                             )
                             .child(div().flex_grow())
-                            .child(chip(
-                                if recommendation.beats_instant {
-                                    StatusKind::Monitoring
-                                } else {
-                                    StatusKind::Idle
-                                },
-                                report_text::actionability(
-                                    language,
-                                    recommendation.assessment.actionability,
-                                ),
-                            )),
+                            // 「要等人吃单」那类徽章去掉了:它不触发任何操作,
+                            // 只是标签。位置换成这一档的代价。
+                            .child(
+                                div()
+                                    .text_size(fs(FS_10_5))
+                                    .text_color(c(TEXT_META))
+                                    .child(gpui::SharedString::from(cost.to_string())),
+                            ),
                     )
                     .child(mono(gain).text_size(fs(FS_10_5)).text_color(c(
                         if recommendation.beats_instant {
@@ -938,7 +1304,6 @@ impl AppShell {
         }
 
         panel()
-            .w(px(420.))
             .flex_none()
             .flex()
             .flex_col()
