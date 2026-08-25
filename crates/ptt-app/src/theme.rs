@@ -337,6 +337,11 @@ fn apply_app_colors(colors: &mut ThemeColor) {
     colors.scrollbar_thumb = hsla_of(HAIRLINE);
     colors.scrollbar_thumb_hover = hsla_of(HAIRLINE_STRONG);
 
+    // 蜡烛图(§8):金 = 变贵、砖红 = 变便宜。绿留给数据新鲜度,上游默认的
+    // 绿涨红跌在这套语义里会把"涨"读成"新鲜"。
+    colors.bullish = hsla_of(ACCENT);
+    colors.bearish = hsla_of(DANGER);
+
     // Misc
     colors.link = hsla_of(ACCENT_TEXT);
     colors.link_hover = hsla_of(ACCENT);

@@ -469,6 +469,17 @@ pub struct Text {
     pub maker_cost_greedy: &'static str,
     /// 路线明细的段行:`这一段吃得下 {}`
     pub convert_leg_takes: &'static str,
+
+    // -- history page (§8 定稿 = 10a) --
+    /// 纵轴方向说明:`换 1 个{}要几个{}`,不标就说不清"涨"是好是坏。
+    pub history_axis_note: &'static str,
+    /// 蜡烛涨跌的配色图例。
+    pub history_color_legend: &'static str,
+    /// 蜡烛数量进度:`已有 {} 根，24 小时需要 {} 根`
+    pub history_candle_progress: &'static str,
+    /// 右栏两侧队列的标题:面板原词之外多一句它对你意味着什么。
+    pub history_available_title: &'static str,
+    pub history_competing_title: &'static str,
 }
 
 impl Text {
@@ -773,6 +784,11 @@ impl Text {
             ("maker_cost_match", self.maker_cost_match),
             ("maker_cost_greedy", self.maker_cost_greedy),
             ("convert_leg_takes", self.convert_leg_takes),
+            ("history_axis_note", self.history_axis_note),
+            ("history_color_legend", self.history_color_legend),
+            ("history_candle_progress", self.history_candle_progress),
+            ("history_available_title", self.history_available_title),
+            ("history_competing_title", self.history_competing_title),
         ]
     }
 }
@@ -1093,6 +1109,12 @@ pub static ENGLISH: Text = Text {
     maker_cost_match: "queues behind the original",
     maker_cost_greedy: "may sit all night",
     convert_leg_takes: "this leg absorbs {}",
+
+    history_axis_note: "axis: {} per 1 {}",
+    history_color_legend: "gold = pricier · brick-red = cheaper",
+    history_candle_progress: "{} candles so far, 24h needs {}",
+    history_available_title: "available · what you pay to take",
+    history_competing_title: "competing · what you undercut to list",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1411,6 +1433,12 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     maker_cost_match: "排在原单之后",
     maker_cost_greedy: "可能挂到天亮",
     convert_leg_takes: "这一段吃得下 {}",
+
+    history_axis_note: "纵轴：换 1 个{}要几个{}",
+    history_color_legend: "金 = 变贵 · 砖红 = 变便宜",
+    history_candle_progress: "已有 {} 根，24 小时需要 {} 根",
+    history_available_title: "可用 · 你买要付",
+    history_competing_title: "竞争 · 你挂要压",
 };
 
 #[cfg(test)]
