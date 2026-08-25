@@ -9,7 +9,8 @@ use gpui::{Context, InteractiveElement as _, ParentElement, Styled, div, px};
 use crate::backend::{Backend, RegionSlot, ShellMsg};
 use crate::shell::AppShell;
 use crate::theme::*;
-use crate::ui::{LedgerButton, button, mono};
+use crate::ui::{LedgerButton, button, mono, panel};
+use gpui_component::StyledExt as _;
 
 impl AppShell {
     #[cfg(windows)]
@@ -90,23 +91,33 @@ impl AppShell {
         // supposed to be framing — without asserting the answer: the guide is
         // a hint to aim at, and the drawn rectangle is still what gets used.
         let (layout, language) = ptt_runtime::pipeline::route_for(profile);
-        let guide = match active_target {
+        let guide_of = |target: Target| match target {
             Target::Need => layout.need_name,
             Target::Have => layout.have_name,
             Target::Tables => layout.tables_for(language),
         };
-        let hint = match active_target {
-            Target::Need => text.hint_need,
-            Target::Have => text.hint_have,
-            Target::Tables => text.hint_tables,
+        // 还停在预设上的槽位(§9):图上要把三个框同时画出来,实框 = 已画,
+        // 细琥珀框 = 预设位置——原来一次只画一个,看不出彼此相对位置对不对。
+        // GPUI 画不了虚线边框,1px 琥珀细框就是设计稿里"虚线 = 预设"的替身。
+        let preset_only = |target: Target| {
+            self.calibration
+                .rect(target)
+                .is_none_or(|rect| (rect.x, rect.y, rect.width, rect.height) == guide_of(target))
         };
-        // Only while this slot still holds the factory rectangle. Once a
-        // region has been drawn the guide is a second box sitting beside the
-        // real one, which reads as a stale leftover rather than as advice.
-        let show_guide = self
-            .calibration
-            .rect(active_target)
-            .is_none_or(|rect| (rect.x, rect.y, rect.width, rect.height) == guide);
+        let preset_guides: Vec<(f32, f32, f32, f32)> = Target::ALL
+            .into_iter()
+            .filter(|target| preset_only(*target))
+            .map(|target| {
+                let guide = guide_of(target);
+                let (left, top) = view.to_canvas(guide.0 as f32, guide.1 as f32);
+                (
+                    left,
+                    top,
+                    guide.2 as f32 * view.zoom,
+                    guide.3 as f32 * view.zoom,
+                )
+            })
+            .collect();
 
         let toolbar = div()
             .flex_none()
@@ -122,27 +133,6 @@ impl AppShell {
                     }),
                 ),
             )
-            .children(Target::ALL.into_iter().map(|target| {
-                let active = target == active_target;
-                button(
-                    target.element_id(),
-                    if active {
-                        LedgerButton::Primary
-                    } else {
-                        LedgerButton::Quiet
-                    },
-                    match target {
-                        Target::Need => text.slot_need,
-                        Target::Have => text.slot_have,
-                        Target::Tables => text.slot_tables,
-                    },
-                    cx,
-                )
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.calibration.target = Some(target);
-                    cx.notify();
-                }))
-            }))
             .child(
                 button("cal-zoom-in", LedgerButton::Quiet, text.zoom_in, cx).on_click(cx.listener(
                     |this, _, _, cx| {
@@ -193,24 +183,6 @@ impl AppShell {
                         cx.notify();
                     }),
                 ),
-            );
-
-        let hint_row = div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap_2()
-            .px_3()
-            .pb_2()
-            .child(
-                mono(hint.to_owned())
-                    .text_size(fs(FS_12))
-                    .text_color(c(TEXT_SECONDARY)),
-            )
-            .child(
-                mono(text.guide_hint.to_owned())
-                    .text_size(fs(FS_12))
-                    .text_color(c(WARN_TEXT)),
             );
 
         let drawn: Vec<(bool, f32, f32, f32, f32)> = Target::ALL
@@ -332,16 +304,20 @@ impl AppShell {
                     .w(px(width as f32 * view.zoom))
                     .h(px(height as f32 * view.zoom))
             }))
-            .children(image.as_ref().filter(|_| show_guide).map(|_| {
-                let (left, top) = view.to_canvas(guide.0 as f32, guide.1 as f32);
+            .children(image.as_ref().map(|_| {
                 div()
                     .absolute()
-                    .left(px(left))
-                    .top(px(top))
-                    .w(px(guide.2 as f32 * view.zoom))
-                    .h(px(guide.3 as f32 * view.zoom))
-                    .border_1()
-                    .border_color(c(WARN))
+                    .size_full()
+                    .children(preset_guides.iter().map(|(left, top, width, height)| {
+                        div()
+                            .absolute()
+                            .left(px(*left))
+                            .top(px(*top))
+                            .w(px(*width))
+                            .h(px(*height))
+                            .border_1()
+                            .border_color(c(WARN))
+                    }))
             }))
             .children(
                 // The rectangle as it is being dragged. Needed to draw at all
@@ -424,113 +400,250 @@ impl AppShell {
                 }),
             );
 
-        // What each target currently holds, so the page says whether a click
-        // did anything. Without it the only feedback was the drawn rectangle,
-        // and with nothing rendering there was none at all.
-        // Saved, and - when they differ - what applying would change it to.
-        // The two used to be reported on different pages with no way to tell
-        // whether a click had connected them, which made a working feature
-        // indistinguishable from a broken one.
-        let saved: Vec<(String, bool)> = Target::ALL
+        // 右侧 280px 槽位清单(§9):每个槽位一张卡——状态点、坐标、该框哪里
+        // 的说明。原来三句提示一次只显一条,坐标散在页脚。点卡片选中槽位。
+        let framed_count = Target::ALL
             .into_iter()
-            .map(|target| {
-                let label = match target {
-                    Target::Need => text.slot_need,
-                    Target::Have => text.slot_have,
-                    Target::Tables => text.slot_tables,
-                };
-                let show = |rect: crate::calibrate::SourceRect| {
-                    format!("{},{} {}x{}", rect.x, rect.y, rect.width, rect.height)
-                };
-                let stored = self.saved_rect(profile, target);
-                let drawn = self.calibration.rect(target);
-                match (stored, drawn) {
-                    (stored, Some(rect)) if self.calibration.differs(target, stored) => (
-                        format!(
-                            "{label} {} \u{2192} {}",
-                            stored.map_or_else(|| text.nothing_yet.to_owned(), show),
-                            show(rect)
-                        ),
-                        true,
+            .filter(|target| !preset_only(*target))
+            .count();
+        let missing_label = Target::ALL
+            .into_iter()
+            .find(|target| preset_only(*target))
+            .map(|target| match target {
+                Target::Need => text.slot_need,
+                Target::Have => text.slot_have,
+                Target::Tables => text.slot_tables,
+            });
+        let mut slot_list = panel()
+            .w(px(280.))
+            .flex_none()
+            .min_h(px(0.))
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .child(
+                div()
+                    .h(px(H_INPUT))
+                    .flex_none()
+                    .h_flex()
+                    .items_center()
+                    .px_3()
+                    .bg(c(RAIL))
+                    .border_b_1()
+                    .border_color(c(HAIRLINE))
+                    .child(crate::ui::micro_title(text.cal_list_header))
+                    .child(div().flex_1())
+                    .child(
+                        mono(ptt_runtime::report_text::fill(
+                            text.cal_progress,
+                            &[&framed_count.to_string()],
+                        ))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(if framed_count == 3 {
+                            TEXT_DATA
+                        } else {
+                            WARN_TEXT
+                        })),
                     ),
-                    (Some(rect), _) => (format!("{label} {}", show(rect)), false),
-                    // `(None, Some(_))` is already taken by the guard above;
-                    // the compiler cannot see that, hence the wildcard.
-                    (None, _) => (format!("{label} {}", text.nothing_yet), false),
-                }
-            })
-            .collect();
+            );
+        if let Some(missing) = missing_label {
+            slot_list = slot_list.child(
+                div()
+                    .h(px(H_ROW))
+                    .flex_none()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .px_3()
+                    .border_b_1()
+                    .border_color(c(HAIRLINE_SOFT))
+                    // 本页的琥珀是"还没做完",不是"出问题"——整套配色里唯一
+                    // 一次琥珀表示待办(§9 记过一笔)。
+                    .child(div().size(px(6.)).flex_none().rounded_full().bg(c(WARN)))
+                    .child(div().text_size(fs(FS_10_5)).text_color(c(WARN_TEXT)).child(
+                        gpui::SharedString::from(ptt_runtime::report_text::fill(
+                            text.cal_missing,
+                            &[missing],
+                        )),
+                    )),
+            );
+        }
+        for target in Target::ALL {
+            let label = match target {
+                Target::Need => text.slot_need,
+                Target::Have => text.slot_have,
+                Target::Tables => text.slot_tables,
+            };
+            let hint = match target {
+                Target::Need => text.hint_need,
+                Target::Have => text.hint_have,
+                Target::Tables => text.hint_tables,
+            };
+            let active = target == active_target;
+            let show = |rect: crate::calibrate::SourceRect| {
+                format!("{},{} {}x{}", rect.x, rect.y, rect.width, rect.height)
+            };
+            let stored = self.saved_rect(profile, target);
+            let drawn_rect = self.calibration.rect(target);
+            let pending = drawn_rect.is_some() && self.calibration.differs(target, stored);
+            let coords = match (stored, drawn_rect) {
+                (stored, Some(rect)) if pending => format!(
+                    "{} \u{2192} {}",
+                    stored.map_or_else(|| text.nothing_yet.to_owned(), show),
+                    show(rect)
+                ),
+                (Some(rect), _) => show(rect),
+                (None, _) => text.nothing_yet.to_owned(),
+            };
+            let (dot, state_label) = if active {
+                (WARN, text.cal_state_active)
+            } else if preset_only(target) {
+                (NEUTRAL_DOT, text.cal_state_preset)
+            } else {
+                (FRESH, text.cal_state_saved)
+            };
+            use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+            let mut card = div()
+                .id(target.element_id())
+                .flex_none()
+                .flex()
+                .flex_col()
+                .gap(px(3.))
+                .px_3()
+                .py_2()
+                .border_b_1()
+                .border_color(c(HAIRLINE_SOFT))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.calibration.target = Some(target);
+                    cx.notify();
+                }));
+            if active {
+                card = card.bg(c(SELECTED));
+            } else {
+                card = card.hover(|style| style.bg(c(HOVER)));
+            }
+            slot_list = slot_list.child(
+                card.child(
+                    div()
+                        .h_flex()
+                        .items_center()
+                        .gap(px(6.))
+                        .child(div().size(px(7.)).flex_none().rounded_full().bg(c(dot)))
+                        .child(
+                            div()
+                                .text_size(fs(FS_12))
+                                .font_semibold()
+                                .child(gpui::SharedString::from(label.to_string())),
+                        )
+                        .child(div().flex_1())
+                        .child(
+                            div()
+                                .text_size(fs(FS_10))
+                                .text_color(c(if active { WARN_TEXT } else { TEXT_META }))
+                                .child(gpui::SharedString::from(state_label.to_string())),
+                        ),
+                )
+                .child(
+                    mono(coords)
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(if pending { WARN_TEXT } else { TEXT_DATA })),
+                )
+                .child(
+                    div()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(gpui::SharedString::from(hint.to_string())),
+                ),
+            );
+        }
 
+        // 底部那行 5 个数字拆开了(§9):坐标回槽位卡、缩放上画布标题栏、
+        // 鼠标坐标留在放大镜上——这里只剩状态消息本身。
         let status = self.calibration.message.clone().unwrap_or_else(|| {
             if self.calibration.image.is_none() {
                 text.no_screenshot.to_owned()
             } else {
-                let cursor = self
-                    .calibration
-                    .cursor
-                    .map(|(x, y)| format!("  {}, {}", x.round(), y.round()))
-                    .unwrap_or_default();
-                // The canvas size and zoom ride along. Everything on this
-                // screen is that transform, and when it is wrong the picture
-                // still looks plausible — so the numbers that would say so are
-                // on screen rather than reachable only from a debugger.
-                let canvas = self.canvas_bounds.get().map_or_else(
-                    || "canvas ?".to_owned(),
+                text.drag_to_draw.to_owned()
+            }
+        });
+
+        // 画布标题栏:缩放与画布尺寸——整页就是这一个变换,错了的时候图
+        // 看着仍然合理,所以数字得在屏上。
+        let canvas_header = div()
+            .h(px(H_INPUT))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .gap_3()
+            .px_3()
+            .bg(c(RAIL))
+            .border_1()
+            .border_color(c(HAIRLINE))
+            .child(crate::ui::micro_title(text.page_calibrate))
+            .child(div().flex_1())
+            .child(
+                mono(self.canvas_bounds.get().map_or_else(
+                    || "?".to_owned(),
                     |bounds| {
                         format!(
-                            "canvas {}x{}",
+                            "{}x{}",
                             f32::from(bounds.size.width).round(),
                             f32::from(bounds.size.height).round()
                         )
                     },
-                );
-                format!(
-                    "{}{cursor}   {canvas}  zoom {:.2}",
-                    text.drag_to_draw, view.zoom
-                )
-            }
-        });
+                ))
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_GHOST)),
+            )
+            .child(
+                mono(ptt_runtime::report_text::fill(
+                    text.cal_zoom_label,
+                    &[&format!("{:.2}", view.zoom)],
+                ))
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META)),
+            );
 
         div()
             .flex_grow()
             .flex()
             .flex_col()
             .child(toolbar)
-            .child(hint_row)
             .child(
-                // A flex column, not a bare block. `canvas_area` grows into
-                // this, and growth in a non-flex parent is no growth at all:
-                // the box collapsed to zero height, so the screenshot was
-                // being drawn correctly into nothing. The magnifier, being
-                // absolutely positioned, kept rendering — which is why the
-                // loupe showed a picture the canvas did not.
                 div()
-                    .flex_grow()
+                    .flex_1()
+                    .min_h(px(0.))
                     .flex()
-                    .flex_col()
-                    .relative()
+                    .gap(px(SP_8))
                     .px_3()
                     .pb_2()
-                    .child(canvas_area),
+                    .child(
+                        // A flex column, not a bare block. `canvas_area` grows
+                        // into this, and growth in a non-flex parent is no
+                        // growth at all: the box collapsed to zero height, so
+                        // the screenshot was being drawn correctly into
+                        // nothing. The magnifier, being absolutely positioned,
+                        // kept rendering — which is why the loupe showed a
+                        // picture the canvas did not.
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .flex()
+                            .flex_col()
+                            .gap(px(SP_4))
+                            .relative()
+                            .child(canvas_header)
+                            .child(canvas_area),
+                    )
+                    .child(slot_list),
             )
             .child(
                 div()
                     .flex_none()
                     .px_3()
                     .py_2()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().flex().gap_4().children(saved.into_iter().map(
-                        |(line, pending)| {
-                            mono(line).text_size(fs(FS_12)).text_color(c(if pending {
-                                WARN_TEXT
-                            } else {
-                                TEXT_DATA
-                            }))
-                        },
-                    )))
-                    .child(mono(status).text_size(fs(FS_12)).text_color(c(TEXT_META))),
+                    .child(mono(status).text_size(fs(FS_11_5)).text_color(c(TEXT_META))),
             )
     }
 

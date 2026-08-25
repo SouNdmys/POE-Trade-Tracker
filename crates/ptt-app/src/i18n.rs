@@ -480,6 +480,18 @@ pub struct Text {
     /// 右栏两侧队列的标题:面板原词之外多一句它对你意味着什么。
     pub history_available_title: &'static str,
     pub history_competing_title: &'static str,
+
+    // -- calibrate page (§9 定稿 = 12a) --
+    /// 顶部进度:`{} / 3 个区域已框好`
+    pub cal_progress: &'static str,
+    /// `还差「{}」`
+    pub cal_missing: &'static str,
+    pub cal_state_saved: &'static str,
+    pub cal_state_active: &'static str,
+    pub cal_state_preset: &'static str,
+    pub cal_list_header: &'static str,
+    /// 画布标题栏里的缩放读数:`缩放 {}`
+    pub cal_zoom_label: &'static str,
 }
 
 impl Text {
@@ -789,6 +801,13 @@ impl Text {
             ("history_candle_progress", self.history_candle_progress),
             ("history_available_title", self.history_available_title),
             ("history_competing_title", self.history_competing_title),
+            ("cal_progress", self.cal_progress),
+            ("cal_missing", self.cal_missing),
+            ("cal_state_saved", self.cal_state_saved),
+            ("cal_state_active", self.cal_state_active),
+            ("cal_state_preset", self.cal_state_preset),
+            ("cal_list_header", self.cal_list_header),
+            ("cal_zoom_label", self.cal_zoom_label),
         ]
     }
 }
@@ -1115,6 +1134,14 @@ pub static ENGLISH: Text = Text {
     history_candle_progress: "{} candles so far, 24h needs {}",
     history_available_title: "available · what you pay to take",
     history_competing_title: "competing · what you undercut to list",
+
+    cal_progress: "{} / 3 regions framed",
+    cal_missing: "missing: {}",
+    cal_state_saved: "framed",
+    cal_state_active: "framing",
+    cal_state_preset: "preset only",
+    cal_list_header: "REGIONS",
+    cal_zoom_label: "zoom {}",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1439,6 +1466,14 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     history_candle_progress: "已有 {} 根，24 小时需要 {} 根",
     history_available_title: "可用 · 你买要付",
     history_competing_title: "竞争 · 你挂要压",
+
+    cal_progress: "{} / 3 个区域已框好",
+    cal_missing: "还差「{}」",
+    cal_state_saved: "已框",
+    cal_state_active: "正在框",
+    cal_state_preset: "只有预设",
+    cal_list_header: "三个区域",
+    cal_zoom_label: "缩放 {}",
 };
 
 #[cfg(test)]
