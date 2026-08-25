@@ -399,7 +399,17 @@ impl AppShell {
             } else {
                 let shell = cx.entity();
                 let menu_asset = asset.clone();
+                // 默认 variant 的底色就是 panel 色,按钮和行底在深色主题下
+                // 融成一块、箭头也看不见——描边和字色必须自己给。
+                let role_variant = gpui_component::button::ButtonCustomVariant::new(cx)
+                    .color(hsla_of(PANEL))
+                    .foreground(hsla_of(TEXT_SECONDARY))
+                    .border(hsla_of(HAIRLINE))
+                    .hover(hsla_of(HOVER))
+                    .active(hsla_of(PRESSED));
+                use gpui_component::button::ButtonVariants as _;
                 gpui_component::button::DropdownButton::new(("role-dropdown", row))
+                    .custom(role_variant)
                     .button(
                         gpui_component::button::Button::new(("role-current", row))
                             .label(choice.label(text))
