@@ -225,6 +225,12 @@ pub struct AppShell {
     /// 摆放模式:浮窗暂时吃鼠标、顶条可见。退出即回点击穿透。
     #[cfg(windows)]
     pub(crate) hud_placement: bool,
+    /// 浮窗待抓条的独立数据源。
+    ///
+    /// 不能借当前页面的报表:那份只有停在监视器页时才是待抓队列,人在
+    /// 游戏里(浮窗存在的意义)时主窗口停在哪一页是随机的。
+    #[cfg(windows)]
+    hud_probes: Option<Box<ptt_runtime::reports::ProbeQueueModel>>,
     #[cfg(windows)]
     calibration: crate::calibrate::Calibration,
     /// Where the calibration canvas landed, written by its paint pass.
@@ -522,6 +528,8 @@ impl AppShell {
             #[cfg(windows)]
             hud_placement: false,
             #[cfg(windows)]
+            hud_probes: None,
+            #[cfg(windows)]
             calibration: crate::calibrate::Calibration::default(),
             #[cfg(windows)]
             canvas_bounds: std::rc::Rc::new(std::cell::Cell::new(None)),
@@ -576,6 +584,10 @@ impl AppShell {
                 self.refresh_report(cx);
                 dirty = true;
             }
+            // 首次打开浮窗时待抓缓存还是空的,补一次;之后由接受事件维持。
+            if dirty && self.hud_visible && self.hud_probes.is_none() {
+                self.refresh_hud_probes(cx);
+            }
             if dirty {
                 self.refresh_hud();
             }
@@ -590,6 +602,7 @@ impl AppShell {
             if events.is_empty() {
                 return;
             }
+            let mut book_accepted = false;
             for event in events {
                 match event {
                     UiEvent::Accepted {
@@ -601,6 +614,7 @@ impl AppShell {
                         analysis,
                     } => {
                         self.accepted += 1;
+                        book_accepted = true;
                         // A pair the user picked by hand outranks whatever
                         // panel happens to be open in game — for the report
                         // pages, which answer a question the user asked. The
@@ -637,6 +651,11 @@ impl AppShell {
                         self.backend = None;
                     }
                 }
+            }
+            // 待抓条只在盘口真的进来时才需要重算(覆盖缺口随书变),
+            // 跳过帧不动它——不然待机时每一帧都去读一遍库。
+            if book_accepted && self.hud_visible {
+                self.refresh_hud_probes(cx);
             }
             // The card has to move when the panel does. Books and skips arrive
             // here, not through the message pump above, so refreshing only
@@ -787,9 +806,39 @@ impl AppShell {
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.report_generation == generation {
                     this.report = data;
+                    // 监视器页刚算好的待抓队列顺手喂给浮窗缓存,两处
+                    // 永远说同一份话。
+                    if let crate::state::PageData::Probes(model) = &this.report {
+                        this.hud_probes = Some(model.clone());
+                    }
                     this.sync_radar_table(cx);
                     this.close_answered_probes();
                     cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// 重算浮窗待抓条的数据(后台读库,回来时刷新浮窗)。
+    ///
+    /// 和 `refresh_report` 平行的一条小管线:浮窗不属于任何页面,它的
+    /// 数据也就不能搭页面报表的便车。
+    #[cfg(windows)]
+    fn refresh_hud_probes(&mut self, cx: &mut Context<Self>) {
+        let Some(request) = self.page_request(cx) else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            let model = cx
+                .background_executor()
+                .spawn(async move { load_probe_queue(&request) })
+                .await;
+            this.update(cx, |this: &mut AppShell, _cx| {
+                if let Ok(model) = model {
+                    this.hud_probes = Some(Box::new(model));
+                    this.refresh_hud();
                 }
             })
             .ok();

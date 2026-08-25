@@ -136,7 +136,6 @@ impl AppShell {
     /// 最小值,模型已按它排好)。
     #[cfg(windows)]
     fn hud_probe_line(&self) -> Option<(String, usize)> {
-        use crate::state::PageData;
         let text = self.text();
         let language = self.language();
         if let Some(entry) = self.probe_queue.entries().first() {
@@ -151,7 +150,9 @@ impl AppShell {
                 total.saturating_sub(1),
             ));
         }
-        if let PageData::Probes(model) = &self.report
+        // 独立缓存,不借当前页面的报表:主窗口停在哪一页不该决定浮窗
+        // 有没有待抓条。
+        if let Some(model) = self.hud_probes.as_ref()
             && let Some(candidate) = model.candidates.first()
         {
             return Some((
