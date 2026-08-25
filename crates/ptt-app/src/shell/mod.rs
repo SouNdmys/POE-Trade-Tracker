@@ -234,6 +234,11 @@ pub struct AppShell {
     report_generation: u64,
     /// Pairs the user asked to be reminded about, newest first.
     probe_queue: crate::state::ProbeQueue,
+    /// Whether the watchlist's ignored-pairs list is unfolded.
+    ///
+    /// 唯一的后悔药,不藏进设置页——但默认收起,它是给后悔用的,不是给
+    /// 每天看的。
+    pub(crate) show_ignored_probes: bool,
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
@@ -485,6 +490,7 @@ impl AppShell {
             report: crate::state::PageData::Empty,
             report_generation: 0,
             probe_queue: crate::state::ProbeQueue::default(),
+            show_ignored_probes: false,
             report_stale: true,
         }
     }

@@ -2088,6 +2088,7 @@ pub fn watchlist_model(
         Some(&market),
     ) {
         Ok((status, entries, mut candidates)) => {
+            drop_ignored_probes(&mut candidates, tuning);
             boost_probe_candidates(&mut candidates, pulse);
             CoverageOutcome::Ready(CoverageModel {
                 status,
@@ -2371,6 +2372,7 @@ pub fn opportunities_model(
         .collect();
 
     let mut probe_candidates = result.probe_candidates;
+    drop_ignored_probes(&mut probe_candidates, tuning);
     boost_probe_candidates(&mut probe_candidates, pulse);
 
     Ok(OpportunitiesModel {
@@ -2607,6 +2609,7 @@ pub fn probe_queue_model(
 
     let (_status, coverage, mut candidates) =
         focus_coverage(observations, context_key, &policy, tuning, &seen, None)?;
+    drop_ignored_probes(&mut candidates, tuning);
     boost_probe_candidates(&mut candidates, pulse);
     let missing = coverage
         .iter()
@@ -3243,6 +3246,19 @@ pub fn analytics_model(
         data_days,
         pulse,
     }
+}
+
+/// Drops every pair the user has refused to capture.
+///
+/// 忽略是永久的,且要同时从三处消失(关注列表、监视器、浮窗底条),所以
+/// 过滤在模型装配层做一次:每个显示面都读这批模型,包括以后的浮窗。
+fn drop_ignored_probes(candidates: &mut Vec<ptt_workflows::ProbeCandidate>, tuning: &MarketTuning) {
+    candidates.retain(|candidate| {
+        !tuning.is_probe_ignored(
+            candidate.from_asset_id.as_str(),
+            candidate.to_asset_id.as_str(),
+        )
+    });
 }
 
 /// Raises a candidate one priority step when either side of its pair is a
@@ -4164,6 +4180,38 @@ mod structural_tests {
             without_pulse.asset_thin_thresholds.is_empty(),
             "no history, no norms, existing behavior"
         );
+    }
+
+    /// A pair the user refused to capture never reaches any probe surface:
+    /// the filter runs where the models are assembled, so the watchlist, the
+    /// monitor and the HUD all read a list it is already gone from.
+    #[test]
+    fn an_ignored_pair_is_dropped_from_the_candidates() {
+        let candidate = |from: &str, to: &str| ptt_workflows::ProbeCandidate {
+            from_asset_id: asset(from),
+            to_asset_id: asset(to),
+            reason: ptt_workflows::ProbeReason::MissingForwardQuote,
+            source: ptt_workflows::ProbeSource::FocusGroup,
+            priority: ptt_workflows::ProbePriority::Low,
+            related_focus_group_id: None,
+            last_seen_at: None,
+            freshness_status: None,
+            expected_value_hint: None,
+            notes: None,
+        };
+        let mut tuning = MarketTuning::default();
+        tuning.ignored_probes.push(ptt_settings::IgnoredProbe {
+            from_asset_id: "chaos-orb".to_owned(),
+            to_asset_id: "greater-chaos-orb".to_owned(),
+        });
+        let mut candidates = vec![
+            candidate("chaos-orb", "greater-chaos-orb"),
+            // The reverse reading is a different probe and stays.
+            candidate("greater-chaos-orb", "chaos-orb"),
+        ];
+        drop_ignored_probes(&mut candidates, &tuning);
+        assert_eq!(candidates.len(), 1, "only the ignored direction goes");
+        assert_eq!(candidates[0].from_asset_id.as_str(), "greater-chaos-orb");
     }
 
     /// A gap touching a scarce or high-turnover currency jumps the probe

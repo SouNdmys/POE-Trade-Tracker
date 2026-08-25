@@ -122,6 +122,15 @@ pub struct MarketTuning {
     /// [`IgnoredSuggestion`].
     #[serde(default)]
     pub ignored_suggestions: Vec<IgnoredSuggestion>,
+    /// Pairs the user refuses to capture (「这一对我不抓」).
+    ///
+    /// 三个列表,别合并:隐藏 = 不看这行估值(`hidden_assets`),忽略建议 =
+    /// 别再推荐我关注这个通货(`ignored_suggestions`),忽略去抓 = 这一对
+    /// 我不抓(这里)。三件事含义不同,合成一个会静默改变引擎允许做的事。
+    /// 永久生效——不会因为又缺一次数据自己冒回来;唯一的后悔药是关注列表
+    /// 页底部的「查看并恢复」。
+    #[serde(default)]
+    pub ignored_probes: Vec<IgnoredProbe>,
     /// Currencies whose valuation row the watchlist stops drawing.
     ///
     /// Display only: a hidden currency is still priced, still arbitraged and
@@ -172,6 +181,17 @@ pub struct MarketTuning {
 /// window, not a capture count. The serde field keeps its historical name so
 /// older settings files read cleanly; an old snapshot-count value just makes
 /// the currency due again sooner, which errs on the side of asking.
+/// One pair the user will not capture, in domain id spelling.
+///
+/// Directed, because probes are directed: ignoring 混沌石→高階混沌石 says
+/// nothing about the reverse reading.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IgnoredProbe {
+    pub from_asset_id: String,
+    pub to_asset_id: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoredSuggestion {
@@ -210,6 +230,16 @@ const fn default_route_through_targets() -> bool {
     true
 }
 
+impl MarketTuning {
+    /// Whether the user has refused to capture this pair.
+    #[must_use]
+    pub fn is_probe_ignored(&self, from_asset_id: &str, to_asset_id: &str) -> bool {
+        self.ignored_probes
+            .iter()
+            .any(|held| held.from_asset_id == from_asset_id && held.to_asset_id == to_asset_id)
+    }
+}
+
 impl Default for MarketTuning {
     fn default() -> Self {
         Self {
@@ -218,6 +248,7 @@ impl Default for MarketTuning {
             bridge_assets: Vec::new(),
             watch_only_assets: Vec::new(),
             ignored_suggestions: Vec::new(),
+            ignored_probes: Vec::new(),
             hidden_assets: Vec::new(),
             route_through_targets: default_route_through_targets(),
             freshness: FreshnessTuning::default(),

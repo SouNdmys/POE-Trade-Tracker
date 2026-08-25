@@ -190,6 +190,50 @@ impl AppShell {
         }
     }
 
+    /// Refuses a pair permanently: it leaves the watchlist, the monitor's
+    /// "next to capture" and the HUD reminder in one motion, because they all
+    /// read models the report layer already filtered.
+    #[cfg(windows)]
+    pub(crate) fn ignore_probe(&mut self, from: &str, to: &str) {
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            if tuning.is_probe_ignored(from, to) {
+                return;
+            }
+            tuning.ignored_probes.push(ptt_settings::IgnoredProbe {
+                from_asset_id: from.to_owned(),
+                to_asset_id: to.to_owned(),
+            });
+            tuning.ignored_probes.sort_by(|left, right| {
+                left.from_asset_id
+                    .cmp(&right.from_asset_id)
+                    .then_with(|| left.to_asset_id.cmp(&right.to_asset_id))
+            });
+        }
+        // A pair can be queued and ignored in the same breath; the session
+        // queue is display-side of the filter, so it has to let go itself.
+        self.probe_queue.unpin(from, to);
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
+    }
+
+    /// The regret path: puts one refused pair back into circulation.
+    #[cfg(windows)]
+    pub(crate) fn restore_ignored_probe(&mut self, from: &str, to: &str) {
+        let game = self.settings.active_profile.game;
+        self.settings
+            .market_tuning_mut(game)
+            .ignored_probes
+            .retain(|held| !(held.from_asset_id == from && held.to_asset_id == to));
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
+    }
+
     /// The watchlist page.
     pub(crate) fn render_watchlist(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         let language = self.language();
@@ -544,6 +588,7 @@ impl AppShell {
                     let to = candidate.to_asset_id.as_str().to_owned();
                     let reason = report_text::probe_reason(language, candidate.reason).to_owned();
                     let pinned = self.probe_queue.is_pinned(&from, &to);
+                    let (ignore_from, ignore_to) = (from.clone(), to.clone());
                     body = body.child(
                         div()
                             .h_flex()
@@ -569,9 +614,28 @@ impl AppShell {
                                         },
                                     )),
                                 )
-                            }),
+                            })
+                            // 忽略去抓:这一对我不抓。点下去同时从三处消失。
+                            .child(
+                                button(
+                                    ("watch-probe-ignore", row),
+                                    LedgerButton::Quiet,
+                                    text.ignore_label,
+                                    cx,
+                                )
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        #[cfg(windows)]
+                                        this.ignore_probe(&ignore_from, &ignore_to);
+                                        #[cfg(not(windows))]
+                                        let _ = (&ignore_from, &ignore_to);
+                                        cx.notify();
+                                    },
+                                )),
+                            ),
                     );
                 }
+                body = body.child(self.ignored_probes_footer(cx));
             }
         }
 
@@ -598,6 +662,88 @@ impl AppShell {
             .overflow_hidden()
             .child(panel_header(text.coverage_header))
             .child(crate::ui::scrollable(body, "watchlist-coverage"))
+    }
+}
+
+impl AppShell {
+    /// 「已忽略 N 对 · 查看并恢复」——唯一的后悔药,不藏进设置页。
+    ///
+    /// 收起时只占一行;点开列出每一对,各带一个「恢复」。列表为空时整段
+    /// 消失,不占位置。
+    fn ignored_probes_footer(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let text = self.text();
+        #[cfg(windows)]
+        let ignored: Vec<(String, String)> = self
+            .settings_tuning()
+            .ignored_probes
+            .iter()
+            .map(|pair| (pair.from_asset_id.clone(), pair.to_asset_id.clone()))
+            .collect();
+        #[cfg(not(windows))]
+        let ignored: Vec<(String, String)> = Vec::new();
+
+        if ignored.is_empty() {
+            return div();
+        }
+        let mut footer = div().flex().flex_col().pt_1().child(
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DISABLED))
+                        .child(gpui::SharedString::from(report_text::fill(
+                            text.ignored_probes_count,
+                            &[&ignored.len().to_string()],
+                        ))),
+                )
+                .child(div().flex_1())
+                .child(
+                    button(
+                        "ignored-probes-toggle",
+                        LedgerButton::Quiet,
+                        text.ignored_probes_review,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.show_ignored_probes = !this.show_ignored_probes;
+                        cx.notify();
+                    })),
+                ),
+        );
+        if self.show_ignored_probes {
+            for (row, (from, to)) in ignored.into_iter().enumerate() {
+                let label = self.pair_label(&from, &to);
+                footer = footer.child(
+                    div()
+                        .h_flex()
+                        .items_center()
+                        .gap_2()
+                        .text_size(fs(FS_10_5))
+                        .child(mono(label).text_color(c(TEXT_META)).flex_grow())
+                        .child(
+                            button(
+                                ("ignored-probe-restore", row),
+                                LedgerButton::Quiet,
+                                text.ignored_probes_restore,
+                                cx,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    #[cfg(windows)]
+                                    this.restore_ignored_probe(&from, &to);
+                                    #[cfg(not(windows))]
+                                    let _ = (&from, &to);
+                                    cx.notify();
+                                },
+                            )),
+                        ),
+                );
+            }
+        }
+        footer
     }
 }
 
