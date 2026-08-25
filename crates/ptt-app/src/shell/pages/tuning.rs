@@ -19,7 +19,7 @@ use gpui_component::{
 
 use crate::shell::AppShell;
 use crate::theme::*;
-use crate::ui::{LedgerButton, StatusKind, button, chip, mono, panel, panel_header};
+use crate::ui::{LedgerButton, StatusKind, button, chip, mono, panel};
 
 /// Every number the market tuning holds, as boxes that survive a refresh.
 pub struct TuningInputs {
@@ -559,8 +559,7 @@ impl AppShell {
             |label: &'static str, input: &Entity<InputState>, unit: Unit, note: &'static str| {
                 let converted = unit.conversion(text, number(input, cx));
                 div()
-                    .w(px(300.))
-                    .flex_none()
+                    .w_full()
                     .flex()
                     .flex_col()
                     .gap(px(3.))
@@ -595,187 +594,229 @@ impl AppShell {
                             .child(note),
                     )
             };
-        let group = |title: &'static str| {
+        // 一组一张卡(13a):panel 底 + 24px 组头,三列摞放,一屏装下不用滚。
+        // 原来是通栏分节线,组与组的边界在 24 个输入框里读不出来。
+        let card = |title: &'static str, cells: Vec<gpui::Div>| {
+            let mut body = div().flex().flex_col().gap_2().px_3().py_2();
+            for one in cells {
+                body = body.child(one);
+            }
             div()
-                .h_flex()
-                .items_center()
-                .gap_2()
-                .pt_2()
-                .child(crate::ui::micro_title_sm(title))
-                .child(div().flex_1().h(px(1.)).bg(c(HAIRLINE_SOFT)))
+                .flex_none()
+                .flex()
+                .flex_col()
+                .bg(c(PANEL))
+                .border_1()
+                .border_color(c(HAIRLINE))
+                .child(
+                    div()
+                        .h(px(H_ROW))
+                        .flex_none()
+                        .h_flex()
+                        .items_center()
+                        .px_3()
+                        .bg(c(RAIL))
+                        .border_b_1()
+                        .border_color(c(HAIRLINE))
+                        .child(crate::ui::micro_title_sm(title)),
+                )
+                .child(body)
         };
-        let wrap = || div().h_flex().flex_wrap().gap(px(SP_12));
+        let column = |cards: Vec<gpui::Div>| {
+            let mut col = div().flex_1().min_w(px(0.)).flex().flex_col().gap_2();
+            for one in cards {
+                col = col.child(one);
+            }
+            col
+        };
 
-        let body = div()
-            .p_3()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(group(text.group_freshness))
-            .child(
-                wrap()
-                    .child(cell(
-                        text.tuning_fresh,
-                        &inputs.fresh,
-                        Unit::Seconds,
-                        text.tuning_fresh_note,
-                    ))
-                    .child(cell(
-                        text.tuning_usable,
-                        &inputs.usable,
-                        Unit::Seconds,
-                        text.tuning_usable_note,
-                    ))
-                    .child(cell(
-                        text.tuning_stale,
-                        &inputs.stale,
-                        Unit::Seconds,
-                        text.tuning_stale_note,
-                    ))
-                    .child(cell(
-                        text.tuning_skew,
-                        &inputs.skew,
-                        Unit::Seconds,
-                        text.tuning_skew_note,
-                    )),
-            )
-            .child(group(text.group_scan))
-            .child(
-                wrap()
-                    .child(cell(
-                        text.tuning_sizes,
-                        &inputs.sizes,
-                        Unit::None,
-                        text.tuning_sizes_note,
-                    ))
-                    .child(cell(
-                        text.tuning_max_hops,
-                        &inputs.max_hops,
-                        Unit::None,
-                        text.tuning_max_hops_note,
-                    ))
-                    .child(cell(
-                        text.tuning_results,
-                        &inputs.max_results,
-                        Unit::None,
-                        text.tuning_results_note,
-                    ))
-                    .child(cell(
-                        text.tuning_min_bps,
-                        &inputs.min_basis_points,
-                        Unit::BasisPoints,
-                        text.tuning_min_bps_note,
-                    ))
-                    .child(cell(
-                        text.tuning_expansions,
-                        &inputs.expansions,
-                        Unit::None,
-                        text.tuning_expansions_note,
-                    ))
-                    .child(cell(
-                        text.tuning_window,
-                        &inputs.window_hours,
-                        Unit::None,
-                        text.tuning_window_note,
-                    )),
-            )
-            .child(group(text.group_liquidity))
-            .child(
-                wrap()
-                    .child(cell(
-                        text.tuning_thin,
-                        &inputs.thin_stock,
-                        Unit::None,
-                        text.tuning_thin_note,
-                    ))
-                    .child(cell(
-                        text.tuning_outlier,
-                        &inputs.outlier_factor,
-                        Unit::None,
-                        text.tuning_outlier_note,
-                    ))
-                    .child(cell(
-                        text.tuning_quiet,
-                        &inputs.quiet_floor,
-                        Unit::None,
-                        text.tuning_quiet_note,
-                    ))
-                    .child(cell(
-                        text.tuning_thin_norm,
-                        &inputs.thin_norm,
-                        Unit::None,
-                        text.tuning_thin_norm_note,
-                    )),
-            )
-            .child(group(text.group_trend))
-            .child(
-                wrap()
-                    .child(cell(
-                        text.tuning_trend_recent,
-                        &inputs.trend_recent,
-                        Unit::None,
-                        text.tuning_trend_recent_note,
-                    ))
-                    .child(cell(
-                        text.tuning_trend_window,
-                        &inputs.trend_window,
-                        Unit::None,
-                        text.tuning_trend_window_note,
-                    ))
-                    .child(cell(
-                        text.tuning_breadth,
-                        &inputs.breadth,
-                        Unit::None,
-                        text.tuning_breadth_note,
-                    ))
-                    .child(cell(
-                        text.tuning_verdict,
-                        &inputs.verdict_bps,
-                        Unit::BasisPoints,
-                        text.tuning_verdict_note,
-                    ))
-                    .child(cell(
-                        text.tuning_scarce,
-                        &inputs.scarce_ratio,
-                        Unit::PercentTimes,
-                        text.tuning_scarce_note,
-                    )),
-            )
-            .child(group(text.group_anomaly))
-            .child(
-                wrap()
-                    .child(cell(
-                        text.tuning_spike,
-                        &inputs.spike,
-                        Unit::BasisPoints,
-                        text.tuning_spike_note,
-                    ))
-                    .child(cell(
-                        text.tuning_severe_spike,
-                        &inputs.severe_spike,
-                        Unit::BasisPoints,
-                        text.tuning_severe_spike_note,
-                    ))
-                    .child(cell(
-                        text.tuning_wide_spread,
-                        &inputs.wide_spread,
-                        Unit::BasisPoints,
-                        text.tuning_wide_spread_note,
-                    ))
-                    .child(cell(
-                        text.tuning_severe_spread,
-                        &inputs.severe_spread,
-                        Unit::BasisPoints,
-                        text.tuning_severe_spread_note,
-                    )),
-            )
-            .child(group(text.group_storage))
-            .child(wrap().child(cell(
+        let freshness_card = card(
+            text.group_freshness,
+            vec![
+                cell(
+                    text.tuning_fresh,
+                    &inputs.fresh,
+                    Unit::Seconds,
+                    text.tuning_fresh_note,
+                ),
+                cell(
+                    text.tuning_usable,
+                    &inputs.usable,
+                    Unit::Seconds,
+                    text.tuning_usable_note,
+                ),
+                cell(
+                    text.tuning_stale,
+                    &inputs.stale,
+                    Unit::Seconds,
+                    text.tuning_stale_note,
+                ),
+                cell(
+                    text.tuning_skew,
+                    &inputs.skew,
+                    Unit::Seconds,
+                    text.tuning_skew_note,
+                ),
+            ],
+        );
+        let scan_card = card(
+            text.group_scan,
+            vec![
+                cell(
+                    text.tuning_sizes,
+                    &inputs.sizes,
+                    Unit::None,
+                    text.tuning_sizes_note,
+                ),
+                cell(
+                    text.tuning_max_hops,
+                    &inputs.max_hops,
+                    Unit::None,
+                    text.tuning_max_hops_note,
+                ),
+                cell(
+                    text.tuning_results,
+                    &inputs.max_results,
+                    Unit::None,
+                    text.tuning_results_note,
+                ),
+                cell(
+                    text.tuning_min_bps,
+                    &inputs.min_basis_points,
+                    Unit::BasisPoints,
+                    text.tuning_min_bps_note,
+                ),
+                cell(
+                    text.tuning_expansions,
+                    &inputs.expansions,
+                    Unit::None,
+                    text.tuning_expansions_note,
+                ),
+                cell(
+                    text.tuning_window,
+                    &inputs.window_hours,
+                    Unit::None,
+                    text.tuning_window_note,
+                ),
+            ],
+        );
+        let liquidity_card = card(
+            text.group_liquidity,
+            vec![
+                cell(
+                    text.tuning_thin,
+                    &inputs.thin_stock,
+                    Unit::None,
+                    text.tuning_thin_note,
+                ),
+                cell(
+                    text.tuning_outlier,
+                    &inputs.outlier_factor,
+                    Unit::None,
+                    text.tuning_outlier_note,
+                ),
+                cell(
+                    text.tuning_quiet,
+                    &inputs.quiet_floor,
+                    Unit::None,
+                    text.tuning_quiet_note,
+                ),
+                cell(
+                    text.tuning_thin_norm,
+                    &inputs.thin_norm,
+                    Unit::None,
+                    text.tuning_thin_norm_note,
+                ),
+            ],
+        );
+        let trend_card = card(
+            text.group_trend,
+            vec![
+                cell(
+                    text.tuning_trend_recent,
+                    &inputs.trend_recent,
+                    Unit::None,
+                    text.tuning_trend_recent_note,
+                ),
+                cell(
+                    text.tuning_trend_window,
+                    &inputs.trend_window,
+                    Unit::None,
+                    text.tuning_trend_window_note,
+                ),
+                cell(
+                    text.tuning_breadth,
+                    &inputs.breadth,
+                    Unit::None,
+                    text.tuning_breadth_note,
+                ),
+                cell(
+                    text.tuning_verdict,
+                    &inputs.verdict_bps,
+                    Unit::BasisPoints,
+                    text.tuning_verdict_note,
+                ),
+                cell(
+                    text.tuning_scarce,
+                    &inputs.scarce_ratio,
+                    Unit::PercentTimes,
+                    text.tuning_scarce_note,
+                ),
+            ],
+        );
+        let anomaly_card = card(
+            text.group_anomaly,
+            vec![
+                cell(
+                    text.tuning_spike,
+                    &inputs.spike,
+                    Unit::BasisPoints,
+                    text.tuning_spike_note,
+                ),
+                cell(
+                    text.tuning_severe_spike,
+                    &inputs.severe_spike,
+                    Unit::BasisPoints,
+                    text.tuning_severe_spike_note,
+                ),
+                cell(
+                    text.tuning_wide_spread,
+                    &inputs.wide_spread,
+                    Unit::BasisPoints,
+                    text.tuning_wide_spread_note,
+                ),
+                cell(
+                    text.tuning_severe_spread,
+                    &inputs.severe_spread,
+                    Unit::BasisPoints,
+                    text.tuning_severe_spread_note,
+                ),
+            ],
+        );
+        let storage_card = card(
+            text.group_storage,
+            vec![cell(
                 text.tuning_retention,
                 &inputs.retention_days,
                 Unit::None,
                 text.tuning_retention_note,
-            )))
+            )],
+        );
+
+        // 不再套一层大面板:六张卡各自带框,再包一框就是框中框。
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(
+                div()
+                    .h_flex()
+                    .items_start()
+                    .gap_2()
+                    .child(column(vec![freshness_card, trend_card]))
+                    .child(column(vec![scan_card, anomaly_card]))
+                    .child(column(vec![liquidity_card, storage_card])),
+            )
             .child(
                 div()
                     .h_flex()
@@ -830,9 +871,7 @@ impl AppShell {
                             .text_size(fs(FS_10))
                             .text_color(c(TEXT_GHOST)),
                     ),
-            );
-
-        panel().child(panel_header(text.tuning_header)).child(body)
+            )
     }
 }
 
