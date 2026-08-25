@@ -67,8 +67,21 @@ fn demand_supply_ratio(demand: Option<u128>, supply: Option<u128>) -> Option<Str
 /// ±2% 以内算持平(§6):一半的行都在这里,全上色就没重点了。
 const FLAT_BAND_BASIS_POINTS: i64 = 200;
 
-/// 趋势判定要求的基线天数。
-const TREND_BASELINE_DAYS: u64 = 7;
+impl AppShell {
+    /// 趋势曲线/判定要求的基线天数。
+    ///
+    /// 跟随设置里的「趋势基线(天)」而不是写死 7:页面一边说"要 7 天基线"
+    /// 一边放着一个用户已经调到 3 的设置项,等于告诉用户设置不管用。
+    /// 夹在 [2, 30]:1 天连线都画不成,30 天之外的曲线在 110px 里全是噪声。
+    fn trend_baseline_days(&self) -> u64 {
+        let game = self.settings.active_profile.game;
+        self.settings
+            .market_tuning(game)
+            .analytics
+            .trend_window_days
+            .clamp(2, 30)
+    }
+}
 
 /// The 110×22 area sparkline: the curve *is* the trend column.
 ///
@@ -248,9 +261,9 @@ impl AppShell {
                 }));
         }
 
-        // 数据天数不足 7 天时,把「趋势整列都是横杠」的原因写在顶栏,
+        // 数据天数不够基线时,把「趋势整列都是横杠」的原因写在顶栏,
         // 而不是让人对着 24 个横杠猜(§6)。
-        if u64::from(model.data_days) < TREND_BASELINE_DAYS {
+        if u64::from(model.data_days) < self.trend_baseline_days() {
             head = head.child(
                 div()
                     .h_flex()
@@ -260,7 +273,10 @@ impl AppShell {
                     .child(div().text_size(fs(FS_10_5)).text_color(c(WARN_TEXT)).child(
                         gpui::SharedString::from(report_text::fill(
                             text.analytics_trend_baseline,
-                            &[&model.data_days.to_string()],
+                            &[
+                                &self.trend_baseline_days().to_string(),
+                                &model.data_days.to_string(),
+                            ],
                         )),
                     )),
             );
@@ -383,11 +399,13 @@ impl AppShell {
                 .child(text.analytics_anchor_constant)
                 .into_any_element()
         } else {
+            #[allow(clippy::cast_possible_truncation)]
+            let baseline_days = self.trend_baseline_days() as usize;
             let points: Vec<f32> = asset
                 .value_by_day
                 .iter()
                 .rev()
-                .take(TREND_BASELINE_DAYS as usize)
+                .take(baseline_days)
                 .rev()
                 .filter_map(|(_, rate)| {
                     if rate.denominator == 0 {
@@ -398,8 +416,7 @@ impl AppShell {
                     }
                 })
                 .collect();
-            #[allow(clippy::cast_possible_truncation)]
-            let missing = (TREND_BASELINE_DAYS as usize).saturating_sub(points.len());
+            let missing = baseline_days.saturating_sub(points.len());
             if points.len() < 2 {
                 div()
                     .text_size(fs(FS_10_5))

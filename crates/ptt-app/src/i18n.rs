@@ -1209,7 +1209,7 @@ pub static ENGLISH: Text = Text {
 
     analytics_anchor_constant: "anchor · always 1",
     analytics_days_short: "{} more days",
-    analytics_trend_baseline: "trend needs a 7-day baseline, only {} so far",
+    analytics_trend_baseline: "trend needs a {}-day baseline, only {} so far",
     analytics_col_ratio: "d/s",
 
     convert_routes_header: "ROUTES",
@@ -1586,7 +1586,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
 
     analytics_anchor_constant: "结算锚 · 恒为 1",
     analytics_days_short: "还差 {} 天",
-    analytics_trend_baseline: "趋势要 7 天基线，目前 {} 天",
+    analytics_trend_baseline: "趋势要 {} 天基线，目前 {} 天",
     analytics_col_ratio: "供需",
 
     convert_routes_header: "兑换路线",
