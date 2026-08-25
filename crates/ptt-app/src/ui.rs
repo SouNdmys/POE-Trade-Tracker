@@ -753,6 +753,44 @@ pub fn chips_capped(kind: StatusKind, labels: &[String], limit: usize) -> Div {
     row
 }
 
+/// `chips_capped`, at table height: 18px badges for the fixed 28px row.
+pub fn chips_table(kind: StatusKind, labels: &[String], limit: usize) -> Div {
+    let mut row = div().h_flex().items_center().gap_1();
+    for label in labels.iter().take(limit) {
+        row = row.child(chip_table(kind, label));
+    }
+    row
+}
+
+/// 明细栏主数字行:15px 等宽 600(设计 §3:一栏只升一个数字)。
+///
+/// 颜色由调用方给:正收益金字,负收益走砖红例外。
+pub fn kv_headline(label: &str, value: &str, color: u32) -> Div {
+    div()
+        .flex()
+        .items_baseline()
+        .gap_2()
+        .py(px(4.))
+        .child(
+            div()
+                .w(px(64.))
+                .flex_none()
+                .text_size(fs(FS_11))
+                .text_color(c(TEXT_META))
+                .child(SharedString::from(label.to_string())),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.))
+                .font_family(FONT_MONO)
+                .text_size(fs(FS_15))
+                .font_semibold()
+                .text_color(c(color))
+                .child(SharedString::from(value.to_string())),
+        )
+}
+
 /// 详情面板:选中一行以后右侧那一栏。
 ///
 /// 表格行高是固定的(虚拟化的代价),行内展开做不到,所以"看细节"这件事
@@ -786,8 +824,10 @@ pub fn kv_row(label: &str, value: &str) -> Div {
         .py(px(3.))
         .text_size(fs(FS_11_5))
         .child(
+            // 64px 而不是设计稿之外的 96:明细栏收窄到 300 之后,96 的标签列
+            // 会把等宽值挤到不到一半宽,路径这类值行行换行。
             div()
-                .w(px(96.))
+                .w(px(64.))
                 .flex_none()
                 .text_color(c(TEXT_META))
                 .child(SharedString::from(label.to_string())),

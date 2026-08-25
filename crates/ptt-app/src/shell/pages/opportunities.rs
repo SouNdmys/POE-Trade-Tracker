@@ -10,7 +10,8 @@
 //! in a panel beside the table instead of expanding in place.
 
 use gpui::{
-    App, AppContext as _, Context, Entity, IntoElement, ParentElement, Styled, Window, div, px,
+    App, AppContext as _, Context, Entity, IntoElement, ParentElement, SharedString, Styled,
+    Window, div, px,
 };
 use gpui_component::{
     Sizable, Size, StyledExt as _,
@@ -30,21 +31,81 @@ use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, button, chip, chips_capped, detail_panel, empty_state,
-    freshness_kind, kv_row, mono, panel, panel_header,
+    LedgerButton, StatusKind, button, detail_panel, empty_state, freshness_kind, kv_row, mono,
+    panel,
 };
 
 /// Execution category → status colour.
 ///
-/// "Executable now" is the only green: the other three are all "not yet", and
-/// colouring them apart would suggest a ranking the ladder does not have.
+/// "Executable now" is neutral, not colored: a verdict that is fine has
+/// nothing to warn about, and the semantic colors are reserved for the rows
+/// that need attention (琥珀) or distrust (砖红).
 #[must_use]
 pub fn actionability_kind(category: Actionability) -> StatusKind {
     match category {
-        Actionability::InstantExecutable => StatusKind::Monitoring,
+        Actionability::InstantExecutable => StatusKind::Idle,
         Actionability::MakerTheoretical | Actionability::ProbeRequired => StatusKind::Warning,
         Actionability::SuspiciousOutlier => StatusKind::Error,
     }
+}
+
+/// The verdict, at column width: four characters where `report_text` writes
+/// a sentence. The sentence still reaches the reader via the detail panel.
+#[must_use]
+pub fn verdict_short(chrome: &'static crate::i18n::Text, category: Actionability) -> &'static str {
+    match category {
+        Actionability::InstantExecutable => chrome.radar_verdict_instant,
+        Actionability::MakerTheoretical => chrome.radar_verdict_maker,
+        Actionability::ProbeRequired => chrome.radar_verdict_probe,
+        Actionability::SuspiciousOutlier => chrome.radar_verdict_outlier,
+    }
+}
+
+/// The freshness tier, at column width: 新鲜 / 偏旧 / 过期 / 归档.
+#[must_use]
+pub fn freshness_short(
+    chrome: &'static crate::i18n::Text,
+    status: FreshnessStatus,
+) -> &'static str {
+    match status {
+        FreshnessStatus::Fresh => chrome.freshness_fresh,
+        FreshnessStatus::Usable => chrome.freshness_usable,
+        FreshnessStatus::Stale => chrome.freshness_stale,
+        FreshnessStatus::Archived => chrome.freshness_archived,
+    }
+}
+
+/// The route as one row of names with ghost-gray arrows, truncating.
+///
+/// 12px 界面字体而不是等宽:路径是名字不是数字,等宽会把 348px 的预算吃掉
+/// 一截。箭头降为幽灵灰,名字才是要读的东西。截断优于换行——行高固定是
+/// 硬约束。
+fn route_cell(
+    catalog: &ptt_runtime::domain::Catalog,
+    language: UiLanguage,
+    path: &[MarketAssetId],
+) -> gpui::Div {
+    let mut row = div()
+        .h_flex()
+        .items_center()
+        .gap(px(4.))
+        .overflow_hidden()
+        .text_size(fs(FS_12))
+        .text_color(c(TEXT_PRIMARY));
+    for (index, asset) in path.iter().enumerate() {
+        if index > 0 {
+            row = row.child(
+                div()
+                    .flex_none()
+                    .text_color(c(TEXT_GHOST))
+                    .child(SharedString::from("→")),
+            );
+        }
+        row = row.child(div().whitespace_nowrap().child(SharedString::from(
+            crate::names::asset_name(catalog, language, asset.as_str()),
+        )));
+    }
+    row
 }
 
 /// The route, as the game names it.
@@ -72,122 +133,52 @@ pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, u32) {
         |points| {
             (
                 report_text::percent_from_basis_points(points),
-                if points >= 0 { ACCENT_TEXT } else { DANGER },
+                // 正收益金字(色字=主题);负数砖红文字是那条规则唯一的
+                // 批准例外。
+                if points >= 0 {
+                    ACCENT_TEXT
+                } else {
+                    DANGER_TEXT
+                },
             )
         },
     )
 }
 
-/// Every column's width, added up, may not exceed this.
+/// Every column's width, added up, must land exactly here.
 ///
-/// Upstream columns are pixel-only — no flex, no auto, no measuring the
-/// content — so these eight numbers *are* the layout, and nothing downstream
-/// will reflow them to fit a narrower window. One fixed ceiling is what keeps
-/// the two demands on this table from cancelling each other out: the route
-/// column wants to grow until a whole route reads, and a window a little over
-/// 1100px wide wants the whole table to fit inside it. Without a shared
-/// budget, satisfying either one silently undoes the other.
-pub const RADAR_TABLE_WIDTH_BUDGET: f32 = 1090.0;
+/// UI-DESIGN.md §3 的列宽预算:1280 窗口下表宽 842,内容 822。八个数字就是
+/// 布局——上游列是纯像素的,不会自己回流适配窗口。路径列 348 是量出来的:
+/// 最长的五段闭环实测 328.5px,336 会截掉末段,而闭环行截掉末段就看不出它
+/// 闭没闭。
+pub const RADAR_TABLE_WIDTH_BUDGET: f32 = 822.0;
 
-// The seven columns that never move. They are narrower than they were: the
-// verdict, freshness and risk cells hold badges that overflow any width this
-// table can afford, and their full text is one click away in the detail
-// panel, so the pixels are better spent on the column that says *which route
-// this row is*.
-const COL_KIND_WIDTH: f32 = 80.0;
-const COL_EDGE_WIDTH: f32 = 80.0;
-const COL_DEPTH_WIDTH: f32 = 90.0;
-const COL_RATE_WIDTH: f32 = 120.0;
-const COL_VERDICT_WIDTH: f32 = 120.0;
-const COL_LIGHT_WIDTH: f32 = 90.0;
-const COL_RISKS_WIDTH: f32 = 120.0;
+// §3 定稿列宽:数据 54 | 种类 42 | 路径 348 | 收益 62 | 流动性 58 |
+// 汇率 88 | 可执行性 80 | 风险 90(设计里是 1fr,这里给它剩余预算)。
+const COL_LIGHT_WIDTH: f32 = 54.0;
+const COL_KIND_WIDTH: f32 = 42.0;
+const COL_ROUTE_WIDTH: f32 = 348.0;
+const COL_EDGE_WIDTH: f32 = 62.0;
+const COL_DEPTH_WIDTH: f32 = 58.0;
+const COL_RATE_WIDTH: f32 = 88.0;
+const COL_VERDICT_WIDTH: f32 = 80.0;
+const COL_RISKS_WIDTH: f32 = 90.0;
 
-/// What the seven fixed columns cost together.
-const RADAR_FIXED_COLUMNS_WIDTH: f32 = COL_KIND_WIDTH
-    + COL_EDGE_WIDTH
-    + COL_DEPTH_WIDTH
-    + COL_RATE_WIDTH
-    + COL_VERDICT_WIDTH
-    + COL_LIGHT_WIDTH
-    + COL_RISKS_WIDTH;
-
-/// Where the route column lives in `columns`.
-const ROUTE_COLUMN: usize = 1;
-
-/// The route column's floor: the width it had before it could grow at all.
-const COL_ROUTE_MIN_WIDTH: f32 = 300.0;
-
-/// The route column's ceiling: whatever the budget has left over.
-const COL_ROUTE_MAX_WIDTH: f32 = RADAR_TABLE_WIDTH_BUDGET - RADAR_FIXED_COLUMNS_WIDTH;
-
-/// Widening a fixed column past the budget has to fail here, not on screen.
-///
-/// The ceiling above is subtraction, so seven fixed columns that outgrow the
-/// budget do not stop at zero — they push the ceiling under the floor, and
-/// `route_column_width` clamps into `[floor, ceiling]`. `f32::clamp` panics
-/// when its bounds are the wrong way round, so a one-number edit that looks
-/// like styling would take the whole radar page down at the first row it
-/// draws. Asserting it in a `const` moves the failure to the build, where
-/// the message can say which number to change.
+/// A column edit that breaks the budget has to fail at the build, not on
+/// screen at 1280 where the last column quietly walks off the panel.
 const _: () = assert!(
-    COL_ROUTE_MIN_WIDTH <= COL_ROUTE_MAX_WIDTH,
-    "the fixed radar columns no longer leave the route column its floor: \
-     narrow one of them, or raise RADAR_TABLE_WIDTH_BUDGET (and check the \
-     table still fits a ~1100px window)"
+    COL_LIGHT_WIDTH
+        + COL_KIND_WIDTH
+        + COL_ROUTE_WIDTH
+        + COL_EDGE_WIDTH
+        + COL_DEPTH_WIDTH
+        + COL_RATE_WIDTH
+        + COL_VERDICT_WIDTH
+        + COL_RISKS_WIDTH
+        == RADAR_TABLE_WIDTH_BUDGET,
+    "the radar columns no longer add up to the §3 budget: change a column \
+     and its neighbour together, the 1280 window will not grow"
 );
-
-/// How much longer a route has to read before the column actually widens.
-///
-/// The row set is replaced on every accepted book, so a column that re-fits
-/// itself exactly would shift the whole table sideways every few seconds.
-/// A reader tracking a row down the list would rather have it truncated in a
-/// stable place than perfectly sized in a moving one.
-const COL_ROUTE_GROWTH_STEP: f32 = 24.0;
-
-/// A cell's left plus right padding at [`Size::XSmall`], which is the size
-/// this table is drawn at.
-const CELL_PADDING: f32 = 8.0;
-
-/// How wide a string draws in the table's monospace font.
-///
-/// gpui can measure text exactly, but only inside a layout pass, and a column
-/// width has to exist before the first layout pass runs — so this is an
-/// estimate by arithmetic instead. The font is monospace, which makes it a
-/// sum of per-character advances: a CJK glyph takes a full em, everything
-/// else about six tenths of one. Being a few pixels out is harmless in both
-/// directions, because the answer is clamped into a range either way.
-fn monospace_width(text: &str, font_size: f32) -> f32 {
-    text.chars()
-        .map(|character| {
-            if character.is_ascii() {
-                font_size * 0.6
-            } else {
-                font_size
-            }
-        })
-        .sum()
-}
-
-/// The width the route column would like, given the routes it has to show.
-///
-/// Clamped rather than granted: below the floor the column stops being worth
-/// reading, and above the ceiling the table stops fitting the window.
-fn route_column_width(
-    rows: &[OpportunityRow],
-    language: UiLanguage,
-    catalog: &ptt_runtime::domain::Catalog,
-) -> f32 {
-    let widest = rows
-        .iter()
-        .map(|row| {
-            monospace_width(
-                &route_text(catalog, language, &row.item.path_asset_ids),
-                FS_11_5,
-            )
-        })
-        .fold(0.0_f32, f32::max);
-    (widest + CELL_PADDING).clamp(COL_ROUTE_MIN_WIDTH, COL_ROUTE_MAX_WIDTH)
-}
 
 /// The radar's rows.
 ///
@@ -214,11 +205,12 @@ impl RadarTable {
         catalog: &'static ptt_runtime::domain::Catalog,
     ) -> Self {
         let chrome = i18n::text(language);
-        let route = route_column_width(&rows, language, catalog);
         Self {
             columns: vec![
+                // 新鲜度排第一列(§3):这是用户第一眼要看的东西。
+                Column::new("light", chrome.radar_column_light).width(px(COL_LIGHT_WIDTH)),
                 Column::new("kind", chrome.radar_column_kind).width(px(COL_KIND_WIDTH)),
-                Column::new("route", chrome.radar_column_route).width(px(route)),
+                Column::new("route", chrome.radar_column_route).width(px(COL_ROUTE_WIDTH)),
                 Column::new("edge", chrome.radar_column_edge)
                     .width(px(COL_EDGE_WIDTH))
                     .text_right()
@@ -234,7 +226,6 @@ impl RadarTable {
                     .width(px(COL_RATE_WIDTH))
                     .text_right(),
                 Column::new("verdict", chrome.radar_column_verdict).width(px(COL_VERDICT_WIDTH)),
-                Column::new("light", chrome.radar_column_light).width(px(COL_LIGHT_WIDTH)),
                 Column::new("risks", chrome.radar_column_risks).width(px(COL_RISKS_WIDTH)),
             ],
             rows,
@@ -253,7 +244,9 @@ impl RadarTable {
     ///
     /// The answer matters because refreshing a table clears every column's
     /// measured bounds for a frame, so a caller that refreshes on every scan
-    /// pays a blank frame for a layout that did not change.
+    /// pays a blank frame for a layout that did not change. The columns are
+    /// fixed now (§3 列宽预算), so only a language or catalogue change moves
+    /// them.
     pub fn set_rows(
         &mut self,
         rows: Vec<OpportunityRow>,
@@ -266,28 +259,8 @@ impl RadarTable {
             *self = Self::new(rows, language, catalog);
             return true;
         }
-        let widened = self.fit_route_column(&rows);
         self.rows = rows;
-        widened
-    }
-
-    /// Widens the route column when a scan brings in a longer route.
-    ///
-    /// Grow-only, and only in steps worth seeing. A scan replaces the rows
-    /// every few seconds, and a column that tracked the longest route exactly
-    /// would nudge the seven columns after it sideways each time — a table
-    /// that will not hold still is harder to read than one that truncates.
-    fn fit_route_column(&mut self, rows: &[OpportunityRow]) -> bool {
-        if self.widths_are_the_readers {
-            return false;
-        }
-        let wanted = route_column_width(rows, self.language, self.catalog);
-        let column = &mut self.columns[ROUTE_COLUMN];
-        if wanted <= f32::from(column.width) + COL_ROUTE_GROWTH_STEP {
-            return false;
-        }
-        column.width = px(wanted);
-        true
+        false
     }
 
     /// Takes the widths back from a column the reader dragged.
@@ -347,6 +320,7 @@ impl RadarTable {
         _cx: &mut App,
     ) -> gpui::AnyElement {
         let language = self.language;
+        let chrome = i18n::text(language);
         let Some(row) = self.rows.get(row_ix) else {
             return div().into_any_element();
         };
@@ -354,21 +328,32 @@ impl RadarTable {
         let cell = |body: gpui::Div| body.h_flex().items_center().size_full();
 
         match col_ix {
-            0 => cell(div().text_size(fs(FS_11_5)))
-                .child(report_text::radar_item_kind(language, item.kind))
+            // 数据(第一列,§3):6px 色点 + 汉字。没有判定时给幽灵横杠——
+            // "这里没有信息"不值得读清。
+            0 => match row.light {
+                Some(status) => cell(div())
+                    .child(crate::ui::freshness_cell(
+                        freshness_kind(status),
+                        freshness_short(chrome, status),
+                    ))
+                    .into_any_element(),
+                None => cell(div().text_size(fs(FS_11)).text_color(c(TEXT_GHOST)))
+                    .child("—")
+                    .into_any_element(),
+            },
+            // 种类:2 字,省下的 40px 全给了路径列。
+            1 => cell(div().text_size(fs(FS_11)).text_color(c(TEXT_SECONDARY)))
+                .child(match item.kind {
+                    RadarItemKind::BestConversion => chrome.radar_kind_conversion,
+                    RadarItemKind::Loop => chrome.radar_kind_loop,
+                })
                 .into_any_element(),
-            1 => cell(
-                mono(route_text(self.catalog, language, &item.path_asset_ids))
-                    .text_size(fs(FS_11_5))
-                    .whitespace_nowrap()
-                    .overflow_hidden(),
-            )
-            .into_any_element(),
-            2 => {
+            2 => cell(route_cell(self.catalog, language, &item.path_asset_ids)).into_any_element(),
+            3 => {
                 let (label, colour) = edge_text(item, language);
                 cell(
                     mono(label)
-                        .text_size(fs(FS_11_5))
+                        .text_size(fs(FS_12))
                         .text_color(c(colour))
                         .justify_end(),
                 )
@@ -377,12 +362,13 @@ impl RadarTable {
             // Depth, in the settlement anchor -- one currency for every row,
             // because a column that is sorted on has to be comparable down
             // its own length.
-            3 => cell(
+            4 => cell(
                 mono(
                     item.liquidity_capacity
                         .map_or_else(|| "-".to_owned(), |capacity| capacity.to_string()),
                 )
-                .text_size(fs(FS_11_5))
+                .text_size(fs(FS_12))
+                .text_color(c(TEXT_DATA))
                 .justify_end(),
             )
             .into_any_element(),
@@ -390,40 +376,28 @@ impl RadarTable {
             // the scan runs at a canonical size nobody holds, so its output
             // said nothing about the reader — the rate is what they act on,
             // and the detail panel prices their own ask at this same rate.
-            4 => cell(
+            5 => cell(
                 mono(
                     ptt_runtime::reports::walk_route(&row.leg_books, 1)
                         .rate
                         .map_or_else(|| "-".to_owned(), |rate| rate.text()),
                 )
-                .text_size(fs(FS_11_5))
+                .text_size(fs(FS_12))
+                .text_color(c(TEXT_DATA))
                 .justify_end(),
             )
             .into_any_element(),
-            5 => cell(div())
-                .child(chip(
+            // 可执行性:4 字徽章,完整说法在明细栏。
+            6 => cell(div())
+                .child(crate::ui::chip_table(
                     actionability_kind(item.category),
-                    report_text::actionability(language, item.category),
+                    verdict_short(chrome, item.category),
                 ))
                 .into_any_element(),
-            6 => match row.light {
-                Some(status) => cell(div().gap_2())
-                    .child(crate::ui::status_dot(freshness_kind(status)))
-                    .child(
-                        div()
-                            .text_size(fs(FS_10_5))
-                            .text_color(c(TEXT_SECONDARY))
-                            .child(report_text::freshness_light(language, status)),
-                    )
-                    .into_any_element(),
-                None => cell(div().text_size(fs(FS_10_5)).text_color(c(TEXT_DISABLED)))
-                    .child("—")
-                    .into_any_element(),
-            },
             // Capped and silent about it: what did not fit is in the detail
             // panel, which is where a reader who cares is going anyway.
             _ => cell(div())
-                .child(chips_capped(
+                .child(crate::ui::chips_table(
                     StatusKind::Warning,
                     &item
                         .blocking_risks
@@ -568,75 +542,135 @@ impl AppShell {
             .selected_row()
             .and_then(|index| self.radar_table.read(cx).delegate().row(index).cloned());
 
-        let mut header = div()
+        // 页标题行(26px):标题 + 发丝线拉满 + 右侧计数。
+        let shown = scan.items.len();
+        let found: usize = if scan.diagnostics.results_truncated {
+            scan.diagnostics.item_count_before_limit as usize
+        } else {
+            shown
+        };
+        let title_row = div()
+            .h(px(H_INPUT))
             .flex_none()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .px_3()
-            .py_2()
-            .children(model.notes.iter().map(|note| {
-                mono(note.clone())
-                    .text_size(fs(FS_11_5))
-                    .text_color(c(WARN_TEXT))
-            }))
+            .h_flex()
+            .items_center()
+            .gap(px(SP_10))
+            .child(
+                div()
+                    .text_size(fs(FS_13))
+                    .child(crate::ui::spaced(text.page_opportunities)),
+            )
+            .child(div().flex_1().h(px(1.)).bg(c(HAIRLINE_SOFT)))
             .child(
                 mono(report_text::fill(
-                    report_text::report(language).scanning_from,
-                    &[
-                        // The catalogue's names, like every other currency on
-                        // this page. The raw ids belong to the text report,
-                        // which is read beside the database; printing them
-                        // here put English into the middle of a Chinese
-                        // sentence and named the scan's anchors differently
-                        // from every row under them.
-                        &scan
-                            .starts
-                            .iter()
-                            .map(|asset| self.display_name(asset.as_str()))
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        // Distinct targets, not the (start, target) pairs the budget
-                        // is divided over: two settlement starts search every target
-                        // twice, so the pair count read as twice the scope.
-                        &scan.diagnostics.distinct_target_count.to_string(),
-                    ],
+                    report_text::report(language).results_cut,
+                    &[&found.to_string(), &shown.to_string()],
                 ))
-                .text_size(fs(FS_11_5))
+                .text_size(fs(FS_11))
                 .text_color(c(TEXT_META)),
             );
-        // What the scan actually did, so an empty list is distinguishable
-        // from a scan that never ran: "no opportunities across 40 priced
-        // conversions" is an answer, "no opportunities" alone is a shrug.
-        header = header.child(
-            mono(report_text::fill(
-                report_text::report(language).scan_accounting,
-                &[
-                    &scan.diagnostics.scanned_conversion_count.to_string(),
-                    &scan.diagnostics.complete_conversion_count.to_string(),
-                    &scan.diagnostics.unfillable_conversion_count.to_string(),
-                    &scan.diagnostics.missing_conversion_count.to_string(),
-                    &scan.diagnostics.triangle_evaluation_count.to_string(),
-                    &scan.diagnostics.profitable_loop_count.to_string(),
-                    &report_text::percent_from_basis_points(
-                        i64::try_from(self.settings_tuning().radar.minimum_profit_basis_points)
-                            .unwrap_or(i64::MAX),
+
+        // 34px 事实带(§3):起点 / 目标 / 可定价 / 缺价 / 闭环·有得赚 / 门槛。
+        // 之前是三行流水账句子;事实带一眼扫过去,句子只在出问题时出现。
+        let divider = || div().w(px(1.)).h(px(20.)).flex_none().bg(c(HAIRLINE_SOFT));
+        let stat = |label: &'static str, value: String, color: u32| {
+            div()
+                .h_flex()
+                .items_baseline()
+                .gap(px(6.))
+                .px(px(SP_12))
+                .child(
+                    div()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(label),
+                )
+                .child(mono(value).text_size(fs(FS_12)).text_color(c(color)))
+        };
+        let missing = scan.diagnostics.missing_conversion_count;
+        let band = div()
+            .h(px(34.))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .bg(c(PANEL))
+            .border_1()
+            .border_color(c(HAIRLINE))
+            .child(
+                div()
+                    .h_flex()
+                    .items_baseline()
+                    .gap(px(6.))
+                    .px(px(SP_12))
+                    .child(
+                        div()
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.radar_band_start),
+                    )
+                    .child(
+                        div().text_size(fs(FS_12)).child(SharedString::from(
+                            scan.starts
+                                .iter()
+                                .map(|asset| self.display_name(asset.as_str()))
+                                .collect::<Vec<_>>()
+                                .join(" · "),
+                        )),
                     ),
-                ],
+            )
+            .child(divider())
+            .child(stat(
+                text.radar_band_targets,
+                scan.diagnostics.distinct_target_count.to_string(),
+                TEXT_DATA,
             ))
-            .text_size(fs(FS_11_5))
-            .text_color(c(TEXT_META)),
-        );
-        // Two different facts, and they used to share one amber sentence: a
-        // scan that ran out of budget may have missed something, while a list
-        // cut to its page limit missed nothing at all. Together they printed
-        // "扫描不完整 — 跳过 0 个目标" on the routine case, which reads as
-        // broken and teaches the reader to ignore the warning that matters.
-        //
-        // Said above the results either way: a truncated search that looks
-        // complete is how "there is nothing better" gets believed.
+            .child(divider())
+            .child(stat(
+                text.radar_band_priced,
+                scan.diagnostics.complete_conversion_count.to_string(),
+                TEXT_DATA,
+            ))
+            .child(stat(
+                text.radar_band_missing,
+                missing.to_string(),
+                // 缺价是唯一值得变色的数:0 缺价没事,缺了才需要注意。
+                if missing > 0 { WARN_TEXT } else { TEXT_DATA },
+            ))
+            .child(divider())
+            .child(stat(
+                text.radar_band_loops,
+                scan.diagnostics.triangle_evaluation_count.to_string(),
+                TEXT_DATA,
+            ))
+            .child(stat(
+                text.radar_band_profitable,
+                scan.diagnostics.profitable_loop_count.to_string(),
+                TEXT_DATA,
+            ))
+            .child(div().flex_1())
+            .child(stat(
+                text.radar_band_threshold,
+                report_text::percent_from_basis_points(
+                    i64::try_from(self.settings_tuning().radar.minimum_profit_basis_points)
+                        .unwrap_or(i64::MAX),
+                ),
+                TEXT_DATA,
+            ));
+
+        // 出问题才出现的句子:预算耗尽(琥珀,可能漏了),以及结构性备注。
+        let mut warnings =
+            div()
+                .flex_none()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .children(model.notes.iter().map(|note| {
+                    mono(note.clone())
+                        .text_size(fs(FS_11))
+                        .text_color(c(WARN_TEXT))
+                }));
         if scan.diagnostics.budget_exhausted {
-            header = header.child(
+            warnings = warnings.child(
                 mono(report_text::fill(
                     report_text::report(language).partial_scan,
                     &[
@@ -644,22 +678,8 @@ impl AppShell {
                         &scan.diagnostics.expansions_used.to_string(),
                     ],
                 ))
-                .text_size(fs(FS_11_5))
+                .text_size(fs(FS_11))
                 .text_color(c(WARN_TEXT)),
-            );
-        }
-        // Not amber: nothing was missed, the page is just a page.
-        if scan.diagnostics.results_truncated {
-            header = header.child(
-                mono(report_text::fill(
-                    report_text::report(language).results_cut,
-                    &[
-                        &scan.diagnostics.item_count_before_limit.to_string(),
-                        &scan.items.len().to_string(),
-                    ],
-                ))
-                .text_size(fs(FS_11_5))
-                .text_color(c(TEXT_META)),
             );
         }
 
@@ -669,27 +689,18 @@ impl AppShell {
                 .flex()
                 .flex_col()
                 .overflow_hidden()
-                .child(panel_header(text.page_opportunities))
-                .child(header)
                 .child(empty_state(
                     report_text::report(language).nothing_beats_holding,
                 ))
         } else {
-            panel()
-                .flex_1()
-                .flex()
-                .flex_col()
-                .overflow_hidden()
-                .child(panel_header(text.page_opportunities))
-                .child(header)
-                .child(
-                    div().flex_1().overflow_hidden().child(
-                        Table::new(&self.radar_table)
-                            .stripe(true)
-                            .bordered(false)
-                            .with_size(Size::XSmall),
-                    ),
-                )
+            panel().flex_1().flex().flex_col().overflow_hidden().child(
+                div().flex_1().overflow_hidden().child(
+                    Table::new(&self.radar_table)
+                        .stripe(true)
+                        .bordered(false)
+                        .with_size(Size::XSmall),
+                ),
+            )
         };
 
         // `min_w(0)` on both wrappers, for the same reason `min_h(0)` runs all
@@ -699,11 +710,11 @@ impl AppShell {
         // of them together does not clip — it grows the page past the window
         // edge and takes the header and the probe strip with it.
         let mut body = div()
-            .flex_grow()
+            .flex_1()
+            .min_h(px(0.))
             .min_w(px(0.))
             .flex()
-            .gap_3()
-            .p_3()
+            .gap(px(SP_8))
             .overflow_hidden()
             .child(table);
         if let Some(row) = selected {
@@ -714,6 +725,11 @@ impl AppShell {
             .min_w(px(0.))
             .flex()
             .flex_col()
+            .gap(px(SP_8))
+            .p(px(SP_10))
+            .child(title_row)
+            .child(band)
+            .child(warnings)
             .child(body)
             .child(self.radar_probes(scan.probe_candidates.clone(), cx))
     }
@@ -764,13 +780,42 @@ impl AppShell {
                     .and_then(|triangle| triangle.capture_time_evidence.as_ref())
             });
 
-        let mut inner = div().p_3().flex().flex_col().child(kv_row(
-            text.detail_route,
-            &route_text(self.catalog(), language, &item.path_asset_ids),
-        ));
+        // 分隔线:明细栏用 soft 发丝线分组(路径 / 主数字 / 分步 / 依据)。
+        let sep = || div().h(px(1.)).flex_none().bg(c(HAIRLINE_SOFT)).my(px(6.));
 
-        // The headline column states what closing the route nets. This is the
-        // other number the route has: how much better it is than simply
+        let mut inner = div()
+            .px(px(SP_10))
+            .py(px(SP_8))
+            .flex()
+            .flex_col()
+            .child(kv_row(
+                text.detail_route,
+                &route_text(self.catalog(), language, &item.path_asset_ids),
+            ))
+            .child(sep());
+
+        // 整条收益是这一栏唯一的主数字(§3):15px 等宽 600。其余全部降级。
+        match item.round_trip_basis_points {
+            Some(points) => {
+                inner = inner.child(crate::ui::kv_headline(
+                    text.detail_round_trip,
+                    &report_text::percent_from_basis_points(points),
+                    if points >= 0 {
+                        ACCENT_TEXT
+                    } else {
+                        DANGER_TEXT
+                    },
+                ));
+            }
+            None => {
+                inner = inner.child(kv_row(
+                    text.detail_round_trip,
+                    report_text::report(language).unpriced,
+                ));
+            }
+        }
+
+        // The other number the route has: how much better it is than simply
         // trading the pair direct. A saving on a purchase rather than a
         // profit, so it sits here rather than on the row -- but on the owner's
         // book the two were 17.53% and 2.09% for the same route, and reading
@@ -781,6 +826,7 @@ impl AppShell {
                 &report_text::percent_from_basis_points(points),
             ));
         }
+        inner = inner.child(sep());
 
         // Per leg the front rate, because a route is only as good as the leg
         // that fails. The consumed→produced amounts that used to sit here
@@ -805,6 +851,7 @@ impl AppShell {
         }
 
         if let Some(evidence) = evidence {
+            inner = inner.child(sep());
             inner = inner.child(kv_row(
                 text.detail_capture,
                 &format!(
@@ -817,16 +864,32 @@ impl AppShell {
                 ),
             ));
         }
+        // 风险在明细栏是徽章不是句子:表格里被折掉的,在这里逐条铺开。
         if !item.blocking_risks.is_empty() {
-            inner = inner.child(kv_row(
-                text.detail_risks,
-                &item
-                    .blocking_risks
-                    .iter()
-                    .map(|risk| report_text::execution_risk(language, *risk))
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ));
+            let labels: Vec<String> = item
+                .blocking_risks
+                .iter()
+                .map(|risk| report_text::execution_risk(language, *risk).to_owned())
+                .collect();
+            inner = inner.child(
+                div()
+                    .flex()
+                    .items_start()
+                    .gap_2()
+                    .py(px(3.))
+                    .child(
+                        div()
+                            .w(px(64.))
+                            .flex_none()
+                            .text_size(fs(FS_11))
+                            .text_color(c(TEXT_META))
+                            .child(text.detail_risks),
+                    )
+                    .child(
+                        crate::ui::chips_table(StatusKind::Warning, &labels, labels.len())
+                            .flex_wrap(),
+                    ),
+            );
         }
         // Season-scale context per leg asset: advisory, never a blocker and
         // never a sort key (the user's ordering ruling stands).
@@ -961,6 +1024,11 @@ impl AppShell {
 
     /// The pairs whose absence or staleness limited what the scan could claim.
     ///
+    /// A fixed 46px strip (§3), not a panel: it is a reminder, not a page.
+    /// Only three pairs show; the rest fold into a ghost `+N`. Clicking a
+    /// pair toggles it in the probe queue — the strip is the main window's
+    /// half of the loop the HUD's read-only reminder line closes.
+    ///
     /// Shown whether or not anything survived, because an empty page is
     /// exactly when "go and flip this" matters most.
     fn radar_probes(
@@ -971,53 +1039,88 @@ impl AppShell {
         if candidates.is_empty() {
             return div();
         }
+        use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
         let language = self.language();
         let text = self.text();
-        let mut row = div().h_flex().items_center().gap_2().flex_wrap();
-        for (index, candidate) in candidates.into_iter().take(4).enumerate() {
+        const SHOWN: usize = 3;
+        let extra = candidates.len().saturating_sub(SHOWN);
+
+        let mut bar = div()
+            .h(px(46.))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .gap(px(SP_8))
+            .px(px(SP_10))
+            .bg(c(PANEL))
+            .border_1()
+            .border_color(c(HAIRLINE))
+            .child(
+                div()
+                    .w(px(76.))
+                    .flex_none()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_META))
+                    .line_height(px(FS_10_5 * 1.4))
+                    .child(text.radar_probe_footer),
+            )
+            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(c(HAIRLINE_SOFT)));
+
+        for (index, candidate) in candidates.into_iter().take(SHOWN).enumerate() {
             let from = candidate.from_asset_id.as_str().to_owned();
             let to = candidate.to_asset_id.as_str().to_owned();
             let reason = report_text::probe_reason(language, candidate.reason).to_owned();
             let pinned = self.probe_queue.is_pinned(&from, &to);
-            row = row.child(
-                div()
-                    .h_flex()
-                    .items_center()
-                    .gap_1()
-                    .child(mono(self.pair_label(&from, &to)).text_size(fs(FS_11_5)))
-                    .child(
-                        mono(reason.clone())
-                            .text_size(fs(FS_10_5))
-                            .text_color(c(TEXT_META)),
-                    )
-                    .child(if pinned {
-                        chip(StatusKind::Monitoring, text.pinned_label)
+            let pill = div()
+                .id(("radar-probe", index))
+                .h(px(24.))
+                .flex_none()
+                .h_flex()
+                .items_center()
+                .gap(px(6.))
+                .px(px(SP_8))
+                .rounded(px(RADIUS_BUTTON))
+                .border_1()
+                .border_color(c(if pinned { ACCENT_LINE } else { HAIRLINE }))
+                .cursor_pointer()
+                .hover(|style| style.bg(c(HOVER)))
+                .child(
+                    div()
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_PRIMARY))
+                        .whitespace_nowrap()
+                        .child(SharedString::from(self.pair_label(&from, &to))),
+                )
+                .child(
+                    div()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(if pinned { ACCENT_TEXT } else { TEXT_META }))
+                        .whitespace_nowrap()
+                        .child(SharedString::from(if pinned {
+                            text.pinned_label.to_owned()
+                        } else {
+                            reason.clone()
+                        })),
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    if this.probe_queue.is_pinned(&from, &to) {
+                        this.unpin_probe(&from, &to);
                     } else {
-                        div().child(
-                            button(
-                                ("radar-probe-pin", index),
-                                LedgerButton::Quiet,
-                                text.pin_label,
-                                cx,
-                            )
-                            .on_click(cx.listener(
-                                move |this, _, _, cx| {
-                                    this.pin_probe(&from, &to, &reason);
-                                    cx.notify();
-                                },
-                            )),
-                        )
-                    }),
+                        this.pin_probe(&from, &to, &reason);
+                    }
+                    cx.notify();
+                }));
+            bar = bar.child(pill);
+        }
+        bar = bar.child(div().flex_1());
+        if extra > 0 {
+            bar = bar.child(
+                mono(format!("+{extra}"))
+                    .text_size(fs(FS_11))
+                    .text_color(c(TEXT_GHOST)),
             );
         }
-        panel()
-            .flex_none()
-            .mx_3()
-            .mb_3()
-            .child(panel_header(
-                report_text::report(language).radar_probe_header,
-            ))
-            .child(div().p_3().child(row))
+        bar
     }
 }
 
@@ -1096,147 +1199,39 @@ mod selection_tests {
 #[cfg(test)]
 mod column_width_tests {
     use super::*;
-    use ptt_runtime::domain::{AssetAmount, AssetUnit, RadarItemKind};
 
-    fn catalog() -> &'static ptt_runtime::domain::Catalog {
-        ptt_runtime::domain::poe2_catalog()
+    fn table() -> RadarTable {
+        RadarTable::new(
+            Vec::new(),
+            UiLanguage::English,
+            ptt_runtime::domain::poe2_catalog(),
+        )
     }
 
-    fn asset(id: &str) -> MarketAssetId {
-        MarketAssetId::try_new(id).expect("asset id")
-    }
-
-    fn amount(id: &str) -> AssetAmount {
-        AssetAmount {
-            asset_id: asset(id),
-            quanta: 10,
-            unit: AssetUnit::whole(),
-        }
-    }
-
-    /// A row whose only interesting property is how long its route reads.
-    ///
-    /// The ids are runs of letters the catalogue has never heard of, so
-    /// `asset_name` falls back to the id itself and the route text is exactly
-    /// as long as the test asked for.
-    fn row(name_length: usize) -> OpportunityRow {
-        let from = "a".repeat(name_length);
-        let to = "b".repeat(name_length);
-        OpportunityRow {
-            item: RadarItem {
-                item_id: "width".to_owned(),
-                kind: RadarItemKind::BestConversion,
-                category: Actionability::InstantExecutable,
-                path_asset_ids: vec![asset(&from), asset(&to)],
-                amount_in: amount(&from),
-                amount_out: amount(&to),
-                round_trip_basis_points: Some(100),
-                value_basis_points: Some(100),
-                liquidity_capacity: Some(10),
-                reasons: Vec::new(),
-                risk_flags: Vec::new(),
-                blocking_risks: Vec::new(),
-                conversion_path: None,
-                triangle: None,
-            },
-            light: None,
-            structural: Vec::new(),
-            leg_books: Vec::new(),
-        }
-    }
-
-    fn table(rows: Vec<OpportunityRow>) -> RadarTable {
-        RadarTable::new(rows, UiLanguage::English, catalog())
-    }
-
-    fn total_width(table: &RadarTable) -> f32 {
-        table
+    /// The eight built columns must spend exactly the §3 budget: less leaves
+    /// a gap after the risk column, more pushes it off the 1280 window. The
+    /// const assert already checks the constants agree with each other; this
+    /// checks the built table actually uses those constants.
+    #[test]
+    fn the_built_columns_spend_exactly_the_budget() {
+        let total: f32 = table()
             .columns
             .iter()
             .map(|column| f32::from(column.width))
-            .sum()
+            .sum();
+        assert!(
+            (total - RADAR_TABLE_WIDTH_BUDGET).abs() < 0.5,
+            "the built columns add up to {total}, the §3 budget is {RADAR_TABLE_WIDTH_BUDGET}"
+        );
     }
 
-    fn route_width(table: &RadarTable) -> f32 {
-        f32::from(table.columns[ROUTE_COLUMN].width)
-    }
-
+    /// 新鲜度是用户第一眼要看的东西(§3),它必须是第一列。
     #[test]
-    fn every_column_together_fits_the_table_width_budget() {
-        let mut table = table(Vec::new());
-        assert!(
-            total_width(&table) <= RADAR_TABLE_WIDTH_BUDGET,
-            "empty table is {} wide",
-            total_width(&table)
-        );
-
-        table.set_rows(vec![row(90)], UiLanguage::English, catalog());
-        assert!(
-            total_width(&table) <= RADAR_TABLE_WIDTH_BUDGET,
-            "table with the longest possible route is {} wide",
-            total_width(&table)
-        );
-    }
-
-    #[test]
-    fn a_long_route_widens_its_column_up_to_the_ceiling() {
-        let mut table = table(Vec::new());
-        assert!(
-            (route_width(&table) - COL_ROUTE_MIN_WIDTH).abs() < 0.5,
-            "an empty scan should leave the route column at its floor, got {}",
-            route_width(&table)
-        );
-
-        table.set_rows(vec![row(90)], UiLanguage::English, catalog());
-        assert!(
-            (route_width(&table) - COL_ROUTE_MAX_WIDTH).abs() < 0.5,
-            "a route far too long for the budget should pin the column to the \
-             ceiling, got {}",
-            route_width(&table)
-        );
-    }
-
-    #[test]
-    fn a_dragged_route_width_survives_the_next_scan() {
-        let mut table = table(vec![row(22)]);
-        let mut widths: Vec<gpui::Pixels> =
-            table.columns.iter().map(|column| column.width).collect();
-        widths[ROUTE_COLUMN] = px(200.0);
-        table.set_column_widths(&widths);
-
-        // A scan whose routes are far too long for the column the reader
-        // chose: the fit must not talk them out of it.
-        table.set_rows(vec![row(90)], UiLanguage::English, catalog());
-        assert!(
-            (route_width(&table) - 200.0).abs() < 0.5,
-            "a scan overrode the width the reader dragged, leaving {}",
-            route_width(&table)
-        );
-    }
-
-    #[test]
-    fn the_route_column_only_widens_in_steps_worth_seeing() {
-        let mut table = table(vec![row(22)]);
-        let start = route_width(&table);
-        assert!(
-            start > COL_ROUTE_MIN_WIDTH,
-            "fixture must start above the floor so a shrink is visible, got {start}"
-        );
-
-        // About 14px longer: under the step, so nothing moves.
-        table.set_rows(vec![row(23)], UiLanguage::English, catalog());
-        assert!(
-            (route_width(&table) - start).abs() < 0.5,
-            "a change smaller than the step moved the column from {start} to {}",
-            route_width(&table)
-        );
-
-        // About 41px longer: over the step, so it moves.
-        table.set_rows(vec![row(25)], UiLanguage::English, catalog());
-        assert!(
-            route_width(&table) > start + COL_ROUTE_GROWTH_STEP,
-            "a change larger than the step left the column at {}",
-            route_width(&table)
+    fn freshness_leads_the_table() {
+        assert_eq!(
+            table().columns.first().map(|column| column.key.clone()),
+            Some("light".into()),
+            "the data column moved out of first place"
         );
     }
 }

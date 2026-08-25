@@ -329,6 +329,37 @@ pub struct Text {
     pub radar_column_verdict: &'static str,
     pub radar_column_light: &'static str,
     pub radar_column_risks: &'static str,
+
+    // -- radar table short labels --
+    //
+    // The table's fixed column budget (54/42/80px) is what these exist for:
+    // `report_text` keeps the full sentences for text reports and the detail
+    // panel, while a 28px row gets two to four characters that fit.
+    pub radar_kind_conversion: &'static str,
+    pub radar_kind_loop: &'static str,
+    pub radar_verdict_instant: &'static str,
+    pub radar_verdict_maker: &'static str,
+    pub radar_verdict_probe: &'static str,
+    pub radar_verdict_outlier: &'static str,
+    pub freshness_fresh: &'static str,
+    pub freshness_usable: &'static str,
+    pub freshness_stale: &'static str,
+    pub freshness_archived: &'static str,
+
+    // -- radar fact band (§3: one 34px strip replaces three meta sentences) --
+    pub radar_band_start: &'static str,
+    pub radar_band_targets: &'static str,
+    pub radar_band_priced: &'static str,
+    pub radar_band_missing: &'static str,
+    pub radar_band_loops: &'static str,
+    pub radar_band_profitable: &'static str,
+    pub radar_band_threshold: &'static str,
+
+    // -- radar probe footer (46px strip) --
+    pub radar_probe_footer: &'static str,
+
+    /// 明细栏主数字的标签(§3:整条收益升为 15px 主数字)。
+    pub detail_round_trip: &'static str,
 }
 
 impl Text {
@@ -548,6 +579,25 @@ impl Text {
             ("radar_column_verdict", self.radar_column_verdict),
             ("radar_column_light", self.radar_column_light),
             ("radar_column_risks", self.radar_column_risks),
+            ("radar_kind_conversion", self.radar_kind_conversion),
+            ("radar_kind_loop", self.radar_kind_loop),
+            ("radar_verdict_instant", self.radar_verdict_instant),
+            ("radar_verdict_maker", self.radar_verdict_maker),
+            ("radar_verdict_probe", self.radar_verdict_probe),
+            ("radar_verdict_outlier", self.radar_verdict_outlier),
+            ("freshness_fresh", self.freshness_fresh),
+            ("freshness_usable", self.freshness_usable),
+            ("freshness_stale", self.freshness_stale),
+            ("freshness_archived", self.freshness_archived),
+            ("radar_band_start", self.radar_band_start),
+            ("radar_band_targets", self.radar_band_targets),
+            ("radar_band_priced", self.radar_band_priced),
+            ("radar_band_missing", self.radar_band_missing),
+            ("radar_band_loops", self.radar_band_loops),
+            ("radar_band_profitable", self.radar_band_profitable),
+            ("radar_band_threshold", self.radar_band_threshold),
+            ("radar_probe_footer", self.radar_probe_footer),
+            ("detail_round_trip", self.detail_round_trip),
         ]
     }
 }
@@ -774,6 +824,29 @@ pub static ENGLISH: Text = Text {
     radar_column_verdict: "verdict",
     radar_column_light: "data",
     radar_column_risks: "risks",
+
+    radar_kind_conversion: "swap",
+    radar_kind_loop: "loop",
+    radar_verdict_instant: "ready",
+    radar_verdict_maker: "maker-side",
+    radar_verdict_probe: "needs data",
+    radar_verdict_outlier: "suspect",
+    freshness_fresh: "fresh",
+    freshness_usable: "aging",
+    freshness_stale: "stale",
+    freshness_archived: "archived",
+
+    radar_band_start: "from",
+    radar_band_targets: "targets",
+    radar_band_priced: "priced",
+    radar_band_missing: "unpriced",
+    radar_band_loops: "loops",
+    radar_band_profitable: "profitable",
+    radar_band_threshold: "threshold",
+
+    radar_probe_footer: "to firm these up, capture",
+
+    detail_round_trip: "round trip",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -998,6 +1071,29 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     radar_column_verdict: "可执行性",
     radar_column_light: "数据",
     radar_column_risks: "风险",
+
+    radar_kind_conversion: "兑换",
+    radar_kind_loop: "闭环",
+    radar_verdict_instant: "可执行",
+    radar_verdict_maker: "要等吃单",
+    radar_verdict_probe: "数据不够",
+    radar_verdict_outlier: "数据可疑",
+    freshness_fresh: "新鲜",
+    freshness_usable: "偏旧",
+    freshness_stale: "过期",
+    freshness_archived: "归档",
+
+    radar_band_start: "起点",
+    radar_band_targets: "目标",
+    radar_band_priced: "可定价",
+    radar_band_missing: "缺价",
+    radar_band_loops: "闭环",
+    radar_band_profitable: "有得赚",
+    radar_band_threshold: "收益门槛",
+
+    radar_probe_footer: "要坐实这些机会，去抓",
+
+    detail_round_trip: "整条收益",
 };
 
 #[cfg(test)]
