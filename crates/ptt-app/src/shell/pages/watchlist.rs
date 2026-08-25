@@ -5,11 +5,8 @@
 //! that choice produced — a settings screen away from the data would make
 //! every adjustment a round trip.
 
-use gpui::{
-    Context, InteractiveElement as _, ParentElement, StatefulInteractiveElement as _, Styled, div,
-    px,
-};
-use gpui_component::StyledExt as _;
+use gpui::{Context, IntoElement as _, ParentElement, Styled, div, px};
+use gpui_component::{Sizable as _, StyledExt as _};
 use ptt_runtime::domain::{FocusCoverageStatus, ValuationStatus};
 use ptt_runtime::report_text;
 use ptt_runtime::reports::{CoverageOutcome, WatchlistModel};
@@ -17,9 +14,7 @@ use ptt_runtime::reports::{CoverageOutcome, WatchlistModel};
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
-use crate::ui::{
-    LedgerButton, StatusKind, button, chip, empty_state, kv_row, mono, panel, panel_header,
-};
+use crate::ui::{LedgerButton, StatusKind, button, empty_state, kv_row, mono, panel};
 
 /// A currency's place in the focus set.
 ///
@@ -47,15 +42,6 @@ impl FocusChoice {
             Self::Bridge => text.role_bridge,
             Self::WatchOnly => text.role_watch_only,
             Self::Unlisted => text.role_unlisted,
-        }
-    }
-
-    const fn element_id(self) -> &'static str {
-        match self {
-            Self::Target => "role-target",
-            Self::Bridge => "role-bridge",
-            Self::WatchOnly => "role-watch-only",
-            Self::Unlisted => "role-unlisted",
         }
     }
 }
@@ -261,56 +247,106 @@ impl AppShell {
     }
 
     /// Every currency the book has priced, and what the user has made of it.
+    ///
+    /// §5 定稿:六列 28px 固定行(通货 220 | 每个约 116 | 计价 76 | 依据 60 |
+    /// 角色 92 | 操作 1fr),角色从四个按钮铺满一行改成一个下拉——原来
+    /// 22 行 × 4 = 88 个按钮,眼睛没有落点。
     fn focus_panel(&self, model: &WatchlistModel, cx: &mut Context<Self>) -> gpui::Div {
         let text = self.text();
         let language = self.language();
-        let mut body = div().p_3().flex().flex_col().gap_1();
 
-        for note in &model.notes {
-            body = body.child(
-                mono(note.clone())
-                    .text_size(fs(FS_11_5))
-                    .text_color(c(WARN_TEXT)),
-            );
-        }
-        body = body.child(kv_row(
-            text.settlement_label,
-            &model
-                .core_liquidity
-                .iter()
-                .map(|asset| self.display_name(asset.as_str()))
-                .collect::<Vec<_>>()
-                .join(", "),
-        ));
-
-        // Said here rather than in a document nobody opens: this is the
-        // screen where the choice is made, and the choice reads as being about
-        // how much the reader cares while it acts on what the engine may do.
-        body = body
+        // 头:标题 + 右侧结算通货(金字,「色字=主题」)。
+        let header = div()
+            .h(px(H_INPUT))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .px_3()
+            .bg(c(RAIL))
+            .border_b_1()
+            .border_color(c(HAIRLINE))
+            .child(crate::ui::micro_title(text.page_watchlist))
+            .child(div().flex_1())
             .child(
                 div()
                     .text_size(fs(FS_10_5))
                     .text_color(c(TEXT_DISABLED))
-                    .child(text.settlement_hint),
+                    .child(text.settlement_label),
             )
             .child(
                 div()
-                    .pt_1()
-                    .pb_1()
-                    .flex()
-                    .flex_col()
-                    .text_size(fs(FS_10_5))
-                    .text_color(c(TEXT_DISABLED))
-                    .children(
-                        text.roles_legend
-                            .lines()
-                            .map(|line| div().child(gpui::SharedString::from(line))),
-                    ),
+                    .pl_2()
+                    .text_size(fs(FS_11_5))
+                    .text_color(c(ACCENT_TEXT))
+                    .child(gpui::SharedString::from(
+                        model
+                            .core_liquidity
+                            .iter()
+                            .map(|asset| self.display_name(asset.as_str()))
+                            .collect::<Vec<_>>()
+                            .join(" · "),
+                    )),
             );
 
+        // 四行角色说明压成一行(§5)。
+        let legend = div()
+            .h(px(H_ROW))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .px_3()
+            .border_b_1()
+            .border_color(c(HAIRLINE_SOFT))
+            .text_size(fs(FS_10_5))
+            .text_color(c(TEXT_DISABLED))
+            .overflow_hidden()
+            .whitespace_nowrap()
+            .child(gpui::SharedString::from(
+                text.roles_legend.lines().collect::<Vec<_>>().join(" · "),
+            ));
+
+        // 列头。
+        let heading = |label: &'static str| {
+            div()
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META))
+                .child(label)
+        };
+        let columns = div()
+            .h(px(H_ROW))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .px_3()
+            .border_b_1()
+            .border_color(c(HAIRLINE_SOFT))
+            .child(heading(text.watch_col_asset).w(px(220.)).flex_none())
+            .child(
+                heading(text.watch_col_per_unit)
+                    .w(px(116.))
+                    .flex_none()
+                    .text_right()
+                    .pr_2(),
+            )
+            .child(heading(text.watch_col_anchor).w(px(76.)).flex_none())
+            .child(heading(text.watch_col_basis).w(px(60.)).flex_none())
+            .child(heading(text.watch_col_role).w(px(92.)).flex_none())
+            .child(heading(text.watch_col_actions).flex_1().text_right());
+
+        let mut body = div().flex().flex_col();
+        for note in &model.notes {
+            body = body.child(
+                mono(note.clone())
+                    .px_3()
+                    .py_1()
+                    .text_size(fs(FS_11))
+                    .text_color(c(WARN_TEXT)),
+            );
+        }
         if model.valuations.is_empty() {
             body = body.child(empty_state(report_text::report(language).no_price_capture));
         }
+
         #[cfg(windows)]
         let hidden: std::collections::BTreeSet<String> = self
             .settings_tuning()
@@ -321,6 +357,7 @@ impl AppShell {
         #[cfg(not(windows))]
         let hidden: std::collections::BTreeSet<String> = Default::default();
         let mut hidden_count = 0usize;
+        let mut zebra = false;
 
         for (row, entry) in model.valuations.iter().enumerate() {
             let asset = entry.asset_id.as_str().to_owned();
@@ -328,117 +365,167 @@ impl AppShell {
                 hidden_count += 1;
                 continue;
             }
-            // "91:2" is exact and unreadable; "each ≈ 45.50 chaos" is what a
-            // person actually wants to know. The division is integer
-            // arithmetic rounded to two places — a display projection of the
-            // rational value, never fed back into anything.
-            let value = match (&entry.valuation.value, entry.valuation.status) {
-                (Some(value), status) => {
-                    let anchor = self.display_name(entry.valuation.anchor_asset_id.as_str());
-                    let per_unit = per_unit_text(value);
-                    let status_word = if status == ValuationStatus::TwoSided {
-                        text.valuation_two_sided
-                    } else {
-                        text.valuation_one_sided
-                    };
-                    format!(
-                        "{} ({status_word})",
-                        report_text::fill(text.per_unit, &[&per_unit, &anchor])
-                    )
-                }
-                (None, _) => report_text::report(language).no_price_capture.to_owned(),
-            };
             #[cfg(windows)]
             let choice = self.focus_choice(&asset);
             #[cfg(not(windows))]
             let choice = FocusChoice::Unlisted;
-
             #[cfg(windows)]
             let settlement = self.is_settlement(&asset);
             #[cfg(not(windows))]
             let settlement = false;
 
-            let mut roles = div().h_flex().items_center().flex_none();
-            for (index, option) in FocusChoice::EDITABLE.into_iter().enumerate() {
-                let target = asset.clone();
-                let active = option == choice;
-                let mut cell = div()
-                    // Per row, not per option: keyed only by which of the
-                    // four it is, every row after the first was inert.
-                    .id((option.element_id(), row))
-                    .h(px(H_ROW))
-                    .px(px(SP_6))
-                    .flex()
-                    .items_center()
-                    .text_size(fs(FS_10_5))
-                    .whitespace_nowrap()
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        #[cfg(windows)]
-                        this.set_focus_choice(&target, option);
-                        cx.notify();
-                    }));
-                if index > 0 {
-                    cell = cell.border_l_1().border_color(c(HAIRLINE));
-                }
-                cell = if active {
-                    cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
-                } else {
-                    cell.bg(c(PANEL))
-                        .text_color(c(TEXT_SECONDARY))
-                        .hover(|style| style.bg(c(HOVER)))
+            // "91:2" is exact and unreadable; "45.50" is what a person wants.
+            // Integer arithmetic rounded to two places — a display projection
+            // of the rational value, never fed back into anything.
+            let (per_unit, anchor, basis): (String, String, &str) =
+                match (&entry.valuation.value, entry.valuation.status) {
+                    (Some(value), status) => (
+                        per_unit_text(value),
+                        self.display_name(entry.valuation.anchor_asset_id.as_str()),
+                        if status == ValuationStatus::TwoSided {
+                            text.valuation_two_sided
+                        } else {
+                            text.valuation_one_sided
+                        },
+                    ),
+                    (None, _) => ("—".to_owned(), "—".to_owned(), text.watch_basis_none),
                 };
-                roles = roles.child(cell.child(option.label(text)));
-            }
+            let unpriced = entry.valuation.value.is_none();
 
-            // Hiding is offered only where it is meaningful: a row with a
-            // role keeps it (un-list first), a settlement row cannot go.
-            let hideable = !settlement && choice == FocusChoice::Unlisted;
+            // 角色:结算通货固定为金徽章;其余一个下拉,点开才是四选一。
+            let role_cell: gpui::AnyElement = if settlement {
+                crate::ui::chip_table(StatusKind::Monitoring, text.settlement_label)
+                    .into_any_element()
+            } else {
+                let shell = cx.entity();
+                let menu_asset = asset.clone();
+                gpui_component::button::DropdownButton::new(("role-dropdown", row))
+                    .button(
+                        gpui_component::button::Button::new(("role-current", row))
+                            .label(choice.label(text))
+                            .with_size(gpui_component::Size::XSmall),
+                    )
+                    .dropdown_menu(move |mut menu, _, _| {
+                        for option in FocusChoice::EDITABLE {
+                            let shell = shell.clone();
+                            let target = menu_asset.clone();
+                            menu = menu.item(
+                                gpui_component::menu::PopupMenuItem::new(option.label(text))
+                                    .on_click(move |_, _, app| {
+                                        shell.update(app, |this, cx| {
+                                            #[cfg(windows)]
+                                            this.set_focus_choice(&target, option);
+                                            #[cfg(not(windows))]
+                                            let _ = &target;
+                                            cx.notify();
+                                        });
+                                    }),
+                            );
+                        }
+                        menu
+                    })
+                    .into_any_element()
+            };
+
             let hide_target = asset.clone();
+            let hideable = !settlement && choice == FocusChoice::Unlisted;
+            let mut line = div()
+                .h(px(H_TABLE_ROW))
+                .flex_none()
+                .h_flex()
+                .items_center()
+                .px_3()
+                .border_b_1()
+                .border_color(c(HAIRLINE_SOFT))
+                .text_size(fs(FS_12));
+            if zebra {
+                line = line.bg(c(ZEBRA));
+            }
+            zebra = !zebra;
             body = body.child(
-                div()
-                    .h_flex()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        mono(self.display_name(&asset))
-                            .text_size(fs(FS_11_5))
-                            .w(px(180.)),
-                    )
-                    .child(
-                        mono(value)
-                            .text_size(fs(FS_11_5))
-                            .text_color(c(TEXT_SECONDARY))
-                            .flex_grow(),
-                    )
-                    .children(hideable.then(|| {
-                        button(("row-hide", row), LedgerButton::Quiet, text.hide_label, cx)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                #[cfg(windows)]
-                                this.hide_asset(&hide_target);
-                                cx.notify();
-                            }))
-                    }))
-                    .child(if settlement {
-                        div().child(chip(StatusKind::Monitoring, text.settlement_label))
-                    } else {
-                        div().border_1().border_color(c(HAIRLINE)).child(roles)
-                    }),
+                line.child(
+                    div()
+                        .w(px(220.))
+                        .flex_none()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .text_color(c(if settlement {
+                            ACCENT_TEXT
+                        } else if unpriced {
+                            TEXT_META
+                        } else {
+                            TEXT_PRIMARY
+                        }))
+                        .child(gpui::SharedString::from(self.display_name(&asset))),
+                )
+                .child(
+                    mono(per_unit)
+                        .w(px(116.))
+                        .flex_none()
+                        .text_right()
+                        .pr_2()
+                        .text_color(c(if unpriced {
+                            TEXT_DISABLED
+                        } else {
+                            TEXT_PRIMARY
+                        })),
+                )
+                .child(
+                    div()
+                        .w(px(76.))
+                        .flex_none()
+                        .text_size(fs(FS_11))
+                        .text_color(c(if unpriced { TEXT_GHOST } else { TEXT_META }))
+                        .child(gpui::SharedString::from(anchor)),
+                )
+                .child(
+                    div()
+                        .w(px(60.))
+                        .flex_none()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(basis),
+                )
+                .child(div().w(px(92.)).flex_none().child(role_cell))
+                .child(
+                    div()
+                        .flex_1()
+                        .h_flex()
+                        .items_center()
+                        .justify_end()
+                        .gap_2()
+                        .children(hideable.then(|| {
+                            button(("row-hide", row), LedgerButton::Quiet, text.hide_label, cx)
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    #[cfg(windows)]
+                                    this.hide_asset(&hide_target);
+                                    #[cfg(not(windows))]
+                                    let _ = &hide_target;
+                                    cx.notify();
+                                }))
+                        })),
+                ),
             );
         }
         if hidden_count > 0 {
             body = body.child(
                 div()
+                    .h(px(H_INPUT))
+                    .flex_none()
                     .h_flex()
                     .items_center()
                     .gap_2()
+                    .px_3()
                     .child(
-                        mono(report_text::fill(
-                            text.hidden_count,
-                            &[&hidden_count.to_string()],
-                        ))
-                        .text_size(fs(FS_10_5))
-                        .text_color(c(TEXT_DISABLED)),
+                        div()
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_DISABLED))
+                            .child(gpui::SharedString::from(report_text::fill(
+                                text.hidden_count,
+                                &[&hidden_count.to_string()],
+                            ))),
                     )
+                    .child(div().flex_1())
                     .child(
                         button("rows-unhide", LedgerButton::Quiet, text.unhide_all, cx).on_click(
                             cx.listener(|this, _, _, cx| {
@@ -451,68 +538,128 @@ impl AppShell {
             );
         }
 
-        // Currencies the market shows real buy pressure for that are not in
-        // the list — the evidence is listed quantities, never capture counts.
-        for (row, suggestion) in model.suggestions.iter().enumerate() {
-            let asset = suggestion.asset_id.as_str().to_owned();
-            let adopt = asset.clone();
-            let ignore = asset.clone();
-            let seen_count = suggestion.demand_anchor;
-            body = body.child(
-                div()
-                    .h_flex()
-                    .items_center()
-                    .gap_2()
-                    .child(chip(StatusKind::Warning, text.suggestion_label))
-                    .child(
-                        mono(format!(
-                            "{}   {} {} / {} {}",
-                            self.display_name(&asset),
-                            text.suggestion_demand_label,
-                            suggestion.demand_anchor,
-                            text.suggestion_supply_label,
-                            suggestion.supply_anchor,
+        // 底部建议区(深一档的底):买压明显高于在售的通货,值得盯。
+        let mut suggestions = div().flex_none().flex().flex_col();
+        if !model.suggestions.is_empty() {
+            suggestions = suggestions
+                .bg(c(RAIL_DEEP))
+                .border_t_1()
+                .border_color(c(HAIRLINE))
+                .child(
+                    div()
+                        .h(px(H_ROW))
+                        .flex_none()
+                        .h_flex()
+                        .items_center()
+                        .gap_2()
+                        .px_3()
+                        .child(crate::ui::micro_title_sm(text.suggestion_label))
+                        .child(
+                            div()
+                                .text_size(fs(FS_10_5))
+                                .text_color(c(TEXT_DISABLED))
+                                .child(text.suggestion_hint),
+                        ),
+                );
+            for (row, suggestion) in model.suggestions.iter().enumerate() {
+                let asset = suggestion.asset_id.as_str().to_owned();
+                let adopt = asset.clone();
+                let ignore = asset.clone();
+                let seen_count = suggestion.demand_anchor;
+                suggestions = suggestions.child(
+                    div()
+                        .h(px(H_TABLE_ROW))
+                        .flex_none()
+                        .h_flex()
+                        .items_center()
+                        .gap(px(SP_10))
+                        .px_3()
+                        .child(crate::ui::chip_table(
+                            StatusKind::Warning,
+                            text.suggestion_label,
                         ))
-                        .text_size(fs(FS_11_5))
-                        .flex_grow(),
-                    )
-                    .child(
-                        button(
-                            ("focus-adopt", row),
-                            LedgerButton::Secondary,
-                            text.adopt_label,
-                            cx,
+                        .child(
+                            div()
+                                .w(px(150.))
+                                .flex_none()
+                                .text_size(fs(FS_12))
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .child(gpui::SharedString::from(self.display_name(&asset))),
                         )
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            #[cfg(windows)]
-                            this.set_focus_choice(&adopt, FocusChoice::Target);
-                            cx.notify();
-                        })),
-                    )
-                    .child(
-                        button(
-                            ("focus-ignore", row),
-                            LedgerButton::Quiet,
-                            text.ignore_label,
-                            cx,
+                        .child(
+                            div()
+                                .text_size(fs(FS_10_5))
+                                .text_color(c(TEXT_META))
+                                .child(text.suggestion_demand_label),
                         )
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            #[cfg(windows)]
-                            this.ignore_suggestion(&ignore, seen_count);
-                            cx.notify();
-                        })),
-                    ),
-            );
+                        .child(
+                            mono(suggestion.demand_anchor.to_string())
+                                .text_size(fs(FS_12))
+                                .text_color(c(TEXT_PRIMARY)),
+                        )
+                        .child(
+                            div()
+                                .text_size(fs(FS_10_5))
+                                .text_color(c(TEXT_META))
+                                .child(text.suggestion_supply_label),
+                        )
+                        .child(
+                            mono(suggestion.supply_anchor.to_string())
+                                .text_size(fs(FS_12))
+                                .text_color(c(TEXT_SECONDARY)),
+                        )
+                        .child(div().flex_1())
+                        .child(
+                            button(
+                                ("focus-adopt", row),
+                                LedgerButton::Secondary,
+                                text.adopt_label,
+                                cx,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    #[cfg(windows)]
+                                    this.set_focus_choice(&adopt, FocusChoice::Target);
+                                    #[cfg(not(windows))]
+                                    let _ = &adopt;
+                                    cx.notify();
+                                },
+                            )),
+                        )
+                        .child(
+                            button(
+                                ("focus-ignore", row),
+                                LedgerButton::Quiet,
+                                text.ignore_label,
+                                cx,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    #[cfg(windows)]
+                                    this.ignore_suggestion(&ignore, seen_count);
+                                    #[cfg(not(windows))]
+                                    let _ = (&ignore, seen_count);
+                                    cx.notify();
+                                },
+                            )),
+                        ),
+                );
+            }
         }
 
         panel()
-            .flex_1()
+            .w(px(716.))
+            .flex_none()
             .min_h(px(0.))
             .flex()
             .flex_col()
             .overflow_hidden()
-            .child(panel_header(text.page_watchlist))
+            .child(header)
+            .child(legend)
+            .child(columns)
             .child(crate::ui::scrollable(body, "watchlist-focus"))
+            .child(suggestions)
     }
 
     /// The gaps, and the probes that would close them.
@@ -523,7 +670,19 @@ impl AppShell {
         cx: &mut Context<Self>,
     ) -> gpui::Div {
         let text = self.text();
-        let mut body = div().p_3().flex().flex_col().gap_1();
+        let mut body = div().flex().flex_col();
+
+        // 头右侧的 62/74:整页唯一的总量指标,进度条是它的图形版。
+        let totals = if let CoverageOutcome::Ready(coverage) = &model.coverage {
+            let incomplete = coverage
+                .entries
+                .iter()
+                .filter(|entry| entry.status != FocusCoverageStatus::Complete)
+                .count();
+            Some((coverage.entries.len() - incomplete, coverage.entries.len()))
+        } else {
+            None
+        };
 
         match &model.coverage {
             CoverageOutcome::NotComputed => {
@@ -546,7 +705,9 @@ impl AppShell {
                 if coverage.status == ptt_runtime::domain::FocusScopeStatus::MissingTarget {
                     body = body.child(
                         mono(report_text::report(language).focus_has_no_targets)
-                            .text_size(fs(FS_11_5))
+                            .px_3()
+                            .py_1()
+                            .text_size(fs(FS_11))
                             .text_color(c(WARN_TEXT)),
                     );
                 }
@@ -555,34 +716,86 @@ impl AppShell {
                     .iter()
                     .filter(|entry| entry.status != FocusCoverageStatus::Complete)
                     .collect();
-                body = body.child(kv_row(
-                    text.coverage_label,
-                    &format!(
-                        "{} / {}",
-                        coverage.entries.len() - incomplete.len(),
-                        coverage.entries.len()
-                    ),
-                ));
-                for entry in incomplete.into_iter().take(10) {
+                let complete = coverage.entries.len() - incomplete.len();
+
+                // 覆盖度进度条:这一页唯一的总量指标(§5)。
+                if !coverage.entries.is_empty() {
+                    #[allow(clippy::cast_precision_loss)]
+                    let share = complete as f32 / coverage.entries.len() as f32;
                     body = body.child(
                         div()
-                            .h_flex()
-                            .items_center()
-                            .gap_2()
-                            .text_size(fs(FS_10_5))
+                            .h(px(34.))
+                            .flex_none()
+                            .flex()
+                            .flex_col()
+                            .justify_center()
+                            .gap(px(6.))
+                            .px_3()
+                            .border_b_1()
+                            .border_color(c(HAIRLINE_SOFT))
                             .child(
-                                mono(self.pair_label(
-                                    entry.from_asset_id.as_str(),
-                                    entry.to_asset_id.as_str(),
-                                ))
-                                .flex_grow(),
+                                div()
+                                    .h(px(4.))
+                                    .bg(c(HAIRLINE))
+                                    .child(div().h(px(4.)).w(gpui::relative(share)).bg(c(ACCENT))),
                             )
-                            .child(chip(
-                                StatusKind::Warning,
-                                report_text::focus_coverage_status(language, entry.status),
-                            )),
+                            .child(
+                                div()
+                                    .h_flex()
+                                    .items_center()
+                                    .text_size(fs(FS_10_5))
+                                    .child(div().text_color(c(TEXT_DISABLED)).child(
+                                        gpui::SharedString::from(report_text::fill(
+                                            text.coverage_complete_pairs,
+                                            &[&complete.to_string()],
+                                        )),
+                                    ))
+                                    .child(div().flex_1())
+                                    .child(div().text_color(c(WARN_TEXT)).child(
+                                        gpui::SharedString::from(report_text::fill(
+                                            text.coverage_gap_pairs,
+                                            &[&incomplete.len().to_string()],
+                                        )),
+                                    )),
+                            ),
                     );
                 }
+
+                // 小节头:深一档的底 + 微标题 + 计数。
+                let section = |title: &'static str, count: String, hint: Option<&'static str>| {
+                    let mut row = div()
+                        .h(px(H_ROW))
+                        .flex_none()
+                        .h_flex()
+                        .items_center()
+                        .gap_2()
+                        .px_3()
+                        .bg(c(RAIL_DEEP))
+                        .border_b_1()
+                        .border_color(c(HAIRLINE_SOFT))
+                        .child(crate::ui::micro_title_sm(title))
+                        .child(
+                            mono(count)
+                                .text_size(fs(FS_10_5))
+                                .text_color(c(TEXT_DISABLED)),
+                        );
+                    if let Some(hint) = hint {
+                        row = row.child(div().flex_1()).child(
+                            div()
+                                .text_size(fs(FS_10))
+                                .text_color(c(TEXT_GHOST))
+                                .child(hint),
+                        );
+                    }
+                    row
+                };
+
+                // 下一步去抓:排队的会进浮窗;每行可排队、可忽略。
+                body = body.child(section(
+                    text.panel_probe_queue,
+                    coverage.candidates.len().to_string(),
+                    Some(text.probe_hud_hint),
+                ));
                 for (row, candidate) in coverage.candidates.iter().take(8).enumerate() {
                     let from = candidate.from_asset_id.as_str().to_owned();
                     let to = candidate.to_asset_id.as_str().to_owned();
@@ -591,29 +804,51 @@ impl AppShell {
                     let (ignore_from, ignore_to) = (from.clone(), to.clone());
                     body = body.child(
                         div()
+                            .h(px(H_TABLE_ROW))
+                            .flex_none()
                             .h_flex()
                             .items_center()
                             .gap_2()
-                            .text_size(fs(FS_10_5))
-                            .child(mono(self.pair_label(&from, &to)).flex_grow())
-                            .child(mono(reason.clone()).text_color(c(TEXT_META)))
-                            .child(if pinned {
-                                chip(StatusKind::Monitoring, text.pinned_label)
+                            .px_3()
+                            .border_b_1()
+                            .border_color(c(HAIRLINE_SOFT))
+                            // 金色左条 = 已排队 = 浮窗底条正在提醒的那种。
+                            .child(div().w(px(3.)).h(px(14.)).flex_none().bg(c(if pinned {
+                                ACCENT
                             } else {
-                                div().child(
-                                    button(
-                                        ("watch-probe-pin", row),
-                                        LedgerButton::Quiet,
-                                        text.pin_label,
-                                        cx,
-                                    )
-                                    .on_click(cx.listener(
-                                        move |this, _, _, cx| {
-                                            this.pin_probe(&from, &to, &reason);
-                                            cx.notify();
-                                        },
-                                    )),
+                                DISABLED_DOT
+                            })))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w(px(0.))
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .text_size(fs(FS_12))
+                                    .child(gpui::SharedString::from(self.pair_label(&from, &to))),
+                            )
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .text_size(fs(FS_10_5))
+                                    .text_color(c(TEXT_META))
+                                    .child(gpui::SharedString::from(reason.clone())),
+                            )
+                            .child(if pinned {
+                                crate::ui::chip_table(StatusKind::Monitoring, text.pinned_label)
+                                    .into_any_element()
+                            } else {
+                                button(
+                                    ("watch-probe-pin", row),
+                                    LedgerButton::Quiet,
+                                    text.pin_label,
+                                    cx,
                                 )
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.pin_probe(&from, &to, &reason);
+                                    cx.notify();
+                                }))
+                                .into_any_element()
                             })
                             // 忽略去抓:这一对我不抓。点下去同时从三处消失。
                             .child(
@@ -636,11 +871,68 @@ impl AppShell {
                     );
                 }
                 body = body.child(self.ignored_probes_footer(cx));
+
+                // 缺口明细:哪一对缺、缺在哪一侧。
+                body = body.child(section(
+                    text.coverage_gaps_header,
+                    incomplete.len().to_string(),
+                    None,
+                ));
+                for entry in incomplete.iter().take(10) {
+                    body = body.child(
+                        div()
+                            .h(px(H_TABLE_ROW))
+                            .flex_none()
+                            .h_flex()
+                            .items_center()
+                            .gap_2()
+                            .px_3()
+                            .border_b_1()
+                            .border_color(c(HAIRLINE_SOFT))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w(px(0.))
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .text_size(fs(FS_12))
+                                    .text_color(c(TEXT_SECONDARY))
+                                    .child(gpui::SharedString::from(self.pair_label(
+                                        entry.from_asset_id.as_str(),
+                                        entry.to_asset_id.as_str(),
+                                    ))),
+                            )
+                            .child(crate::ui::chip_table(
+                                StatusKind::Warning,
+                                report_text::focus_coverage_status(language, entry.status),
+                            )),
+                    );
+                }
+
+                // 「继续观察」折成一句话:它们本来就是"没事"(§5)。
+                if complete > 0 {
+                    body = body.child(
+                        div()
+                            .h(px(H_INPUT))
+                            .flex_none()
+                            .h_flex()
+                            .items_center()
+                            .gap_2()
+                            .px_3()
+                            .child(div().size(px(6.)).flex_none().rounded_full().bg(c(FRESH)))
+                            .child(div().text_size(fs(FS_10_5)).text_color(c(TEXT_META)).child(
+                                gpui::SharedString::from(report_text::fill(
+                                    text.coverage_rest_fine,
+                                    &[&complete.to_string()],
+                                )),
+                            )),
+                    );
+                }
             }
         }
 
         for recommendation in &model.anchors {
-            body = body.child(kv_row(
+            body = body.child(div().px_3().child(kv_row(
                 report_text::anchor_action(language, recommendation.action),
                 &format!(
                     "{}   {}.{}   {} / {}",
@@ -650,17 +942,36 @@ impl AppShell {
                     recommendation.pair_coverage_count,
                     recommendation.bidirectional_pair_count,
                 ),
-            ));
+            )));
+        }
+
+        let mut header = div()
+            .h(px(H_INPUT))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .px_3()
+            .bg(c(RAIL))
+            .border_b_1()
+            .border_color(c(HAIRLINE))
+            .child(crate::ui::micro_title(text.coverage_header))
+            .child(div().flex_1());
+        if let Some((complete, total)) = totals {
+            header = header.child(
+                mono(format!("{complete} / {total}"))
+                    .text_size(fs(FS_11))
+                    .text_color(c(TEXT_DATA)),
+            );
         }
 
         panel()
-            .w(px(440.))
-            .flex_none()
+            .flex_1()
+            .min_w(px(0.))
             .min_h(px(0.))
             .flex()
             .flex_col()
             .overflow_hidden()
-            .child(panel_header(text.coverage_header))
+            .child(header)
             .child(crate::ui::scrollable(body, "watchlist-coverage"))
     }
 }

@@ -410,6 +410,26 @@ pub struct Text {
     pub ignored_probes_count: &'static str,
     pub ignored_probes_review: &'static str,
     pub ignored_probes_restore: &'static str,
+
+    // -- watchlist table (§5 定稿列头与分段) --
+    pub watch_col_asset: &'static str,
+    pub watch_col_per_unit: &'static str,
+    pub watch_col_anchor: &'static str,
+    pub watch_col_basis: &'static str,
+    pub watch_col_role: &'static str,
+    pub watch_col_actions: &'static str,
+    /// 依据列的空态:这个通货一次都没抓到过。
+    pub watch_basis_none: &'static str,
+    /// `已齐全 {} 对` / `缺口 {} 对`(进度条下的两端)
+    pub coverage_complete_pairs: &'static str,
+    pub coverage_gap_pairs: &'static str,
+    pub coverage_gaps_header: &'static str,
+    /// 「下一步去抓」小节右侧的说明。
+    pub probe_hud_hint: &'static str,
+    /// `其余 {} 种通货数据齐全，无需处理`
+    pub coverage_rest_fine: &'static str,
+    /// 建议区的一句话依据。
+    pub suggestion_hint: &'static str,
 }
 
 impl Text {
@@ -678,6 +698,19 @@ impl Text {
             ("ignored_probes_count", self.ignored_probes_count),
             ("ignored_probes_review", self.ignored_probes_review),
             ("ignored_probes_restore", self.ignored_probes_restore),
+            ("watch_col_asset", self.watch_col_asset),
+            ("watch_col_per_unit", self.watch_col_per_unit),
+            ("watch_col_anchor", self.watch_col_anchor),
+            ("watch_col_basis", self.watch_col_basis),
+            ("watch_col_role", self.watch_col_role),
+            ("watch_col_actions", self.watch_col_actions),
+            ("watch_basis_none", self.watch_basis_none),
+            ("coverage_complete_pairs", self.coverage_complete_pairs),
+            ("coverage_gap_pairs", self.coverage_gap_pairs),
+            ("coverage_gaps_header", self.coverage_gaps_header),
+            ("probe_hud_hint", self.probe_hud_hint),
+            ("coverage_rest_fine", self.coverage_rest_fine),
+            ("suggestion_hint", self.suggestion_hint),
         ]
     }
 }
@@ -959,6 +992,20 @@ pub static ENGLISH: Text = Text {
     ignored_probes_count: "{} pairs ignored",
     ignored_probes_review: "review and restore",
     ignored_probes_restore: "restore",
+
+    watch_col_asset: "currency",
+    watch_col_per_unit: "each ≈",
+    watch_col_anchor: "priced in",
+    watch_col_basis: "basis",
+    watch_col_role: "role",
+    watch_col_actions: "actions",
+    watch_basis_none: "not seen",
+    coverage_complete_pairs: "{} pairs complete",
+    coverage_gap_pairs: "{} gaps",
+    coverage_gaps_header: "GAP DETAIL",
+    probe_hud_hint: "queued pairs reach the HUD",
+    coverage_rest_fine: "the other {} currencies are complete, nothing to do",
+    suggestion_hint: "buy pressure clearly above supply, worth watching",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1238,6 +1285,20 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     ignored_probes_count: "已忽略 {} 对",
     ignored_probes_review: "查看并恢复",
     ignored_probes_restore: "恢复",
+
+    watch_col_asset: "通货",
+    watch_col_per_unit: "每个约",
+    watch_col_anchor: "计价",
+    watch_col_basis: "依据",
+    watch_col_role: "角色",
+    watch_col_actions: "操作",
+    watch_basis_none: "没抓到",
+    coverage_complete_pairs: "已齐全 {} 对",
+    coverage_gap_pairs: "缺口 {} 对",
+    coverage_gaps_header: "缺口明细",
+    probe_hud_hint: "排队的会进浮窗",
+    coverage_rest_fine: "其余 {} 种通货数据齐全，无需处理",
+    suggestion_hint: "买压明显高于在售，值得盯",
 };
 
 #[cfg(test)]
