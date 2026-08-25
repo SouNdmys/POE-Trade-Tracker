@@ -47,11 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         resolved_db.display()
     );
 
-    let mut pipeline = LivePipeline::open(
-        "live-league",
-        db_path.as_deref(),
-        ptt_settings::UiLanguage::English,
-    )?;
+    let mut pipeline = LivePipeline::open("live-league", db_path.as_deref())?;
     let stats = pipeline.run(
         std::time::Duration::from_secs(seconds),
         &CANCEL,
@@ -68,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for row in &book.rows {
                     println!("  {row}");
                 }
-                for line in &book.analysis {
+                for line in book.analysis.lines(ptt_settings::UiLanguage::English) {
                     println!("  {line}");
                 }
             }

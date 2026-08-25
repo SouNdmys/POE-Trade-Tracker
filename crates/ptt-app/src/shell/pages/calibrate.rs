@@ -55,7 +55,7 @@ impl AppShell {
             if let Some(mut backend) = self.backend.take() {
                 backend.stop();
             }
-            self.backend = Some(Backend::start(self.settings.ui_language));
+            self.backend = Some(Backend::start());
         }
     }
 

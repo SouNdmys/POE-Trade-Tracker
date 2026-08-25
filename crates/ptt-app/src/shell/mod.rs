@@ -16,8 +16,8 @@ use gpui_component::StyledExt as _;
 
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, breathing_dot, button, chip, hairline_soft, mono, panel,
-    panel_header, spaced,
+    LedgerButton, StatusKind, breathing_dot, button, hairline_soft, mono, panel, panel_header,
+    spaced,
 };
 
 #[cfg(windows)]
@@ -163,7 +163,11 @@ struct LastBook {
     rows: Vec<String>,
     /// The same rows with their fields intact, for the window.
     order_rows: Vec<ptt_runtime::pipeline::BookRow>,
-    analysis: Vec<String>,
+    /// Typed facts about the pair, drawn as the monitor's earn table.
+    analysis: ptt_runtime::analysis::PairAnalysis,
+    /// When this book reached the interface — the health band's "last frame
+    /// {}s ago" is measured from here, not from capture time.
+    received_at: std::time::Instant,
 }
 
 pub struct AppShell {
@@ -550,7 +554,8 @@ impl AppShell {
                             need: need_asset_id,
                             rows,
                             order_rows,
-                            analysis,
+                            analysis: *analysis,
+                            received_at: std::time::Instant::now(),
                         });
                         if let Some(line) = self.book_headline() {
                             self.push_log(line);
@@ -606,7 +611,7 @@ impl AppShell {
                 self.watching = false;
             } else {
                 self.fault = None;
-                self.backend = Some(Backend::start(self.settings.ui_language));
+                self.backend = Some(Backend::start());
                 self.watching = true;
             }
             cx.notify();
@@ -799,121 +804,6 @@ impl AppShell {
         self.report_stale = false;
     }
 
-    /// The lines a text page draws, including the ones that describe an
-    /// absence.
-    ///
-    /// An empty answer, a page still reading, a page with no pair yet and a
-    /// page whose read failed are four different things, and a bare empty
-    /// list says the same nothing for all four.
-    /// The probe queue: what to go and flip next.
-    ///
-    /// Pinned pairs sit above the suggestions, because a pair the user chose
-    /// to keep is a commitment and a suggestion is an opinion. Both leave the
-    /// list the same way — by being captured.
-    #[cfg(windows)]
-    fn probe_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
-        use crate::state::PageData;
-
-        let text = self.text();
-        let language = self.language();
-        let mut body = div().p_3().flex().flex_col().gap_1();
-
-        for (row, entry) in self.probe_queue.entries().iter().enumerate() {
-            let (from, to) = (entry.from_asset_id.clone(), entry.to_asset_id.clone());
-            body = body.child(
-                div()
-                    .h_flex()
-                    .items_center()
-                    .gap_2()
-                    .child(chip(StatusKind::Monitoring, text.pinned_label))
-                    .child(
-                        mono(self.pair_label(&from, &to))
-                            .text_size(fs(FS_12))
-                            .flex_grow(),
-                    )
-                    .child(
-                        mono(entry.reason.clone())
-                            .text_size(fs(FS_10_5))
-                            .text_color(c(TEXT_META)),
-                    )
-                    .child(
-                        button(
-                            ("probe-unpin", row),
-                            LedgerButton::Quiet,
-                            text.unpin_label,
-                            cx,
-                        )
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.unpin_probe(&from, &to);
-                            cx.notify();
-                        })),
-                    ),
-            );
-        }
-
-        match &self.report {
-            PageData::Probes(model) => {
-                let candidates: Vec<_> = model
-                    .candidates
-                    .iter()
-                    .filter(|candidate| {
-                        !self.probe_queue.is_pinned(
-                            candidate.from_asset_id.as_str(),
-                            candidate.to_asset_id.as_str(),
-                        )
-                    })
-                    .take(6)
-                    .collect();
-                if self.probe_queue.entries().is_empty() && candidates.is_empty() {
-                    body = body.child(mono(text.nothing_yet).text_size(fs(FS_12)));
-                }
-                for (row, candidate) in candidates.into_iter().enumerate() {
-                    let from = candidate.from_asset_id.as_str().to_owned();
-                    let to = candidate.to_asset_id.as_str().to_owned();
-                    let reason = ptt_runtime::report_text::probe_reason(language, candidate.reason);
-                    let (pin_from, pin_to, pin_reason) =
-                        (from.clone(), to.clone(), reason.to_owned());
-                    body = body.child(
-                        div()
-                            .h_flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                mono(self.pair_label(&from, &to))
-                                    .text_size(fs(FS_12))
-                                    .flex_grow(),
-                            )
-                            .child(mono(reason).text_size(fs(FS_10_5)).text_color(c(TEXT_META)))
-                            .child(
-                                button(("probe-pin", row), LedgerButton::Quiet, text.pin_label, cx)
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.pin_probe(&pin_from, &pin_to, &pin_reason);
-                                        cx.notify();
-                                    })),
-                            ),
-                    );
-                }
-            }
-            _ => {
-                body = body.children(
-                    self.report_body()
-                        .into_iter()
-                        .map(|line| mono(line).text_size(fs(FS_12))),
-                );
-            }
-        }
-
-        panel()
-            .overflow_hidden()
-            .child(panel_header(text.panel_probe_queue))
-            .child(body)
-    }
-
-    #[cfg(not(windows))]
-    fn probe_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
-        panel()
-    }
-
     /// Every currency the catalogue holds, as pickable choices.
     ///
     /// The catalogue rather than what has been captured: a picker that only
@@ -961,14 +851,6 @@ impl AppShell {
         ))
     }
 
-    /// The last book's analysis lines, empty until one lands.
-    fn analysis_lines(&self) -> &[String] {
-        match &self.last_book {
-            Some(book) => &book.analysis,
-            None => &[],
-        }
-    }
-
     /// The rows the card prints, empty until a book lands.
     ///
     /// Returned beside [`Self::last_book_pair`] so the two are read from the
@@ -998,66 +880,12 @@ impl AppShell {
         }
     }
 
-    /// The most recent accepted book, as the panel showed it.
+    /// The lines a text page draws, including the ones that describe an
+    /// absence.
     ///
-    /// Twelve rows at most, so nothing here needs virtualising; the columns
-    /// exist so a rate can be read without reading the sentence around it,
-    /// and so the aggregate row — which restates a tier as "this and
-    /// everything worse" — is visibly not a listing of its own.
-    fn last_book_panel(&self) -> gpui::Div {
-        let text = self.text();
-        let Some(headline) = self.book_headline() else {
-            return div()
-                .p_3()
-                .child(mono(text.waiting_for_book).text_size(fs(FS_12)));
-        };
-        let Some(book) = &self.last_book else {
-            return div()
-                .p_3()
-                .child(mono(text.waiting_for_book).text_size(fs(FS_12)));
-        };
-        let mut body = div().p_3().flex().flex_col().gap_1().child(
-            mono(headline)
-                .text_size(fs(FS_11_5))
-                .text_color(c(TEXT_META)),
-        );
-        for row in &book.order_rows {
-            body = body.child(
-                div()
-                    .h_flex()
-                    .items_center()
-                    .gap_2()
-                    .h(px(H_ROW))
-                    .text_size(fs(FS_11_5))
-                    .child(
-                        div()
-                            .w(px(78.))
-                            .flex_none()
-                            .text_color(c(TEXT_META))
-                            .child(SharedString::from(row.side.to_owned())),
-                    )
-                    .child(
-                        mono(format!("#{}", row.row_index))
-                            .w(px(30.))
-                            .flex_none()
-                            .text_color(c(TEXT_DISABLED)),
-                    )
-                    .child(mono(row.rate.clone()).w(px(110.)).flex_none())
-                    .child(
-                        mono(row.stock.to_string())
-                            .w(px(70.))
-                            .flex_none()
-                            .text_color(c(TEXT_SECONDARY)),
-                    )
-                    .children(
-                        row.aggregate
-                            .then(|| chip(StatusKind::Idle, text.aggregate_row)),
-                    ),
-            );
-        }
-        body
-    }
-
+    /// An empty answer, a page still reading, a page with no pair yet and a
+    /// page whose read failed are four different things, and a bare empty
+    /// list says the same nothing for all four.
     fn report_body(&self) -> Vec<String> {
         use crate::state::PageData;
 
@@ -1532,21 +1360,6 @@ impl Render for AppShell {
             LedgerButton::Primary
         };
 
-        // Highest counts first: an alphabetical slice would hide the
-        // dominant failure mode once reasons exceed the display cap.
-        let mut ranked: Vec<(&String, &u64)> = self.skips.iter().collect();
-        ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
-        let mut skip_lines: Vec<String> = ranked
-            .into_iter()
-            .map(|(reason, count)| {
-                format!(
-                    "{count:>5}  {}",
-                    skip_label(reason, self.settings.ui_language)
-                )
-            })
-            .collect();
-        skip_lines.truncate(10);
-
         div()
             .size_full()
             .flex()
@@ -1624,61 +1437,7 @@ impl Render for AppShell {
                                 "settings-scroll",
                             ))
                     } else if self.page == Page::Monitor {
-                        div()
-                            .flex_grow()
-                            .flex()
-                            .gap(px(SP_8))
-                            .p(px(SP_10))
-                            .child(
-                                panel()
-                                    .flex_grow()
-                                    .overflow_hidden()
-                                    .child(panel_header(text.panel_last_book))
-                                    .child(self.last_book_panel()),
-                            )
-                            .child(
-                                div()
-                                    .flex_grow()
-                                    .flex()
-                                    .flex_col()
-                                    .gap(px(SP_8))
-                                    .child(
-                                        panel()
-                                            .overflow_hidden()
-                                            .child(panel_header(text.panel_opportunities))
-                                            .child(div().p_3().flex().flex_col().gap_1().children(
-                                                if self.analysis_lines().is_empty() {
-                                                    vec![
-                                                        mono(text.nothing_yet).text_size(fs(FS_12)),
-                                                    ]
-                                                } else {
-                                                    self.analysis_lines()
-                                                        .iter()
-                                                        .map(|line| {
-                                                            mono(line.clone()).text_size(fs(FS_12))
-                                                        })
-                                                        .collect()
-                                                },
-                                            )),
-                                    )
-                                    .child(panel().child(panel_header(text.panel_skips)).child(
-                                        div().p_3().flex().flex_col().gap_1().children(
-                                            if skip_lines.is_empty() {
-                                                vec![mono(text.nothing_yet).text_size(fs(FS_12))]
-                                            } else {
-                                                skip_lines
-                                                    .into_iter()
-                                                    .map(|line| {
-                                                        mono(line)
-                                                            .text_size(fs(FS_12))
-                                                            .text_color(c(TEXT_META))
-                                                    })
-                                                    .collect()
-                                            },
-                                        ),
-                                    ))
-                                    .child(self.probe_panel(cx)),
-                            )
+                        self.render_monitor(cx)
                     } else if self.page == Page::Opportunities {
                         self.render_opportunities(cx)
                     } else if self.page == Page::Convert {
@@ -1781,9 +1540,6 @@ fn skip_label(key: &str, language: ptt_settings::UiLanguage) -> String {
 /// idling as designed. Counting those frames among the skips buries the
 /// number that matters: 549 standby frames next to 17 real failures read as
 /// "566 problems", and a reader trained on that learns to ignore the count.
-// The health band (§4 监视器重排, the commit after this one) is the consumer;
-// the split lands with the bug fix because the two are one finding.
-#[allow(dead_code)]
 fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     let standby = skips.get("not-book-view").copied().unwrap_or(0);
     let total: u64 = skips.values().sum();

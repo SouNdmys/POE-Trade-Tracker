@@ -148,7 +148,10 @@ mod windows_backend {
             rows: Vec<String>,
             /// The same rows with their fields intact, for the monitor.
             order_rows: Vec<ptt_runtime::pipeline::BookRow>,
-            analysis: Vec<String>,
+            /// Typed facts about the pair; the interface renders them in its
+            /// own language. Boxed so this variant stays near the others in
+            /// size — every skip event would otherwise pay for the analysis.
+            analysis: Box<ptt_runtime::analysis::PairAnalysis>,
         },
         Skipped(String),
         Fault(String),
@@ -162,13 +165,13 @@ mod windows_backend {
     }
 
     impl Backend {
-        pub fn start(ui_language: ptt_settings::UiLanguage) -> Self {
+        pub fn start() -> Self {
             let (sender, events) = channel();
             let cancel = Arc::new(AtomicBool::new(false));
             let worker_cancel = Arc::clone(&cancel);
             let worker = std::thread::Builder::new()
                 .name("ptt-watch".to_owned())
-                .spawn(move || run_watch(&worker_cancel, &sender, ui_language))
+                .spawn(move || run_watch(&worker_cancel, &sender))
                 .expect("spawn watch thread");
             Self {
                 events,
@@ -218,16 +221,12 @@ mod windows_backend {
         }
     }
 
-    fn run_watch(
-        cancel: &AtomicBool,
-        sender: &Sender<UiEvent>,
-        ui_language: ptt_settings::UiLanguage,
-    ) {
+    fn run_watch(cancel: &AtomicBool, sender: &Sender<UiEvent>) {
         let mut sentinel = FaultOnDrop {
             sender: sender.clone(),
             armed: true,
         };
-        let mut pipeline = match LivePipeline::open("live-league", None, ui_language) {
+        let mut pipeline = match LivePipeline::open("live-league", None) {
             Ok(pipeline) => pipeline,
             Err(error) => {
                 let _ = sender.send(UiEvent::Fault(error.to_string()));
@@ -249,7 +248,7 @@ mod windows_backend {
                         have_asset_id: book.have_asset_id,
                         rows: book.rows,
                         order_rows: book.order_rows,
-                        analysis: book.analysis,
+                        analysis: Box::new(book.analysis),
                     });
                 }
                 PipelineEvent::Skipped(reason) => {

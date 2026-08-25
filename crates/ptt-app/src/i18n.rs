@@ -364,6 +364,46 @@ pub struct Text {
 
     /// 明细栏主数字的标签(§3:整条收益升为 15px 主数字)。
     pub detail_round_trip: &'static str,
+
+    // -- monitor page (§4 监视器定稿) --
+    /// 健康带的三档主语与空态。
+    pub monitor_health_fresh: &'static str,
+    pub monitor_health_aging: &'static str,
+    pub monitor_health_stale: &'static str,
+    pub monitor_health_waiting: &'static str,
+    /// `最近一帧 {}s 前`
+    pub monitor_last_frame_ago: &'static str,
+    pub monitor_accepted_stat: &'static str,
+    pub monitor_frame_ms_stat: &'static str,
+    pub monitor_skipped_stat: &'static str,
+    /// `另有 {} 帧是面板没开着，不算问题`
+    pub monitor_standby_note: &'static str,
+    /// `{} 次{}`(健康带上的单条跳过摘要)
+    pub monitor_skip_times: &'static str,
+    /// 最近盘口标题行右侧的队首价差。
+    pub monitor_front_spread: &'static str,
+    /// 左右两栏的栏头,面板原词:可用 / 竞争 / 比率 / 库存。
+    pub monitor_col_available: &'static str,
+    pub monitor_col_competing: &'static str,
+    pub monitor_col_rate: &'static str,
+    pub monitor_col_stock: &'static str,
+    /// 机会面板:标题、试算基准、直兑/最优列头。
+    pub monitor_earn_header: &'static str,
+    /// `按 100 {} 试算`
+    pub monitor_earn_basis: &'static str,
+    pub monitor_col_direct: &'static str,
+    pub monitor_col_best: &'static str,
+    /// `（{} 步）`
+    pub monitor_steps_suffix: &'static str,
+    /// 风险徽章折叠:`还有 {} 条`
+    pub monitor_more_risks: &'static str,
+    pub monitor_see_radar: &'static str,
+    /// 三条闭环都在亏时的收口句。
+    pub monitor_cycles_losing: &'static str,
+    /// 「下一步去抓」底部的图例。
+    pub monitor_queue_legend: &'static str,
+    /// 跳过原因面板右上的总帧数:`{} 帧`
+    pub monitor_skip_frames: &'static str,
 }
 
 impl Text {
@@ -604,6 +644,31 @@ impl Text {
             ("radar_band_threshold", self.radar_band_threshold),
             ("radar_probe_footer", self.radar_probe_footer),
             ("detail_round_trip", self.detail_round_trip),
+            ("monitor_health_fresh", self.monitor_health_fresh),
+            ("monitor_health_aging", self.monitor_health_aging),
+            ("monitor_health_stale", self.monitor_health_stale),
+            ("monitor_health_waiting", self.monitor_health_waiting),
+            ("monitor_last_frame_ago", self.monitor_last_frame_ago),
+            ("monitor_accepted_stat", self.monitor_accepted_stat),
+            ("monitor_frame_ms_stat", self.monitor_frame_ms_stat),
+            ("monitor_skipped_stat", self.monitor_skipped_stat),
+            ("monitor_standby_note", self.monitor_standby_note),
+            ("monitor_skip_times", self.monitor_skip_times),
+            ("monitor_front_spread", self.monitor_front_spread),
+            ("monitor_col_available", self.monitor_col_available),
+            ("monitor_col_competing", self.monitor_col_competing),
+            ("monitor_col_rate", self.monitor_col_rate),
+            ("monitor_col_stock", self.monitor_col_stock),
+            ("monitor_earn_header", self.monitor_earn_header),
+            ("monitor_earn_basis", self.monitor_earn_basis),
+            ("monitor_col_direct", self.monitor_col_direct),
+            ("monitor_col_best", self.monitor_col_best),
+            ("monitor_steps_suffix", self.monitor_steps_suffix),
+            ("monitor_more_risks", self.monitor_more_risks),
+            ("monitor_see_radar", self.monitor_see_radar),
+            ("monitor_cycles_losing", self.monitor_cycles_losing),
+            ("monitor_queue_legend", self.monitor_queue_legend),
+            ("monitor_skip_frames", self.monitor_skip_frames),
         ]
     }
 }
@@ -627,7 +692,7 @@ pub static ENGLISH: Text = Text {
     panel_last_book: "LAST BOOK",
     panel_opportunities: "OPPORTUNITIES",
     panel_skips: "SKIPS",
-    panel_probe_queue: "PROBE QUEUE",
+    panel_probe_queue: "NEXT TO CAPTURE",
     book_rows: "{} rows",
     panel_settings: "SETTINGS",
     refresh: "Refresh",
@@ -855,6 +920,32 @@ pub static ENGLISH: Text = Text {
     radar_probe_footer: "to firm these up, capture",
 
     detail_round_trip: "round trip",
+
+    monitor_health_fresh: "data is fresh",
+    monitor_health_aging: "data is aging",
+    monitor_health_stale: "data is stale",
+    monitor_health_waiting: "no frame yet",
+    monitor_last_frame_ago: "last frame {}s ago",
+    monitor_accepted_stat: "accepted books",
+    monitor_frame_ms_stat: "per frame",
+    monitor_skipped_stat: "frames skipped",
+    monitor_standby_note: "{} more frames: panel not open, not a problem",
+    monitor_skip_times: "{}x {}",
+    monitor_front_spread: "front spread",
+    monitor_col_available: "available",
+    monitor_col_competing: "competing",
+    monitor_col_rate: "rate",
+    monitor_col_stock: "stock",
+    monitor_earn_header: "WHAT THIS BOOK CAN EARN",
+    monitor_earn_basis: "priced at 100 {}",
+    monitor_col_direct: "direct",
+    monitor_col_best: "best",
+    monitor_steps_suffix: " ({} steps)",
+    monitor_more_risks: "{} more",
+    monitor_see_radar: "full detail on the radar page",
+    monitor_cycles_losing: "every cycle loses - only the one-way conversion is worth doing",
+    monitor_queue_legend: "gold bar = queued; it shows on the HUD's bottom line",
+    monitor_skip_frames: "{} frames",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -876,7 +967,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     panel_last_book: "最近盘口",
     panel_opportunities: "机会",
     panel_skips: "跳过原因",
-    panel_probe_queue: "待采集队列",
+    panel_probe_queue: "下一步去抓",
     book_rows: "{} 行",
     panel_settings: "设置",
     refresh: "刷新",
@@ -1104,6 +1195,32 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     radar_probe_footer: "要坐实这些机会，去抓",
 
     detail_round_trip: "整条收益",
+
+    monitor_health_fresh: "数据新鲜",
+    monitor_health_aging: "数据偏旧",
+    monitor_health_stale: "数据过期",
+    monitor_health_waiting: "还没有一帧",
+    monitor_last_frame_ago: "最近一帧 {}s 前",
+    monitor_accepted_stat: "已接受盘口",
+    monitor_frame_ms_stat: "单帧耗时",
+    monitor_skipped_stat: "帧被跳过",
+    monitor_standby_note: "另有 {} 帧是面板没开着，不算问题",
+    monitor_skip_times: "{} 次{}",
+    monitor_front_spread: "队首价差",
+    monitor_col_available: "可用",
+    monitor_col_competing: "竞争",
+    monitor_col_rate: "比率",
+    monitor_col_stock: "库存",
+    monitor_earn_header: "这个盘口能怎么赚",
+    monitor_earn_basis: "按 100 {} 试算",
+    monitor_col_direct: "直兑",
+    monitor_col_best: "最优",
+    monitor_steps_suffix: "（{} 步）",
+    monitor_more_risks: "还有 {} 条",
+    monitor_see_radar: "去雷达页看完整明细",
+    monitor_cycles_losing: "闭环都在亏 —— 这个盘口只有单向兑换值得做",
+    monitor_queue_legend: "金条 = 已排队，会出现在游戏浮窗最底那一行",
+    monitor_skip_frames: "{} 帧",
 };
 
 #[cfg(test)]

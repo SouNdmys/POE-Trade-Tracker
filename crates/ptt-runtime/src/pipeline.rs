@@ -21,7 +21,7 @@ use ptt_recognition::route::Route;
 use ptt_storage::MarketStore;
 use ptt_trade_domain::MarketContext;
 
-use crate::analysis::pair_analysis_lines;
+use crate::analysis::pair_analysis;
 use crate::live::{capture_from_book, domain_asset_id, live_context};
 
 /// The league every live component agrees on.
@@ -70,8 +70,9 @@ pub struct AcceptedBook {
     pub order_rows: Vec<BookRow>,
     /// Time from the first capture to the confirmed result.
     pub elapsed: Duration,
-    /// Conversion and cycle lines for this pair, or the reason there are none.
-    pub analysis: Vec<String>,
+    /// What this book says about its own pair, as typed facts. The monitor
+    /// draws them as a table; probes print them via [`PairAnalysis::lines`].
+    pub analysis: crate::analysis::PairAnalysis,
 }
 
 /// What the pipeline produced for one tick.
@@ -202,11 +203,6 @@ pub struct LivePipeline {
     context: MarketContext,
     context_key: String,
     sequence: u64,
-    /// The reader's language, for the analysis lines each accepted book
-    /// carries. Distinct from the route's language, which is the game
-    /// client's. Captured at open: a switch mid-session reaches the next book
-    /// rather than rewriting the one already on screen.
-    ui_language: ptt_settings::UiLanguage,
     /// The active season's start, read once at open so the per-accept
     /// analysis window can be clamped with zero work inside the loop. A
     /// season started mid-session reaches the next session.
@@ -216,11 +212,7 @@ pub struct LivePipeline {
 impl LivePipeline {
     /// Opens the recognition route, the store, and the market context, with
     /// the user's calibration applied.
-    pub fn open(
-        league: &str,
-        database_path: Option<&Path>,
-        ui_language: ptt_settings::UiLanguage,
-    ) -> Result<Self, PipelineError> {
+    pub fn open(league: &str, database_path: Option<&Path>) -> Result<Self, PipelineError> {
         let profile = active_profile();
         apply_saved_calibration();
         let (layout, language) = route_for(profile);
@@ -247,7 +239,6 @@ impl LivePipeline {
             context,
             context_key,
             sequence: 0,
-            ui_language,
             season_floor,
         })
     }
@@ -274,7 +265,6 @@ impl LivePipeline {
             context,
             context_key,
             sequence,
-            ui_language,
             season_floor,
         } = self;
         run_session(
@@ -345,15 +335,10 @@ impl LivePipeline {
                         return;
                     }
 
-                    let analysis = analyse(
-                        store,
-                        context_key,
-                        &need_id,
-                        &have_id,
-                        *ui_language,
-                        *season_floor,
-                    )
-                    .unwrap_or_else(|error| vec![format!("analysis error: {error}")]);
+                    let analysis = analyse(store, context_key, &need_id, &have_id, *season_floor)
+                        .unwrap_or_else(|error| {
+                            crate::analysis::PairAnalysis::failed(&have_id, &need_id, error)
+                        });
                     on_event(PipelineEvent::Accepted(Box::new(AcceptedBook {
                         sequence: *sequence,
                         need_asset_id: need_id,
@@ -386,9 +371,8 @@ fn analyse(
     context_key: &str,
     need_id: &str,
     have_id: &str,
-    language: ptt_settings::UiLanguage,
     season_floor: Option<chrono::DateTime<chrono::Utc>>,
-) -> Result<Vec<String>, String> {
+) -> Result<crate::analysis::PairAnalysis, String> {
     let since = crate::rollup::clamp_to_season(
         chrono::Utc::now() - chrono::Duration::hours(ANALYSIS_WINDOW_HOURS),
         season_floor,
@@ -398,7 +382,7 @@ fn analyse(
         .map_err(|error| format!("load: {error}"))?;
     let need = domain_asset_id(need_id).map_err(|error| format!("{error:?}"))?;
     let have = domain_asset_id(have_id).map_err(|error| format!("{error:?}"))?;
-    pair_analysis_lines(&observations, context_key, &need, &have, language)
+    pair_analysis(&observations, context_key, &need, &have)
         .map_err(|error| format!("analysis: {error}"))
 }
 
