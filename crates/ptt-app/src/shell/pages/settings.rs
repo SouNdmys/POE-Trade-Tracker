@@ -12,7 +12,126 @@ use crate::theme::*;
 use crate::ui::{LedgerButton, button, mono, panel, panel_header};
 
 impl AppShell {
+    /// The settings page (§10 定稿 = 13a):顶部通栏 + 左侧 132px 分段栏 +
+    /// 当前分段的面板。四段:基本 / 浮窗 / 赛季与存储 / 算法参数——原来是
+    /// 一条要滚三屏的长列。
     #[cfg(windows)]
+    pub(crate) fn render_settings_page(&mut self, cx: &mut Context<Self>) -> gpui::Div {
+        use crate::shell::SettingsSegment;
+        use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+        use gpui_component::StyledExt as _;
+
+        let text = self.text();
+        let current = self.settings_segment;
+
+        let mut rail = div()
+            .w(px(132.))
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap(px(1.))
+            .py_2()
+            .bg(c(RAIL))
+            .border_r_1()
+            .border_color(c(HAIRLINE));
+        for segment in SettingsSegment::ALL {
+            let active = segment == current;
+            let row = div()
+                .id(segment.element_id())
+                .h(px(H_BUTTON))
+                .flex_none()
+                .flex()
+                .items_center()
+                .text_size(fs(FS_12))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings_segment = segment;
+                    cx.notify();
+                }));
+            let row = if active {
+                row.pl(px(12.))
+                    .border_l_2()
+                    .border_color(c(ACCENT))
+                    .bg(c(PANEL))
+                    .font_semibold()
+                    .text_color(c(ACCENT_TEXT))
+            } else {
+                row.pl(px(14.))
+                    .text_color(c(TEXT_SECONDARY))
+                    .hover(|style| style.bg(c(HOVER)))
+            };
+            rail = rail.child(row.child(gpui::SharedString::from(segment.label(text).to_string())));
+        }
+
+        let body = match current {
+            SettingsSegment::Basic => self.settings_panel(cx),
+            SettingsSegment::Hud => self.hud_settings_panel(cx),
+            SettingsSegment::Season => self.season_panel(cx),
+            SettingsSegment::Params => self.tuning_panel(cx),
+        };
+
+        div().flex_grow().min_h(px(0.)).flex().child(rail).child(
+            div()
+                .flex_1()
+                .min_w(px(0.))
+                .min_h(px(0.))
+                .flex()
+                .flex_col()
+                .gap(px(SP_8))
+                .p(px(SP_10))
+                // 结算通货与「允许路过」在通栏:不属于任何一段,影响
+                // 所有页面(§10)。
+                .child(self.settings_banner(cx))
+                .child(crate::ui::scrollable(
+                    div().flex_grow().flex().flex_col().child(body),
+                    "settings-scroll",
+                )),
+        )
+    }
+
+    /// 浮窗段:目前是三条热键。档位 / 不透明度 / 摆放随 HUD 定稿一起落地
+    /// (P12),落在这一段里。
+    #[cfg(windows)]
+    fn hud_settings_panel(&self, _cx: &mut Context<Self>) -> gpui::Div {
+        let text = self.text();
+        let row = |label: &'static str, key: String| {
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .py(px(3.))
+                .child(
+                    div()
+                        .w(px(150.))
+                        .flex_none()
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(label),
+                )
+                .child(crate::ui::hotkey_chip(&key))
+        };
+        use gpui_component::StyledExt as _;
+        panel().child(panel_header(text.seg_hud)).child(
+            div()
+                .p_3()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .child(row(
+                    text.hud_hotkey_watch,
+                    self.settings.hotkeys.toggle_watch.clone(),
+                ))
+                .child(row(
+                    text.hud_hotkey_toggle,
+                    self.settings.hotkeys.toggle_hud.clone(),
+                ))
+                .child(row(
+                    text.hud_hotkey_capture,
+                    self.settings.hotkeys.manual_capture.clone(),
+                )),
+        )
+    }
+
     #[cfg(windows)]
     pub(crate) fn settings_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
         // No region rows here. They reported the stored numbers, which do not

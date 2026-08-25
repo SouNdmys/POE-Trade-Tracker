@@ -364,55 +364,14 @@ impl AppShell {
         0 < fresh && fresh < usable && usable < stale && sizes(&inputs.sizes, cx).is_some()
     }
 
-    /// The market tuning section.
+    /// 顶部通栏(§10):结算通货与「允许路过关注目标」。它们不属于任何
+    /// 一组,且影响所有页面,所以放在四个分段之上,每个分段都看得见。
     #[cfg(windows)]
-    pub(crate) fn tuning_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+    pub(crate) fn settings_banner(&self, cx: &mut Context<Self>) -> gpui::Div {
         let text = self.text();
-        let valid = self.tuning_is_valid(cx);
         let tuning = self
             .settings
             .market_tuning(self.settings.active_profile.game);
-        let inputs = &self.tuning_inputs;
-
-        // Label, box, the shipped default, then what the number is *for*.
-        // Without the last one the page is two dozen boxes of digits whose
-        // only clue is a label short enough to fit a column.
-        let row = |label: &'static str,
-                   input: &Entity<InputState>,
-                   default: &'static str,
-                   note: &'static str| {
-            div()
-                .h_flex()
-                .items_center()
-                .gap_2()
-                .child(
-                    div()
-                        .w(px(150.))
-                        .flex_none()
-                        .text_size(fs(FS_11_5))
-                        .text_color(c(TEXT_META))
-                        .child(label),
-                )
-                .child(
-                    div()
-                        .w(px(120.))
-                        .flex_none()
-                        .child(Input::new(input).with_size(Size::Small)),
-                )
-                .child(
-                    mono(default)
-                        .w(px(84.))
-                        .flex_none()
-                        .text_size(fs(FS_10_5))
-                        .text_color(c(TEXT_DISABLED)),
-                )
-                .child(
-                    div()
-                        .text_size(fs(FS_10_5))
-                        .text_color(c(TEXT_META))
-                        .child(note),
-                )
-        };
 
         // Editable here and nowhere else. Changing the numéraire changes
         // what every number on every page means, so it belongs on the settings
@@ -474,254 +433,451 @@ impl AppShell {
             );
         }
 
-        panel().child(panel_header(text.tuning_header)).child(
-            div()
-                .p_3()
+        let allow = tuning.route_through_targets;
+        let mut toggle = div()
+            .h_flex()
+            .items_center()
+            .flex_none()
+            .border_1()
+            .border_color(c(HAIRLINE));
+        for (index, (label, value)) in [(text.toggle_on, true), (text.toggle_off, false)]
+            .into_iter()
+            .enumerate()
+        {
+            let mut cell = div()
+                .id(("route-through", index))
+                .h(px(H_ROW))
+                .px(px(10.))
                 .flex()
-                .flex_col()
-                .gap_2()
+                .items_center()
+                .text_size(fs(FS_11_5))
+                .whitespace_nowrap()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.set_route_through_targets(value);
+                    cx.notify();
+                }));
+            if index > 0 {
+                cell = cell.border_l_1().border_color(c(HAIRLINE));
+            }
+            cell = if value == allow {
+                cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
+            } else {
+                cell.bg(c(PANEL))
+                    .text_color(c(TEXT_SECONDARY))
+                    .hover(|style| style.bg(c(HOVER)))
+            };
+            toggle = toggle.child(cell.child(label));
+        }
+
+        panel().flex_none().child(
+            div()
+                .h_flex()
+                .items_center()
+                .gap(px(SP_16))
+                .px_3()
+                .py_2()
+                .flex_wrap()
                 .child(
                     div()
-                        .h_flex()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            div()
-                                .w(px(150.))
-                                .flex_none()
-                                .text_size(fs(FS_11_5))
-                                .text_color(c(TEXT_META))
-                                .child(text.settlement_label),
-                        )
-                        .child(settlement),
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(text.settlement_label),
                 )
+                .child(settlement)
+                .child(div().w(px(1.)).h(px(20.)).bg(c(HAIRLINE_SOFT)))
                 .child(
                     div()
-                        .h_flex()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            div()
-                                .w(px(150.))
-                                .flex_none()
-                                .text_size(fs(FS_11_5))
-                                .text_color(c(TEXT_META))
-                                .child(text.route_through_targets),
-                        )
-                        .child({
-                            let allow = tuning.route_through_targets;
-                            let mut cells = div()
-                                .h_flex()
-                                .items_center()
-                                .flex_none()
-                                .border_1()
-                                .border_color(c(HAIRLINE));
-                            for (index, (label, value)) in
-                                [(text.toggle_on, true), (text.toggle_off, false)]
-                                    .into_iter()
-                                    .enumerate()
-                            {
-                                let mut cell = div()
-                                    .id(("route-through", index))
-                                    .h(px(H_ROW))
-                                    .px(px(10.))
-                                    .flex()
-                                    .items_center()
-                                    .text_size(fs(FS_11_5))
-                                    .whitespace_nowrap()
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.set_route_through_targets(value);
-                                        cx.notify();
-                                    }));
-                                if index > 0 {
-                                    cell = cell.border_l_1().border_color(c(HAIRLINE));
-                                }
-                                cell = if value == allow {
-                                    cell.bg(c(ACCENT_WASH)).text_color(c(ACCENT_TEXT))
-                                } else {
-                                    cell.bg(c(PANEL))
-                                        .text_color(c(TEXT_SECONDARY))
-                                        .hover(|style| style.bg(c(HOVER)))
-                                };
-                                cells = cells.child(cell.child(label));
-                            }
-                            cells
-                        }),
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(text.route_through_targets),
                 )
-                .child(row(
-                    text.tuning_fresh,
-                    &inputs.fresh,
-                    "7200",
-                    text.tuning_fresh_note,
-                ))
-                .child(row(
-                    text.tuning_usable,
-                    &inputs.usable,
-                    "21600",
-                    text.tuning_usable_note,
-                ))
-                .child(row(
-                    text.tuning_stale,
-                    &inputs.stale,
-                    "86400",
-                    text.tuning_stale_note,
-                ))
-                .child(row(
-                    text.tuning_skew,
-                    &inputs.skew,
-                    "3600",
-                    text.tuning_skew_note,
-                ))
-                .child(row(
-                    text.tuning_sizes,
-                    &inputs.sizes,
-                    "1, 10, 100",
-                    text.tuning_sizes_note,
-                ))
-                .child(row(
-                    text.tuning_max_hops,
-                    &inputs.max_hops,
-                    "3",
-                    text.tuning_max_hops_note,
-                ))
-                .child(row(
-                    text.tuning_results,
-                    &inputs.max_results,
-                    "12",
-                    text.tuning_results_note,
-                ))
-                .child(row(
-                    text.tuning_min_bps,
-                    &inputs.min_basis_points,
-                    "100",
-                    text.tuning_min_bps_note,
-                ))
-                .child(row(
-                    text.tuning_expansions,
-                    &inputs.expansions,
-                    "60000",
-                    text.tuning_expansions_note,
-                ))
-                .child(row(
-                    text.tuning_thin,
-                    &inputs.thin_stock,
-                    "100",
-                    text.tuning_thin_note,
-                ))
-                .child(row(
-                    text.tuning_outlier,
-                    &inputs.outlier_factor,
-                    "3",
-                    text.tuning_outlier_note,
-                ))
-                .child(row(
-                    text.tuning_window,
-                    &inputs.window_hours,
-                    "24",
-                    text.tuning_window_note,
-                ))
-                .child(row(
-                    text.tuning_trend_recent,
-                    &inputs.trend_recent,
-                    "2",
-                    text.tuning_trend_recent_note,
-                ))
-                .child(row(
-                    text.tuning_trend_window,
-                    &inputs.trend_window,
-                    "7",
-                    text.tuning_trend_window_note,
-                ))
-                .child(row(
-                    text.tuning_breadth,
-                    &inputs.breadth,
-                    "70",
-                    text.tuning_breadth_note,
-                ))
-                .child(row(
-                    text.tuning_verdict,
-                    &inputs.verdict_bps,
-                    "500",
-                    text.tuning_verdict_note,
-                ))
-                .child(row(
-                    text.tuning_scarce,
-                    &inputs.scarce_ratio,
-                    "300",
-                    text.tuning_scarce_note,
-                ))
-                .child(row(
-                    text.tuning_quiet,
-                    &inputs.quiet_floor,
-                    "10",
-                    text.tuning_quiet_note,
-                ))
-                .child(row(
-                    text.tuning_thin_norm,
-                    &inputs.thin_norm,
-                    "25",
-                    text.tuning_thin_norm_note,
-                ))
-                .child(row(
-                    text.tuning_retention,
-                    &inputs.retention_days,
-                    "0",
-                    text.tuning_retention_note,
-                ))
-                .child(row(
-                    text.tuning_spike,
-                    &inputs.spike,
-                    "2000",
-                    text.tuning_spike_note,
-                ))
-                .child(row(
-                    text.tuning_severe_spike,
-                    &inputs.severe_spike,
-                    "5000",
-                    text.tuning_severe_spike_note,
-                ))
-                .child(row(
-                    text.tuning_wide_spread,
-                    &inputs.wide_spread,
-                    "1000",
-                    text.tuning_wide_spread_note,
-                ))
-                .child(row(
-                    text.tuning_severe_spread,
-                    &inputs.severe_spread,
-                    "2000",
-                    text.tuning_severe_spread_note,
-                ))
-                .child(
-                    div()
-                        .h_flex()
-                        .items_center()
-                        .gap_2()
-                        .pt_2()
-                        .child(
-                            button(
-                                "tuning-apply",
-                                if valid {
-                                    LedgerButton::Primary
-                                } else {
-                                    LedgerButton::Quiet
-                                },
-                                text.tuning_apply,
-                                cx,
+                .child(toggle),
+        )
+    }
+
+    /// The stored tuning, rendered to the same strings the boxes were seeded
+    /// with — the "changes not applied" count is a string comparison against
+    /// this, so this construction must stay a twin of
+    /// [`AppShell::new_tuning_inputs`].
+    #[cfg(windows)]
+    fn tuning_stored_values(tuning: &ptt_settings::MarketTuning) -> [String; 24] {
+        [
+            tuning.freshness.fresh_seconds.to_string(),
+            tuning.freshness.usable_seconds.to_string(),
+            tuning.freshness.stale_seconds.to_string(),
+            tuning.freshness.capture_skew_seconds.to_string(),
+            tuning
+                .convert
+                .sizes
+                .iter()
+                .map(u64::to_string)
+                .collect::<Vec<_>>()
+                .join(", "),
+            tuning.convert.max_hops.to_string(),
+            tuning.radar.max_results.to_string(),
+            tuning.radar.minimum_profit_basis_points.to_string(),
+            tuning.radar.max_total_expansions.to_string(),
+            tuning.risk.thin_liquidity_stock.to_string(),
+            tuning.risk.top_book_outlier_factor.to_string(),
+            tuning.report_window_hours.to_string(),
+            tuning.analytics.trend_recent_days.to_string(),
+            tuning.analytics.trend_window_days.to_string(),
+            tuning.analytics.breadth_threshold_percent.to_string(),
+            tuning.analytics.verdict_threshold_bps.to_string(),
+            tuning.analytics.scarce_ratio_percent.to_string(),
+            tuning.analytics.quiet_floor_anchor_units.to_string(),
+            tuning.analytics.thin_norm_percent.to_string(),
+            tuning.analytics.raw_retention_days.to_string(),
+            tuning.risk.spike_basis_points.to_string(),
+            tuning.risk.severe_spike_basis_points.to_string(),
+            tuning.risk.wide_spread_basis_points.to_string(),
+            tuning.risk.severe_spread_basis_points.to_string(),
+        ]
+    }
+
+    /// The market tuning section: 24 numbers in six groups, wrapped three to
+    /// a row so one screen holds them, each with its human conversion (§10).
+    #[cfg(windows)]
+    pub(crate) fn tuning_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let text = self.text();
+        let valid = self.tuning_is_valid(cx);
+        let tuning = self
+            .settings
+            .market_tuning(self.settings.active_profile.game);
+        let inputs = &self.tuning_inputs;
+
+        // 改动未应用的计数:框里的字符串对存储值的字符串,一对一比。
+        let stored = Self::tuning_stored_values(&tuning);
+        let pending = inputs
+            .all()
+            .iter()
+            .zip(stored.iter())
+            .filter(|(input, stored)| input.read(cx).value().trim() != stored.as_str())
+            .count();
+
+        let cell =
+            |label: &'static str, input: &Entity<InputState>, unit: Unit, note: &'static str| {
+                let converted = unit.conversion(text, number(input, cx));
+                div()
+                    .w(px(300.))
+                    .flex_none()
+                    .flex()
+                    .flex_col()
+                    .gap(px(3.))
+                    .child(
+                        div()
+                            .text_size(fs(FS_11))
+                            .text_color(c(TEXT_META))
+                            .child(label),
+                    )
+                    .child(
+                        div()
+                            .h_flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .w(px(110.))
+                                    .flex_none()
+                                    .child(Input::new(input).with_size(Size::Small)),
                             )
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                if this.apply_tuning(cx) {
-                                    this.push_log(this.text().tuning_saved.to_owned());
-                                }
+                            .children(converted.map(|value| {
+                                // 换算是金字:它是主题在替你读数,不是又一个语义色。
+                                mono(value)
+                                    .text_size(fs(FS_10_5))
+                                    .text_color(c(ACCENT_TEXT))
+                            })),
+                    )
+                    .child(
+                        div()
+                            .text_size(fs(FS_10))
+                            .text_color(c(TEXT_GHOST))
+                            .child(note),
+                    )
+            };
+        let group = |title: &'static str| {
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .pt_2()
+                .child(crate::ui::micro_title_sm(title))
+                .child(div().flex_1().h(px(1.)).bg(c(HAIRLINE_SOFT)))
+        };
+        let wrap = || div().h_flex().flex_wrap().gap(px(SP_12));
+
+        let body = div()
+            .p_3()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(group(text.group_freshness))
+            .child(
+                wrap()
+                    .child(cell(
+                        text.tuning_fresh,
+                        &inputs.fresh,
+                        Unit::Seconds,
+                        text.tuning_fresh_note,
+                    ))
+                    .child(cell(
+                        text.tuning_usable,
+                        &inputs.usable,
+                        Unit::Seconds,
+                        text.tuning_usable_note,
+                    ))
+                    .child(cell(
+                        text.tuning_stale,
+                        &inputs.stale,
+                        Unit::Seconds,
+                        text.tuning_stale_note,
+                    ))
+                    .child(cell(
+                        text.tuning_skew,
+                        &inputs.skew,
+                        Unit::Seconds,
+                        text.tuning_skew_note,
+                    )),
+            )
+            .child(group(text.group_scan))
+            .child(
+                wrap()
+                    .child(cell(
+                        text.tuning_sizes,
+                        &inputs.sizes,
+                        Unit::None,
+                        text.tuning_sizes_note,
+                    ))
+                    .child(cell(
+                        text.tuning_max_hops,
+                        &inputs.max_hops,
+                        Unit::None,
+                        text.tuning_max_hops_note,
+                    ))
+                    .child(cell(
+                        text.tuning_results,
+                        &inputs.max_results,
+                        Unit::None,
+                        text.tuning_results_note,
+                    ))
+                    .child(cell(
+                        text.tuning_min_bps,
+                        &inputs.min_basis_points,
+                        Unit::BasisPoints,
+                        text.tuning_min_bps_note,
+                    ))
+                    .child(cell(
+                        text.tuning_expansions,
+                        &inputs.expansions,
+                        Unit::None,
+                        text.tuning_expansions_note,
+                    ))
+                    .child(cell(
+                        text.tuning_window,
+                        &inputs.window_hours,
+                        Unit::None,
+                        text.tuning_window_note,
+                    )),
+            )
+            .child(group(text.group_liquidity))
+            .child(
+                wrap()
+                    .child(cell(
+                        text.tuning_thin,
+                        &inputs.thin_stock,
+                        Unit::None,
+                        text.tuning_thin_note,
+                    ))
+                    .child(cell(
+                        text.tuning_outlier,
+                        &inputs.outlier_factor,
+                        Unit::None,
+                        text.tuning_outlier_note,
+                    ))
+                    .child(cell(
+                        text.tuning_quiet,
+                        &inputs.quiet_floor,
+                        Unit::None,
+                        text.tuning_quiet_note,
+                    ))
+                    .child(cell(
+                        text.tuning_thin_norm,
+                        &inputs.thin_norm,
+                        Unit::None,
+                        text.tuning_thin_norm_note,
+                    )),
+            )
+            .child(group(text.group_trend))
+            .child(
+                wrap()
+                    .child(cell(
+                        text.tuning_trend_recent,
+                        &inputs.trend_recent,
+                        Unit::None,
+                        text.tuning_trend_recent_note,
+                    ))
+                    .child(cell(
+                        text.tuning_trend_window,
+                        &inputs.trend_window,
+                        Unit::None,
+                        text.tuning_trend_window_note,
+                    ))
+                    .child(cell(
+                        text.tuning_breadth,
+                        &inputs.breadth,
+                        Unit::None,
+                        text.tuning_breadth_note,
+                    ))
+                    .child(cell(
+                        text.tuning_verdict,
+                        &inputs.verdict_bps,
+                        Unit::BasisPoints,
+                        text.tuning_verdict_note,
+                    ))
+                    .child(cell(
+                        text.tuning_scarce,
+                        &inputs.scarce_ratio,
+                        Unit::PercentTimes,
+                        text.tuning_scarce_note,
+                    )),
+            )
+            .child(group(text.group_anomaly))
+            .child(
+                wrap()
+                    .child(cell(
+                        text.tuning_spike,
+                        &inputs.spike,
+                        Unit::BasisPoints,
+                        text.tuning_spike_note,
+                    ))
+                    .child(cell(
+                        text.tuning_severe_spike,
+                        &inputs.severe_spike,
+                        Unit::BasisPoints,
+                        text.tuning_severe_spike_note,
+                    ))
+                    .child(cell(
+                        text.tuning_wide_spread,
+                        &inputs.wide_spread,
+                        Unit::BasisPoints,
+                        text.tuning_wide_spread_note,
+                    ))
+                    .child(cell(
+                        text.tuning_severe_spread,
+                        &inputs.severe_spread,
+                        Unit::BasisPoints,
+                        text.tuning_severe_spread_note,
+                    )),
+            )
+            .child(group(text.group_storage))
+            .child(wrap().child(cell(
+                text.tuning_retention,
+                &inputs.retention_days,
+                Unit::None,
+                text.tuning_retention_note,
+            )))
+            .child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .pt_2()
+                    .child(
+                        button(
+                            "tuning-apply",
+                            if valid {
+                                LedgerButton::Primary
+                            } else {
+                                LedgerButton::Quiet
+                            },
+                            text.tuning_apply,
+                            cx,
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            if this.apply_tuning(cx) {
+                                this.push_log(this.text().tuning_saved.to_owned());
+                            }
+                            cx.notify();
+                        })),
+                    )
+                    // 底部说清有几项改了没应用:原来改完不点应用没有任何提示。
+                    .children((pending > 0).then(|| {
+                        mono(ptt_runtime::report_text::fill(
+                            text.tuning_pending,
+                            &[&pending.to_string()],
+                        ))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(WARN_TEXT))
+                    }))
+                    .children((!valid).then(|| {
+                        mono(text.tuning_invalid)
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(DANGER_TEXT))
+                    }))
+                    .child(div().flex_1())
+                    // 「默认值」那一列(24 个灰数字)删了,换成一个还原(§10)。
+                    .child(
+                        button("tuning-reset", LedgerButton::Quiet, text.tuning_reset, cx)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                let defaults = ptt_settings::MarketTuning::default();
+                                this.tuning_inputs = Self::new_tuning_inputs(window, cx, &defaults);
                                 cx.notify();
                             })),
-                        )
-                        .children((!valid).then(|| {
-                            mono(text.tuning_invalid)
-                                .text_size(fs(FS_10_5))
-                                .text_color(c(DANGER))
-                        })),
-                ),
-        )
+                    )
+                    // 「100bp = 1%」只在右下角说一次。
+                    .child(
+                        mono(text.tuning_bp_hint)
+                            .text_size(fs(FS_10))
+                            .text_color(c(TEXT_GHOST)),
+                    ),
+            );
+
+        panel().child(panel_header(text.tuning_header)).child(body)
+    }
+}
+
+/// 一个数怎么换算成人话(§10:秒数直接换算、bp 旁边给百分比)。
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+enum Unit {
+    Seconds,
+    BasisPoints,
+    /// 稀缺比那类"300% = 3 倍"。
+    PercentTimes,
+    None,
+}
+
+#[cfg(windows)]
+impl Unit {
+    fn conversion(self, text: &'static crate::i18n::Text, value: Option<u64>) -> Option<String> {
+        let value = value?;
+        #[allow(clippy::cast_precision_loss)]
+        let value_f = value as f64;
+        let round = |value: f64| {
+            if (value - value.round()).abs() < 0.05 {
+                format!("{}", value.round() as i64)
+            } else {
+                format!("{value:.1}")
+            }
+        };
+        match self {
+            Self::Seconds if value >= 3600 => Some(ptt_runtime::report_text::fill(
+                text.unit_hours,
+                &[&round(value_f / 3600.0)],
+            )),
+            Self::Seconds if value >= 60 => Some(ptt_runtime::report_text::fill(
+                text.unit_minutes,
+                &[&round(value_f / 60.0)],
+            )),
+            Self::Seconds | Self::None => None,
+            Self::BasisPoints => Some(ptt_runtime::report_text::fill(
+                text.unit_percent,
+                &[&format!("{:.2}", value_f / 100.0)],
+            )),
+            Self::PercentTimes => Some(ptt_runtime::report_text::fill(
+                text.unit_times,
+                &[&round(value_f / 100.0)],
+            )),
+        }
     }
 }

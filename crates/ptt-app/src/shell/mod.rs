@@ -143,6 +143,37 @@ impl Page {
     }
 }
 
+/// The settings page's four segments (§10):基本 / 浮窗 / 赛季与存储 / 算法参数。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SettingsSegment {
+    Basic,
+    Hud,
+    Season,
+    Params,
+}
+
+impl SettingsSegment {
+    const ALL: [Self; 4] = [Self::Basic, Self::Hud, Self::Season, Self::Params];
+
+    fn label(self, text: &'static crate::i18n::Text) -> &'static str {
+        match self {
+            Self::Basic => text.seg_basic,
+            Self::Hud => text.seg_hud,
+            Self::Season => text.seg_season,
+            Self::Params => text.seg_params,
+        }
+    }
+
+    const fn element_id(self) -> &'static str {
+        match self {
+            Self::Basic => "seg-basic",
+            Self::Hud => "seg-hud",
+            Self::Season => "seg-season",
+            Self::Params => "seg-params",
+        }
+    }
+}
+
 /// Everything one accepted book said, kept as a single value.
 ///
 /// These fields are only meaningful together, and keeping them apart cost a
@@ -247,6 +278,8 @@ pub struct AppShell {
     /// 兑换页选中的路线(在当前排序下的行号对应的路线身份,存路径本身,
     /// 排序切换后仍指向同一条路线)。
     pub(crate) convert_selected_route: Option<Vec<String>>,
+    /// 设置页当前打开的分段。
+    pub(crate) settings_segment: SettingsSegment,
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
@@ -501,6 +534,7 @@ impl AppShell {
             show_ignored_probes: false,
             convert_sort_by_depth: false,
             convert_selected_route: None,
+            settings_segment: SettingsSegment::Basic,
             report_stale: true,
         }
     }
@@ -1436,22 +1470,7 @@ impl Render for AppShell {
                     .overflow_hidden()
                     .child(self.nav_rail(cx))
                     .child(if self.page == Page::Settings {
-                        div()
-                            .flex_grow()
-                            .min_h(px(0.))
-                            .flex()
-                            .child(crate::ui::scrollable(
-                                div()
-                                    .flex_grow()
-                                    .flex()
-                                    .flex_col()
-                                    .gap(px(SP_8))
-                                    .p(px(SP_10))
-                                    .child(self.settings_panel(cx))
-                                    .child(self.season_panel(cx))
-                                    .child(self.tuning_panel(cx)),
-                                "settings-scroll",
-                            ))
+                        self.render_settings_page(cx)
                     } else if self.page == Page::Monitor {
                         self.render_monitor(cx)
                     } else if self.page == Page::Opportunities {

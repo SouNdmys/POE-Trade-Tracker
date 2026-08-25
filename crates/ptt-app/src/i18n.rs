@@ -492,6 +492,33 @@ pub struct Text {
     pub cal_list_header: &'static str,
     /// 画布标题栏里的缩放读数:`缩放 {}`
     pub cal_zoom_label: &'static str,
+
+    // -- settings page segments (§10 定稿 = 13a) --
+    pub seg_basic: &'static str,
+    pub seg_hud: &'static str,
+    pub seg_season: &'static str,
+    pub seg_params: &'static str,
+    /// 参数六组的组名。
+    pub group_freshness: &'static str,
+    pub group_scan: &'static str,
+    pub group_liquidity: &'static str,
+    pub group_trend: &'static str,
+    pub group_anomaly: &'static str,
+    pub group_storage: &'static str,
+    /// 单位换算(金字,§10:秒数直接换算、bp 旁边给百分比)。
+    pub unit_hours: &'static str,
+    pub unit_minutes: &'static str,
+    pub unit_percent: &'static str,
+    pub unit_times: &'static str,
+    /// `有 {} 项改动未应用`
+    pub tuning_pending: &'static str,
+    pub tuning_reset: &'static str,
+    /// 右下角说一次的换算注脚。
+    pub tuning_bp_hint: &'static str,
+    /// 浮窗段的三条热键行。
+    pub hud_hotkey_watch: &'static str,
+    pub hud_hotkey_toggle: &'static str,
+    pub hud_hotkey_capture: &'static str,
 }
 
 impl Text {
@@ -808,6 +835,26 @@ impl Text {
             ("cal_state_preset", self.cal_state_preset),
             ("cal_list_header", self.cal_list_header),
             ("cal_zoom_label", self.cal_zoom_label),
+            ("seg_basic", self.seg_basic),
+            ("seg_hud", self.seg_hud),
+            ("seg_season", self.seg_season),
+            ("seg_params", self.seg_params),
+            ("group_freshness", self.group_freshness),
+            ("group_scan", self.group_scan),
+            ("group_liquidity", self.group_liquidity),
+            ("group_trend", self.group_trend),
+            ("group_anomaly", self.group_anomaly),
+            ("group_storage", self.group_storage),
+            ("unit_hours", self.unit_hours),
+            ("unit_minutes", self.unit_minutes),
+            ("unit_percent", self.unit_percent),
+            ("unit_times", self.unit_times),
+            ("tuning_pending", self.tuning_pending),
+            ("tuning_reset", self.tuning_reset),
+            ("tuning_bp_hint", self.tuning_bp_hint),
+            ("hud_hotkey_watch", self.hud_hotkey_watch),
+            ("hud_hotkey_toggle", self.hud_hotkey_toggle),
+            ("hud_hotkey_capture", self.hud_hotkey_capture),
         ]
     }
 }
@@ -1142,6 +1189,27 @@ pub static ENGLISH: Text = Text {
     cal_state_preset: "preset only",
     cal_list_header: "REGIONS",
     cal_zoom_label: "zoom {}",
+
+    seg_basic: "Basics",
+    seg_hud: "Overlay",
+    seg_season: "Season & storage",
+    seg_params: "Algorithm",
+    group_freshness: "FRESHNESS",
+    group_scan: "SCAN & RESULTS",
+    group_liquidity: "LIQUIDITY & OUTLIERS",
+    group_trend: "TREND & SUPPLY",
+    group_anomaly: "ANOMALY THRESHOLDS",
+    group_storage: "STORAGE",
+    unit_hours: "= {} h",
+    unit_minutes: "= {} min",
+    unit_percent: "= {}%",
+    unit_times: "= {}x",
+    tuning_pending: "{} changes not applied yet",
+    tuning_reset: "reset to defaults",
+    tuning_bp_hint: "100 bp = 1%",
+    hud_hotkey_watch: "watch toggle",
+    hud_hotkey_toggle: "overlay toggle",
+    hud_hotkey_capture: "capture one frame",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1474,6 +1542,27 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     cal_state_preset: "只有预设",
     cal_list_header: "三个区域",
     cal_zoom_label: "缩放 {}",
+
+    seg_basic: "基本",
+    seg_hud: "浮窗",
+    seg_season: "赛季与存储",
+    seg_params: "算法参数",
+    group_freshness: "数据新鲜度",
+    group_scan: "扫描与结果",
+    group_liquidity: "流动性与离群",
+    group_trend: "趋势与供需",
+    group_anomaly: "异常阈值",
+    group_storage: "存储",
+    unit_hours: "= {} 小时",
+    unit_minutes: "= {} 分钟",
+    unit_percent: "= {}%",
+    unit_times: "= {} 倍",
+    tuning_pending: "有 {} 项改动未应用",
+    tuning_reset: "还原默认",
+    tuning_bp_hint: "100 bp = 1%",
+    hud_hotkey_watch: "监视开关",
+    hud_hotkey_toggle: "浮窗开关",
+    hud_hotkey_capture: "手动抓一帧",
 };
 
 #[cfg(test)]
