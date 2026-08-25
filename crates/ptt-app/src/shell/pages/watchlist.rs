@@ -404,7 +404,7 @@ impl AppShell {
                 let role_variant = gpui_component::button::ButtonCustomVariant::new(cx)
                     .color(hsla_of(PANEL))
                     .foreground(hsla_of(TEXT_SECONDARY))
-                    .border(hsla_of(HAIRLINE))
+                    .border(hsla_of(HAIRLINE_STRONG))
                     .hover(hsla_of(HOVER))
                     .active(hsla_of(PRESSED));
                 use gpui_component::button::ButtonVariants as _;

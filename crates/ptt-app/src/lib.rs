@@ -7,6 +7,7 @@
 //! compile the shared kit twice and report every widget one of them happens
 //! not to use as dead code.
 
+pub mod assets;
 pub mod backend;
 pub mod calibrate;
 pub mod i18n;
@@ -27,29 +28,33 @@ pub const WORKBENCH_SIZE: (f32, f32) = (1180.0, 640.0);
 
 /// Opens the product window and runs until it closes.
 pub fn run() {
-    Application::new().run(move |cx: &mut App| {
-        gpui_component::init(cx);
-        theme::apply_app_theme(cx);
+    // 不注册资源源,gpui-component 的 SVG 图标(下拉箭头、菜单勾)会静默
+    // 画成空白。
+    Application::new()
+        .with_assets(assets::Assets)
+        .run(move |cx: &mut App| {
+            gpui_component::init(cx);
+            theme::apply_app_theme(cx);
 
-        let (width, height) = WORKBENCH_SIZE;
-        let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("POE Trade Tracker".into()),
+            let (width, height) = WORKBENCH_SIZE;
+            let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("POE Trade Tracker".into()),
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                }),
-                ..Default::default()
-            },
-            |window, cx| {
-                let view = cx.new(|cx| AppShell::new(window, cx));
-                let focus = view.read(cx).focus_handle.clone();
-                window.focus(&focus);
-                cx.new(|cx| Root::new(view, window, cx))
-            },
-        )
-        .expect("failed to open window");
-        cx.activate(true);
-    });
+                },
+                |window, cx| {
+                    let view = cx.new(|cx| AppShell::new(window, cx));
+                    let focus = view.read(cx).focus_handle.clone();
+                    window.focus(&focus);
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
+            )
+            .expect("failed to open window");
+            cx.activate(true);
+        });
 }

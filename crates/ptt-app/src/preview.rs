@@ -520,27 +520,29 @@ impl Render for Gallery {
 }
 
 fn main() {
-    Application::new().run(move |cx: &mut App| {
-        gpui_component::init(cx);
-        theme::apply_app_theme(cx);
+    Application::new()
+        .with_assets(ptt_app::assets::Assets)
+        .run(move |cx: &mut App| {
+            gpui_component::init(cx);
+            theme::apply_app_theme(cx);
 
-        let (width, height) = PREVIEW_SIZE;
-        let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("POE Trade Tracker — UI preview".into()),
+            let (width, height) = PREVIEW_SIZE;
+            let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("POE Trade Tracker — UI preview".into()),
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                }),
-                ..Default::default()
-            },
-            |window, cx| {
-                let view = cx.new(|cx| Gallery::new(window, cx));
-                cx.new(|cx| Root::new(view, window, cx))
-            },
-        )
-        .expect("failed to open preview window");
-        cx.activate(true);
-    });
+                },
+                |window, cx| {
+                    let view = cx.new(|cx| Gallery::new(window, cx));
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
+            )
+            .expect("failed to open preview window");
+            cx.activate(true);
+        });
 }
