@@ -1400,6 +1400,21 @@ pub fn convert_model(
             need_structural: None,
         });
     }
+    // 同关注列表:窗口里没数据是空页,不是故障。
+    if observations.is_empty() {
+        return Ok(ConvertModel {
+            notes: vec![
+                crate::report_text::report(language)
+                    .no_data_in_window
+                    .to_owned(),
+            ],
+            have: have.clone(),
+            need: need.clone(),
+            sizes: Vec::new(),
+            maker: None,
+            need_structural: None,
+        });
+    }
     let market = build_market(observations, context_key, tuning, language)?;
     let sizes = convert_sizes(holdings, tuning);
     let max_hops = u8::try_from(tuning.convert.max_hops.clamp(1, 4)).unwrap_or(3);
@@ -2033,6 +2048,25 @@ pub fn watchlist_model(
     language: UiLanguage,
     pulse: Option<&ptt_strategy::MarketPulse>,
 ) -> Result<WatchlistModel, String> {
+    // 数据掉出报表窗口后观测是空的,引擎会拒绝空的单位目录——那是个
+    // 正当的拒绝,但对读者来说"太久没抓"是安静的空页,不是整页故障。
+    if observations.is_empty() {
+        let (policy, policy_warning) = market_policy_from(tuning, league, language);
+        let mut notes = vec![
+            crate::report_text::report(language)
+                .no_data_in_window
+                .to_owned(),
+        ];
+        notes.extend(policy_warning);
+        return Ok(WatchlistModel {
+            notes,
+            core_liquidity: policy.core_liquidity,
+            valuations: Vec::new(),
+            coverage: CoverageOutcome::NotComputed,
+            suggestions: Vec::new(),
+            anchors: Vec::new(),
+        });
+    }
     let market = build_market(observations, context_key, tuning, language)?;
     let (policy, policy_warning) = market_policy_from(tuning, league, language);
     let mut notes = market.notes.clone();
@@ -2677,6 +2711,22 @@ pub fn history_model(
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<HistoryModel, String> {
+    // 同关注列表:窗口里没数据是空页,不是故障。
+    if observations.is_empty() {
+        return Ok(HistoryModel {
+            notes: vec![
+                crate::report_text::report(language)
+                    .no_data_in_window
+                    .to_owned(),
+            ],
+            have: have.clone(),
+            need: need.clone(),
+            summary: None,
+            light: None,
+            candles: Vec::new(),
+            anomalies: Vec::new(),
+        });
+    }
     let market = build_market(observations, context_key, tuning, language)?;
     let points = price_points(&market.selected, have, need);
     if points.is_empty() {
@@ -4226,6 +4276,49 @@ mod structural_tests {
         drop_ignored_probes(&mut candidates, &tuning);
         assert_eq!(candidates.len(), 1, "only the ignored direction goes");
         assert_eq!(candidates[0].from_asset_id.as_str(), "greater-chaos-orb");
+    }
+
+    /// An empty report window is a quiet page, not a fault. The engine
+    /// refuses an empty unit catalog (rightly), but before this guard that
+    /// refusal surfaced as a raw English error replacing the whole page —
+    /// on watchlist, convert and history alike — whenever the newest
+    /// capture aged out of the report window.
+    #[test]
+    fn an_empty_window_is_an_empty_page_not_a_fault() {
+        let tuning = MarketTuning::default();
+
+        let watchlist = watchlist_model(&[], "ctx", "league", &tuning, UiLanguage::Chinese, None)
+            .expect("watchlist: empty window is not a fault");
+        assert!(watchlist.valuations.is_empty());
+        assert!(
+            !watchlist.notes.is_empty(),
+            "the page must say why it is empty"
+        );
+
+        let convert = convert_model(
+            &[],
+            "ctx",
+            &asset("chaos-orb"),
+            &asset("divine-orb"),
+            None,
+            &tuning,
+            UiLanguage::Chinese,
+            None,
+        )
+        .expect("convert: empty window is not a fault");
+        assert!(convert.sizes.is_empty());
+        assert!(!convert.notes.is_empty());
+
+        let history = history_model(
+            &[],
+            "ctx",
+            &asset("chaos-orb"),
+            &asset("divine-orb"),
+            &tuning,
+            UiLanguage::Chinese,
+        )
+        .expect("history: empty window is not a fault");
+        assert!(history.summary.is_none());
     }
 
     /// Ignoring a pair silences the gap everywhere, not only the probe
