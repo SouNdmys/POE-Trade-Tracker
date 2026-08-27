@@ -731,7 +731,7 @@ impl AppShell {
             );
 
         // 画布脚注(12a):图例说明两种框,右侧是鼠标的源图坐标。
-        let legend_swatch = |color: u32| {
+        let legend_swatch = |color: Token| {
             div()
                 .size(px(10.))
                 .flex_none()

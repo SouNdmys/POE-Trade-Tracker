@@ -319,6 +319,9 @@ pub struct Text {
     pub language_label: &'static str,
     pub game_label: &'static str,
     pub client_language_label: &'static str,
+    pub theme_label: &'static str,
+    pub theme_dark: &'static str,
+    pub theme_light: &'static str,
     pub restart_watch_to_apply: &'static str,
 
     // -- data-page table columns --
@@ -801,6 +804,9 @@ impl Text {
             ("language_label", self.language_label),
             ("game_label", self.game_label),
             ("client_language_label", self.client_language_label),
+            ("theme_label", self.theme_label),
+            ("theme_dark", self.theme_dark),
+            ("theme_light", self.theme_light),
             ("restart_watch_to_apply", self.restart_watch_to_apply),
             ("radar_column_kind", self.radar_column_kind),
             ("radar_column_route", self.radar_column_route),
@@ -1187,6 +1193,9 @@ pub static ENGLISH: Text = Text {
     language_label: "Language",
     game_label: "Game",
     client_language_label: "Client",
+    theme_label: "Theme",
+    theme_dark: "Dark",
+    theme_light: "Light",
     restart_watch_to_apply: "restart the watch to apply",
 
     radar_column_kind: "kind",
@@ -1606,6 +1615,9 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     language_label: "界面语言",
     game_label: "游戏",
     client_language_label: "游戏语言",
+    theme_label: "界面配色",
+    theme_dark: "深色",
+    theme_light: "浅色",
     restart_watch_to_apply: "重新开始监视后生效",
 
     radar_column_kind: "种类",

@@ -544,6 +544,49 @@ impl AppShell {
                         })),
                 )
                 .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(90.0))
+                                .text_size(fs(FS_12))
+                                .text_color(c(TEXT_META))
+                                .child(text.theme_label),
+                        )
+                        .children(
+                            [
+                                ("theme-dark", ptt_settings::UiTheme::Dark, text.theme_dark),
+                                (
+                                    "theme-light",
+                                    ptt_settings::UiTheme::Light,
+                                    text.theme_light,
+                                ),
+                            ]
+                            .map(|(id, theme, label)| {
+                                button(
+                                    id,
+                                    if theme == self.settings.ui_theme {
+                                        LedgerButton::Primary
+                                    } else {
+                                        LedgerButton::Quiet
+                                    },
+                                    label,
+                                    cx,
+                                )
+                                // 这一行的 `window` 在邻居那里是丢掉的 `_`。
+                                // 换肤必须拿到它:见 `set_theme`。
+                                .on_click(cx.listener(
+                                    move |this, _, window: &mut gpui::Window, cx| {
+                                        this.set_theme(theme, window, cx);
+                                        cx.notify();
+                                    },
+                                ))
+                            }),
+                        ),
+                )
+                .child(
                     mono(hotkey_line)
                         .text_size(fs(FS_10_5))
                         .text_color(c(TEXT_META)),
@@ -632,6 +675,40 @@ impl AppShell {
         if let Err(error) = self.settings_store.save(&self.settings) {
             self.push_log(format!("could not save language: {error}"));
         }
+    }
+
+    /// Switches the interface palette and persists it.
+    ///
+    /// 换语言只要换一份字符串表,下一帧自然就对了;换配色要走三步,少任何
+    /// 一步都是「点了一半生效」:
+    ///
+    /// 一、`set_palette` 拨我们自己的取色开关,页面代码里那几百处 `c(...)`
+    /// 从下一帧起改读新调色板。
+    /// 二、`apply_app_theme` 把新色重新抄进 gpui-component 的主题结构体。
+    /// 上游组件(输入框、下拉、开关、滚动条、表格)的颜色是启动时拷进去的
+    /// 一份**快照**,不重抄就一直是旧色。这里不能用上游的 `Theme::change`:
+    /// 它会顺手 `apply_config`,把字体、字号、圆角、阴影连同一百多个颜色
+    /// 字段全部推回上游默认值,整套设计系统当场消失。
+    /// 三、`window.refresh()` 把整个窗口标脏。`cx.notify()` 顶替不了:它只
+    /// 重画外壳,而那二十多个长活的 `Entity<InputState>` 和雷达表各自持有
+    /// 渲染,不标脏就还画在上一套皮肤里。
+    #[cfg(windows)]
+    pub(crate) fn set_theme(
+        &mut self,
+        theme: ptt_settings::UiTheme,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.settings.ui_theme == theme {
+            return;
+        }
+        self.settings.ui_theme = theme;
+        if let Err(error) = self.settings_store.save(&self.settings) {
+            self.push_log(format!("could not save theme: {error}"));
+        }
+        set_palette(palette_mode_for(theme));
+        apply_app_theme(cx);
+        window.refresh();
     }
 
     #[cfg(not(windows))]

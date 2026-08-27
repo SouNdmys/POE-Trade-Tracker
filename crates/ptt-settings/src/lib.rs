@@ -25,6 +25,17 @@ pub enum UiLanguage {
     Chinese,
 }
 
+/// 界面配色。深色是定稿的那一套,浅色是同一批语义整个翻过来的对位。
+///
+/// 存在设置里而不是跟着系统走:这个工具是叠在游戏窗口边上用的,亮暗该由
+/// 用户按当时的游戏画面定,不该由操作系统的日夜设置替他定。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum UiTheme {
+    #[default]
+    Dark,
+    Light,
+}
+
 /// A desktop-pixel rectangle (virtual-screen coordinates).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Region {
@@ -530,6 +541,8 @@ pub struct AppSettings {
     pub schema_version: u32,
     #[serde(default)]
     pub ui_language: UiLanguage,
+    #[serde(default)]
+    pub ui_theme: UiTheme,
     #[serde(default = "default_active_profile")]
     pub active_profile: ProfileId,
     #[serde(default)]
@@ -619,6 +632,7 @@ impl Default for AppSettings {
         Self {
             schema_version: CURRENT_SCHEMA_VERSION,
             ui_language: UiLanguage::default(),
+            ui_theme: UiTheme::default(),
             active_profile: default_active_profile(),
             profiles: BTreeMap::new(),
             hotkeys: Hotkeys::default(),
@@ -825,6 +839,7 @@ mod tests {
         let store = temp_store("round-trip");
         let mut settings = AppSettings {
             ui_language: UiLanguage::Chinese,
+            ui_theme: UiTheme::Light,
             ..AppSettings::default()
         };
         settings.profile_mut(default_active_profile()).tables_region = Some(Region {
@@ -864,6 +879,9 @@ mod tests {
         let loaded = store.load();
         assert_eq!(loaded.status, LoadStatus::Loaded);
         assert_eq!(loaded.settings.ui_language, UiLanguage::Chinese);
+        // 配色是后加的键。老文件里没有它,整份设置也不许因此读不出来——
+        // 缺一个键就回落成全盘默认值,等于用户的标定和热键一起没了。
+        assert_eq!(loaded.settings.ui_theme, UiTheme::Dark);
         let tuning = loaded.settings.market_tuning(Game::Poe2);
         assert_eq!(tuning, MarketTuning::default());
         assert_eq!(tuning.settlement_assets, ["divine-orb", "chaos-orb"]);

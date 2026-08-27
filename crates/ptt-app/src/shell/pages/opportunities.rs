@@ -127,7 +127,7 @@ pub fn route_text(
 /// near the same size. The comparison against direct is still worth having
 /// and is on the detail panel.
 #[must_use]
-pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, u32) {
+pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, Token) {
     item.round_trip_basis_points.map_or_else(
         || (report_text::report(language).unpriced.to_owned(), TEXT_META),
         |points| {
@@ -573,7 +573,7 @@ impl AppShell {
         // 34px 事实带(§3):起点 / 目标 / 可定价 / 缺价 / 闭环·有得赚 / 门槛。
         // 之前是三行流水账句子;事实带一眼扫过去,句子只在出问题时出现。
         let divider = || div().w(px(1.)).h(px(20.)).flex_none().bg(c(HAIRLINE_SOFT));
-        let stat = |label: &'static str, value: String, color: u32| {
+        let stat = |label: &'static str, value: String, color: Token| {
             div()
                 .h_flex()
                 .items_baseline()

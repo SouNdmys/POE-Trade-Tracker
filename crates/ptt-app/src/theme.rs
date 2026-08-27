@@ -12,118 +12,433 @@
 // Later phases will consume the remaining tokens/components; keep the full set.
 #![allow(dead_code)]
 
+use std::sync::atomic::{AtomicU8, Ordering};
+
 use gpui::{App, Hsla, Pixels, Rgba, px};
 
 use gpui_component::theme::{Theme, ThemeColor, ThemeMode};
+
+// ---------------------------------------------------------------------------
+// Tokens
+// ---------------------------------------------------------------------------
+
+/// 一个颜色**槽位**,不是一个颜色。
+///
+/// 名字挂在角色上("面板底"、"次级文字"),值挂在调色板上,深色和浅色各有一份。
+/// 页面代码写的是槽位,所以整套界面换肤时页面一行都不用改。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Token {
+    Canvas,
+    Panel,
+    Rail,
+    RailDeep,
+    Zebra,
+    Well,
+    Hover,
+    Selected,
+    SelectedWash,
+    Pressed,
+    HairlineSoft,
+    Hairline,
+    HairlineStrong,
+    Titlebar,
+    TitlebarText,
+    TitlebarBorder,
+    TextPrimary,
+    TextSecondary,
+    TextMeta,
+    TextDisabled,
+    TextGhost,
+    TextData,
+    Accent,
+    AccentText,
+    AccentLine,
+    AccentWash,
+    AccentFill,
+    AccentHover,
+    AccentPressed,
+    OnAccent,
+    AccentChipText,
+    Fresh,
+    Warn,
+    WarnText,
+    WarnLine,
+    WarnWash,
+    Danger,
+    DangerText,
+    DangerLine,
+    DangerWash,
+    NeutralDot,
+    DisabledDot,
+}
 
 // ---------------------------------------------------------------------------
 // Surfaces
 // ---------------------------------------------------------------------------
 
 /// canvas · 窗口底
-pub const CANVAS: u32 = 0x12151B;
+pub const CANVAS: Token = Token::Canvas;
 /// panel · 内容面
-pub const PANEL: u32 = 0x171B23;
+pub const PANEL: Token = Token::Panel;
 /// rail · 栏 / 表头
-pub const RAIL: u32 = 0x1C212B;
+pub const RAIL: Token = Token::Rail;
 /// 比 rail 再深一档的栏底(设置页分段栏、部分页内工具条)
-pub const RAIL_DEEP: u32 = 0x141922;
+pub const RAIL_DEEP: Token = Token::RailDeep;
 /// 斑马行(表格偶数行)
-pub const ZEBRA: u32 = 0x1A1F28;
+pub const ZEBRA: Token = Token::Zebra;
 /// well · 输入位(唯一近黑)
-pub const WELL: u32 = 0x0E1116;
+pub const WELL: Token = Token::Well;
 /// hover(只改底色;三态取色是待定项,这是临时值:panel 与选中底之间)
-pub const HOVER: u32 = 0x1E242E;
-/// selected(配 2px 左边框强调色)
-pub const SELECTED: u32 = 0x232B3A;
+pub const HOVER: Token = Token::Hover;
+/// selected · 选中行的**实底**(配 2px 左边框强调色)。
+pub const SELECTED: Token = Token::Selected;
+/// selected 的另一半:喂给 `list_active` / `table_active` 的**淡染色**。
+///
+/// 和 `SELECTED` 分家是因为两个岗位在浅色底下互相排斥:能读黑字的实底
+/// 一压到 20% 透明就什么也看不见,而经得起 20% 透明的浓色当实底又会把
+/// 文字埋掉。深色底下一个值能同时干两件事,所以深色两个 token 取同一个
+/// 十六进制值,渲染结果与拆分前逐字节相同。
+pub const SELECTED_WASH: Token = Token::SelectedWash;
 /// 选中底的不透明度上限。上游把选中高亮画在行**上面**(绝对定位块),不是画在
 /// 行背后,实底会把整行文字盖掉;上游主题装载器为此自己夹到 0.2,而我们直接写
 /// colors 结构体绕过了那道夹取,所以夹取在这里补。选中感交给 *_active_border。
 pub const SELECTED_WASH_ALPHA: f32 = 0.2;
 /// pressed(临时值:比选中底再亮一档;深色主题里按下向亮走)
-pub const PRESSED: u32 = 0x283040;
+pub const PRESSED: Token = Token::Pressed;
 
 /// hairline-soft · 行分隔
-pub const HAIRLINE_SOFT: u32 = 0x222834;
+pub const HAIRLINE_SOFT: Token = Token::HairlineSoft;
 /// hairline · 区块 / 输入
-pub const HAIRLINE: u32 = 0x2B323F;
+pub const HAIRLINE: Token = Token::Hairline;
 /// hairline-strong · 窗口 / 表外框 / 顶条下缘
-pub const HAIRLINE_STRONG: u32 = 0x39424F;
+pub const HAIRLINE_STRONG: Token = Token::HairlineStrong;
 
 /// 系统标题栏(原型 1a:比 canvas 更中性的近黑,配纯黑下缘)
-pub const TITLEBAR: u32 = 0x1B1B1D;
-pub const TITLEBAR_TEXT: u32 = 0xB8BCC4;
-pub const TITLEBAR_BORDER: u32 = 0x000000;
+pub const TITLEBAR: Token = Token::Titlebar;
+pub const TITLEBAR_TEXT: Token = Token::TitlebarText;
+pub const TITLEBAR_BORDER: Token = Token::TitlebarBorder;
 
 // ---------------------------------------------------------------------------
 // Text(文字四级 + 数据色)
 // ---------------------------------------------------------------------------
 
 /// 主文字 · 值 · 活动项
-pub const TEXT_PRIMARY: u32 = 0xE6E9EF;
+pub const TEXT_PRIMARY: Token = Token::TextPrimary;
 /// 次级 · 未选中项 · 正文
-pub const TEXT_SECONDARY: u32 = 0xA9B1BE;
+pub const TEXT_SECONDARY: Token = Token::TextSecondary;
 /// 元数据 · label · 计数
-pub const TEXT_META: u32 = 0x78828F;
+pub const TEXT_META: Token = Token::TextMeta;
 /// 禁用 · 占位(有意最低可读档)
-pub const TEXT_DISABLED: u32 = 0x59616E;
+pub const TEXT_DISABLED: Token = Token::TextDisabled;
 /// 幽灵灰 · 路径箭头 / 占位横杠 / 空档柱(比禁用还低一档,允许读不清——
 /// 它标记的是"这里没有信息",读清了反而抢戏)
-pub const TEXT_GHOST: u32 = 0x3F4650;
+pub const TEXT_GHOST: Token = Token::TextGhost;
 /// 等宽数值
-pub const TEXT_DATA: u32 = 0xD9E0EA;
+pub const TEXT_DATA: Token = Token::TextData;
 
 // ---------------------------------------------------------------------------
 // 主题强调(暖金)——只作文字与细线,不作大面积填充
 // ---------------------------------------------------------------------------
 
 /// 金 · 状态点 / 2px 左边框 / Primary 底
-pub const ACCENT: u32 = 0xD9B978;
+pub const ACCENT: Token = Token::Accent;
 /// 金文字(数值高亮、当前页签、导航激活项)
-pub const ACCENT_TEXT: u32 = 0xE7C88C;
+pub const ACCENT_TEXT: Token = Token::AccentText;
 /// 金描边(选中徽章、摆放模式外框)
-pub const ACCENT_LINE: u32 = 0x6B5A34;
+pub const ACCENT_LINE: Token = Token::AccentLine;
 /// 金底(命中行 wash)
-pub const ACCENT_WASH: u32 = 0x211D13;
+pub const ACCENT_WASH: Token = Token::AccentWash;
 /// 趋势曲线的金填充(市场分析迷你曲线、历史页)
-pub const ACCENT_FILL: u32 = 0x241F14;
+pub const ACCENT_FILL: Token = Token::AccentFill;
 /// Primary hover / pressed(临时值:hover 提亮、pressed 压暗)
-pub const ACCENT_HOVER: u32 = 0xE3C98F;
-pub const ACCENT_PRESSED: u32 = 0xC7A863;
+pub const ACCENT_HOVER: Token = Token::AccentHover;
+pub const ACCENT_PRESSED: Token = Token::AccentPressed;
 /// 金底上的深色文字(Primary 按钮字色)
-pub const ON_ACCENT: u32 = 0x12151B;
+pub const ON_ACCENT: Token = Token::OnAccent;
 /// Primary 上的热键 chip 文字
-pub const ACCENT_CHIP_TEXT: u32 = 0x211D13;
+pub const ACCENT_CHIP_TEXT: Token = Token::AccentChipText;
 
 // ---------------------------------------------------------------------------
 // 语义三色(红黄绿被数据新鲜度占用,主题不得挪用;永远配汉字)
 // ---------------------------------------------------------------------------
 
 /// 绿 · 新鲜(只作 6px 圆点等色块,文字保持灰阶)
-pub const FRESH: u32 = 0x45A96B;
+pub const FRESH: Token = Token::Fresh;
 
 /// 琥珀 · 偏旧 / 需要注意(色块:圆点、2px 左条)
-pub const WARN: u32 = 0xE08A3C;
+pub const WARN: Token = Token::Warn;
 /// 琥珀徽章文字
-pub const WARN_TEXT: u32 = 0xE5A24E;
+pub const WARN_TEXT: Token = Token::WarnText;
 /// 琥珀徽章描边(徽章=透明底+描边+色字)
-pub const WARN_LINE: u32 = 0x6B4A20;
+pub const WARN_LINE: Token = Token::WarnLine;
 /// 琥珀 wash(注意条底;临时值,原型徽章全部透明底,wash 只剩注意条在用)
-pub const WARN_WASH: u32 = 0x221A0E;
+pub const WARN_WASH: Token = Token::WarnWash;
 
 /// 砖红 · 过期 / 错误 / 命中(色块)
-pub const DANGER: u32 = 0xD0564B;
+pub const DANGER: Token = Token::Danger;
 /// 砖红文字(负收益是「色字=主题」的唯一批准例外)
-pub const DANGER_TEXT: u32 = 0xE0705F;
+pub const DANGER_TEXT: Token = Token::DangerText;
 /// 砖红描边(临时值,按琥珀描边的明度比例配;原型里红没有徽章形态)
-pub const DANGER_LINE: u32 = 0x6B2A24;
+pub const DANGER_LINE: Token = Token::DangerLine;
 /// 砖红 wash · 兼趋势曲线的红填充
-pub const DANGER_WASH: u32 = 0x241614;
+pub const DANGER_WASH: Token = Token::DangerWash;
 
 /// 中性状态点(ready / idle)
-pub const NEUTRAL_DOT: u32 = 0x59616E;
+pub const NEUTRAL_DOT: Token = Token::NeutralDot;
 /// disabled 圆点
-pub const DISABLED_DOT: u32 = 0x2B323F;
+pub const DISABLED_DOT: Token = Token::DisabledDot;
+
+// ---------------------------------------------------------------------------
+// Palettes
+// ---------------------------------------------------------------------------
+
+/// 一整套颜色值,每个槽位一格。
+pub struct Palette {
+    pub canvas: u32,
+    pub panel: u32,
+    pub rail: u32,
+    pub rail_deep: u32,
+    pub zebra: u32,
+    pub well: u32,
+    pub hover: u32,
+    pub selected: u32,
+    pub selected_wash: u32,
+    pub pressed: u32,
+    pub hairline_soft: u32,
+    pub hairline: u32,
+    pub hairline_strong: u32,
+    pub titlebar: u32,
+    pub titlebar_text: u32,
+    pub titlebar_border: u32,
+    pub text_primary: u32,
+    pub text_secondary: u32,
+    pub text_meta: u32,
+    pub text_disabled: u32,
+    pub text_ghost: u32,
+    pub text_data: u32,
+    pub accent: u32,
+    pub accent_text: u32,
+    pub accent_line: u32,
+    pub accent_wash: u32,
+    pub accent_fill: u32,
+    pub accent_hover: u32,
+    pub accent_pressed: u32,
+    pub on_accent: u32,
+    pub accent_chip_text: u32,
+    pub fresh: u32,
+    pub warn: u32,
+    pub warn_text: u32,
+    pub warn_line: u32,
+    pub warn_wash: u32,
+    pub danger: u32,
+    pub danger_text: u32,
+    pub danger_line: u32,
+    pub danger_wash: u32,
+    pub neutral_dot: u32,
+    pub disabled_dot: u32,
+}
+
+impl Palette {
+    /// 槽位 → 十六进制。
+    ///
+    /// 写成穷尽 `match` 而不是数组下标,是为了让"加了槽位却忘了配值"变成
+    /// 编译错误。数组的话少填一格只会静默用错颜色,那种 bug 得靠眼睛发现。
+    pub fn hex(&self, token: Token) -> u32 {
+        match token {
+            Token::Canvas => self.canvas,
+            Token::Panel => self.panel,
+            Token::Rail => self.rail,
+            Token::RailDeep => self.rail_deep,
+            Token::Zebra => self.zebra,
+            Token::Well => self.well,
+            Token::Hover => self.hover,
+            Token::Selected => self.selected,
+            Token::SelectedWash => self.selected_wash,
+            Token::Pressed => self.pressed,
+            Token::HairlineSoft => self.hairline_soft,
+            Token::Hairline => self.hairline,
+            Token::HairlineStrong => self.hairline_strong,
+            Token::Titlebar => self.titlebar,
+            Token::TitlebarText => self.titlebar_text,
+            Token::TitlebarBorder => self.titlebar_border,
+            Token::TextPrimary => self.text_primary,
+            Token::TextSecondary => self.text_secondary,
+            Token::TextMeta => self.text_meta,
+            Token::TextDisabled => self.text_disabled,
+            Token::TextGhost => self.text_ghost,
+            Token::TextData => self.text_data,
+            Token::Accent => self.accent,
+            Token::AccentText => self.accent_text,
+            Token::AccentLine => self.accent_line,
+            Token::AccentWash => self.accent_wash,
+            Token::AccentFill => self.accent_fill,
+            Token::AccentHover => self.accent_hover,
+            Token::AccentPressed => self.accent_pressed,
+            Token::OnAccent => self.on_accent,
+            Token::AccentChipText => self.accent_chip_text,
+            Token::Fresh => self.fresh,
+            Token::Warn => self.warn,
+            Token::WarnText => self.warn_text,
+            Token::WarnLine => self.warn_line,
+            Token::WarnWash => self.warn_wash,
+            Token::Danger => self.danger,
+            Token::DangerText => self.danger_text,
+            Token::DangerLine => self.danger_line,
+            Token::DangerWash => self.danger_wash,
+            Token::NeutralDot => self.neutral_dot,
+            Token::DisabledDot => self.disabled_dot,
+        }
+    }
+}
+
+/// 深色「石板灰蓝 + 暖金」,方案 A 定稿值。
+pub static DARK: Palette = Palette {
+    canvas: 0x12151B,
+    panel: 0x171B23,
+    rail: 0x1C212B,
+    rail_deep: 0x141922,
+    zebra: 0x1A1F28,
+    well: 0x0E1116,
+    hover: 0x1E242E,
+    selected: 0x232B3A,
+    // 深色下实底与淡染是同一个值:拆分不改深色一个像素。
+    selected_wash: 0x232B3A,
+    pressed: 0x283040,
+    hairline_soft: 0x222834,
+    hairline: 0x2B323F,
+    hairline_strong: 0x39424F,
+    titlebar: 0x1B1B1D,
+    titlebar_text: 0xB8BCC4,
+    titlebar_border: 0x000000,
+    text_primary: 0xE6E9EF,
+    text_secondary: 0xA9B1BE,
+    text_meta: 0x78828F,
+    text_disabled: 0x59616E,
+    text_ghost: 0x3F4650,
+    text_data: 0xD9E0EA,
+    accent: 0xD9B978,
+    accent_text: 0xE7C88C,
+    accent_line: 0x6B5A34,
+    accent_wash: 0x211D13,
+    accent_fill: 0x241F14,
+    accent_hover: 0xE3C98F,
+    accent_pressed: 0xC7A863,
+    on_accent: 0x12151B,
+    accent_chip_text: 0x211D13,
+    fresh: 0x45A96B,
+    warn: 0xE08A3C,
+    warn_text: 0xE5A24E,
+    warn_line: 0x6B4A20,
+    warn_wash: 0x221A0E,
+    danger: 0xD0564B,
+    danger_text: 0xE0705F,
+    danger_line: 0x6B2A24,
+    danger_wash: 0x241614,
+    neutral_dot: 0x59616E,
+    disabled_dot: 0x2B323F,
+};
+
+/// 浅色对位。同一套语义、同一套色相家族,明暗关系整个翻过来。
+///
+/// 每个值都过了两道尺:正文对面板的对比度,以及金与琥珀的色相距离——
+/// 记在 docs/UI-DESIGN.md,守在本文件底部的测试里。
+pub static LIGHT: Palette = Palette {
+    canvas: 0xE4E9F0,
+    panel: 0xFFFFFF,
+    rail: 0xEFF3F8,
+    rail_deep: 0xDCE2EA,
+    zebra: 0xF5F8FB,
+    well: 0xEDF2F8,
+    hover: 0xE7EDF5,
+    selected: 0xD8E6F8,
+    // 浅色下两个岗位必须分家:能读黑字的浅蓝实底压到 20% 就消失了,
+    // 所以淡染另配一个深得多的蓝。
+    selected_wash: 0x5A8BC8,
+    pressed: 0xDCE4EE,
+    hairline_soft: 0xE7EBF1,
+    hairline: 0xD5DCE6,
+    hairline_strong: 0xB6C0CD,
+    titlebar: 0xF3F3F5,
+    titlebar_text: 0x3A3D42,
+    titlebar_border: 0xD6D8DC,
+    text_primary: 0x171C25,
+    text_secondary: 0x49515F,
+    text_meta: 0x656F7E,
+    text_disabled: 0x8B95A4,
+    text_ghost: 0xC6CDD7,
+    text_data: 0x232A34,
+    accent: 0xAC821F,
+    accent_text: 0x8C6516,
+    accent_line: 0xC29A4B,
+    accent_wash: 0xFAF3E2,
+    accent_fill: 0xF5EAD2,
+    accent_hover: 0x9C751B,
+    accent_pressed: 0x8C6817,
+    on_accent: 0x1B1508,
+    accent_chip_text: 0x2A2110,
+    fresh: 0x2E8B52,
+    warn: 0xC06515,
+    warn_text: 0x8F5410,
+    warn_line: 0xD9A45E,
+    warn_wash: 0xFDF3E3,
+    danger: 0xB93A2E,
+    danger_text: 0xA32E22,
+    danger_line: 0xE2A79F,
+    danger_wash: 0xFCEDEA,
+    neutral_dot: 0x8A94A3,
+    disabled_dot: 0xCFD6DF,
+};
+
+/// 深色还是浅色。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PaletteMode {
+    #[default]
+    Dark,
+    Light,
+}
+
+/// 当前生效的调色板,存成一个原子字节。
+///
+/// 不放进 GPUI 的全局状态,是因为 `c()` 被夹在成百上千条 builder 链中间调用,
+/// 那些位置手上没有 `&App` 可拿——为了换肤给每个组件函数加一个参数,代价是
+/// 五百多个调用点全要改写。一个字节在两个 `&'static` 之间二选一,没有第二个
+/// 变量需要跟它保持先后关系,所以 `Relaxed` 就够。
+static ACTIVE_MODE: AtomicU8 = AtomicU8::new(PaletteMode::Dark as u8);
+
+/// 换肤。下一帧起 `c()` / `hsla_of()` 全部改读新调色板。
+pub fn set_palette(mode: PaletteMode) {
+    ACTIVE_MODE.store(mode as u8, Ordering::Relaxed);
+}
+
+/// 现在是哪一套。
+pub fn palette_mode() -> PaletteMode {
+    if ACTIVE_MODE.load(Ordering::Relaxed) == PaletteMode::Light as u8 {
+        PaletteMode::Light
+    } else {
+        PaletteMode::Dark
+    }
+}
+
+/// 存盘里的那个选项 → 本模块认识的调色板。
+///
+/// 翻译放在这里而不是让调用方各写各的 `match`:启动时读盘的地方和设置页
+/// 点击的地方各有一份的话,某天加第三套皮肤就会漏掉其中一份,表现是"设置
+/// 里选了、重启又变回去"。`ptt-settings` 只在 Windows 上是依赖,所以门控。
+#[cfg(windows)]
+pub fn palette_mode_for(theme: ptt_settings::UiTheme) -> PaletteMode {
+    match theme {
+        ptt_settings::UiTheme::Dark => PaletteMode::Dark,
+        ptt_settings::UiTheme::Light => PaletteMode::Light,
+    }
+}
+
+/// 现在这套的色值表。
+pub fn active_palette() -> &'static Palette {
+    match palette_mode() {
+        PaletteMode::Dark => &DARK,
+        PaletteMode::Light => &LIGHT,
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Typography
@@ -192,14 +507,14 @@ pub const TREE_INDENT: [f32; 3] = [11.0, 24.0, 40.0];
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Hex → Hsla(gpui-component 主题需要 Hsla)。
-pub fn hsla_of(hex: u32) -> Hsla {
-    gpui::rgb(hex).into()
+/// 槽位 → Hsla(gpui-component 主题需要 Hsla)。
+pub fn hsla_of(token: Token) -> Hsla {
+    gpui::rgb(active_palette().hex(token)).into()
 }
 
-/// Convenience:hex → gpui color for direct styling.
-pub fn c(hex: u32) -> Rgba {
-    gpui::rgb(hex)
+/// Convenience:槽位 → gpui color for direct styling.
+pub fn c(token: Token) -> Rgba {
+    gpui::rgb(active_palette().hex(token))
 }
 
 /// 全局字号缩放。
@@ -218,13 +533,19 @@ pub fn fs(v: f32) -> Pixels {
 // gpui-component theme override
 // ---------------------------------------------------------------------------
 
-/// Apply the 方案 A token set on top of gpui-component's dark theme so every
+/// Apply the 方案 A token set on top of gpui-component's stock theme so every
 /// stock component (Input, Dropdown, Checkbox, Switch, scrollbars, ...)
 /// renders in our colors. Call once at startup, before any window opens.
 pub fn apply_app_theme(cx: &mut App) {
     let theme = Theme::global_mut(cx);
 
-    theme.mode = ThemeMode::Dark;
+    // 跟着当前调色板走,不能钉死 Dark:上游的幽灵按钮拿 `mode` 决定 hover
+    // 是提亮还是压暗(gpui-component `button.rs`),浅色底下写 Dark 会让
+    // 按钮悬停时**变亮**——在一张接近白的底上,那等于按钮消失。
+    theme.mode = match palette_mode() {
+        PaletteMode::Dark => ThemeMode::Dark,
+        PaletteMode::Light => ThemeMode::Light,
+    };
     theme.font_family = FONT_UI.into();
     theme.font_size = fs(FS_12);
     theme.mono_font_family = FONT_MONO.into();
@@ -255,6 +576,8 @@ fn apply_app_colors(colors: &mut ThemeColor) {
     colors.title_bar_border = hsla_of(TITLEBAR_BORDER);
     colors.window_border = hsla_of(HAIRLINE_STRONG);
     colors.tiles = hsla_of(CANVAS);
+    // 不走调色板:遮罩的职责是把身后的页面压下去,浅色主题里的模态遮罩
+    // 一样是黑的——跟着变浅就遮不住东西了。
     colors.overlay = gpui::hsla(0., 0., 0., 0.45);
 
     // Muted / secondary text
@@ -307,7 +630,7 @@ fn apply_app_colors(colors: &mut ThemeColor) {
 
     // List / tree
     colors.list = hsla_of(PANEL);
-    colors.list_active = hsla_of(SELECTED).alpha(SELECTED_WASH_ALPHA);
+    colors.list_active = hsla_of(SELECTED_WASH).alpha(SELECTED_WASH_ALPHA);
     colors.list_active_border = hsla_of(ACCENT);
     colors.list_even = hsla_of(ZEBRA);
     colors.list_head = hsla_of(RAIL);
@@ -315,7 +638,7 @@ fn apply_app_colors(colors: &mut ThemeColor) {
 
     // Table(斑马行 = ZEBRA)
     colors.table = hsla_of(PANEL);
-    colors.table_active = hsla_of(SELECTED).alpha(SELECTED_WASH_ALPHA);
+    colors.table_active = hsla_of(SELECTED_WASH).alpha(SELECTED_WASH_ALPHA);
     colors.table_active_border = hsla_of(ACCENT);
     colors.table_even = hsla_of(ZEBRA);
     colors.table_head = hsla_of(RAIL);
@@ -372,12 +695,104 @@ fn apply_app_colors(colors: &mut ThemeColor) {
 
 #[cfg(test)]
 mod theme_tests {
+    use std::sync::{Mutex, PoisonError};
+
     use super::*;
 
-    fn app_colors() -> ThemeColor {
+    /// 每条不变量都跑两遍。只测"当前生效的那一套"等于把另一套放生,而放生的
+    /// 那套照样会发到用户手上——浅色调色板刚加进来时就是这么无人看守的。
+    const PALETTES: [(PaletteMode, &Palette); 2] =
+        [(PaletteMode::Dark, &DARK), (PaletteMode::Light, &LIGHT)];
+
+    /// 加了槽位记得加到这里,否则新槽位不进"两套必须不一样"的体检。
+    /// (少配一个**值**是编译错误,那道保险在 `Palette::hex` 的穷尽 match 上。)
+    const ALL_TOKENS: [Token; 42] = [
+        Token::Canvas,
+        Token::Panel,
+        Token::Rail,
+        Token::RailDeep,
+        Token::Zebra,
+        Token::Well,
+        Token::Hover,
+        Token::Selected,
+        Token::SelectedWash,
+        Token::Pressed,
+        Token::HairlineSoft,
+        Token::Hairline,
+        Token::HairlineStrong,
+        Token::Titlebar,
+        Token::TitlebarText,
+        Token::TitlebarBorder,
+        Token::TextPrimary,
+        Token::TextSecondary,
+        Token::TextMeta,
+        Token::TextDisabled,
+        Token::TextGhost,
+        Token::TextData,
+        Token::Accent,
+        Token::AccentText,
+        Token::AccentLine,
+        Token::AccentWash,
+        Token::AccentFill,
+        Token::AccentHover,
+        Token::AccentPressed,
+        Token::OnAccent,
+        Token::AccentChipText,
+        Token::Fresh,
+        Token::Warn,
+        Token::WarnText,
+        Token::WarnLine,
+        Token::WarnWash,
+        Token::Danger,
+        Token::DangerText,
+        Token::DangerLine,
+        Token::DangerWash,
+        Token::NeutralDot,
+        Token::DisabledDot,
+    ];
+
+    /// 切到某套皮肤,装出一份 `ThemeColor`,再把全局拨回原位。
+    ///
+    /// 生效的调色板是进程级的一个字节,而测试是并行跑的:不上锁不还原,
+    /// 这个测试就会把别的测试的皮肤换掉。
+    fn colors_under(mode: PaletteMode) -> ThemeColor {
+        static LOCK: Mutex<()> = Mutex::new(());
+        let _guard = LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+
+        let previous = palette_mode();
+        set_palette(mode);
         let mut colors = ThemeColor::default();
         apply_app_colors(&mut colors);
+        set_palette(previous);
         colors
+    }
+
+    fn hsla_from(hex: u32) -> Hsla {
+        gpui::rgb(hex).into()
+    }
+
+    /// WCAG 2.1 相对亮度:先把每个通道从"显示器上的样子"还原成线性光,
+    /// 再按人眼对红绿蓝的敏感度加权(绿占七成)。
+    fn relative_luminance(hex: u32) -> f32 {
+        let channel = |shift: u32| {
+            let raw = f32::from(((hex >> shift) & 0xFF) as u8) / 255.0;
+            if raw <= 0.03928 {
+                raw / 12.92
+            } else {
+                ((raw + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+    }
+
+    /// 前景/背景对比度,WCAG 的那条 (L+0.05) 之比。7:1 是正文的 AAA 档,
+    /// 4.5:1 是 AA 档。
+    fn contrast_ratio(a: u32, b: u32) -> f32 {
+        let (mut hi, mut lo) = (relative_luminance(a), relative_luminance(b));
+        if hi < lo {
+            std::mem::swap(&mut hi, &mut lo);
+        }
+        (hi + 0.05) / (lo + 0.05)
     }
 
     /// The selected-row highlight upstream draws is a positioned element on
@@ -386,36 +801,92 @@ mod theme_tests {
     /// Upstream's own theme loader clamps these two to <= 0.2 alpha
     /// (`theme/schema.rs`); writing the color structs directly skips that
     /// clamp, so the invariant has to be held here instead.
+    /// 0.2 在这里必须**写死**,不能引用 `SELECTED_WASH_ALPHA`:那样的话把
+    /// 常量调到 0.5,断言也跟着松到 0.5,测试只会证明"常量等于它自己"。
     #[test]
-    fn active_row_highlights_stay_translucent() {
-        let colors = app_colors();
+    fn active_row_highlights_stay_translucent_in_both_palettes() {
+        for (mode, _) in PALETTES {
+            let colors = colors_under(mode);
 
-        assert!(
-            colors.table_active.a <= 0.2,
-            "table_active alpha {} would paint over the selected row's text",
-            colors.table_active.a
-        );
-        assert!(
-            colors.list_active.a <= 0.2,
-            "list_active alpha {} would paint over the selected item's text",
-            colors.list_active.a
-        );
+            assert!(
+                colors.table_active.a <= 0.2,
+                "{mode:?}: table_active alpha {} would paint over the selected row's text",
+                colors.table_active.a
+            );
+            assert!(
+                colors.list_active.a <= 0.2,
+                "{mode:?}: list_active alpha {} would paint over the selected item's text",
+                colors.list_active.a
+            );
+        }
     }
 
     /// 硬约束 #5:红黄绿三个色相归数据新鲜度,主题强调色不得占用。
-    /// 金 #D9B978 与琥珀 #E08A3C 同属暖区(设计文档已知风险),压住的手段是
-    /// 色相拉开:琥珀刻意偏橙。这里锁死两者的色相距离,防止后续调色时
-    /// 把金往橙推、或把琥珀往黄推,重新撞回同一个色相。
+    /// 金与琥珀同属暖区(设计文档已知风险),压住的手段是色相拉开:琥珀刻意
+    /// 偏橙。这里锁死两者的色相距离,防止后续调色时把金往橙推、或把琥珀往
+    /// 黄推,重新撞回同一个色相。读的是两个 `Palette` 自己的值,不是当前生效
+    /// 的那套——否则另一套永远测不到。
     #[test]
-    fn accent_gold_keeps_distance_from_semantic_amber() {
-        let gold: Hsla = hsla_of(ACCENT);
-        let amber: Hsla = hsla_of(WARN);
-        let distance = (gold.h - amber.h).abs() * 360.0;
-        assert!(
-            distance >= 10.0,
-            "gold hue and amber hue are only {distance:.1} degrees apart; \
-             the two-tier defense (gold=text-only, amber=block-only) needs \
-             hue distance too"
+    fn accent_gold_keeps_distance_from_semantic_amber_in_both_palettes() {
+        for (mode, palette) in PALETTES {
+            let gold: Hsla = hsla_from(palette.accent);
+            let amber: Hsla = hsla_from(palette.warn);
+            let distance = (gold.h - amber.h).abs() * 360.0;
+            assert!(
+                distance >= 10.0,
+                "{mode:?}: gold hue and amber hue are only {distance:.1} degrees apart; \
+                 the two-tier defense (gold=text-only, amber=block-only) needs \
+                 hue distance too"
+            );
+        }
+    }
+
+    /// 正文必须读得清,而"读得清"不是靠眼睛在自己的显示器上看一眼定的。
+    /// 调色板以后再被人动的时候,这条挡住的是"改完看着还行、实际已经糊了"。
+    #[test]
+    fn body_text_stays_readable_on_panels_in_both_palettes() {
+        for (mode, palette) in PALETTES {
+            let primary = contrast_ratio(palette.text_primary, palette.panel);
+            assert!(
+                primary >= 7.0,
+                "{mode:?}: primary text on panel is only {primary:.1}:1, below the 7:1 the \
+                 值/活动项 tier is supposed to hold"
+            );
+            let secondary = contrast_ratio(palette.text_secondary, palette.panel);
+            assert!(
+                secondary >= 4.5,
+                "{mode:?}: secondary text on panel is only {secondary:.1}:1, below 4.5:1"
+            );
+        }
+    }
+
+    /// 存盘的选项和调色板之间只隔一个 `match`,而把两条臂写反的表现是
+    /// 「选了浅色,界面纹丝不动」——不崩、不报错、日志里也没有一行,
+    /// 唯一的线索是眼睛。一条断言就能把它挡在编译之后、发版之前。
+    #[cfg(windows)]
+    #[test]
+    fn the_saved_setting_maps_to_the_palette_of_the_same_name() {
+        assert_eq!(
+            palette_mode_for(ptt_settings::UiTheme::Dark),
+            PaletteMode::Dark
         );
+        assert_eq!(
+            palette_mode_for(ptt_settings::UiTheme::Light),
+            PaletteMode::Light
+        );
+    }
+
+    /// 一次复制粘贴就能让浅色调色板留着深色的值,而那种错误在深色模式下
+    /// 跑测试、看界面都不会露头——只有切到浅色才发现整片是黑的。
+    #[test]
+    fn the_light_palette_is_not_a_copy_of_the_dark_one() {
+        for token in ALL_TOKENS {
+            assert_ne!(
+                DARK.hex(token),
+                LIGHT.hex(token),
+                "{token:?} holds the same value in both palettes; \
+                 the light entry looks like an un-edited copy"
+            );
+        }
     }
 }

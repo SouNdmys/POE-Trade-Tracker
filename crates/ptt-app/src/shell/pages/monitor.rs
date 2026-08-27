@@ -538,7 +538,7 @@ impl AppShell {
                 .items_center()
                 .px_3()
         };
-        let num_cell = |value: Option<String>, color: u32, width: f32| {
+        let num_cell = |value: Option<String>, color: Token, width: f32| {
             div()
                 .w(px(width))
                 .flex_none()

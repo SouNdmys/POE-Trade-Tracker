@@ -88,7 +88,7 @@ impl AppShell {
 /// 每条曲线用自身窗口的最高/最低撑满 22px,只看形状不看绝对值——否则
 /// 52635 的魔鏡和 1.39 的迴響之兆没法画在同一列。涨用金(绿被新鲜度占了),
 /// 跌用砖红,持平灰。
-fn sparkline(points: Vec<f32>, line_color: u32, fill_color: u32) -> impl IntoElement {
+fn sparkline(points: Vec<f32>, line_color: Token, fill_color: Token) -> impl IntoElement {
     gpui::canvas(
         |_, _, _| {},
         move |bounds, (), window, _| {

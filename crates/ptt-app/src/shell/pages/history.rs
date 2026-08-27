@@ -110,7 +110,7 @@ impl AppShell {
         // 照常显示——最新价和价差一帧就能算,不等蜡烛攒够。
         // 价格前不放图例色块:图上并没有对应的参考线,没有指向的图例
         // 读起来就是一截莫名其妙的下划线。
-        let stat = |label: &'static str, value: String, color: u32| {
+        let stat = |label: &'static str, value: String, color: Token| {
             div()
                 .flex_none()
                 .flex()

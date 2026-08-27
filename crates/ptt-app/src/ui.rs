@@ -119,7 +119,7 @@ pub enum StatusKind {
 }
 
 impl StatusKind {
-    pub fn dot(self) -> u32 {
+    pub fn dot(self) -> Token {
         match self {
             StatusKind::Idle => NEUTRAL_DOT,
             StatusKind::Monitoring => ACCENT,
@@ -132,7 +132,7 @@ impl StatusKind {
 
     /// 状态行文字。三档语义永远带汉字,颜色只是加速识别——所以 Fresh 的
     /// 文字是灰的:绿点已经说了"新鲜",绿字就是把同一句话喊两遍。
-    pub fn text(self) -> u32 {
+    pub fn text(self) -> Token {
         match self {
             StatusKind::Idle | StatusKind::Fresh => TEXT_SECONDARY,
             StatusKind::Monitoring => ACCENT_TEXT,
@@ -434,7 +434,7 @@ pub struct TreeRowSpec<'a> {
     /// 右侧等宽计数
     pub trailing: &'a str,
     /// 计数颜色覆盖(默认 meta)
-    pub trailing_color: Option<u32>,
+    pub trailing_color: Option<Token>,
 }
 
 /// 树行:行高 26,右侧计数等宽右对齐。
@@ -540,7 +540,7 @@ pub fn metric_row(label: &str, value: &str, last: bool) -> Div {
 
 pub struct StatusSegment<'a> {
     pub text: &'a str,
-    pub color: Option<u32>,
+    pub color: Option<Token>,
 }
 
 /// 状态栏:rail 底,10px 等宽,段间 soft 竖线;最后一个右对齐段自动推到最右。
@@ -681,7 +681,7 @@ pub fn freshness_cell(kind: StatusKind, label: &str) -> Div {
 ///
 /// 旧版给徽章铺 wash 底;新设计里徽章是「描边=色块」规则的载体,透明底
 /// 让它在斑马行和 panel 上都不用配第二套底色。
-fn chip_stroke(kind: StatusKind) -> u32 {
+fn chip_stroke(kind: StatusKind) -> Token {
     match kind {
         StatusKind::Monitoring => ACCENT_LINE,
         StatusKind::Warning => WARN_LINE,
@@ -765,7 +765,7 @@ pub fn chips_table(kind: StatusKind, labels: &[String], limit: usize) -> Div {
 /// 明细栏主数字行:15px 等宽 600(设计 §3:一栏只升一个数字)。
 ///
 /// 颜色由调用方给:正收益金字,负收益走砖红例外。
-pub fn kv_headline(label: &str, value: &str, color: u32) -> Div {
+pub fn kv_headline(label: &str, value: &str, color: Token) -> Div {
     div()
         .flex()
         .items_baseline()
