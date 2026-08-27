@@ -108,6 +108,67 @@ fn capture(
     .expect("capture")
 }
 
+/// The other game's view of the "same" pair: identical asset ids, its own
+/// context. The raw tables have no game column, so this is what isolation
+/// actually rests on.
+fn poe1_capture(captured_at: DateTime<Utc>) -> ConfirmedCapture {
+    let identity = ObservationIdentity::try_new(
+        "ptt-windows-ocr",
+        "1.0.0",
+        sha(),
+        sha(),
+        sha(),
+        "poe1-catalog-v1",
+        sha(),
+        "poe1-recognition-v1",
+        sha(),
+        "warm-mask-v1",
+    )
+    .expect("identity");
+    let context = MarketContext::try_new_for(
+        Game::Poe1,
+        ClientLanguage::English,
+        "settlers",
+        "0.10.3",
+        "poe1-en-2560x1440",
+        1,
+        "poe1-en-route-v1",
+        identity,
+    )
+    .expect("context");
+    let provenance = CaptureProvenance {
+        draft_id: "draft-1".to_owned(),
+        capture_job_id: "job-1".to_owned(),
+        review_revision: 1,
+        confirmation_mode: CaptureConfirmationMode::AutomaticConsensus,
+        source: "live_watch_double_read".to_owned(),
+        evidence_id: "evidence-1".to_owned(),
+        evidence_removed: false,
+        frame_hashes: vec![sha(), sha()],
+        profile_sha256: sha(),
+        provider_id: context.observation_identity.ocr_provider_id.clone(),
+        provider_version: context.observation_identity.ocr_provider_version.clone(),
+        model_sha256: context.observation_identity.ocr_model_sha256.clone(),
+        provider_manifest_sha256: context
+            .observation_identity
+            .ocr_provider_manifest_sha256
+            .clone(),
+        parser_assets_sha256: context.observation_identity.parser_assets_sha256.clone(),
+    };
+    ConfirmedCapture::try_new(
+        captured_at,
+        context,
+        MarketAssetId::try_new("divine-orb").expect("need"),
+        MarketAssetId::try_new("chaos-orb").expect("have"),
+        default_rows(),
+        provenance,
+        "{}".to_owned(),
+        "{}".to_owned(),
+        Vec::new(),
+    )
+    .expect("capture")
+}
+
 fn at(day: u32, hour: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 8, day, hour, 0, 0)
         .single()
@@ -242,6 +303,36 @@ fn today_window_stops_at_midnight() {
 
     let window = today_window(&store, "poe2", now(), None).expect("window");
     assert_eq!(window.len(), 4, "yesterday belongs to the rollup builder");
+}
+
+// ----- cross-game isolation -----
+
+/// Both games list a "divine-orb" and a "chaos-orb", and the raw tables have
+/// no game column: isolation rests entirely on the context key. This pins
+/// that contract, so a future aggregate that forgets to filter by game fails
+/// here instead of silently merging two economies under one asset name.
+#[test]
+fn the_games_share_asset_names_but_never_data() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    store
+        .persist_capture(&capture(at(22, 9), "0.10.3", default_rows()))
+        .expect("persist poe2");
+    store
+        .persist_capture(&poe1_capture(at(22, 10)))
+        .expect("persist poe1");
+
+    let poe2 = today_window(&store, "poe2", now(), None).expect("poe2 window");
+    assert_eq!(poe2.len(), 4, "poe2 reads only its own capture");
+    assert!(
+        poe2.iter()
+            .all(|observation| observation.edge.captured_at == at(22, 9))
+    );
+    let poe1 = today_window(&store, "poe1", now(), None).expect("poe1 window");
+    assert_eq!(poe1.len(), 4, "poe1 reads only its own capture");
+    assert!(
+        poe1.iter()
+            .all(|observation| observation.edge.captured_at == at(22, 10))
+    );
 }
 
 #[test]
