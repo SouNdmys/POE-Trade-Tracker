@@ -932,3 +932,14 @@ across 40 targets」。条目仍为 0——不是新闸门，是库里最新抓�
    「比直兑高」筛而列显示的是换回来的净值，于是一条闭合后亏 0.66% 的路线躺在写着
    「门槛 1.00%」的页面上；以及回程搜索原来按 1 个单位枚举，比 1:1 便宜的回程会进位
    到零、报成"没有回程"。
+
+## Catalog id 内嵌条数（C4 记账，待讨论）
+
+`ptt-runtime/src/live.rs` 的 catalog id 写作 `"poe1-catalog-1047"` /
+`"poe2-catalog-660"`——**条数是身份的一部分**。每次新赛季录入通货后条数一变，
+这个 id 就该不该跟着变成了两难：跟着变会进 `ObservationIdentity` → `stable_key`
+→ **整个 context key 轮换**，赛季内历史被切成两段（只能靠 `game_context_keys`
+的并集读续上）；不跟着变则 id 在说谎。和 `stable_key` 前缀硬写 `"poe1-context-v2:"`
+是同一类问题，应一起决定。`catalog_repin` 工具在条数变化时会打印这条提醒。
+处置选项：a) id 去掉条数（一次性轮换 key，以后不再变）；b) 保持现状，接受每次
+录入都轮换；c) 让 catalog id 固定、把 SHA 单独留作 provenance（已有字段）。

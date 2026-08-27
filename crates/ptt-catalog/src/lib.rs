@@ -70,7 +70,10 @@ pub const POE2_TRANSCRIPTION_ORDER_PATH: &str = "data/poe2/transcription-order.j
 /// routes, advice — keys on the id and never looks back here. Anything
 /// describing what a currency *does* in game would be weight in every build
 /// and an invitation to make decisions from it.
+// deny_unknown_fields:数据文件手录,`name_zhtw` 这种拼错的字段名以前会
+// 被静默丢掉,落成一个中文名为空、永远识别不到的资产。拒收比默吞好。
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CatalogAsset {
     pub id: String,
     /// Empty when that language has not been authored for this game yet.
@@ -340,11 +343,35 @@ mod tests {
         assert!(poe1().by_name_zh_tw("").is_none());
     }
 
+    /// 和 POE1 一样查双语齐全:`name_zh_tw` 带 `#[serde(default)]`,漏填
+    /// 不报错、只是那个通货在中文客户端永远识别不到。新赛季批量录入最
+    /// 容易犯的正是"英文先填、中文待补"。
     #[test]
-    fn embedded_poe2_catalog_matches_pin_and_shape() {
+    fn embedded_poe2_catalog_matches_pin_and_is_fully_bilingual() {
         let catalog = poe2();
         assert_eq!(catalog.game(), Game::Poe2);
         assert_eq!(catalog.len(), POE2_CATALOG_ENTRIES);
+        for asset in catalog.assets() {
+            assert!(
+                !asset.name_en.trim().is_empty(),
+                "{} has no English name",
+                asset.id
+            );
+            assert!(
+                !asset.name_zh_tw.trim().is_empty(),
+                "{} has no Traditional Chinese name",
+                asset.id
+            );
+        }
+    }
+
+    #[test]
+    fn a_misspelled_field_is_refused_not_silently_dropped() {
+        let json = r#"[{"id":"a","name_zhtw":"某","name_en":"First"}]"#;
+        assert!(
+            Catalog::from_json(Game::Poe2, json).is_err(),
+            "a typoed field name must be a parse error, not a silent blank"
+        );
     }
 
     #[test]
