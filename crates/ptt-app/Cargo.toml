@@ -1,6 +1,7 @@
 [package]
 name = "ptt-app"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -37,3 +38,10 @@ ptt-recognition = { path = "../ptt-recognition" }
 ptt-runtime = { path = "../ptt-runtime" }
 ptt-storage = { path = "../ptt-storage" }
 ptt-trade-domain = { path = "../ptt-trade-domain" }
+
+# build.rs 把 assets/icon.ico 编进 exe 的资源段。故意不放在
+# target.'cfg(windows)' 下面：build-dependencies 的 target cfg 是按目标平台判定
+# 的，跨编译到非 Windows 时它会把依赖抽掉、却留下 build.rs 里对它的引用，反而编
+# 不过。所以照单收下，由 build.rs 自己看 CARGO_CFG_TARGET_OS 决定干不干活。
+[build-dependencies]
+winresource = "0.1"
