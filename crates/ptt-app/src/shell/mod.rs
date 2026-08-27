@@ -298,6 +298,9 @@ pub struct AppShell {
     tuning_inputs: pages::tuning::TuningInputs,
     /// The new-season label box on the settings page.
     pub(crate) season_input: gpui::Entity<gpui_component::input::InputState>,
+    /// The season boundary date box (YYYY-MM-DD; empty = right now). One box
+    /// serves both "start on this date" and "ended on this date".
+    pub(crate) season_date_input: gpui::Entity<gpui_component::input::InputState>,
     /// Cached season/storage lines for the settings page; `None` means load
     /// on the next draw (cleared after every season action).
     pub(crate) season_info: Option<Vec<String>>,
@@ -445,6 +448,8 @@ impl AppShell {
         let walk_input = Self::new_holdings_input(window, cx);
         let season_input =
             cx.new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("0.6"));
+        let season_date_input = cx
+            .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
         // A picked currency or a typed holding is a new question, so the page
         // is rebuilt; the read itself is backgrounded, so this stays cheap.
         for (select, is_have) in [(convert_have.clone(), true), (convert_need.clone(), false)] {
@@ -499,6 +504,7 @@ impl AppShell {
             #[cfg(windows)]
             tuning_inputs,
             season_input,
+            season_date_input,
             season_info: None,
             purge_armed: false,
             radar_table,
@@ -1204,18 +1210,23 @@ fn load_window(
     let window_hours = i64::try_from(request.tuning.report_window_hours)
         .unwrap_or(FALLBACK_REPORT_WINDOW_HOURS)
         .clamp(1, 24 * 365);
-    // A configured season floors every page read; none configured, no clamp.
-    let season_floor = store
+    // A configured season bounds every page read on both sides: the start
+    // floors the window, a recorded end caps it. None configured, no clamp.
+    let now = chrono::Utc::now();
+    let season = store
         .active_season(request.profile.game.as_str())
         .ok()
-        .flatten()
-        .map(|season| season.started_at);
+        .flatten();
     let since = ptt_runtime::rollup::clamp_to_season(
-        chrono::Utc::now() - chrono::Duration::hours(window_hours),
-        season_floor,
+        now - chrono::Duration::hours(window_hours),
+        season.as_ref().map(|row| row.started_at),
+    );
+    let until = ptt_runtime::rollup::clamp_end_to_season(
+        now + chrono::Duration::hours(1),
+        season.as_ref().and_then(|row| row.ended_at),
     );
     let observations = store
-        .load_observations(&context_key, Some(since))
+        .load_observations_between(&context_key, since, until)
         .map_err(|error| format!("load: {error}"))?;
     Ok((context_key, observations))
 }
@@ -1275,9 +1286,13 @@ fn load_pulse(request: &PageRequest) -> Option<ptt_runtime::reports::AnalyticsMo
         || "0001-01-01".to_owned(),
         |row| row.started_at.format("%Y-%m-%d").to_string(),
     );
-    let to_day = now.format("%Y-%m-%d").to_string();
+    // 已结束的赛季连"今天"也不再往后长:天级 rollup 和今天的活折叠都
+    // 停在结束那天。
+    let end_cap =
+        ptt_runtime::rollup::clamp_end_to_season(now, season.as_ref().and_then(|row| row.ended_at));
+    let to_day = end_cap.format("%Y-%m-%d").to_string();
     let rollup_rows = store.load_rollups(game, &from_day, &to_day).ok()?;
-    let today = ptt_runtime::rollup::today_window(&store, game, now).ok()?;
+    let today = ptt_runtime::rollup::today_window(&store, game, now, season.as_ref()).ok()?;
     Some(ptt_runtime::reports::analytics_model(
         &rollup_rows,
         &today,

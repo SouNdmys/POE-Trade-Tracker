@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS seasons (
     season_id TEXT NOT NULL,
     label TEXT NOT NULL CHECK (length(label) > 0),
     started_at TEXT NOT NULL,
+    ended_at TEXT,
     created_at TEXT NOT NULL,
     PRIMARY KEY (game, season_id),
     UNIQUE (game, started_at)
@@ -164,6 +165,10 @@ pub struct SeasonRow {
     pub season_id: String,
     pub label: String,
     pub started_at: DateTime<Utc>,
+    /// `None` while the season is still running. An ended season caps every
+    /// reading window the way `started_at` floors it — statistics stop at
+    /// the boundary, capture itself is never blocked.
+    pub ended_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -292,6 +297,18 @@ impl MarketStore {
                     "ALTER TABLE market_snapshots ADD COLUMN {name} {definition};"
                 ))?;
             }
+        }
+        // 老库的 seasons 表没有结束时间列;同样幂等补上。
+        let mut season_columns = std::collections::BTreeSet::new();
+        {
+            let mut statement = connection.prepare("PRAGMA table_info(seasons)")?;
+            let mut rows = statement.query([])?;
+            while let Some(row) = rows.next()? {
+                season_columns.insert(row.get::<_, String>(1)?);
+            }
+        }
+        if !season_columns.contains("ended_at") {
+            connection.execute_batch("ALTER TABLE seasons ADD COLUMN ended_at TEXT;")?;
         }
         Ok(())
     }
@@ -533,26 +550,37 @@ impl MarketStore {
 
     /// Inserts a season boundary. `started_at` must be strictly after the
     /// game's current active season: manual rollover is monotonic.
+    ///
+    /// 开新赛季会顺手给上一季补一个结束点(若它还没有):时间线上不该有
+    /// 一段"两个赛季同时进行"的重叠。
     pub fn start_season(
         &mut self,
         game: &str,
         label: &str,
         started_at: DateTime<Utc>,
     ) -> Result<SeasonRow, StorageError> {
-        if let Some(active) = self.active_season(game)?
-            && started_at <= active.started_at
-        {
-            return Err(StorageError::Rejected(format!(
-                "season start {} is not after the active season start {}",
-                started_at.to_rfc3339(),
-                active.started_at.to_rfc3339()
-            )));
+        if let Some(active) = self.active_season(game)? {
+            if started_at <= active.started_at {
+                return Err(StorageError::Rejected(format!(
+                    "season start {} is not after the active season start {}",
+                    started_at.to_rfc3339(),
+                    active.started_at.to_rfc3339()
+                )));
+            }
+            if active.ended_at.is_none() {
+                self.connection.execute(
+                    "UPDATE seasons SET ended_at = ?3
+                     WHERE game = ?1 AND season_id = ?2 AND ended_at IS NULL",
+                    params![active.game, active.season_id, started_at.to_rfc3339()],
+                )?;
+            }
         }
         let row = SeasonRow {
             game: game.to_owned(),
             season_id: started_at.to_rfc3339(),
             label: label.to_owned(),
             started_at,
+            ended_at: None,
             created_at: Utc::now(),
         };
         self.connection.execute(
@@ -569,6 +597,33 @@ impl MarketStore {
         Ok(row)
     }
 
+    /// Records (or corrects) when the active season ended. Statistics stop
+    /// counting there; capturing is never blocked by an ended season.
+    pub fn end_season(
+        &mut self,
+        game: &str,
+        ended_at: DateTime<Utc>,
+    ) -> Result<SeasonRow, StorageError> {
+        let Some(mut active) = self.active_season(game)? else {
+            return Err(StorageError::Rejected(
+                "no season configured for this game".to_owned(),
+            ));
+        };
+        if ended_at <= active.started_at {
+            return Err(StorageError::Rejected(format!(
+                "season end {} is not after its start {}",
+                ended_at.to_rfc3339(),
+                active.started_at.to_rfc3339()
+            )));
+        }
+        self.connection.execute(
+            "UPDATE seasons SET ended_at = ?3 WHERE game = ?1 AND season_id = ?2",
+            params![active.game, active.season_id, ended_at.to_rfc3339()],
+        )?;
+        active.ended_at = Some(ended_at);
+        Ok(active)
+    }
+
     /// Latest `started_at` for the game; `None` when no season row exists.
     /// Callers treat `None` as "no clamp" — today's behavior exactly.
     pub fn active_season(&self, game: &str) -> Result<Option<SeasonRow>, StorageError> {
@@ -582,7 +637,7 @@ impl MarketStore {
 
     fn season_rows(&self, game: &str) -> Result<Vec<SeasonRow>, StorageError> {
         let mut statement = self.connection.prepare_cached(
-            "SELECT game, season_id, label, started_at, created_at FROM seasons
+            "SELECT game, season_id, label, started_at, ended_at, created_at FROM seasons
              WHERE game = ?1 ORDER BY started_at DESC",
         )?;
         let rows = statement.query_map(params![game], |row| {
@@ -591,17 +646,19 @@ impl MarketStore {
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(4)?,
+                row.get::<_, String>(5)?,
             ))
         })?;
         let mut seasons = Vec::new();
         for row in rows {
-            let (game, season_id, label, started_at, created_at) = row?;
+            let (game, season_id, label, started_at, ended_at, created_at) = row?;
             seasons.push(SeasonRow {
                 game,
                 season_id,
                 label,
                 started_at: timestamp(&started_at)?,
+                ended_at: ended_at.as_deref().map(timestamp).transpose()?,
                 created_at: timestamp(&created_at)?,
             });
         }

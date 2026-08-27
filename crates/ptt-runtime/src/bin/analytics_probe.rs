@@ -77,7 +77,10 @@ fn main() -> Result<(), String> {
             || "0001-01-01".to_owned(),
             |row| row.started_at.format("%Y-%m-%d").to_string(),
         );
-        let to_day = now.format("%Y-%m-%d").to_string();
+        // 镜像生产路径(shell load_pulse):已结束的赛季在这里也封顶。
+        let end_cap =
+            rollup::clamp_end_to_season(now, season.as_ref().and_then(|row| row.ended_at));
+        let to_day = end_cap.format("%Y-%m-%d").to_string();
         let rollup_rows = store
             .load_rollups(game, &from_day, &to_day)
             .map_err(|error| format!("rollups: {error}"))?;
@@ -85,7 +88,7 @@ fn main() -> Result<(), String> {
         // Today's live fold reads across every context of the game, exactly
         // like the rollup builder: a release today must not hide the morning.
         // The app reads the same function, so the probe cannot drift from it.
-        let window = rollup::today_window(&store, game, now)?;
+        let window = rollup::today_window(&store, game, now, season.as_ref())?;
 
         println!(
             "pulse: rollup-rows={} today-edges={} season={}",

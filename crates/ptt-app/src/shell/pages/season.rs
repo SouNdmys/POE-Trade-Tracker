@@ -28,34 +28,55 @@ impl AppShell {
             body = body.child(mono(line).text_size(fs(FS_11_5)));
         }
 
-        body = body.child(
-            div()
-                .h_flex()
-                .items_center()
-                .gap_2()
-                .child(
-                    div()
-                        .w(px(150.))
-                        .flex_none()
-                        .text_size(fs(FS_11_5))
-                        .text_color(c(TEXT_META))
-                        .child(text.season_start),
-                )
-                .child(
-                    div()
-                        .w(px(120.))
-                        .flex_none()
-                        .child(Input::new(&self.season_input).with_size(Size::Small)),
-                )
-                .child(
-                    button("season-start", LedgerButton::Primary, text.season_start, cx).on_click(
-                        cx.listener(|this, _, _, cx| {
-                            this.start_new_season(cx);
-                            cx.notify();
-                        }),
+        body =
+            body.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .w(px(150.))
+                            .flex_none()
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.season_start),
+                    )
+                    .child(
+                        div()
+                            .w(px(120.))
+                            .flex_none()
+                            .child(Input::new(&self.season_input).with_size(Size::Small)),
+                    )
+                    // 边界日期两个动作共用:开赛用它当开始时间,结束用它当
+                    // 结束时间。留空 = 现在,后端本来就收任意时间戳。
+                    .child(
+                        div()
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.season_date_label),
+                    )
+                    .child(
+                        div()
+                            .w(px(120.))
+                            .flex_none()
+                            .child(Input::new(&self.season_date_input).with_size(Size::Small)),
+                    )
+                    .child(
+                        button("season-start", LedgerButton::Primary, text.season_start, cx)
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.start_new_season(cx);
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        button("season-end", LedgerButton::Secondary, text.season_end, cx)
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.end_active_season(cx);
+                                cx.notify();
+                            })),
                     ),
-                ),
-        );
+            );
 
         let purge_label = if self.purge_armed {
             text.season_purge_confirm
@@ -113,10 +134,13 @@ impl AppShell {
             Ok(store) => {
                 let season_line = match store.active_season(game) {
                     Ok(Some(season)) => format!(
-                        "{}: {} · {}",
+                        "{}: {} · {} ~ {}",
                         text.season_current,
                         season.label,
                         season.started_at.format("%Y-%m-%d"),
+                        season
+                            .ended_at
+                            .map_or_else(String::new, |end| end.format("%Y-%m-%d").to_string()),
                     ),
                     Ok(None) => format!("{}: {}", text.season_current, text.season_none),
                     Err(error) => format!("{}: {error}", text.season_current),
@@ -139,20 +163,76 @@ impl AppShell {
         self.season_info = Some(lines);
     }
 
-    /// Starts a season now, labelled from the box. Monotonic by storage
-    /// contract; a rejection surfaces in the log rather than half-applying.
+    /// The boundary box as a moment: empty means right now, a date means
+    /// that UTC day's midnight, anything else is a refusal (logged), never a
+    /// silent "now" — a mistyped date silently becoming "now" would clamp a
+    /// whole season to the wrong day.
+    #[cfg(windows)]
+    fn season_boundary(&mut self, cx: &gpui::App) -> Option<chrono::DateTime<chrono::Utc>> {
+        let raw = self.season_date_input.read(cx).value().trim().to_string();
+        if raw.is_empty() {
+            return Some(chrono::Utc::now());
+        }
+        match chrono::NaiveDate::parse_from_str(&raw, "%Y-%m-%d") {
+            Ok(date) => Some(chrono::DateTime::from_naive_utc_and_offset(
+                date.and_hms_opt(0, 0, 0)?,
+                chrono::Utc,
+            )),
+            Err(_) => {
+                self.push_log(format!("season date {raw:?} is not YYYY-MM-DD"));
+                None
+            }
+        }
+    }
+
+    /// Starts a season at the boundary date (or now), labelled from the box.
+    /// Monotonic by storage contract; a rejection surfaces in the log rather
+    /// than half-applying.
     #[cfg(windows)]
     fn start_new_season(&mut self, cx: &gpui::App) {
         let label = self.season_input.read(cx).value().trim().to_string();
         if label.is_empty() {
             return;
         }
+        let Some(started_at) = self.season_boundary(cx) else {
+            return;
+        };
         let game = self.settings.active_profile.game.as_str().to_owned();
         match ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path()) {
-            Ok(mut store) => match store.start_season(&game, &label, chrono::Utc::now()) {
+            Ok(mut store) => match store.start_season(&game, &label, started_at) {
                 Ok(season) => {
-                    self.push_log(format!("season {} started", season.label));
+                    self.push_log(format!(
+                        "season {} started at {}",
+                        season.label,
+                        season.started_at.format("%Y-%m-%d")
+                    ));
                     // Every page now reads a clamped window.
+                    self.report_stale = true;
+                }
+                Err(error) => self.push_log(format!("season: {error}")),
+            },
+            Err(error) => self.push_log(format!("storage: {error}")),
+        }
+        self.season_info = None;
+        self.purge_armed = false;
+    }
+
+    /// Records when the active season ended (boundary date, or now).
+    /// Statistics stop counting there; capturing itself is never blocked.
+    #[cfg(windows)]
+    fn end_active_season(&mut self, cx: &gpui::App) {
+        let Some(ended_at) = self.season_boundary(cx) else {
+            return;
+        };
+        let game = self.settings.active_profile.game.as_str().to_owned();
+        match ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path()) {
+            Ok(mut store) => match store.end_season(&game, ended_at) {
+                Ok(season) => {
+                    self.push_log(format!(
+                        "season {} ended at {}",
+                        season.label,
+                        ended_at.format("%Y-%m-%d")
+                    ));
                     self.report_stale = true;
                 }
                 Err(error) => self.push_log(format!("season: {error}")),

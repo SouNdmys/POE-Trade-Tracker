@@ -74,14 +74,24 @@ pub fn game_context_keys(store: &MarketStore, game: &str) -> Result<Vec<String>,
 /// the morning of any day the client updated. Same union the builder reads
 /// for elapsed days, for the day still in progress. The hour of lookahead
 /// keeps a capture clock slightly ahead of ours inside today.
+///
+/// 赛季边界在两头都生效:开赛当天中午开的赛季,上午的抓取属于上一季,
+/// 不该混进今天的折叠;已结束赛季之后的抓取同理不再计入。
 pub fn today_window(
     store: &MarketStore,
     game: &str,
     now: DateTime<Utc>,
+    season: Option<&ptt_storage::SeasonRow>,
 ) -> Result<Vec<MarketEdgeObservation>, String> {
     let (from, to) = (
-        day_start(now.date_naive()),
-        now + chrono::Duration::hours(1),
+        clamp_to_season(
+            day_start(now.date_naive()),
+            season.map(|row| row.started_at),
+        ),
+        clamp_end_to_season(
+            now + chrono::Duration::hours(1),
+            season.and_then(|row| row.ended_at),
+        ),
     );
     let mut window = Vec::new();
     for key in game_context_keys(store, game)? {
@@ -287,6 +297,17 @@ pub fn clamp_to_season(
     season_floor: Option<DateTime<Utc>>,
 ) -> DateTime<Utc> {
     season_floor.map_or(window_start, |floor| window_start.max(floor))
+}
+
+/// The floor's counterpart: an ended season caps the reading window at its
+/// end, so post-season captures stop counting toward the season's statistics.
+/// No end recorded means no cap — a running season reads to now.
+#[must_use]
+pub fn clamp_end_to_season(
+    window_end: DateTime<Utc>,
+    season_end: Option<DateTime<Utc>>,
+) -> DateTime<Utc> {
+    season_end.map_or(window_end, |end| window_end.min(end))
 }
 
 /// Stored rollup rows into strategy-facing stats. A row that fails to parse

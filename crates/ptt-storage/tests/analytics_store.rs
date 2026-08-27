@@ -135,12 +135,14 @@ fn rollup_row(
 #[test]
 fn season_round_trip_and_active_is_latest_started_at() {
     let mut store = MarketStore::open_in_memory().expect("store");
-    let first = store
+    let mut first = store
         .start_season("poe2", "0.5 Abyss", at(2026, 6, 1, 0))
         .expect("first season");
     let second = store
         .start_season("poe2", "0.6", at(2026, 8, 1, 0))
         .expect("second season");
+    // Starting the next season closes the previous one at the handover.
+    first.ended_at = Some(second.started_at);
 
     let active = store.active_season("poe2").expect("active").expect("some");
     assert_eq!(active, second, "active season is the latest started_at");
@@ -152,6 +154,45 @@ fn season_round_trip_and_active_is_latest_started_at() {
         store.active_season("poe1").expect("poe1").is_none(),
         "seasons are per game"
     );
+}
+
+/// A database created before `ended_at` existed opens and answers: the
+/// upgrade adds the column in place, and the old row reads back as a season
+/// that never ended.
+#[test]
+fn an_old_database_without_ended_at_upgrades_in_place() {
+    let path = std::env::temp_dir().join(format!(
+        "ptt-season-upgrade-{}-{:?}.sqlite",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_file(&path);
+    {
+        let connection = rusqlite::Connection::open(&path).expect("raw open");
+        connection
+            .execute_batch(
+                "CREATE TABLE seasons (
+                    game TEXT NOT NULL CHECK (game IN ('poe1', 'poe2')),
+                    season_id TEXT NOT NULL,
+                    label TEXT NOT NULL CHECK (length(label) > 0),
+                    started_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (game, season_id),
+                    UNIQUE (game, started_at)
+                ) STRICT;
+                INSERT INTO seasons VALUES (
+                    'poe2', '2026-06-01T00:00:00+00:00', '0.5 Abyss',
+                    '2026-06-01T00:00:00+00:00', '2026-06-01T00:00:00+00:00'
+                );",
+            )
+            .expect("old schema");
+    }
+    let store = MarketStore::open(&path).expect("upgraded open");
+    let active = store.active_season("poe2").expect("season").expect("row");
+    assert_eq!(active.label, "0.5 Abyss");
+    assert_eq!(active.ended_at, None, "the old row never ended");
+    drop(store);
+    let _ = std::fs::remove_file(&path);
 }
 
 #[test]

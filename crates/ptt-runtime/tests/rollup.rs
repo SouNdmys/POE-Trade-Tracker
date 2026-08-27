@@ -2,8 +2,8 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 use ptt_runtime::rollup::{
-    MAX_ROLLUP_DAYS_PER_RUN, clamp_to_season, ensure_daily_rollups, prune_raw_days,
-    purge_before_active_season, today_window,
+    MAX_ROLLUP_DAYS_PER_RUN, clamp_end_to_season, clamp_to_season, ensure_daily_rollups,
+    prune_raw_days, purge_before_active_season, today_window,
 };
 use ptt_storage::MarketStore;
 use ptt_trade_domain::{
@@ -220,7 +220,7 @@ fn today_window_reads_every_context_of_the_game() {
         .persist_capture(&capture(at(22, 11), "0.10.4", default_rows()))
         .expect("persist afternoon");
 
-    let window = today_window(&store, "poe2", now()).expect("window");
+    let window = today_window(&store, "poe2", now(), None).expect("window");
     assert!(
         window
             .iter()
@@ -240,7 +240,7 @@ fn today_window_stops_at_midnight() {
         .persist_capture(&capture(at(22, 9), "0.10.3", default_rows()))
         .expect("persist today");
 
-    let window = today_window(&store, "poe2", now()).expect("window");
+    let window = today_window(&store, "poe2", now(), None).expect("window");
     assert_eq!(window.len(), 4, "yesterday belongs to the rollup builder");
 }
 
@@ -303,6 +303,101 @@ fn season_clamp_active_season_floors_since() {
         clamp_to_season(at(15, 0), Some(at(10, 0))),
         at(15, 0),
         "a season older than the window changes nothing"
+    );
+}
+
+#[test]
+fn season_end_caps_the_window_and_absent_end_does_not() {
+    assert_eq!(
+        clamp_end_to_season(at(20, 0), None),
+        at(20, 0),
+        "a running season reads to now"
+    );
+    assert_eq!(
+        clamp_end_to_season(at(20, 0), Some(at(15, 0))),
+        at(15, 0),
+        "an ended season stops counting at its end"
+    );
+    assert_eq!(
+        clamp_end_to_season(at(10, 0), Some(at(15, 0))),
+        at(10, 0),
+        "an end past the window changes nothing"
+    );
+}
+
+#[test]
+fn ending_a_season_is_recorded_and_starting_the_next_closes_the_last() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    assert!(
+        store.end_season("poe2", at(5, 0)).is_err(),
+        "no season to end is an explicit error"
+    );
+    store
+        .start_season("poe2", "0.6", at(1, 0))
+        .expect("first season");
+    assert!(
+        store.end_season("poe2", at(1, 0)).is_err(),
+        "an end at or before the start is nonsense"
+    );
+    let ended = store.end_season("poe2", at(10, 0)).expect("end");
+    assert_eq!(ended.ended_at, Some(at(10, 0)));
+    assert_eq!(
+        store
+            .active_season("poe2")
+            .expect("season")
+            .expect("row")
+            .ended_at,
+        Some(at(10, 0)),
+        "the end survives a re-read"
+    );
+
+    // 开下一季自动给上一季补结束点(若它还开着)。
+    let mut second = MarketStore::open_in_memory().expect("store");
+    second
+        .start_season("poe2", "0.6", at(1, 0))
+        .expect("first season");
+    second
+        .start_season("poe2", "0.7", at(12, 0))
+        .expect("second season");
+    let seasons = second.list_seasons("poe2").expect("list");
+    assert_eq!(seasons.len(), 2);
+    assert_eq!(
+        seasons[1].ended_at,
+        Some(at(12, 0)),
+        "the previous season closes where the next one starts"
+    );
+    assert_eq!(seasons[0].ended_at, None, "the new season is running");
+}
+
+#[test]
+fn today_window_respects_both_season_boundaries() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    // Three captures today: early morning, midday, evening.
+    for hour in [6, 12, 18] {
+        store
+            .persist_capture(&capture(at(22, hour), "0.10.3", default_rows()))
+            .expect("persist");
+    }
+    let season = ptt_storage::SeasonRow {
+        game: "poe2".to_owned(),
+        season_id: "s".to_owned(),
+        label: "0.7".to_owned(),
+        // 开赛当天中午开的赛季:上午属于上一季。
+        started_at: at(22, 10),
+        // 傍晚前结束:晚上的抓取是赛季外的。
+        ended_at: Some(at(22, 15)),
+        created_at: at(22, 10),
+    };
+    let window = today_window(&store, "poe2", now(), Some(&season)).expect("window");
+    assert_eq!(
+        window.len(),
+        4,
+        "only the midday capture sits inside the season"
+    );
+    assert!(
+        window
+            .iter()
+            .all(|observation| observation.edge.captured_at == at(22, 12))
     );
 }
 
