@@ -31,7 +31,12 @@ param(
     [ValidateSet('release', 'debug')]
     [string] $Configuration = 'release',
 
-    [string] $OutputRoot = (Join-Path $PSScriptRoot '../target/package'),
+    # Left empty on purpose and filled in below. Under Windows PowerShell 5.1
+    # a `[CmdletBinding()]` script's param defaults are evaluated before
+    # `$PSScriptRoot` is populated, so `-File packaging\package-preview.ps1`
+    # died on Join-Path before the script ran a single line. pwsh 7 populates
+    # it in time, which is exactly why this went unnoticed.
+    [string] $OutputRoot,
 
     # Skips the cargo build and packages what is already there. For iterating
     # on this script, never for producing a release.
@@ -40,6 +45,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not $OutputRoot) {
+    $OutputRoot = Join-Path $PSScriptRoot '../target/package'
+}
 
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $TargetDirectory = Join-Path $RepositoryRoot "target/$Configuration"
