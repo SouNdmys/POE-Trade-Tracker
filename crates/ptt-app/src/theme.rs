@@ -55,6 +55,7 @@ pub enum Token {
     AccentLine,
     AccentWash,
     AccentFill,
+    TrendFlatFill,
     AccentHover,
     AccentPressed,
     OnAccent,
@@ -150,6 +151,14 @@ pub const ACCENT_LINE: Token = Token::AccentLine;
 pub const ACCENT_WASH: Token = Token::AccentWash;
 /// 趋势曲线的金填充(市场分析迷你曲线、历史页)
 pub const ACCENT_FILL: Token = Token::AccentFill;
+/// 趋势持平时的曲线填充——三种填充里最安静的那个。
+///
+/// 不能借用 `RAIL_DEEP`:深色里它比面板还暗一点点,几乎看不见,正是
+/// 「一半的行都持平,全上色就没重点了」要的效果;可浅色里同一个值是
+/// 白底上的一块中灰,比「涨」和「跌」都响,整列的轻重就颠倒了。持平
+/// 要的是「比另外两个都轻」这个相对关系,而相对关系翻不过来,只能
+/// 每套皮肤各配一个值。
+pub const TREND_FLAT_FILL: Token = Token::TrendFlatFill;
 /// Primary hover / pressed(临时值:hover 提亮、pressed 压暗)
 pub const ACCENT_HOVER: Token = Token::AccentHover;
 pub const ACCENT_PRESSED: Token = Token::AccentPressed;
@@ -221,6 +230,7 @@ pub struct Palette {
     pub accent_line: u32,
     pub accent_wash: u32,
     pub accent_fill: u32,
+    pub trend_flat_fill: u32,
     pub accent_hover: u32,
     pub accent_pressed: u32,
     pub on_accent: u32,
@@ -272,6 +282,7 @@ impl Palette {
             Token::AccentLine => self.accent_line,
             Token::AccentWash => self.accent_wash,
             Token::AccentFill => self.accent_fill,
+            Token::TrendFlatFill => self.trend_flat_fill,
             Token::AccentHover => self.accent_hover,
             Token::AccentPressed => self.accent_pressed,
             Token::OnAccent => self.on_accent,
@@ -321,6 +332,7 @@ pub static DARK: Palette = Palette {
     accent_line: 0x6B5A34,
     accent_wash: 0x211D13,
     accent_fill: 0x241F14,
+    trend_flat_fill: 0x141922,
     accent_hover: 0xE3C98F,
     accent_pressed: 0xC7A863,
     on_accent: 0x12151B,
@@ -363,7 +375,7 @@ pub static LIGHT: Palette = Palette {
     titlebar_border: 0xD6D8DC,
     text_primary: 0x171C25,
     text_secondary: 0x49515F,
-    text_meta: 0x656F7E,
+    text_meta: 0x5A6472,
     text_disabled: 0x8B95A4,
     text_ghost: 0xC6CDD7,
     text_data: 0x232A34,
@@ -372,6 +384,7 @@ pub static LIGHT: Palette = Palette {
     accent_line: 0xC29A4B,
     accent_wash: 0xFAF3E2,
     accent_fill: 0xF5EAD2,
+    trend_flat_fill: 0xF4F6FA,
     accent_hover: 0x9C751B,
     accent_pressed: 0x8C6817,
     on_accent: 0x1B1508,
@@ -515,6 +528,17 @@ pub fn hsla_of(token: Token) -> Hsla {
 /// Convenience:槽位 → gpui color for direct styling.
 pub fn c(token: Token) -> Rgba {
     gpui::rgb(active_palette().hex(token))
+}
+
+/// 取深色那一套的值,不管用户选的是哪套皮肤。
+///
+/// 只给一种东西用:画在**游戏画面**上的标注(校准页框在截图上的那几个框、
+/// 放大镜十字线)。它们的背景不是我们的面板,是 POE 的近黑客户端——而那个
+/// 背景不会因为用户切了浅色就变亮。浅色版的金是压暗过的(白底上要读得清),
+/// 拿到近黑背景上亮度只剩深色版的一半,框线反而更难看见。同一条理由让浮窗
+/// 整个留在深色(见 docs/UI-DESIGN.md §11.5)。
+pub fn c_over_game(token: Token) -> Rgba {
+    gpui::rgb(DARK.hex(token))
 }
 
 /// 全局字号缩放。
@@ -691,6 +715,23 @@ fn apply_app_colors(colors: &mut ThemeColor) {
     colors.group_box_foreground = hsla_of(TEXT_PRIMARY);
     colors.description_list_label = hsla_of(RAIL);
     colors.description_list_label_foreground = hsla_of(TEXT_META);
+
+    // 上游 `ThemeColor` 还有 17 个字段这里没写:`chart_1..chart_5`,以及
+    // red/green/blue/yellow/magenta/cyan 各自的常规与 `_light` 版本。
+    // 它们由 `gpui_component::init` 按**操作系统**的亮暗设置播种,而且
+    // 之后没人再碰——也就是说它们的值取决于用户 Windows 的主题,与这里
+    // 选的皮肤无关。
+    //
+    // 今天不影响任何一个像素:app 真正渲染的上游组件(Button、Dropdown、
+    // Input、Select、PopupMenu、Table、CandlestickChart、滚动条)一个都
+    // 不读它们;读它们的是 Badge、ColorPicker、Avatar、语法高亮和
+    // 面积/柱/折线/饼图,这些都没用。
+    //
+    // 三个有语义对应的还是钉死:哪天真用上了 Badge,一个跟着系统主题走的
+    // "红"会和新鲜度的砖红对不上,而那种错只有换台机器才看得见。
+    colors.red = hsla_of(DANGER);
+    colors.green = hsla_of(FRESH);
+    colors.yellow = hsla_of(WARN);
 }
 
 #[cfg(test)]
@@ -706,7 +747,7 @@ mod theme_tests {
 
     /// 加了槽位记得加到这里,否则新槽位不进"两套必须不一样"的体检。
     /// (少配一个**值**是编译错误,那道保险在 `Palette::hex` 的穷尽 match 上。)
-    const ALL_TOKENS: [Token; 42] = [
+    const ALL_TOKENS: [Token; 43] = [
         Token::Canvas,
         Token::Panel,
         Token::Rail,
@@ -734,6 +775,7 @@ mod theme_tests {
         Token::AccentLine,
         Token::AccentWash,
         Token::AccentFill,
+        Token::TrendFlatFill,
         Token::AccentHover,
         Token::AccentPressed,
         Token::OnAccent,
@@ -822,22 +864,33 @@ mod theme_tests {
     }
 
     /// 硬约束 #5:红黄绿三个色相归数据新鲜度,主题强调色不得占用。
-    /// 金与琥珀同属暖区(设计文档已知风险),压住的手段是色相拉开:琥珀刻意
-    /// 偏橙。这里锁死两者的色相距离,防止后续调色时把金往橙推、或把琥珀往
-    /// 黄推,重新撞回同一个色相。读的是两个 `Palette` 自己的值,不是当前生效
-    /// 的那套——否则另一套永远测不到。
+    /// 金、琥珀、砖红同属暖区(设计文档已知风险),压住的手段是色相拉开。
+    /// 这里锁死三对两两之间的距离,防止后续调色时把任意一个往另一个推。
+    /// 读的是两个 `Palette` 自己的值,不是当前生效的那套——否则另一套永远
+    /// 测不到。
+    ///
+    /// 只量色相,是因为浅色版量不了别的:深色里金还比三个语义色都亮
+    /// (相对亮度 0.51 对 0.34/0.20/0.14),明暗本身就是第二道线索;浅色里
+    /// 四个颜色都得够暗才能在白底上读出来,于是全被压进同一条窄亮度带,
+    /// 金/琥珀的亮度比从深色的 1.48 掉到 1.21。试过挪琥珀和压暗金,
+    /// 都是解开一对、撞上另一对(见 docs/UI-DESIGN.md)。所以浅色下这道
+    /// 防线只剩色相 + 语义色永远带汉字这两条。
     #[test]
-    fn accent_gold_keeps_distance_from_semantic_amber_in_both_palettes() {
+    fn the_warm_hues_stay_apart_in_both_palettes() {
         for (mode, palette) in PALETTES {
-            let gold: Hsla = hsla_from(palette.accent);
-            let amber: Hsla = hsla_from(palette.warn);
-            let distance = (gold.h - amber.h).abs() * 360.0;
-            assert!(
-                distance >= 10.0,
-                "{mode:?}: gold hue and amber hue are only {distance:.1} degrees apart; \
-                 the two-tier defense (gold=text-only, amber=block-only) needs \
-                 hue distance too"
-            );
+            for (left, right, pair) in [
+                (palette.accent, palette.warn, "gold/amber"),
+                (palette.warn, palette.danger, "amber/brick"),
+                (palette.accent, palette.danger, "gold/brick"),
+            ] {
+                let a: Hsla = hsla_from(left);
+                let b: Hsla = hsla_from(right);
+                let distance = (a.h - b.h).abs() * 360.0;
+                assert!(
+                    distance >= 10.0,
+                    "{mode:?}: {pair} hues are only {distance:.1} degrees apart; in light mode hue is the only cue left, so this is the whole defense"
+                );
+            }
         }
     }
 
@@ -857,6 +910,25 @@ mod theme_tests {
                 secondary >= 4.5,
                 "{mode:?}: secondary text on panel is only {secondary:.1}:1, below 4.5:1"
             );
+            // TEXT_META 是全 app 出现最多的文字色(标签、计数、微标题),而它
+            // 落在三种底上,不只是 panel:微标题就画在 RAIL_DEEP 的分节条上。
+            // 只量 panel 会漏掉最暗的那一种组合——浅色版第一版正是在
+            // RAIL_DEEP 上掉到 3.9,而深色版同样位置有 4.5。
+            //
+            // 门槛取 4.0 而不是 AA 的 4.5:深色版在 panel 上本来就是 4.4,
+            // 这条守的是"别比现有的更糊",不是给一个从来没达过 AA 的层级
+            // 补票。
+            for (surface, name) in [
+                (palette.panel, "panel"),
+                (palette.rail, "rail"),
+                (palette.rail_deep, "rail_deep"),
+            ] {
+                let meta = contrast_ratio(palette.text_meta, surface);
+                assert!(
+                    meta >= 4.0,
+                    "{mode:?}: meta text on {name} is only {meta:.1}:1, below the 4.0 floor the 元数据 tier already holds in the shipped dark palette"
+                );
+            }
         }
     }
 

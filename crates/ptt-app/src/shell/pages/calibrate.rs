@@ -267,7 +267,7 @@ impl AppShell {
                 // it the loupe shows a magnified patch with no indication of which
                 // pixel of it the cursor is on, which is the one thing it is for.
                 let crosshair = |vertical: bool| {
-                    let line = div().absolute().bg(c(DANGER));
+                    let line = div().absolute().bg(c_over_game(DANGER));
                     if vertical {
                         line.left(px(BOX / 2.0)).top_0().w(px(1.0)).h(px(BOX))
                     } else {
@@ -378,7 +378,7 @@ impl AppShell {
                             .w(px((end.0 - start.0).abs()))
                             .h(px((end.1 - start.1).abs()))
                             .border_2()
-                            .border_color(c(ACCENT))
+                            .border_color(c_over_game(ACCENT))
                     }),
             )
             .children(drawn.into_iter().map(|(active, left, top, w, h)| {
@@ -389,7 +389,7 @@ impl AppShell {
                     .top(px(top))
                     .w(px(w))
                     .h(px(h))
-                    .border_color(c(ACCENT));
+                    .border_color(c_over_game(ACCENT));
                 if active {
                     frame.border_2()
                 } else {

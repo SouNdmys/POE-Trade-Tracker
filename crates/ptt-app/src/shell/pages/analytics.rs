@@ -452,7 +452,7 @@ impl AppShell {
                 } else if relative <= -FLAT_BAND_BASIS_POINTS {
                     (DANGER, DANGER_WASH, DANGER_TEXT)
                 } else {
-                    (TEXT_DISABLED, RAIL_DEEP, TEXT_META)
+                    (TEXT_DISABLED, TREND_FLAT_FILL, TEXT_META)
                 };
                 let delta = asset
                     .trend_bps_relative

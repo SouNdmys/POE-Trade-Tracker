@@ -524,6 +524,14 @@ fn main() {
         .with_assets(ptt_app::assets::Assets)
         .run(move |cx: &mut App| {
             gpui_component::init(cx);
+            // 画廊是唯一能把所有组件摆在一起看的地方,而浅色调色板正是靠
+            // 逐个组件看才发现问题的(趋势列的持平填充在浅色下比涨跌还响,
+            // 就是这么漏到评审才被抓到的)。画廊没有设置文件可读,所以给
+            // 一个环境变量:`PTT_LIGHT=1 cargo run --bin ptt-ui-preview`。
+            // 默认仍是深色。
+            if std::env::var_os("PTT_LIGHT").is_some() {
+                theme::set_palette(theme::PaletteMode::Light);
+            }
             theme::apply_app_theme(cx);
 
             let (width, height) = PREVIEW_SIZE;

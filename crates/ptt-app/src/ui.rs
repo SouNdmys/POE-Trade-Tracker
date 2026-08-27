@@ -195,7 +195,11 @@ pub fn warning_band(tag: &str, text: &str) -> Div {
             div()
                 .font_family(FONT_MONO)
                 .text_size(fs(FS_10))
-                .text_color(c(WARN))
+                // 用 WARN_TEXT 而不是 WARN:这是同一对琥珀的两半,块色一半
+                // 给左边那条 2px 边,字色一半给字。10px 的字用块色画,浅色
+                // 底上只有 3.7:1——一个存在意义就是"要被看见"的组件反而最
+                // 先糊掉。
+                .text_color(c(WARN_TEXT))
                 .child(SharedString::from(tag.to_string())),
         )
         .child(
