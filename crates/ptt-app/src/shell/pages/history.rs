@@ -32,36 +32,72 @@ fn plot_value(rate: &Ratio) -> f64 {
 
 impl AppShell {
     /// The history page.
-    pub(crate) fn render_history(&mut self, _cx: &mut Context<Self>) -> gpui::Div {
+    pub(crate) fn render_history(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         let text = self.text();
         let language = self.language();
 
-        let PageData::History(model) = &self.report else {
-            return div().flex_grow().flex().flex_col().gap_3().p_3().child(
-                panel()
-                    .flex_1()
-                    .flex()
-                    .flex_col()
-                    .child(empty_state(&self.report_body().join("  "))),
+        // 选对条永远在:历史不该逼着读者先去游戏里翻一次盘口才能问问题。
+        // 选择器和兑换页共享同一对,数据库里没有的对走下面的优雅空态。
+        let bar = div()
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .gap_2()
+            .child(self.pair_pickers(cx))
+            .child(div().flex_grow())
+            .child(
+                crate::ui::button(
+                    "history-refresh",
+                    crate::ui::LedgerButton::Secondary,
+                    text.refresh,
+                    cx,
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.refresh_report(cx);
+                    cx.notify();
+                })),
             );
+
+        let PageData::History(model) = &self.report else {
+            return div()
+                .flex_grow()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .p_3()
+                .child(bar)
+                .child(
+                    panel()
+                        .flex_1()
+                        .flex()
+                        .flex_col()
+                        .child(empty_state(&self.report_body().join("  "))),
+                );
         };
         let model: &HistoryModel = model;
 
         let Some(summary) = &model.summary else {
-            return div().flex_grow().flex().flex_col().gap_3().p_3().child(
-                panel()
-                    .flex_1()
-                    .flex()
-                    .flex_col()
-                    .child(panel_header(text.page_history))
-                    .child(empty_state(&report_text::fill(
-                        report_text::report(language).no_history_yet,
-                        &[
-                            &self.display_name(model.have.as_str()),
-                            &self.display_name(model.need.as_str()),
-                        ],
-                    ))),
-            );
+            return div()
+                .flex_grow()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .p_3()
+                .child(bar)
+                .child(
+                    panel()
+                        .flex_1()
+                        .flex()
+                        .flex_col()
+                        .child(panel_header(text.page_history))
+                        .child(empty_state(&report_text::fill(
+                            report_text::report(language).no_history_yet,
+                            &[
+                                &self.display_name(model.have.as_str()),
+                                &self.display_name(model.need.as_str()),
+                            ],
+                        ))),
+                );
         };
 
         let rate = |value: &Option<Ratio>| {
@@ -322,6 +358,7 @@ impl AppShell {
             .gap(px(SP_8))
             .p(px(SP_10))
             .overflow_hidden()
+            .child(bar)
             .child(band)
             .child(
                 div()

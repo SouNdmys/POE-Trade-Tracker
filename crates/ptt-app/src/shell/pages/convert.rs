@@ -996,16 +996,16 @@ impl AppShell {
         crate::ui::detail_panel(text.detail_header).child(body)
     }
 
-    /// The two pickers and the holdings box.
-    fn convert_bar(&self, cx: &mut Context<Self>) -> gpui::Div {
+    /// The have/need pickers and the swap glyph.
+    ///
+    /// 兑换页和历史页共用:两页读写的是同一份"当前查看的通货对",在哪边
+    /// 选都改同一对——这是拍板过的语义,不是偷懒。
+    pub(crate) fn pair_pickers(&self, cx: &mut Context<Self>) -> gpui::Div {
         let text = self.text();
         div()
-            .flex_none()
             .h_flex()
             .items_center()
             .gap_2()
-            .px_3()
-            .pt_3()
             .child(
                 div()
                     .text_size(fs(FS_11_5))
@@ -1042,6 +1042,19 @@ impl AppShell {
                         .with_size(Size::Small),
                 ),
             )
+    }
+
+    /// The two pickers and the holdings box.
+    fn convert_bar(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let text = self.text();
+        div()
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .gap_2()
+            .px_3()
+            .pt_3()
+            .child(self.pair_pickers(cx))
             .child(
                 div()
                     .text_size(fs(FS_11_5))
