@@ -3,6 +3,10 @@
 
 mod hud;
 pub mod pages;
+// 自更新整条路都挂在 `cfg(windows)` 上(见 `crate::update`),它在界面这一侧的
+// 状态机跟着一起门控。
+#[cfg(windows)]
+mod updater;
 
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
@@ -358,10 +362,38 @@ pub struct AppShell {
     radar_table: gpui::Entity<gpui_component::table::TableState<pages::opportunities::RadarTable>>,
     /// True when a new book landed since the visible page was last built.
     report_stale: bool,
+    /// 更新检查走到哪一步了。关于段画它,顶条在有新版本时挂一枚字。
+    #[cfg(windows)]
+    pub(crate) update_state: updater::UpdateState,
+    /// 启动那次自动检查的插销:`tick` 每 120ms 来一趟,这个让它只响一次。
+    #[cfg(windows)]
+    update_checked: bool,
+    /// 哪一次检查/安装的答案有资格写回来。
+    ///
+    /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
+    /// 跑好几分钟,期间用户完全可能又按了一次检查。
+    #[cfg(windows)]
+    update_generation: u64,
+    /// 上一次真的向 GitHub 发问的时刻。手动按钮的冷却从这里算。
+    #[cfg(windows)]
+    last_update_check: Option<std::time::Instant>,
 }
 
 impl AppShell {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        // 上一轮更新留下的 `*.old` / `*.new-update` 在这里收掉。它们上次删不了
+        // ——exe 和那个 dll 还被自己占着;这一次启动占用它们的进程已经不在了。
+        //
+        // 扔到后台执行器上,不在开窗这条路上走:扫的是磁盘,而这一刻窗口还没
+        // 画出第一帧。扫失败就算了,清垃圾不该让程序起不来(`clean_leftovers`
+        // 自己吞掉所有错误,只回报删掉了几个)。
+        #[cfg(windows)]
+        cx.background_executor()
+            .spawn(async {
+                crate::update::clean_leftovers();
+            })
+            .detach();
+
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -576,6 +608,14 @@ impl AppShell {
             convert_selected_route: None,
             settings_segment: SettingsSegment::Basic,
             report_stale: true,
+            #[cfg(windows)]
+            update_state: updater::UpdateState::default(),
+            #[cfg(windows)]
+            update_checked: false,
+            #[cfg(windows)]
+            update_generation: 0,
+            #[cfg(windows)]
+            last_update_check: None,
         }
     }
 
@@ -589,6 +629,9 @@ impl AppShell {
     fn tick(&mut self, cx: &mut Context<Self>) {
         #[cfg(windows)]
         {
+            // 启动之后问一次有没有新版本。放在这里而不是 `new` 里,是为了让
+            // 第一帧先画出来;插销在函数内部,这里每 120ms 叫一次也只响一次。
+            self.kick_update_check(cx);
             // 摆放模式的回声:拖动落点与顶条按钮点击都由 wndproc 留言,
             // 这里是唯一取走留言的地方。
             self.poll_hud_placement(cx);
@@ -712,6 +755,14 @@ impl AppShell {
                 }
                 self.watching = false;
             } else {
+                // 装完更新还没重启就开监视,是把新的原生识别库加载进旧进程
+                // ——见 `UpdateState::blocks_a_new_watch`。拦在这里,而不是
+                // 让它闪退。
+                if self.update_state.blocks_a_new_watch() {
+                    self.push_log(self.text().update_restart_before_watch.to_owned());
+                    cx.notify();
+                    return;
+                }
                 self.fault = None;
                 self.backend = Some(Backend::start());
                 self.watching = true;
@@ -1487,6 +1538,43 @@ impl Render for AppShell {
         } else {
             LedgerButton::Primary
         };
+        // 顶条上那枚"有新版本"。
+        //
+        // 借的是既有的位置——状态条右侧本来就是空的,只有开关按钮——而不是弹一个
+        // 对话框:更新是一件可以永远不理的事,它不该打断任何一次会话。没有好消息
+        // 的时候这里什么都不画,顶条回到原样。点一下直接跳到关于段,因为完整的
+        // 说明只有那里有。
+        #[cfg(windows)]
+        let update_badge = {
+            let label = match &self.update_state {
+                updater::UpdateState::Available(_) => Some(text.update_badge),
+                updater::UpdateState::Installed(_) => Some(text.update_state_installed),
+                _ => None,
+            };
+            label.map(|label| {
+                div()
+                    .id("update-badge")
+                    .h_flex()
+                    .items_center()
+                    .px(px(6.))
+                    .h(px(H_CHIP))
+                    .text_size(fs(FS_11))
+                    .text_color(c(ACCENT_TEXT))
+                    .bg(c(ACCENT_WASH))
+                    .border_1()
+                    .border_color(c(ACCENT_LINE))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(c(HOVER)))
+                    .child(SharedString::from(label.to_string()))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.show_page(Page::Settings);
+                        this.settings_segment = SettingsSegment::About;
+                        cx.notify();
+                    }))
+            })
+        };
+        #[cfg(not(windows))]
+        let update_badge: Option<gpui::Div> = None;
 
         div()
             .size_full()
@@ -1527,6 +1615,7 @@ impl Render for AppShell {
                             .child(band_stat(text.skips_label, skip_total.to_string())),
                     )
                     .child(div().flex_grow())
+                    .children(update_badge)
                     .child(
                         button("watch-toggle", button_kind, button_label, cx)
                             .h(px(H_ROW))

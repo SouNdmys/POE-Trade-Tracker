@@ -28,7 +28,17 @@ gpui = "0.2"
 gpui-component = "0.5"
 
 [target.'cfg(windows)'.dependencies]
+# 自更新用的四件套。async_zip 走 futures 的 IO trait,所以配 futures-lite 的
+# block_on;两者本来就在 Cargo.lock 里(gpui_util 拉的),加进来不新增锁条目。
+async_zip = { version = "0.0.17", features = ["deflate"] }
 chrono.workspace = true
+futures-lite = "2.6"
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+# 只要 rustls,不要 gzip:GitHub 的 zip 已经是压缩的,再套一层解压只是多一条
+# 会出错的路。rustls 0.23 和 ring 是 gpui 已经带进来的那份,共用。
+ureq = { version = "3.4", default-features = false, features = ["rustls"] }
 ptt-core = { path = "../ptt-core" }
 ptt-platform-win = { path = "../ptt-platform-win" }
 ptt-settings = { path = "../ptt-settings" }

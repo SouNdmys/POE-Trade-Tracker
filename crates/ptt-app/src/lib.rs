@@ -16,6 +16,10 @@ pub mod shell;
 pub mod state;
 pub mod theme;
 pub mod ui;
+// 自更新整条路都是 Windows 才有的东西:安装目录布局、被进程占住的 DLL、
+// `%LOCALAPPDATA%`。依赖也全挂在 `cfg(windows)` 上,模块跟着一起门控。
+#[cfg(windows)]
+pub mod update;
 
 use gpui::{
     App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, prelude::*, px, size,

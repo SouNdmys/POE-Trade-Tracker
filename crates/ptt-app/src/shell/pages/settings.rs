@@ -84,7 +84,7 @@ impl AppShell {
             SettingsSegment::Season => self.season_panel(cx),
             SettingsSegment::Params => self.tuning_panel(cx),
             SettingsSegment::Guide => self.guide_panel(),
-            SettingsSegment::About => self.about_panel(),
+            SettingsSegment::About => self.about_panel(cx),
         };
 
         div().flex_grow().min_h(px(0.)).flex().child(rail).child(
@@ -390,12 +390,14 @@ impl AppShell {
         )
     }
 
-    /// 关于段:名字、版本、作者、联系方式、源码、授权。
+    /// 关于段:名字、版本、作者、联系方式、源码、授权,外加更新。
     ///
     /// 值一个都不写死,全部来自 `env!("CARGO_PKG_*")`——版本号在 Cargo.toml
-    /// 改一次就够了,界面上不会剩下一份还写着旧号的副本。
+    /// 改一次就够了,界面上不会剩下一份还写着旧号的副本。更新那一段接在版本
+    /// 后面,因为它回答的是同一个问题的下半句:"我在跑哪一版"之后是"还有没有
+    /// 更新的"。
     #[cfg(windows)]
-    fn about_panel(&self) -> gpui::Div {
+    fn about_panel(&self, cx: &mut Context<Self>) -> gpui::Div {
         use gpui_component::StyledExt as _;
         let text = self.text();
         let (author, email) = author_and_email();
@@ -426,13 +428,126 @@ impl AppShell {
         panel().child(panel_header(text.seg_about)).child(
             rows.child(kv_row(text.about_repository, env!("CARGO_PKG_REPOSITORY")))
                 .child(kv_row(text.about_license, env!("CARGO_PKG_LICENSE")))
+                .child(self.update_section(cx))
                 .child(
                     div()
-                        .pt(px(SP_4))
+                        .pt(px(SP_8))
                         .text_size(fs(FS_10_5))
                         .text_color(c(TEXT_META))
                         .child(text.about_feedback),
                 ),
+        )
+    }
+
+    /// 关于段里的更新那一小节。
+    ///
+    /// 三样东西,顺序就是读的人问问题的顺序:现在是什么状况、新版本是哪一个、
+    /// 我能按什么。
+    ///
+    /// 状态那一行永远有话说——包括"还没查过"和查失败。一个还没答话的更新检查
+    /// 不该让这一段看起来像坏了,而失败必须留在这里而不是只闪过底部那条流水灯:
+    /// 那条只留得住一句,下一条日志一来就没了。
+    #[cfg(windows)]
+    fn update_section(&self, cx: &mut Context<Self>) -> gpui::Div {
+        use crate::shell::updater::UpdateState;
+        use gpui_component::StyledExt as _;
+
+        let text = self.text();
+        let state = &self.update_state;
+        // 三种语气,一眼能分开:出了事是红的,有好消息是墨青的,其余是常规
+        // 数据色。字本身已经说清楚了,颜色只是让人不必读完才知道该不该在意。
+        let tone = if state.is_failure() {
+            DANGER_TEXT
+        } else if state.is_good_news() {
+            ACCENT_TEXT
+        } else {
+            TEXT_DATA
+        };
+
+        let mut body = div()
+            .pt(px(SP_8))
+            .flex()
+            .flex_col()
+            .child(inline_section(text.update_header))
+            .child(
+                div()
+                    .pt(px(SP_4))
+                    .flex()
+                    .items_start()
+                    .gap_2()
+                    .py(px(3.))
+                    .text_size(fs(FS_11_5))
+                    .child(
+                        div()
+                            .w(px(64.))
+                            .flex_none()
+                            .text_color(c(TEXT_META))
+                            .child(text.update_status),
+                    )
+                    // `min_w(0)` 和 `kv_row` 里那一处是同一个理由:没有它,
+                    // 一条长的失败消息不会换行,只会把面板撑宽然后被窗口切掉。
+                    .child(
+                        mono(state.line(text))
+                            .flex_1()
+                            .min_w(px(0.))
+                            .text_color(c(tone)),
+                    ),
+            );
+
+        if let Some(version) = state.new_version_label() {
+            body = body.child(kv_row(text.update_new_version, &version));
+        }
+
+        let mut actions = div().h_flex().items_center().gap_2().pt(px(SP_4));
+        if self.can_check_update() {
+            actions = actions.child(
+                button(
+                    "update-check",
+                    LedgerButton::Secondary,
+                    text.update_check_now,
+                    cx,
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.check_for_update_now(cx);
+                    cx.notify();
+                })),
+            );
+        } else if !state.blocks_a_new_check() {
+            // 不忙、也没装完,那么按钮消失的唯一原因就是冷却还没过。说出来,
+            // 不然一个按钮凭空不见了看着像坏了。跟着 `season_vacuum_blocked`
+            // 的做法:不画一个按不动的按钮,画一句为什么。
+            actions = actions.child(
+                mono(text.update_check_cooldown)
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_DISABLED)),
+            );
+        }
+        if state.offers_an_install() {
+            actions = actions.child(
+                button(
+                    "update-install",
+                    LedgerButton::Primary,
+                    text.update_install,
+                    cx,
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.install_update_now(cx);
+                    cx.notify();
+                })),
+            );
+        }
+        body = body.child(actions);
+
+        body.child(
+            div()
+                .pt(px(SP_4))
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META))
+                .child(if matches!(state, UpdateState::Installed(_)) {
+                    text.update_restart_note
+                } else {
+                    text.update_note
+                }),
         )
     }
 
