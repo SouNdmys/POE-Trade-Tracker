@@ -72,33 +72,23 @@ impl AppShell {
 
         // 58px 指标带(§8):最新价、吃单价(金)、挂单价(灰)、价差。指标带
         // 照常显示——最新价和价差一帧就能算,不等蜡烛攒够。
-        let stat = |label: &'static str, value: String, marker: Option<u32>, color: u32| {
-            let cell = div()
+        // 价格前不放图例色块:图上并没有对应的参考线,没有指向的图例
+        // 读起来就是一截莫名其妙的下划线。
+        let stat = |label: &'static str, value: String, color: u32| {
+            div()
                 .flex_none()
                 .flex()
                 .flex_col()
                 .justify_center()
                 .gap(px(2.))
-                .px(px(SP_16));
-            let mut value_row = div().h_flex().items_baseline().gap(px(6.));
-            if let Some(marker) = marker {
-                // 图上那条虚线的颜色,在这里当图例块。
-                value_row = value_row.child(
+                .px(px(SP_16))
+                .child(mono(value).text_size(fs(FS_15)).text_color(c(color)))
+                .child(
                     div()
-                        .w(px(14.))
-                        .h(px(2.))
-                        .flex_none()
-                        .my(px(6.))
-                        .bg(c(marker)),
-                );
-            }
-            value_row = value_row.child(mono(value).text_size(fs(FS_15)).text_color(c(color)));
-            cell.child(value_row).child(
-                div()
-                    .text_size(fs(FS_10_5))
-                    .text_color(c(TEXT_META))
-                    .child(label),
-            )
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(label),
+                )
         };
         let divider = || {
             div()
@@ -144,29 +134,24 @@ impl AppShell {
             .child(stat(
                 text.history_latest,
                 rate(&summary.latest_rate),
-                None,
                 TEXT_DATA,
             ))
             .child(divider())
-            // 两条虚线是重点:现在的吃单价(金)和挂单价(灰),中间那条缝
-            // 就是价差。
+            // 吃单价(金)和挂单价(灰),中间那条缝就是价差。
             .child(stat(
                 text.history_taker,
                 rate(&summary.latest_taker_rate),
-                Some(ACCENT),
                 ACCENT_TEXT,
             ))
             .child(stat(
                 text.history_maker,
                 rate(&summary.latest_maker_rate),
-                Some(NEUTRAL_DOT),
                 TEXT_SECONDARY,
             ));
         if let Some(spread) = summary.spread_basis_points {
             band = band.child(divider()).child(stat(
                 text.history_spread,
                 report_text::percent_from_basis_points(spread),
-                None,
                 TEXT_DATA,
             ));
         }
