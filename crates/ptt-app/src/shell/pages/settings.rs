@@ -9,12 +9,27 @@ use gpui::{Context, ParentElement, Styled, div, px};
 
 use crate::shell::AppShell;
 use crate::theme::*;
-use crate::ui::{LedgerButton, button, mono, panel, panel_header};
+use crate::ui::{LedgerButton, button, inline_section, kv_row, mono, panel, panel_header};
+
+/// `CARGO_PKG_AUTHORS` is one `Name <mail>` string; the about panel wants the
+/// two halves on their own rows.
+///
+/// Split here rather than written out twice in the catalogue: `Cargo.toml`
+/// already owns this fact, and a second copy is how an interface ends up
+/// showing a mail address nobody reads any more.
+#[cfg(windows)]
+fn author_and_email() -> (&'static str, &'static str) {
+    let authors = env!("CARGO_PKG_AUTHORS");
+    match authors.split_once('<') {
+        Some((name, mail)) => (name.trim(), mail.trim_end_matches('>').trim()),
+        None => (authors, ""),
+    }
+}
 
 impl AppShell {
     /// The settings page (§10 定稿 = 13a):顶部通栏 + 左侧 132px 分段栏 +
-    /// 当前分段的面板。四段:基本 / 浮窗 / 赛季与存储 / 算法参数——原来是
-    /// 一条要滚三屏的长列。
+    /// 当前分段的面板。前四段:基本 / 浮窗 / 赛季与存储 / 算法参数——原来是
+    /// 一条要滚三屏的长列;后两段只读:使用说明 / 关于。
     #[cfg(windows)]
     pub(crate) fn render_settings_page(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         use crate::shell::SettingsSegment;
@@ -68,6 +83,8 @@ impl AppShell {
             SettingsSegment::Hud => self.hud_settings_panel(cx),
             SettingsSegment::Season => self.season_panel(cx),
             SettingsSegment::Params => self.tuning_panel(cx),
+            SettingsSegment::Guide => self.guide_panel(),
+            SettingsSegment::About => self.about_panel(),
         };
 
         div().flex_grow().min_h(px(0.)).flex().child(rail).child(
@@ -258,6 +275,164 @@ impl AppShell {
                     text.hud_hotkey_capture,
                     self.settings.hotkeys.manual_capture.clone(),
                 )),
+        )
+    }
+
+    /// 使用说明段:第一次怎么走通、每一页答什么、热键,以及不对劲时先看哪。
+    ///
+    /// 正文是 i18n 里的整块字符串,一行一条,行内用 `  ·  ` 把标签和说明分开
+    /// (`roles_legend` 的老办法)。一行一个字段的话,想补一句就得在四个地方
+    /// 各改一处——那样这块文字注定会停在写完的那天。
+    #[cfg(windows)]
+    fn guide_panel(&self) -> gpui::Div {
+        use gpui_component::StyledExt as _;
+        let text = self.text();
+
+        // 标签列在一节之内定宽、各节自己定宽度:同一节里的标签必须对齐,
+        // 但四节的标签长度差着一个数量级(「1」和「a hotkey is dead」),
+        // 全局共用一个宽度不是把长的挤掉行,就是让短的离正文半屏远。
+        let line = |raw: &'static str, label_width: f32| {
+            let (label, body) = raw.split_once("  ·  ").unwrap_or(("", raw));
+            div()
+                .flex()
+                .items_start()
+                .gap_2()
+                .py(px(2.))
+                .text_size(fs(FS_11_5))
+                .child(
+                    div()
+                        .w(px(label_width))
+                        .flex_none()
+                        .text_color(c(TEXT_META))
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_color(c(TEXT_SECONDARY))
+                        .child(body),
+                )
+        };
+        let section = |title: &'static str, block: &'static str, label_width: f32| {
+            let mut body = div().flex().flex_col().pt(px(SP_4));
+            for raw in block.lines() {
+                body = body.child(line(raw, label_width));
+            }
+            div()
+                .flex()
+                .flex_col()
+                .child(inline_section(title))
+                .child(body)
+        };
+
+        // 只列真正注册了的两个。`manual_capture` 存在设置里、浮窗段也画着,
+        // 但没有任何地方去绑它,写进说明就是教人按一个不会响的键。
+        let hotkey_row = |label: &'static str, key: &str| {
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .py(px(2.))
+                .child(
+                    div()
+                        .w(px(96.))
+                        .flex_none()
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(label),
+                )
+                .child(crate::ui::hotkey_chip(key))
+        };
+        let hotkeys = div()
+            .flex()
+            .flex_col()
+            .child(inline_section(text.guide_hotkeys_header))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .pt(px(SP_4))
+                    // 键值取自设置本身,不是抄一份默认值:改过之后说明书跟着变。
+                    .child(hotkey_row(
+                        text.hud_hotkey_watch,
+                        &self.settings.hotkeys.toggle_watch,
+                    ))
+                    .child(hotkey_row(
+                        text.hud_hotkey_toggle,
+                        &self.settings.hotkeys.toggle_hud,
+                    ))
+                    .child(
+                        div()
+                            .pt(px(SP_4))
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.guide_hotkeys_note),
+                    ),
+            );
+
+        panel().child(panel_header(text.seg_guide)).child(
+            div()
+                .p_3()
+                .flex()
+                .flex_col()
+                .gap(px(SP_12))
+                // 三个宽度是量出来的:序号一位、页名最长 "analytics"、
+                // 症状最长 "a hotkey is dead"。
+                .child(section(
+                    text.guide_first_run_header,
+                    text.guide_first_run,
+                    16.,
+                ))
+                .child(section(text.guide_pages_header, text.guide_pages, 76.))
+                .child(hotkeys)
+                .child(section(text.guide_trouble_header, text.guide_trouble, 116.)),
+        )
+    }
+
+    /// 关于段:名字、版本、作者、联系方式、源码、授权。
+    ///
+    /// 值一个都不写死,全部来自 `env!("CARGO_PKG_*")`——版本号在 Cargo.toml
+    /// 改一次就够了,界面上不会剩下一份还写着旧号的副本。
+    #[cfg(windows)]
+    fn about_panel(&self) -> gpui::Div {
+        use gpui_component::StyledExt as _;
+        let text = self.text();
+        let (author, email) = author_and_email();
+
+        let mut rows = div()
+            .p_3()
+            .flex()
+            .flex_col()
+            .gap(px(SP_4))
+            .child(
+                div()
+                    .text_size(fs(FS_15))
+                    .font_semibold()
+                    .text_color(c(TEXT_PRIMARY))
+                    .child(text.app_title),
+            )
+            .child(kv_row(text.about_version, env!("CARGO_PKG_VERSION")));
+        // 两行都可能没有值可给:`authors` 是 Cargo.toml 里唯一没有被继承就
+        // 会变成空串的那个字段,而没有尖括号就没有邮箱。空标签配空值比这一
+        // 行不存在更糟——它看起来像读取失败。
+        if !author.is_empty() {
+            rows = rows.child(kv_row(text.about_author, author));
+        }
+        if !email.is_empty() {
+            rows = rows.child(kv_row(text.about_contact, email));
+        }
+
+        panel().child(panel_header(text.seg_about)).child(
+            rows.child(kv_row(text.about_repository, env!("CARGO_PKG_REPOSITORY")))
+                .child(kv_row(text.about_license, env!("CARGO_PKG_LICENSE")))
+                .child(
+                    div()
+                        .pt(px(SP_4))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(text.about_feedback),
+                ),
         )
     }
 

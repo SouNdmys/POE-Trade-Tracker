@@ -517,6 +517,8 @@ pub struct Text {
     pub seg_hud: &'static str,
     pub seg_season: &'static str,
     pub seg_params: &'static str,
+    pub seg_guide: &'static str,
+    pub seg_about: &'static str,
     /// 参数六组的组名。
     pub group_freshness: &'static str,
     pub group_scan: &'static str,
@@ -558,6 +560,31 @@ pub struct Text {
     pub hud_place_done: &'static str,
     pub hud_place_hint: &'static str,
     pub hud_place_help: &'static str,
+
+    // -- usage guide(使用说明段) --
+    /// 四个小节的标题:上手、每页答什么、热键、不对劲的时候。
+    pub guide_first_run_header: &'static str,
+    pub guide_pages_header: &'static str,
+    pub guide_hotkeys_header: &'static str,
+    pub guide_trouble_header: &'static str,
+    /// 三块正文,一行一条,行内用 `  ·  ` 把左边的短标签和右边的说明分开。
+    /// 和 `roles_legend` 同一个形状:整块是一个字段,不是一行一个——不然
+    /// 每加一行就要在四个地方各补一处,而这几块本来就是要一起读的。
+    pub guide_first_run: &'static str,
+    pub guide_pages: &'static str,
+    pub guide_trouble: &'static str,
+    /// 热键那一段的脚注。键值本身来自设置文件,这里只说它们何时不灵。
+    pub guide_hotkeys_note: &'static str,
+
+    // -- about(关于段) --
+    /// 只有标签是译文;值全部来自 `env!("CARGO_PKG_*")`,所以版本号和联系
+    /// 方式没有第二处需要跟着改。
+    pub about_version: &'static str,
+    pub about_author: &'static str,
+    pub about_contact: &'static str,
+    pub about_repository: &'static str,
+    pub about_license: &'static str,
+    pub about_feedback: &'static str,
 }
 
 impl Text {
@@ -894,6 +921,8 @@ impl Text {
             ("seg_hud", self.seg_hud),
             ("seg_season", self.seg_season),
             ("seg_params", self.seg_params),
+            ("seg_guide", self.seg_guide),
+            ("seg_about", self.seg_about),
             ("group_freshness", self.group_freshness),
             ("group_scan", self.group_scan),
             ("group_liquidity", self.group_liquidity),
@@ -922,6 +951,20 @@ impl Text {
             ("hud_place_done", self.hud_place_done),
             ("hud_place_hint", self.hud_place_hint),
             ("hud_place_help", self.hud_place_help),
+            ("guide_first_run_header", self.guide_first_run_header),
+            ("guide_pages_header", self.guide_pages_header),
+            ("guide_hotkeys_header", self.guide_hotkeys_header),
+            ("guide_trouble_header", self.guide_trouble_header),
+            ("guide_first_run", self.guide_first_run),
+            ("guide_pages", self.guide_pages),
+            ("guide_trouble", self.guide_trouble),
+            ("guide_hotkeys_note", self.guide_hotkeys_note),
+            ("about_version", self.about_version),
+            ("about_author", self.about_author),
+            ("about_contact", self.about_contact),
+            ("about_repository", self.about_repository),
+            ("about_license", self.about_license),
+            ("about_feedback", self.about_feedback),
         ]
     }
 }
@@ -1277,6 +1320,8 @@ pub static ENGLISH: Text = Text {
     seg_hud: "Overlay",
     seg_season: "Season & storage",
     seg_params: "Algorithm",
+    seg_guide: "How to use",
+    seg_about: "About",
     group_freshness: "FRESHNESS",
     group_scan: "SCAN & RESULTS",
     group_liquidity: "LIQUIDITY & OUTLIERS",
@@ -1306,6 +1351,41 @@ pub static ENGLISH: Text = Text {
     hud_place_done: "done",
     hud_place_hint: "drag to place",
     hud_place_help: "the card takes the mouse while placing; drag it, then press done",
+
+    guide_first_run_header: "FIRST RUN",
+    guide_pages_header: "WHAT EACH PAGE ANSWERS",
+    guide_hotkeys_header: "HOTKEYS",
+    guide_trouble_header: "WHEN SOMETHING LOOKS WRONG",
+    guide_first_run: concat!(
+        "1  ·  open the currency exchange in game, take a screenshot, and frame the three areas on it from the calibrate page\n",
+        "2  ·  come back and press start watch, or hit the watch hotkey without leaving the game\n",
+        "3  ·  in game, flip through the pairs you care about - a panel is read once it stops moving, so give each one a second\n",
+        "4  ·  come back to the watchlist and the radar; they only know the pairs you flipped past",
+    ),
+    guide_pages: concat!(
+        "monitor  ·  is the watcher alive, what did it just read, and what that book is worth\n",
+        "analytics  ·  what each currency is worth, who is buying it, and whether the anchor itself has drifted\n",
+        "watchlist  ·  what is being watched, whether it is healthy, and what to capture next\n",
+        "radar  ·  every route the captured books already imply, ranked - the page that answers before you ask\n",
+        "convert  ·  i hold this and want that: what a route returns, and whether to take the fill or list against it\n",
+        "history  ·  what one pair has been doing, as a summary, a chart, and a note on what looks off\n",
+        "calibrate  ·  where the three regions sit on your screen, drawn on a screenshot\n",
+        "settings  ·  game and language, the overlay, season and storage, and the algorithm numbers",
+    ),
+    guide_hotkeys_note: "registered system-wide, so they work with the game in front; a key that does nothing is owned by another program",
+    guide_trouble: concat!(
+        "nothing captured  ·  the exchange panel is not where you framed it, or the three areas were never saved - check the calibrate page\n",
+        "nothing new  ·  a panel that has not changed is read once and then left alone; that is the gate working, not a fault\n",
+        "a page is empty  ·  nothing was captured inside the report window - it is on the algorithm segment, and a season start floors it\n",
+        "a hotkey is dead  ·  the basics segment says so under the watch key when another program owns the combination",
+    ),
+
+    about_version: "version",
+    about_author: "author",
+    about_contact: "contact",
+    about_repository: "source",
+    about_license: "license",
+    about_feedback: "something wrong, or a page that should answer more? write to the address above.",
 };
 
 pub static SIMPLIFIED_CHINESE: Text = Text {
@@ -1659,6 +1739,8 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     seg_hud: "浮窗",
     seg_season: "赛季与存储",
     seg_params: "算法参数",
+    seg_guide: "使用说明",
+    seg_about: "关于",
     group_freshness: "数据新鲜度",
     group_scan: "扫描与结果",
     group_liquidity: "流动性与离群",
@@ -1688,6 +1770,41 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     hud_place_done: "完成",
     hud_place_hint: "拖动摆放",
     hud_place_help: "摆放时浮窗会接住鼠标；拖到位后点「完成」回到点击穿透",
+
+    guide_first_run_header: "第一次用",
+    guide_pages_header: "每一页答什么",
+    guide_hotkeys_header: "热键",
+    guide_trouble_header: "看着不对的时候",
+    guide_first_run: concat!(
+        "1  ·  在游戏里打开通货兑换面板截一张图，到校准页把三块区域框出来\n",
+        "2  ·  回来点「开始监视」，或者不出游戏直接按监视热键\n",
+        "3  ·  在游戏里翻你关心的那几对 — 面板停稳了才读，所以每一对多停一秒\n",
+        "4  ·  再回到关注列表和雷达；它们只知道你翻过的那几对",
+    ),
+    guide_pages: concat!(
+        "监视器  ·  循环还活着吗，刚才读到了什么，这个盘口能怎么赚\n",
+        "市场分析  ·  每种通货值多少、谁在买，以及锚本身是不是在漂\n",
+        "关注列表  ·  在盯哪些、数据健不健康、下一步该去抓什么\n",
+        "雷达  ·  已抓到的盘口本来就蕴含的所有路线，排好序 — 不用先想问题的那一页\n",
+        "兑换  ·  我有这个想换那个：一条路线能换回多少，是直接吃单还是挂单\n",
+        "历史  ·  某一对最近的走势，一段摘要、一张图，外加哪里看着不对\n",
+        "校准  ·  三块区域在你屏幕上的位置，画在截图上\n",
+        "设置  ·  游戏与语言、浮窗、赛季与存储，还有算法那些数",
+    ),
+    guide_hotkeys_note: "注册的是全局热键，游戏在前台也生效；按了没反应就是被别的程序占用了",
+    guide_trouble: concat!(
+        "什么都没抓到  ·  兑换面板不在你框的位置，或者三块区域压根没保存过 — 去校准页看看\n",
+        "一直没有新的  ·  面板没变过就只读一次，之后不再重复读；这是门控在起作用，不是坏了\n",
+        "某一页是空的  ·  报表窗口内没有抓到东西 — 窗口在算法参数段，赛季开始时间还会把它往上抬\n",
+        "热键按了没用  ·  被别的程序占用时，基本段的监视热键那一行会写出来",
+    ),
+
+    about_version: "版本",
+    about_author: "作者",
+    about_contact: "联系",
+    about_repository: "源码",
+    about_license: "授权",
+    about_feedback: "哪里不对，或者想让某一页多答一个问题？写到上面这个地址。",
 };
 
 #[cfg(test)]

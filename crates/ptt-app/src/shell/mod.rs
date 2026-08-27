@@ -149,17 +149,30 @@ impl Page {
     }
 }
 
-/// The settings page's four segments (§10):基本 / 浮窗 / 赛季与存储 / 算法参数。
+/// The settings page's segments (§10):基本 / 浮窗 / 赛季与存储 / 算法参数,
+/// 后面跟着不改任何设置的两段——使用说明与关于。
+///
+/// 这两段沉在最底下是因为它们是「久没打开、忘了怎么用」时才翻的:排在
+/// 前面会把每天都要碰的四段往下推。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SettingsSegment {
     Basic,
     Hud,
     Season,
     Params,
+    Guide,
+    About,
 }
 
 impl SettingsSegment {
-    const ALL: [Self; 4] = [Self::Basic, Self::Hud, Self::Season, Self::Params];
+    const ALL: [Self; 6] = [
+        Self::Basic,
+        Self::Hud,
+        Self::Season,
+        Self::Params,
+        Self::Guide,
+        Self::About,
+    ];
 
     fn label(self, text: &'static crate::i18n::Text) -> &'static str {
         match self {
@@ -167,6 +180,8 @@ impl SettingsSegment {
             Self::Hud => text.seg_hud,
             Self::Season => text.seg_season,
             Self::Params => text.seg_params,
+            Self::Guide => text.seg_guide,
+            Self::About => text.seg_about,
         }
     }
 
@@ -176,6 +191,8 @@ impl SettingsSegment {
             Self::Hud => "seg-hud",
             Self::Season => "seg-season",
             Self::Params => "seg-params",
+            Self::Guide => "seg-guide",
+            Self::About => "seg-about",
         }
     }
 }
