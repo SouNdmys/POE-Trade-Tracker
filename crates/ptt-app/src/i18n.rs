@@ -988,7 +988,7 @@ pub static ENGLISH: Text = Text {
 ",
         "bridge  ·  routed through, never a destination
 ",
-        "price only  ·  priced, never routed
+        "watch  ·  priced, never routed
 ",
         "off  ·  not watched - but anything captured is still used for arbitrage",
     ),
@@ -1225,7 +1225,7 @@ pub static ENGLISH: Text = Text {
     analytics_anchor_constant: "anchor · always 1",
     analytics_days_short: "{} more days",
     analytics_trend_baseline: "trend needs a {}-day baseline, only {} so far",
-    analytics_col_ratio: "d/s",
+    analytics_col_ratio: "demand/supply",
 
     convert_routes_header: "ROUTES",
     convert_routes_meta: "{} routes · up to {} steps",
