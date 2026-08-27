@@ -29,3 +29,10 @@ Currency-screenshots/
 
 # Packaging output
 target/package/
+
+# Claude Design handoff exports: 14MB of third-party tool output including raw
+# desktop screenshots. Same policy as the capture folders above — the decision
+# record they produced is docs/UI-DESIGN.md, which IS committed; the raw
+# export stays local.
+docs/poe2-ui/
+docs/*.zip
