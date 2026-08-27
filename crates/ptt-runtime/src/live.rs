@@ -118,7 +118,9 @@ pub fn capture_from_book(
         // Real SHA-256 digests of the two independently captured frames
         // whose recognitions agreed (POE1's two-frame stability contract).
         frame_hashes: frame_hashes.into(),
-        profile_sha256: ptt_catalog::POE2_CATALOG_SHA256.to_owned(),
+        // 从上下文取,不写死:上下文按 game 选了正确的目录哈希,这里再
+        // 硬编码一份就会给 POE1 的抓取盖上 POE2 的印。
+        profile_sha256: context.observation_identity.product_catalog_sha256.clone(),
         provider_id: context.observation_identity.ocr_provider_id.clone(),
         provider_version: context.observation_identity.ocr_provider_version.clone(),
         model_sha256: context.observation_identity.ocr_model_sha256.clone(),
@@ -240,6 +242,56 @@ mod tests {
         assert_eq!(
             capture.provenance.confirmation_mode,
             CaptureConfirmationMode::AutomaticConsensus
+        );
+    }
+
+    /// The provenance's catalog hash must describe the catalog this profile
+    /// actually matched names against — a POE1 capture stamped with POE2's
+    /// pin claims evidence that does not exist.
+    #[test]
+    fn a_poe1_capture_carries_poe1_catalog_provenance() {
+        let rows = vec![RowObservation {
+            side: Side::Available,
+            row_index: 0,
+            ratio: parse_ratio("1:2.5").expect("ratio"),
+            stock: 100,
+            band_fingerprint: 1,
+        }];
+        let observation = BookObservation::assemble(
+            BookIdentity {
+                need_asset_id: "divine-orb".to_owned(),
+                have_asset_id: "chaos-orb".to_owned(),
+            },
+            rows,
+            CaptureTimestamp {
+                wall_unix_ms: 0,
+                mono_ms: 0,
+            },
+        );
+        let book = RecognizedBook {
+            observation,
+            skipped_rows: Vec::new(),
+            need_text: "Divine Orb".to_owned(),
+            have_text: "Chaos Orb".to_owned(),
+        };
+        let context = live_context(
+            ProfileId::new(ProfileGame::Poe1, ContentLanguage::English),
+            "test-league",
+        )
+        .expect("context");
+        let capture = capture_from_book(
+            &book,
+            &context,
+            Utc::now(),
+            ["a".repeat(64), "b".repeat(64)],
+            1,
+        )
+        .expect("capture");
+
+        assert_eq!(
+            capture.provenance.profile_sha256,
+            ptt_catalog::POE1_CATALOG_SHA256,
+            "a POE1 capture must carry the POE1 catalog pin"
         );
     }
 }
