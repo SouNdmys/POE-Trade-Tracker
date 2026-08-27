@@ -190,6 +190,27 @@ impl AppShell {
                 return;
             }
             tuning.settlement_assets.retain(|held| held != asset);
+            // 删掉的正是锚:清空显式选择,回落到列表第一个,别让设置里
+            // 留着一个指向已删除通货的锚。
+            if tuning.anchor_asset.as_deref() == Some(asset) {
+                tuning.anchor_asset = None;
+            }
+        }
+        self.save_tuning();
+    }
+
+    /// Makes one settlement currency the anchor everything is valued against.
+    #[cfg(windows)]
+    pub(crate) fn set_anchor(&mut self, asset: &str) {
+        let game = self.settings.active_profile.game;
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            if !tuning.settlement_assets.iter().any(|held| held == asset)
+                || tuning.anchor_asset.as_deref() == Some(asset)
+            {
+                return;
+            }
+            tuning.anchor_asset = Some(asset.to_owned());
         }
         self.save_tuning();
     }
@@ -377,28 +398,69 @@ impl AppShell {
         // what every number on every page means, so it belongs on the settings
         // screen rather than as a click beside a row on a page of results.
         let removable = tuning.settlement_assets.len() > 1;
+        // 生效的锚和 policy 装配层同一条规则:显式选择,不在列表里就当没选,
+        // 回落列表第一个。
+        let anchor: String = match tuning
+            .anchor_asset
+            .as_ref()
+            .filter(|anchor| tuning.settlement_assets.contains(anchor))
+        {
+            Some(anchor) => anchor.clone(),
+            None => tuning
+                .settlement_assets
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+        };
         let mut settlement = div().h_flex().items_center().gap_2().flex_wrap();
         for (index, asset) in tuning.settlement_assets.iter().enumerate() {
-            let held = asset.clone();
             let mut tag = div()
                 .id(("settlement-chip", index))
                 .h_flex()
                 .items_center()
                 .gap_1()
                 .child(chip(StatusKind::Monitoring, &self.display_name(asset)));
+            if *asset == anchor {
+                // 锚徽:金字说明"所有价格以它计"。不可点,它已经是基准。
+                tag = tag.child(
+                    div()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(ACCENT_TEXT))
+                        .child(text.anchor_badge),
+                );
+            } else {
+                let target = asset.clone();
+                tag = tag.child(
+                    div()
+                        .id(("anchor-set", index))
+                        .cursor_pointer()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DISABLED))
+                        .hover(|style| style.text_color(c(ACCENT_TEXT)))
+                        .child(text.anchor_set)
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.set_anchor(&target);
+                            cx.notify();
+                        })),
+                );
+            }
             if removable {
-                tag = tag
-                    .cursor_pointer()
-                    .child(
-                        div()
-                            .text_size(fs(FS_10_5))
-                            .text_color(c(TEXT_DISABLED))
-                            .child("×"),
-                    )
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.remove_settlement(&held);
-                        cx.notify();
-                    }));
+                let held = asset.clone();
+                // × 是自己的点击目标:整个 chip 当删除热区的话,「设为锚」
+                // 一点就会连带把通货删了。
+                tag = tag.child(
+                    div()
+                        .id(("settlement-remove", index))
+                        .cursor_pointer()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DISABLED))
+                        .hover(|style| style.text_color(c(DANGER_TEXT)))
+                        .child("×")
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.remove_settlement(&held);
+                            cx.notify();
+                        })),
+                );
             }
             settlement = settlement.child(tag);
         }

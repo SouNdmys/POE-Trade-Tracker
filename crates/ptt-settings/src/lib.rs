@@ -99,6 +99,14 @@ pub struct MarketTuning {
     /// against. They must be the most liquid assets in the league.
     #[serde(default = "default_settlement_assets")]
     pub settlement_assets: Vec<String>,
+    /// The settlement currency everything else is valued against (结算锚).
+    ///
+    /// 单独存,不用列表顺序表达:设置页的 chips 按字母序排,锚要是隐含在
+    /// "列表第一个"里,加一个字母靠前的通货就会悄悄换锚。`None` 或指向
+    /// 不在结算列表里的通货时,回落到列表第一个——赛季主流换了,用户换
+    /// 锚,所有相对价值跟着走。
+    #[serde(default)]
+    pub anchor_asset: Option<String>,
     /// Focus targets: currencies the user actively trades in and out of.
     /// Empty means "every asset seen in the book", today's behavior.
     #[serde(default)]
@@ -244,6 +252,7 @@ impl Default for MarketTuning {
     fn default() -> Self {
         Self {
             settlement_assets: default_settlement_assets(),
+            anchor_asset: None,
             focus_assets: Vec::new(),
             bridge_assets: Vec::new(),
             watch_only_assets: Vec::new(),

@@ -1862,11 +1862,20 @@ fn market_policy_from(
     if tuning.settlement_assets.is_empty() {
         return (policy, None);
     }
-    let parsed: Vec<MarketAssetId> = tuning
+    let mut parsed: Vec<MarketAssetId> = tuning
         .settlement_assets
         .iter()
         .filter_map(|id| MarketAssetId::try_new(id).ok())
         .collect();
+    // 用户选的锚提到首位:锚 = core_liquidity 第一个,关注列表、市场分析、
+    // 雷达、兑换全从这一处装配读锚,所以只需在这里转一次。选了个已经不在
+    // 结算列表里的通货就当没选——回落列表第一个,不值得为它报警。
+    if let Some(anchor) = tuning.anchor_asset.as_deref()
+        && let Some(position) = parsed.iter().position(|id| id.as_str() == anchor)
+    {
+        let anchor = parsed.remove(position);
+        parsed.insert(0, anchor);
+    }
     let dropped = tuning.settlement_assets.len() - parsed.len();
     if parsed.is_empty() || !policy.set_core_liquidity(parsed) {
         return (policy, Some(text.settlement_config_invalid.to_owned()));
@@ -4276,6 +4285,35 @@ mod structural_tests {
         drop_ignored_probes(&mut candidates, &tuning);
         assert_eq!(candidates.len(), 1, "only the ignored direction goes");
         assert_eq!(candidates[0].from_asset_id.as_str(), "greater-chaos-orb");
+    }
+
+    /// The user's chosen anchor leads core liquidity, and everything that
+    /// values against "the first core currency" — watchlist, analytics,
+    /// radar, convert — follows through this one assembly point. An anchor
+    /// no longer in the settlement set counts as no choice at all.
+    #[test]
+    fn the_chosen_anchor_leads_core_liquidity() {
+        let mut tuning = MarketTuning {
+            settlement_assets: vec!["chaos-orb".to_owned(), "divine-orb".to_owned()],
+            anchor_asset: Some("divine-orb".to_owned()),
+            ..Default::default()
+        };
+        let (policy, warning) = market_policy_from(&tuning, "league", UiLanguage::English);
+        assert!(warning.is_none());
+        assert_eq!(
+            policy.core_liquidity.first().map(|id| id.as_str()),
+            Some("divine-orb"),
+            "the chosen anchor must come first"
+        );
+        assert_eq!(policy.core_liquidity.len(), 2, "nothing is dropped");
+
+        // 锚不在结算列表里 = 没选:回落列表第一个,不报错。
+        tuning.anchor_asset = Some("exalted-orb".to_owned());
+        let (policy, _) = market_policy_from(&tuning, "league", UiLanguage::English);
+        assert_eq!(
+            policy.core_liquidity.first().map(|id| id.as_str()),
+            Some("chaos-orb")
+        );
     }
 
     /// An empty report window is a quiet page, not a fault. The engine
