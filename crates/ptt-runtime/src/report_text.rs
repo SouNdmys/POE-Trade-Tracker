@@ -585,6 +585,26 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             REPORT_ENGLISH.scanning_from,
             REPORT_CHINESE.scanning_from,
         ),
+        (
+            "leg_share",
+            REPORT_ENGLISH.leg_share,
+            REPORT_CHINESE.leg_share,
+        ),
+        (
+            "route_direct_label",
+            REPORT_ENGLISH.route_direct_label,
+            REPORT_CHINESE.route_direct_label,
+        ),
+        (
+            "route_baseline",
+            REPORT_ENGLISH.route_baseline,
+            REPORT_CHINESE.route_baseline,
+        ),
+        (
+            "route_no_front_price",
+            REPORT_ENGLISH.route_no_front_price,
+            REPORT_CHINESE.route_no_front_price,
+        ),
         ("unpriced", REPORT_ENGLISH.unpriced, REPORT_CHINESE.unpriced),
         ("risks", REPORT_ENGLISH.risks, REPORT_CHINESE.risks),
         ("probe", REPORT_ENGLISH.probe, REPORT_CHINESE.probe),
