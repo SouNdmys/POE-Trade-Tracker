@@ -573,14 +573,20 @@ pub struct Text {
     pub hud_place_help: &'static str,
 
     // -- usage guide(使用说明段) --
-    /// 四个小节的标题:上手、每页答什么、热键、不对劲的时候。
+    /// 五个小节的标题:识别器、上手、每页答什么、热键、不对劲的时候。
+    pub guide_ocr_header: &'static str,
     pub guide_first_run_header: &'static str,
     pub guide_pages_header: &'static str,
     pub guide_hotkeys_header: &'static str,
     pub guide_trouble_header: &'static str,
-    /// 三块正文,一行一条,行内用 `  ·  ` 把左边的短标签和右边的说明分开。
+    /// 四块正文,一行一条,行内用 `  ·  ` 把左边的短标签和右边的说明分开。
     /// 和 `roles_legend` 同一个形状:整块是一个字段,不是一行一个——不然
     /// 每加一行就要在四个地方各补一处,而这几块本来就是要一起读的。
+    ///
+    /// `guide_ocr` 排在最前面:少装一个识别器不会在启动时报错,只会让每一帧
+    /// 都被丢掉,而用户看到的是"什么都没抓到"。这话必须在他去框区域之前就
+    /// 说完,放进"看着不对的时候"就已经晚了一步。
+    pub guide_ocr: &'static str,
     pub guide_first_run: &'static str,
     pub guide_pages: &'static str,
     pub guide_trouble: &'static str,
@@ -609,8 +615,20 @@ pub struct Text {
     pub update_state_current: &'static str,
     pub update_state_available: &'static str,
     pub update_state_downloading: &'static str,
+    /// 下载和核对之间那一下:几十兆落盘,外加一次 `sync_all`。慢盘上它能停
+    /// 住一秒多,而这一段数不出中间量,所以只有一句话没有进度条。
+    pub update_state_saving: &'static str,
+    /// 逐条解压、逐条哈希、和清单对账。以前它和下载共用一句话,于是那一句在
+    /// 下载完之后还挂在那儿,看着像卡住了。
+    pub update_state_verifying: &'static str,
     pub update_state_installing: &'static str,
     pub update_state_installed: &'static str,
+    /// 进度条底下那一行数字。两个 `{}` 分别是已完成和总量。
+    ///
+    /// 单位跟着阶段走:下载数的是 MiB,核对数的是包里的条目,所以是两句而不是
+    /// 一句带参数的单位。
+    pub update_progress_bytes: &'static str,
+    pub update_progress_files: &'static str,
     /// 两个按钮,以及按钮在冷却里消失时替它说话的那一句。
     pub update_check_now: &'static str,
     pub update_install: &'static str,
@@ -1010,10 +1028,12 @@ impl Text {
             ("hud_place_done", self.hud_place_done),
             ("hud_place_hint", self.hud_place_hint),
             ("hud_place_help", self.hud_place_help),
+            ("guide_ocr_header", self.guide_ocr_header),
             ("guide_first_run_header", self.guide_first_run_header),
             ("guide_pages_header", self.guide_pages_header),
             ("guide_hotkeys_header", self.guide_hotkeys_header),
             ("guide_trouble_header", self.guide_trouble_header),
+            ("guide_ocr", self.guide_ocr),
             ("guide_first_run", self.guide_first_run),
             ("guide_pages", self.guide_pages),
             ("guide_trouble", self.guide_trouble),
@@ -1032,8 +1052,12 @@ impl Text {
             ("update_state_current", self.update_state_current),
             ("update_state_available", self.update_state_available),
             ("update_state_downloading", self.update_state_downloading),
+            ("update_state_saving", self.update_state_saving),
+            ("update_state_verifying", self.update_state_verifying),
             ("update_state_installing", self.update_state_installing),
             ("update_state_installed", self.update_state_installed),
+            ("update_progress_bytes", self.update_progress_bytes),
+            ("update_progress_files", self.update_progress_files),
             ("update_check_now", self.update_check_now),
             ("update_install", self.update_install),
             ("update_check_cooldown", self.update_check_cooldown),
@@ -1454,10 +1478,25 @@ pub static ENGLISH: Text = Text {
     hud_place_hint: "drag to place",
     hud_place_help: "the card takes the mouse while placing; drag it, then press done",
 
+    guide_ocr_header: "WINDOWS OCR RECOGNIZERS",
     guide_first_run_header: "FIRST RUN",
     guide_pages_header: "WHAT EACH PAGE ANSWERS",
     guide_hotkeys_header: "HOTKEYS",
     guide_trouble_header: "WHEN SOMETHING LOOKS WRONG",
+    guide_ocr: concat!(
+        "english  ·  required by every profile, including the chinese ones. the rate and stock columns are read in english whatever client you play, so nothing is read at all without it. windows 11 ships it as en-US, but check rather than assume\n",
+        "traditional chinese  ·  required as well if the client language is 繁中. it reads the panel title and both currency names, and the title is read first, so a machine missing it reads nothing. any traditional tag works - zh-Hant-TW, zh-TW, the hong kong and macau variants, or anything carrying Hant. simplified chinese (zh-Hans) does not count for this
+",
+        "not the same thing  ·  adding a display language is not adding OCR. optical character recognition is a separate tick on the same page, so you can add reading for zh-Hant-TW without windows itself turning chinese\n",
+        "how to add one  ·  settings > time & language > language & region. if the language is listed, open its ... menu > language options > optional language features > optical character recognition > install. if it is not listed, use add a language, then on the install page tick optical character recognition and untick set as my windows display language\n",
+        "check what you have  ·  no admin needed. in powershell: [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages - this asks the same windows api the program asks, so what it prints is exactly what the program can use
+",
+        "add one by command  ·  in an ADMIN powershell, list them first with Get-WindowsCapability -Online -Name Language.OCR* and copy the Name you need, then Add-WindowsCapability -Online -Name Language.OCR~~~zh-TW~0.0.1.0 (and the en-US one). listing first matters - the exact name can differ by windows build
+",
+        "if it will not install  ·  recognizers are downloaded on demand through windows update. with the update service disabled, or the machine managed by group policy or WSUS, the install button spins and quietly goes back to not-installed with no error. turn windows update on, install it, then turn it off again if that is how you keep your machine
+",
+        "if one is missing  ·  nothing fails at launch. the watch starts, every frame is thrown away, and the monitor page counts them as skipped with the reason \"OCR unavailable\" - it never names the language it wanted. install the recognizer, then start the program again",
+    ),
     guide_first_run: concat!(
         "1  ·  in the basics segment, pick your game and client language - the reader matches words in that language, and the wrong one matches nothing\n",
         "2  ·  open the currency exchange in game, take a screenshot, and frame the three areas on it from the calibrate page\n",
@@ -1479,6 +1518,7 @@ pub static ENGLISH: Text = Text {
     guide_hotkeys_note: "registered system-wide, so they work with the game in front; a key that does nothing is owned by another program",
     guide_trouble: concat!(
         "nothing captured  ·  the exchange panel is not where you framed it, or the three areas were never saved - check the calibrate page\n",
+        "skips say ocr  ·  a recognizer your client language needs is not installed on this machine - see windows ocr recognizers above\n",
         "nothing new  ·  a panel that has not changed is read once and then left alone; that is the gate working, not a fault\n",
         "a page is empty  ·  nothing was captured inside the report window - it is on the algorithm segment, and a season start floors it\n",
         "a hotkey is dead  ·  the basics segment says so under the watch key when another program owns the combination",
@@ -1498,9 +1538,13 @@ pub static ENGLISH: Text = Text {
     update_state_checking: "asking github...",
     update_state_current: "this is the newest version",
     update_state_available: "a newer version is out",
-    update_state_downloading: "downloading and checking the package",
+    update_state_downloading: "downloading the package",
+    update_state_saving: "writing the package to disk",
+    update_state_verifying: "checking the package against its manifest",
     update_state_installing: "replacing the files",
     update_state_installed: "installed - restart to finish",
+    update_progress_bytes: "{} of {} MiB",
+    update_progress_files: "{} of {} entries checked",
     update_check_now: "Check now",
     update_install: "Download and install",
     update_check_cooldown: "just asked - give it a minute before asking again",
@@ -1913,10 +1957,25 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     hud_place_hint: "拖动摆放",
     hud_place_help: "摆放时浮窗会接住鼠标；拖到位后点「完成」回到点击穿透",
 
+    guide_ocr_header: "Windows OCR 识别器",
     guide_first_run_header: "第一次用",
     guide_pages_header: "每一页答什么",
     guide_hotkeys_header: "热键",
     guide_trouble_header: "看着不对的时候",
+    guide_ocr: concat!(
+        "英文  ·  每一种配置都要装，包括中文那两种。汇率和库存那两列在哪个客户端里都按英文读，没有它就什么都读不出来。Windows 11 一般自带 en-US，但请去看一眼，别默认它在\n",
+        "繁体中文  ·  客户端语言选「繁中」时还要多装这一个。它读面板标题和两个通货名，而标题是最先读的，所以缺了它等于一帧都读不到。繁体的标签都认 — zh-Hant-TW、zh-TW、港澳那几个，或者任何带 Hant 的都行。简体（zh-Hans）不算数
+",
+        "不是一回事  ·  加显示语言不等于加 OCR。「光学字符识别」是同一个页面上单独的一个勾，所以可以只给 zh-Hant-TW 加识别，Windows 界面照样是中文的\n",
+        "怎么装  ·  设置 > 时间和语言 > 语言和区域。列表里有这个语言的话，点它右边的 ... > 语言选项 > 可选语言功能 > 光学字符识别 > 安装。列表里没有就先「添加语言」，在安装那一页勾上「光学字符识别」，并把「设为我的 Windows 显示语言」取消勾选\n",
+        "先看装了什么  ·  不需要管理员。PowerShell 里敲 [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages — 问的就是本程序问的那个 Windows 接口，它列出来的就是程序能用的
+",
+        "用命令装  ·  管理员 PowerShell。先列：Get-WindowsCapability -Online -Name Language.OCR*，从里面复制要的那个 Name；再装：Add-WindowsCapability -Online -Name Language.OCR~~~zh-TW~0.0.1.0（en-US 同理）。先列一遍是有意义的 — 确切名字在不同 Windows 版本上可能不一样
+",
+        "装不上的时候  ·  识别器是按需下载的，走 Windows 更新。如果更新服务被禁用了，或者机器被组策略／WSUS 管着，安装按钮会转一下然后悄悄退回未安装，不报任何错。把 Windows 更新打开、装好，之后想关再关回去
+",
+        "少装了会怎样  ·  启动时不会报错。监视照常跑，每一帧都被丢掉，监视器页把它们记成跳过、原因写「OCR 不可用」— 它不会说少的是哪个语言。装好识别器之后重新启动本程序",
+    ),
     guide_first_run: concat!(
         "1  ·  先在「基本」段选好游戏和游戏语言 — 识别按这个语言的词表来认字，选错就什么都认不出\n",
         "2  ·  在游戏里打开通货兑换面板截一张图，到校准页把三块区域框出来\n",
@@ -1938,6 +1997,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     guide_hotkeys_note: "注册的是全局热键，游戏在前台也生效；按了没反应就是被别的程序占用了",
     guide_trouble: concat!(
         "什么都没抓到  ·  兑换面板不在你框的位置，或者三块区域压根没保存过 — 去校准页看看\n",
+        "跳过原因是 ocr  ·  这台机器缺了你客户端语言要用的识别器 — 看上面「Windows OCR 识别器」那一节\n",
         "一直没有新的  ·  面板没变过就只读一次，之后不再重复读；这是门控在起作用，不是坏了\n",
         "某一页是空的  ·  报表窗口内没有抓到东西 — 窗口在算法参数段，赛季开始时间还会把它往上抬\n",
         "热键按了没用  ·  被别的程序占用时，基本段的监视热键那一行会写出来",
@@ -1957,9 +2017,13 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     update_state_checking: "正在问 GitHub…",
     update_state_current: "当前就是最新版",
     update_state_available: "有更新的版本了",
-    update_state_downloading: "正在下载并核对安装包",
+    update_state_downloading: "正在下载安装包",
+    update_state_saving: "正在把安装包写进磁盘",
+    update_state_verifying: "正在按清单核对安装包",
     update_state_installing: "正在替换文件",
     update_state_installed: "已装好 - 重启后生效",
+    update_progress_bytes: "已下载 {} / {} MiB",
+    update_progress_files: "已核对 {} / {} 条",
     update_check_now: "现在检查",
     update_install: "下载并安装",
     update_check_cooldown: "刚问过 - 过一分钟再问",
@@ -2014,6 +2078,35 @@ mod tests {
                     !value.contains(character),
                     "{field} still reads {value:?}, which holds the traditional {character}"
                 );
+            }
+        }
+    }
+
+    /// 使用说明的每一行都得有那个分隔符。
+    ///
+    /// `guide_panel` 用 `split_once("  ·  ")` 把标签和正文拆开,拆不开的行整条
+    /// 掉进正文列,左边空着——编译得过、跑得起来,只是那一行歪了。手滑少打
+    /// 一个空格就是这个后果,而那种事只有这里看得见。
+    #[test]
+    fn every_guide_line_still_splits_into_a_label_and_a_body() {
+        for language in LANGUAGES {
+            let text = text(language);
+            let blocks = [
+                ("guide_ocr", text.guide_ocr),
+                ("guide_first_run", text.guide_first_run),
+                ("guide_pages", text.guide_pages),
+                ("guide_trouble", text.guide_trouble),
+            ];
+            for (field, block) in blocks {
+                for line in block.lines() {
+                    let Some((label, body)) = line.split_once("  ·  ") else {
+                        panic!("{language:?} {field} has a line with no separator: {line:?}");
+                    };
+                    assert!(
+                        !label.trim().is_empty() && !body.trim().is_empty(),
+                        "{language:?} {field} has an empty half: {line:?}"
+                    );
+                }
             }
         }
     }

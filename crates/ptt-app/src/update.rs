@@ -645,6 +645,108 @@ fn classify_transport(error: ureq::Error) -> UpdateError {
 // 二:下载与核对
 // ---------------------------------------------------------------------------
 
+/// 装一次更新要走的三段路,按先后顺序。
+///
+/// 分成三段而不是"下载中/安装中"两段,是因为这三段各自的进度是**不同的单位**:
+/// 下载数的是字节,核对数的是包里的条目,而写盘那一下没有中间量可数。混成一个
+/// 百分比就等于自己编一个分母。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Stage {
+    /// 从 GitHub 收字节。
+    #[default]
+    Downloading,
+    /// 把收到的字节落到磁盘上,包含一次 `sync_all`。
+    Saving,
+    /// 逐条解压、逐条哈希,和包自带的清单对账。
+    Checking,
+}
+
+impl Stage {
+    /// 存进 `AtomicU8` 的那个数。
+    ///
+    /// 手写而不是 `as u8`:枚举以后重排顺序时,`as` 会悄悄换掉编码,而这里
+    /// 编码错了只会画错一句话——正是那种没人会发现的错。
+    const fn code(self) -> u8 {
+        match self {
+            Self::Downloading => 0,
+            Self::Saving => 1,
+            Self::Checking => 2,
+        }
+    }
+
+    /// 读回来。认不出的数当"在下载"——这条路上不许 panic,而三段里只有第一段
+    /// 是"还早得很",猜错的代价最小。
+    const fn from_code(code: u8) -> Self {
+        match code {
+            1 => Self::Saving,
+            2 => Self::Checking,
+            _ => Self::Downloading,
+        }
+    }
+
+    /// 这一段有没有可以数的中间量。写盘没有:一次 `write_all` 加一次
+    /// `sync_all`,中间没有回音。
+    pub const fn is_countable(self) -> bool {
+        !matches!(self, Self::Saving)
+    }
+}
+
+/// 界面画一帧进度要的全部东西。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ProgressSnapshot {
+    pub stage: Stage,
+    /// 已经走完的量。下载段是字节,核对段是条目。
+    pub done: u64,
+    /// 这一段总共有多少。数不出来就是 0——界面据此不画进度条,而不是画一根
+    /// 假装知道总数的。
+    pub total: u64,
+}
+
+/// 一次安装走到哪了。后台线程只写,界面线程只读。
+///
+/// 用原子量而不是通道:`backend.rs` 里和监视线程之间就是这个形状,而且这条路
+/// 是 `panic = "abort"`——一次 `store` 不会失败,一次 `send` 会遇到对面已经没了。
+/// 丢掉中间值在这里恰恰是对的:界面每 120ms 只画一次,要的就是"最新那个数",
+/// 不是一条积压的历史。
+///
+/// 三个原子量各自更新,所以读的人可能正好撞在换段的中间,拿到新段配旧数——
+/// 后果是一帧里那根条画得不准,120ms 之后自己就对了。为这个上一把锁,就是在
+/// 下载的热路径上加一次可能阻塞,不划算。
+#[derive(Debug, Default)]
+pub struct Progress {
+    stage: std::sync::atomic::AtomicU8,
+    done: std::sync::atomic::AtomicU64,
+    total: std::sync::atomic::AtomicU64,
+}
+
+impl Progress {
+    /// 进入新的一段。`total` 数不出来就传 0。
+    pub fn begin(&self, stage: Stage, total: u64) {
+        use std::sync::atomic::Ordering::Relaxed;
+        // 先把数清零再换段:反过来的话,界面有机会看见新段配着上一段的进度,
+        // 也就是一根已经满了的条。
+        self.done.store(0, Relaxed);
+        self.total.store(total, Relaxed);
+        self.stage.store(stage.code(), Relaxed);
+    }
+
+    /// 又走完了 `amount`(下载是字节,核对是条目)。
+    pub fn advance(&self, amount: u64) {
+        use std::sync::atomic::Ordering::Relaxed;
+        self.done.fetch_add(amount, Relaxed);
+    }
+
+    /// 现在这一帧。
+    pub fn snapshot(&self) -> ProgressSnapshot {
+        use std::sync::atomic::Ordering::Relaxed;
+        ProgressSnapshot {
+            stage: Stage::from_code(self.stage.load(Relaxed)),
+            done: self.done.load(Relaxed),
+            total: self.total.load(Relaxed),
+        }
+    }
+}
+
 /// 下好、核对过、可以动手换的一份更新。
 #[derive(Debug, Clone)]
 pub struct StagedUpdate {
@@ -675,14 +777,22 @@ pub fn updates_dir() -> Result<PathBuf, UpdateError> {
 /// 下载这个 release 的包,把它和自带的清单从头到尾对一遍。
 ///
 /// 对不上就在这里停:一份没核对过的 zip 绝不允许走到 `apply`。
-pub fn stage(release: &Release) -> Result<StagedUpdate, UpdateError> {
+///
+/// `progress` 是给界面看的,不参与任何判断:这条路上多写一个原子量,少写也
+/// 只是那根条不动,不会改变这一次安装的结果。
+pub fn stage(release: &Release, progress: &Progress) -> Result<StagedUpdate, UpdateError> {
     let directory = updates_dir()?;
     fs::create_dir_all(&directory).map_err(|error| storage_error(&directory, &error))?;
 
     let archive_path = directory.join(PENDING_ARCHIVE_NAME);
 
-    let bytes = download(&release.asset_url)?;
+    // 分母用 GitHub 报的那个数。它只是"显示用的总数",真正的闸在读的时候,
+    // 所以就算它报错了也只是条画得不准,下不满或者提前满,包照样卡在上限上。
+    progress.begin(Stage::Downloading, release.asset_size);
+    let bytes = download(&release.asset_url, progress)?;
 
+    // 写盘没有中间量可数,传 0 让界面别画条,只换那一句话。
+    progress.begin(Stage::Saving, 0);
     let mut file =
         fs::File::create(&archive_path).map_err(|error| storage_error(&archive_path, &error))?;
     file.write_all(&bytes)
@@ -692,7 +802,7 @@ pub fn stage(release: &Release) -> Result<StagedUpdate, UpdateError> {
     drop(file);
 
     // 核对不过就把这几十兆当场删掉,不留在用户的磁盘上等下一轮覆盖。
-    let checked = inspect_archive(bytes).and_then(|(manifest, entries)| {
+    let checked = inspect_archive(bytes, progress).and_then(|(manifest, entries)| {
         reconcile(&manifest, &release.tag, &entries)?;
         Ok(manifest)
     });
@@ -714,9 +824,23 @@ pub fn stage(release: &Release) -> Result<StagedUpdate, UpdateError> {
 }
 
 /// 把包整个读进内存。上限在 `MAX_ARCHIVE_BYTES`,ureq 读到超限自己会停。
-fn download(url: &str) -> Result<Vec<u8>, UpdateError> {
+///
+/// 自己分块读而不是 `read_to_vec()`:那一句在几十兆读完之前不回话,外面看到的
+/// 就是一个静止几十秒的面板。64 KiB 一块,和 `drain_entry` 同一个块大小。
+///
+/// 上限没有放松。`.limit()` 还在,它超限时从读里吐出来的是一个包着 ureq 错的
+/// `io::Error`,`ureq::Error::from` 会把它原样拆回来,所以下面那个 `TooLarge`
+/// 的分支和以前接住的是同一件事。
+fn download(url: &str, progress: &Progress) -> Result<Vec<u8>, UpdateError> {
+    // 分段超时,不用全局的那一个。全局超时把"连不上"和"下得慢"算成同一件
+    // 事:26 MiB 配 600 秒,意味着线路低于 44 KB/s 就会被当成故障掐掉,而它
+    // 明明一直在推进。有了进度条之后这更难看——用户眼睁睁看着它死在 70%。
+    // 所以握手给短的(服务器死了要快点知道),正文给足(慢线也让它下完),
+    // 按"最慢也该完成"取值:26 MiB / 1800s ≈ 15 KB/s 的地板。
     let config = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(600)))
+        .timeout_connect(Some(Duration::from_secs(20)))
+        .timeout_recv_response(Some(Duration::from_secs(30)))
+        .timeout_recv_body(Some(Duration::from_secs(1800)))
         .build();
     let agent: ureq::Agent = config.into();
 
@@ -726,17 +850,35 @@ fn download(url: &str) -> Result<Vec<u8>, UpdateError> {
         .call()
         .map_err(classify_transport)?;
 
-    response
+    let mut reader = response
         .body_mut()
         .with_config()
         .limit(MAX_ARCHIVE_BYTES)
-        .read_to_vec()
-        .map_err(|error| match error {
-            ureq::Error::BodyExceedsLimit(_) => UpdateError::TooLarge {
-                limit_bytes: MAX_ARCHIVE_BYTES,
-            },
-            other => classify_transport(other),
-        })
+        .reader();
+
+    // 不按对面报的大小预分配:那个数来自网络,而这条路上不多设一个信任点。
+    let mut bytes: Vec<u8> = Vec::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read =
+            std::io::Read::read(&mut reader, &mut buffer).map_err(
+                |error| match ureq::Error::from(error) {
+                    ureq::Error::BodyExceedsLimit(_) => UpdateError::TooLarge {
+                        limit_bytes: MAX_ARCHIVE_BYTES,
+                    },
+                    other => classify_transport(other),
+                },
+            )?;
+        if read == 0 {
+            break;
+        }
+        match buffer.get(..read) {
+            Some(chunk) => bytes.extend_from_slice(chunk),
+            None => return Err(UpdateError::BadArchive("short read".to_string())),
+        }
+        progress.advance(read as u64);
+    }
+    Ok(bytes)
 }
 
 /// zip64 的包我们不收,而且要在把字节交出去**之前**回绝。
@@ -790,7 +932,14 @@ async fn open_archive(
 /// 打开 zip,取出清单,把每个条目的 SHA-256 算出来。
 ///
 /// 只算不写:这一步之后才知道这包能不能信,写进安装目录是下一步的事。
-fn inspect_archive(bytes: Vec<u8>) -> Result<(Manifest, Vec<ArchiveEntry>), UpdateError> {
+///
+/// 这一段的进度按**条目**数,不按字节:分母得是打开包之前就说得出的数,而
+/// 解压后的总字节要等全部解完才知道。九个条目里有两个十几兆的,所以条走得不
+/// 匀——但它在动,而且每一格都是真的走完了一条。
+fn inspect_archive(
+    bytes: Vec<u8>,
+    progress: &Progress,
+) -> Result<(Manifest, Vec<ArchiveEntry>), UpdateError> {
     futures_lite::future::block_on(async move {
         let zip = open_archive(bytes).await?;
 
@@ -808,6 +957,8 @@ fn inspect_archive(bytes: Vec<u8>) -> Result<(Manifest, Vec<ArchiveEntry>), Upda
             .ok_or_else(|| {
                 UpdateError::BadArchive("the package has no MANIFEST.json".to_string())
             })?;
+
+        progress.begin(Stage::Checking, names.len() as u64);
 
         let mut budget = MAX_UNPACKED_BYTES;
         let mut manifest_bytes: Vec<u8> = Vec::new();
@@ -833,6 +984,7 @@ fn inspect_archive(bytes: Vec<u8>) -> Result<(Manifest, Vec<ArchiveEntry>), Upda
                     name: name.clone(),
                     sha256: String::new(),
                 });
+                progress.advance(1);
                 continue;
             }
             let mut hasher = Sha256::new();
@@ -846,6 +998,7 @@ fn inspect_archive(bytes: Vec<u8>) -> Result<(Manifest, Vec<ArchiveEntry>), Upda
                 name: name.clone(),
                 sha256: hex(&hasher.finalize()),
             });
+            progress.advance(1);
         }
 
         Ok((manifest, entries))
@@ -1962,7 +2115,7 @@ mod update_tests {
     /// 是进程原地消失。所以这里断言的不是"报了哪个错",是"还活着"。
     #[test]
     fn a_zip64_package_is_refused_instead_of_killing_the_process() {
-        let out = inspect_archive(zip64_tail_claiming(1 << 60));
+        let out = inspect_archive(zip64_tail_claiming(1 << 60), &Progress::default());
         assert!(matches!(out, Err(UpdateError::BadArchive(_))));
     }
 
@@ -1970,7 +2123,7 @@ mod update_tests {
     /// 不是"这个数字看着大不大"。数字多大才算大,是没法在这里判断的事。
     #[test]
     fn a_modest_zip64_package_is_refused_too() {
-        let out = inspect_archive(zip64_tail_claiming(3));
+        let out = inspect_archive(zip64_tail_claiming(3), &Progress::default());
         assert!(matches!(out, Err(UpdateError::BadArchive(_))));
     }
 
@@ -1983,14 +2136,14 @@ mod update_tests {
     fn a_zip64_tail_padded_far_from_the_end_is_still_refused() {
         let mut bytes = zip64_tail_claiming(1 << 60);
         bytes.resize(bytes.len() + 66_000, 0);
-        let out = inspect_archive(bytes);
+        let out = inspect_archive(bytes, &Progress::default());
         assert!(matches!(out, Err(UpdateError::BadArchive(_))));
     }
 
     /// 一坨不是 zip 的字节要落进 `Err`,不是落进 panic。
     #[test]
     fn bytes_that_are_not_a_zip_are_an_error() {
-        let out = inspect_archive(b"this is not a zip file".to_vec());
+        let out = inspect_archive(b"this is not a zip file".to_vec(), &Progress::default());
         assert!(matches!(out, Err(UpdateError::BadArchive(_))));
     }
 
@@ -2035,7 +2188,8 @@ mod update_tests {
         });
 
         assert!(!declares_zip64(&bytes));
-        let (manifest, entries) = inspect_archive(bytes).expect("a real package opens");
+        let (manifest, entries) =
+            inspect_archive(bytes, &Progress::default()).expect("a real package opens");
         assert_eq!(manifest.version, "0.9.0");
         // 条目名进来就已经是斜杠写法了,清单才对得上。
         assert!(entries.iter().any(|e| e.name == "assets/ocr/model.onnx"));
@@ -2506,7 +2660,8 @@ mod update_tests {
         let bytes = fs::read(&zip).expect("reading the packaged zip");
         eprintln!("  {} bytes on disk", bytes.len());
 
-        let (manifest, entries) = inspect_archive(bytes.clone()).expect("the real package opens");
+        let (manifest, entries) =
+            inspect_archive(bytes.clone(), &Progress::default()).expect("the real package opens");
         eprintln!(
             "  manifest: product={:?} version={:?} configuration={:?} files={}",
             manifest.product,

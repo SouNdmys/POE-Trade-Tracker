@@ -377,8 +377,13 @@ impl AppShell {
                 .flex()
                 .flex_col()
                 .gap(px(SP_12))
-                // 三个宽度是量出来的:序号一位、页名最长 "analytics"、
-                // 症状最长 "a hotkey is dead"。
+                // 识别器排在"第一次用"前面,不是排进"看着不对的时候"。
+                // 缺一个识别器不会在启动时报错,只会让每一帧都被丢掉——症状
+                // 和"没校准好"一模一样,而这一节要在他去框区域之前就读到,
+                // 不是等他卡住了再去翻。
+                .child(section(text.guide_ocr_header, text.guide_ocr, 132.))
+                // 四个宽度是量出来的:识别器那节最长 "traditional chinese"、
+                // 序号一位、页名最长 "analytics"、症状最长 "a hotkey is dead"。
                 .child(section(
                     text.guide_first_run_header,
                     text.guide_first_run,
@@ -449,11 +454,15 @@ impl AppShell {
     /// 那条只留得住一句,下一条日志一来就没了。
     #[cfg(windows)]
     fn update_section(&self, cx: &mut Context<Self>) -> gpui::Div {
-        use crate::shell::updater::UpdateState;
+        use crate::shell::updater::{UpdateState, mib_tenths, progress_percent, stage_line};
         use gpui_component::StyledExt as _;
 
         let text = self.text();
         let state = &self.update_state;
+        // 下载这个状态里面还有三段路,状态枚举不分它们(它只需要回答"能不能
+        // 再按按钮"),所以那一句话在这里从进度上取。
+        let downloading = matches!(state, UpdateState::Downloading(_));
+        let progress = downloading.then(|| self.update_progress.snapshot());
         // 三种语气,一眼能分开:出了事是红的,有好消息是墨青的,其余是常规
         // 数据色。字本身已经说清楚了,颜色只是让人不必读完才知道该不该在意。
         let tone = if state.is_failure() {
@@ -487,12 +496,51 @@ impl AppShell {
                     // `min_w(0)` 和 `kv_row` 里那一处是同一个理由:没有它,
                     // 一条长的失败消息不会换行,只会把面板撑宽然后被窗口切掉。
                     .child(
-                        mono(state.line(text))
-                            .flex_1()
-                            .min_w(px(0.))
-                            .text_color(c(tone)),
+                        mono(match progress {
+                            Some(snapshot) => stage_line(snapshot.stage, text).to_owned(),
+                            None => state.line(text),
+                        })
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_color(c(tone)),
                     ),
             );
+
+        // 没有分母就整块不画——条和数字都不画。GitHub 没报大小、或者正停在写盘
+        // 那一段时,`progress_percent` 回的是 `None`,而那两句话里都嵌着分母:
+        // 「已下载 12.4 / 0.0 MiB」印出来不是"总数还不知道",是"总共 0.0 MiB",
+        // 比不画更糟。所以同一个判断同时管住这两样,不给它们分家的机会。
+        if let Some(snapshot) = progress {
+            if let Some(percent) = progress_percent(snapshot.done, snapshot.total) {
+                body = body.child(
+                    div().pt(px(SP_4)).child(
+                        gpui_component::progress::Progress::new()
+                            .value(f32::from(percent))
+                            .h(px(3.)),
+                    ),
+                );
+                // 单位跟着阶段走:下载数字节,核对数条目。写盘那一段本来就没有
+                // 分母,走不到这里。
+                let amount = match snapshot.stage {
+                    crate::update::Stage::Downloading => Some(ptt_runtime::report_text::fill(
+                        text.update_progress_bytes,
+                        &[&mib_tenths(snapshot.done), &mib_tenths(snapshot.total)],
+                    )),
+                    crate::update::Stage::Checking => Some(ptt_runtime::report_text::fill(
+                        text.update_progress_files,
+                        &[&snapshot.done.to_string(), &snapshot.total.to_string()],
+                    )),
+                    crate::update::Stage::Saving => None,
+                };
+                if let Some(amount) = amount {
+                    body = body.child(
+                        div()
+                            .pt(px(SP_4))
+                            .child(mono(amount).text_size(fs(FS_10_5)).text_color(c(TEXT_META))),
+                    );
+                }
+            }
+        }
 
         if let Some(version) = state.new_version_label() {
             body = body.child(kv_row(text.update_new_version, &version));

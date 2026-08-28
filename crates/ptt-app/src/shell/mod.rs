@@ -374,6 +374,18 @@ pub struct AppShell {
     /// 跑好几分钟,期间用户完全可能又按了一次检查。
     #[cfg(windows)]
     update_generation: u64,
+    /// 这一次安装收到哪了。后台线程写,`tick` 读。
+    ///
+    /// 每按一次「安装」换一份新的:被作废的那条线程于是只写得到一个没人读的
+    /// 计数器,进度这条路上不需要再复制一遍代次那道闸。
+    #[cfg(windows)]
+    update_progress: std::sync::Arc<crate::update::Progress>,
+    /// 上一帧已经画出去的那个进度。
+    ///
+    /// 存一份是为了**不**重画:下载卡住的时候数字不动,画面跟着不动才是实话,
+    /// 而无脑每 120ms 重画一次会让一个死掉的下载看起来还活着。
+    #[cfg(windows)]
+    update_progress_shown: crate::update::ProgressSnapshot,
     /// 上一次真的向 GitHub 发问的时刻。手动按钮的冷却从这里算。
     #[cfg(windows)]
     last_update_check: Option<std::time::Instant>,
@@ -615,6 +627,10 @@ impl AppShell {
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
+            update_progress: std::sync::Arc::new(crate::update::Progress::default()),
+            #[cfg(windows)]
+            update_progress_shown: crate::update::ProgressSnapshot::default(),
+            #[cfg(windows)]
             last_update_check: None,
         }
     }
@@ -656,6 +672,18 @@ impl AppShell {
             }
             if dirty {
                 self.refresh_hud();
+            }
+            // 进度只写在关于页那一小块上,跟浮窗和报表都没关系,所以它单独一个
+            // 标记,不并进 `dirty`——并进去的话,一次下载会白白重建 240 次浮窗。
+            //
+            // 不装更新的时候这里只是一次 `matches!`,连一条原子读都不多做;
+            // 数字没动就不重画,因为下载卡住时画面停着才是实话。
+            if matches!(self.update_state, updater::UpdateState::Downloading(_)) {
+                let seen = self.update_progress.snapshot();
+                if seen != self.update_progress_shown {
+                    self.update_progress_shown = seen;
+                    dirty = true;
+                }
             }
             if dirty {
                 cx.notify();
@@ -1546,10 +1574,26 @@ impl Render for AppShell {
         // 说明只有那里有。
         #[cfg(windows)]
         let update_badge = {
+            // 下载和校验也要在顶条露面:关于段以外的任何一页都看不到那条
+            // 进度,而这两段恰恰是唯一会让人等的。用户第一次装更新就以为
+            // 卡死了,原因就是走开之后界面上再没有任何动静。
+            let downloading = matches!(
+                self.update_state,
+                updater::UpdateState::Downloading(_) | updater::UpdateState::Installing
+            );
+            let busy_label = downloading.then(|| {
+                let snapshot = self.update_progress.snapshot();
+                match updater::progress_percent(snapshot.done, snapshot.total) {
+                    Some(percent) => {
+                        format!("{} {percent}%", updater::stage_line(snapshot.stage, text))
+                    }
+                    None => updater::stage_line(snapshot.stage, text).to_owned(),
+                }
+            });
             let label = match &self.update_state {
-                updater::UpdateState::Available(_) => Some(text.update_badge),
-                updater::UpdateState::Installed(_) => Some(text.update_state_installed),
-                _ => None,
+                updater::UpdateState::Available(_) => Some(text.update_badge.to_owned()),
+                updater::UpdateState::Installed(_) => Some(text.update_state_installed.to_owned()),
+                _ => busy_label,
             };
             label.map(|label| {
                 div()

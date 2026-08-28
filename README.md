@@ -51,13 +51,33 @@ overlay and the OCR engine are all Win32/WinRT.
 **Windows OCR language packs.** Recognition uses `Windows.Media.Ocr` as its primary engine, so
 the recognizers have to be installed on the machine:
 
-- An **English** recognizer is always required, whatever profile you pick — the rate and stock
-  columns are read in English in every client.
-- The default profile (PoE 2, 繁體中文) additionally needs a **Traditional Chinese** recognizer
-  for the two currency-name slots. Simplified Chinese does not satisfy it.
+- An **English** recognizer is required by every profile, including the Chinese ones — the rate
+  and stock lanes are pinned to English because ratios and stock are Arabic numerals in every
+  client. Windows 11 ships `en-US`, but the code does not assume it; check rather than assume.
+- The 繁體中文 profiles additionally need a **Traditional Chinese** recognizer. It reads the
+  panel-title strip *and* the two currency-name slots, and the title strip is attested first —
+  so a machine without it does not read the names badly, it reads nothing at all.
+  Only `zh-Hant-TW`, `zh-TW`, `zh-Hant-HK`, `zh-HK`, `zh-Hant-MO` and `zh-MO` satisfy it.
+  **Simplified Chinese does not** — `zh-Hans-CN` scores zero against that preference.
+
+The bundled PP-OCRv5 backend does **not** cover a missing recognizer. It is a fallback for a
+name that Windows OCR read but the catalogue could not resolve; a missing recognizer fails one
+gate earlier, before the fallback is ever consulted.
 
 Engines are built lazily on first recognition, so a missing recognizer shows up as frames
-failing once you start watching, not as an error at launch.
+failing once you start watching, not as an error at launch. Every frame is skipped with the
+reason `OCR unavailable` / `OCR 不可用`, which does not name the language it wanted.
+
+Adding a **display** language is not the same as adding the OCR feature. Under Settings → Time
+& language → Language & region, "Optical character recognition" is a separately tickable
+optional language feature, so the recognizer can be installed without Windows itself switching
+language. The in-app guide (Settings → How to use) carries the full click path, including the PowerShell commands. To check what is
+installed, from **Windows PowerShell 5.1** (`powershell.exe`, not `pwsh`):
+
+```powershell
+[Windows.Media.Ocr.OcrEngine,Windows.Media,ContentType=WindowsRuntime] | Out-Null
+[Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages | Select LanguageTag, DisplayName
+```
 
 **Display.** Capture is a GDI `BitBlt` of a rectangle you calibrated, and the calibration
 corpus was taken in **windowed fullscreen at 2560×1440**. Exclusive fullscreen was never

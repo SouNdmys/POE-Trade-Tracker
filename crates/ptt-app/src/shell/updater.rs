@@ -42,7 +42,9 @@ pub(crate) enum UpdateState {
     UpToDate,
     /// 有一个更新的版本,还没开始下。
     Available(Release),
-    /// 正在下载并按包自带的清单核对。
+    /// 正在下载、落盘、按包自带的清单核对。这三小段之间界面不换状态——按钮
+    /// 的答案在三段里是一样的("现在别碰")——细分留给 [`update::Progress`],
+    /// 由它去决定那一行字和那根条。
     Downloading(Release),
     /// 核对过了,正在换安装目录里的文件。
     Installing,
@@ -117,6 +119,9 @@ impl UpdateState {
     ///
     /// 每个分支都有话说,包括"还没问过"——一个还没答话的更新检查不该让关于页
     /// 看起来像坏了。
+    ///
+    /// 下载这一支给的是三小段里的第一句。真正在画的地方会拿 [`stage_line`]
+    /// 换掉它——这里留一句能用的,是为了让别处引用这个状态时不必也懂那三段。
     pub(crate) fn line(&self, text: &Text) -> String {
         match self {
             Self::Idle => text.update_state_idle.to_owned(),
@@ -193,6 +198,46 @@ pub(crate) fn may_check_again(state: &UpdateState, since_last: Option<Duration>)
     match since_last {
         Some(elapsed) => elapsed >= MANUAL_CHECK_COOLDOWN,
         None => true,
+    }
+}
+
+/// 这一段进度画到几成,画不出来就是 `None`。
+///
+/// `None` 是这个函数存在的理由。分母是 0 的时候(GitHub 没报大小,或者正在写盘
+/// 这种数不出中间量的一段),唯一诚实的做法是不画那根条——画一根停在 0% 的
+/// 条,说的是"总数我知道,才走了 0",那是假话。
+///
+/// 另一头也要封住:分母是 GitHub 报的数,不是自己数出来的,它报小了 `done`
+/// 就会越过 `total`,而一根 120% 的条画不出来。
+pub(crate) fn progress_percent(done: u64, total: u64) -> Option<u8> {
+    if total == 0 {
+        return None;
+    }
+    // 先封顶再乘:`done` 是从网络上累加出来的,直接 `done * 100` 在
+    // `panic = "abort"` 的档位下是一次进程消失,不是一次算错。
+    let done = done.min(total);
+    let percent = done.saturating_mul(100) / total;
+    Some(percent.min(100) as u8)
+}
+
+/// 字节数写成 MiB,一位小数。
+///
+/// 整数除法,不碰浮点:这个数只是给人看的,而浮点会让"25.5"在某些数上印成
+/// 25.499999。往下取整,所以看到的数永远不会比真的收到的多。
+pub(crate) fn mib_tenths(bytes: u64) -> String {
+    const MIB: u64 = 1024 * 1024;
+    // 先乘 10 再除,余数就是那一位小数;`saturating_mul` 只是防一个荒唐的
+    // 大数——这条路上不许有会 panic 的算术。
+    let tenths = bytes.saturating_mul(10) / MIB;
+    format!("{}.{}", tenths / 10, tenths % 10)
+}
+
+/// 装到哪一段了,说给人听的那一句。
+pub(crate) fn stage_line(stage: update::Stage, text: &Text) -> &'static str {
+    match stage {
+        update::Stage::Downloading => text.update_state_downloading,
+        update::Stage::Saving => text.update_state_saving,
+        update::Stage::Checking => text.update_state_verifying,
     }
 }
 
@@ -291,13 +336,19 @@ impl AppShell {
         let release = release.clone();
         self.update_generation = self.update_generation.wrapping_add(1);
         let generation = self.update_generation;
+        // 每次安装换一份新的计数器,而不是把旧的清零。这样一条被代次作废的
+        // 后台线程写的是一个已经没人读的 `Progress`——代次那道闸不必在进度
+        // 这条路上再写第二遍,迟到的那个线程连写到哪里都够不着。
+        self.update_progress = std::sync::Arc::new(update::Progress::default());
+        self.update_progress_shown = update::ProgressSnapshot::default();
+        let progress = std::sync::Arc::clone(&self.update_progress);
         self.update_state = UpdateState::Downloading(release.clone());
         cx.notify();
 
         cx.spawn(async move |this, cx| {
             let staged = cx
                 .background_executor()
-                .spawn(async move { update::stage(&release) })
+                .spawn(async move { update::stage(&release, &progress) })
                 .await;
             let staged = match staged {
                 Ok(staged) => staged,
@@ -366,7 +417,10 @@ impl AppShell {
 
 #[cfg(test)]
 mod updater_tests {
-    use super::{MANUAL_CHECK_COOLDOWN, UpdateState, error_message, may_check_again};
+    use super::{
+        MANUAL_CHECK_COOLDOWN, UpdateState, error_message, may_check_again, mib_tenths,
+        progress_percent, stage_line,
+    };
     use crate::i18n::{LANGUAGES, text};
     use crate::update::{Applied, Release, UpdateError};
     use std::path::PathBuf;
@@ -592,5 +646,130 @@ mod updater_tests {
         let failed = UpdateState::Failed(UpdateError::Unreachable("offline".to_owned()));
         assert!(!may_check_again(&failed, Some(Duration::from_secs(0))));
         assert!(may_check_again(&failed, Some(MANUAL_CHECK_COOLDOWN)));
+    }
+
+    /// 没有分母就不画条——这是这一组里最要紧的一条。
+    ///
+    /// GitHub 可以不报资产大小,写盘那一段也数不出中间量。这两种情况下画一根
+    /// 停在 0% 的条,说的是"总数我知道,才走了 0",而真相是"总数我不知道"。
+    /// 一根撒谎的条比没有条更糟:用户会盯着它等一个永远不会动的数。
+    #[test]
+    fn a_progress_bar_without_a_denominator_is_not_drawn() {
+        assert_eq!(progress_percent(0, 0), None);
+        assert_eq!(progress_percent(12_345, 0), None);
+    }
+
+    /// 两个端点必须是准的,中间取整往下走。
+    ///
+    /// 99% 和 100% 之间那一格是用户唯一会盯着看的地方:提前印出 100 会让接下来
+    /// 的核对看起来像卡死了,而那正是这次改动要修的毛病。
+    #[test]
+    fn progress_hits_both_ends_exactly_and_rounds_down_in_between() {
+        assert_eq!(progress_percent(0, 100), Some(0));
+        assert_eq!(progress_percent(100, 100), Some(100));
+        assert_eq!(progress_percent(1, 3), Some(33));
+        // 差一个字节就不是 100。
+        assert_eq!(progress_percent(9_999, 10_000), Some(99));
+    }
+
+    /// 报的大小比实际小时,条停在满格,不会绕回去。
+    ///
+    /// 分母来自 GitHub 报的数,不是自己数出来的。它报小了,`done` 就会越过
+    /// `total`——`as u8` 在那一刻会把 120% 变成 120,一个画不出来的值。
+    #[test]
+    fn progress_saturates_when_the_reported_size_was_too_small() {
+        assert_eq!(progress_percent(200, 100), Some(100));
+        assert_eq!(progress_percent(u64::MAX, 1), Some(100));
+    }
+
+    /// MiB 那一行的取整方向钉死在这里,免得以后悄悄漂。
+    #[test]
+    fn bytes_are_written_as_mib_with_one_decimal_rounded_down() {
+        assert_eq!(mib_tenths(0), "0.0");
+        assert_eq!(mib_tenths(1024 * 1024), "1.0");
+        // 真实的 1.0.2 包:25.573… MiB,往下取整是 25.5。
+        assert_eq!(mib_tenths(26_815_936), "25.5");
+        // 半个 MiB 差一个字节,仍然是 0.4。
+        assert_eq!(mib_tenths(512 * 1024 - 1), "0.4");
+    }
+
+    /// 三段路各自有话说。
+    ///
+    /// 少一句的后果不是空白,是那一行停在上一段的句子上——"正在下载"挂在
+    /// 已经下完的核对阶段,看起来就是卡住了,而那正是这次要修的毛病。
+    #[test]
+    fn every_stage_of_an_install_has_its_own_sentence() {
+        use crate::update::Stage;
+        for language in LANGUAGES {
+            let text = text(language);
+            let lines = [
+                stage_line(Stage::Downloading, text),
+                stage_line(Stage::Saving, text),
+                stage_line(Stage::Checking, text),
+            ];
+            for line in lines {
+                assert!(
+                    !line.trim().is_empty(),
+                    "{language:?} has a blank stage line"
+                );
+            }
+            let mut unique = lines.to_vec();
+            unique.sort_unstable();
+            unique.dedup();
+            assert_eq!(
+                unique.len(),
+                3,
+                "{language:?} reuses a sentence across stages, so one of them looks stuck"
+            );
+        }
+    }
+
+    /// 两句带槽的话,两种语言里都得正好两个槽。
+    ///
+    /// `fill` 填不满的槽会把 `{}` 原样留在屏幕上,填多了则悄悄丢掉一个数。
+    /// 翻的时候手一滑少打一个括号,编译器不会说话,只有这里会。
+    #[test]
+    fn the_two_progress_templates_keep_both_of_their_slots() {
+        for language in LANGUAGES {
+            let text = text(language);
+            for template in [text.update_progress_bytes, text.update_progress_files] {
+                assert_eq!(
+                    template.matches("{}").count(),
+                    2,
+                    "{language:?} lost a slot in {template:?}"
+                );
+                let filled = ptt_runtime::report_text::fill(template, &["1", "2"]);
+                assert!(
+                    !filled.contains("{}"),
+                    "{language:?} still shows a hole: {filled}"
+                );
+            }
+        }
+    }
+
+    /// 阶段编码存进原子量再读回来,必须还是同一段。
+    #[test]
+    fn a_stage_survives_the_trip_through_the_shared_counter() {
+        use crate::update::{Progress, Stage};
+        let progress = std::sync::Arc::new(Progress::default());
+        assert_eq!(progress.snapshot(), Default::default());
+
+        let mirror = std::sync::Arc::clone(&progress);
+        for stage in [Stage::Downloading, Stage::Saving, Stage::Checking] {
+            progress.begin(stage, 9);
+            progress.advance(4);
+            let seen = mirror.snapshot();
+            assert_eq!(seen.stage, stage);
+            assert_eq!((seen.done, seen.total), (4, 9));
+        }
+    }
+
+    /// 写盘那一段没有中间量可数,所以它不该被当成"能画条"的一段。
+    #[test]
+    fn the_disk_write_is_the_one_stage_with_nothing_to_count() {
+        use crate::update::Stage;
+        assert!(Stage::Downloading.is_countable());
+        assert!(Stage::Checking.is_countable());
+        assert!(!Stage::Saving.is_countable());
     }
 }
