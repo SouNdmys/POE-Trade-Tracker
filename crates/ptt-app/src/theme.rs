@@ -354,6 +354,11 @@ pub static DARK: Palette = Palette {
 ///
 /// 每个值都过了两道尺:正文对面板的对比度,以及金与琥珀的色相距离——
 /// 记在 docs/UI-DESIGN.md,守在本文件底部的测试里。
+// 浅色的金家族刻意避开中段明度:#A0-C0 那一带的黄在白底上就是芥末色,
+// 第一版整套都落在那里,实机一看满屏土黄(用户原话比这难听)。修法是两极
+// 分化——填充沉到深青铜墨(#7E5D0F,白底 6:1),按钮字反转成暖白;描边升到
+// 浅沙,chip 靠青铜色的字读,不靠中调的圈。深色主题不受影响:它的金本来
+// 就亮,发光感正是要的。
 pub static LIGHT: Palette = Palette {
     canvas: 0xE4E9F0,
     panel: 0xFFFFFF,
@@ -379,16 +384,16 @@ pub static LIGHT: Palette = Palette {
     text_disabled: 0x8B95A4,
     text_ghost: 0xC6CDD7,
     text_data: 0x232A34,
-    accent: 0xAC821F,
-    accent_text: 0x8C6516,
-    accent_line: 0xC29A4B,
+    accent: 0x7E5D0F,
+    accent_text: 0x7E5D0F,
+    accent_line: 0xD4BC80,
     accent_wash: 0xFAF3E2,
     accent_fill: 0xF5EAD2,
     trend_flat_fill: 0xF4F6FA,
-    accent_hover: 0x9C751B,
-    accent_pressed: 0x8C6817,
-    on_accent: 0x1B1508,
-    accent_chip_text: 0x2A2110,
+    accent_hover: 0x8D6A14,
+    accent_pressed: 0x6B4E0C,
+    on_accent: 0xFFF9EC,
+    accent_chip_text: 0xFBF3DE,
     fresh: 0x2E8B52,
     warn: 0xC06515,
     warn_text: 0x8F5410,
@@ -927,6 +932,30 @@ mod theme_tests {
                 assert!(
                     meta >= 4.0,
                     "{mode:?}: meta text on {name} is only {meta:.1}:1, below the 4.0 floor the 元数据 tier already holds in the shipped dark palette"
+                );
+            }
+        }
+    }
+
+    /// Primary 按钮的字在它的金底上、**三个状态里**都要读得清。
+    ///
+    /// 只量静止态抓不住第一版浅色的病:芥末填充(#AC821F)配深字静止时有
+    /// 5.2:1,丑但及格——真正跌破的是 hover 4.3 和按下 3.5,恰恰是手指
+    /// 正按着、最需要确认按对了的那两个瞬间。修成深青铜墨 + 暖白字后三态
+    /// 是 5.8 / 4.8 / 7.4。这条挡的是下次调色把任何一个状态挪回中段——
+    /// 中段的黄没有任何字色能救。
+    #[test]
+    fn the_primary_button_stays_legible_in_all_three_states_in_both_palettes() {
+        for (mode, palette) in PALETTES {
+            for (fill, state) in [
+                (palette.accent, "resting"),
+                (palette.accent_hover, "hover"),
+                (palette.accent_pressed, "pressed"),
+            ] {
+                let ratio = contrast_ratio(palette.on_accent, fill);
+                assert!(
+                    ratio >= 4.5,
+                    "{mode:?}: ON_ACCENT on the {state} fill is only {ratio:.1}:1 - the label goes murky exactly while the user is pressing it"
                 );
             }
         }
