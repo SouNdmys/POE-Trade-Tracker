@@ -532,14 +532,14 @@
 
 | 槽位 | 深色 | 浅色 |
 |---|---|---|
-| `ACCENT` | `#D9B978` | `#2E5A8F` |
+| `ACCENT` | `#D9B978` | `#3D6CA5` |
 | `ACCENT_TEXT` | `#E7C88C` | `#2E5A8F` |
 | `ACCENT_LINE` | `#6B5A34` | `#AFC6DE` |
 | `ACCENT_WASH` | `#211D13` | `#E9F1FA` |
 | `ACCENT_FILL` | `#241F14` | `#DFEAF7` |
 | `TREND_FLAT_FILL` | `#141922` | `#F4F6FA` |
-| `ACCENT_HOVER` | `#E3C98F` | `#376AA4` |
-| `ACCENT_PRESSED` | `#C7A863` | `#24476F` |
+| `ACCENT_HOVER` | `#E3C98F` | `#366094` |
+| `ACCENT_PRESSED` | `#C7A863` | `#2C5180` |
 | `ON_ACCENT` | `#12151B` | `#FFFFFF` |
 | `ACCENT_CHIP_TEXT` | `#211D13` | `#E7F0FA` |
 
@@ -692,7 +692,8 @@ gpui 注册窗口类时把 `hbrBackground` 写死成 `CreateSolidBrush(COLORREF(
 代价一条:浅色下"选中/命中"的蓝家族(`SELECTED`/`SELECTED_WASH`)和强调色
 同族了。实机看是协调而不是混淆——选中行=淡蓝底+墨蓝左条,本来就该是一件事。
 
-守卫照旧:三态字底 ≥4.5(墨蓝三态 7.1/5.6/9.8)、色相距离、五级文字对比,
+守卫照旧:三态字底 ≥4.5(墨蓝三态 5.4/6.5/8.1,hover/按下往深走,实机
+又按用户反馈调淡过一档)、色相距离、五级文字对比,
 全部两套皮肤各测。
 
 ### 11.10 画廊可以看浅色

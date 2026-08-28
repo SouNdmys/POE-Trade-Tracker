@@ -360,6 +360,10 @@ pub static DARK: Palette = Palette {
 // 没有让人舒服的档位。墨蓝和整套浅色底色同族(石板灰蓝),是"纸上蓝墨";
 // 附带的红利是金/琥珀相撞的老问题在浅色下彻底消失。深色主题的金不动:
 // 深底上的金是发光感,从来没被抱怨过。
+//
+// 实机又调淡一档(#2E5A8F → #3D6CA5,用户嫌字看不清):白字余量从 7.1 降到
+// 5.4,还够。为了让填充能淡,hover/按下改成**往深走**——浅色主题按下去
+// 变实是符合直觉的方向,也让三个状态的最低对比就是静止态本身。
 pub static LIGHT: Palette = Palette {
     canvas: 0xE4E9F0,
     panel: 0xFFFFFF,
@@ -385,14 +389,14 @@ pub static LIGHT: Palette = Palette {
     text_disabled: 0x8B95A4,
     text_ghost: 0xC6CDD7,
     text_data: 0x232A34,
-    accent: 0x2E5A8F,
+    accent: 0x3D6CA5,
     accent_text: 0x2E5A8F,
     accent_line: 0xAFC6DE,
     accent_wash: 0xE9F1FA,
     accent_fill: 0xDFEAF7,
     trend_flat_fill: 0xF4F6FA,
-    accent_hover: 0x376AA4,
-    accent_pressed: 0x24476F,
+    accent_hover: 0x366094,
+    accent_pressed: 0x2C5180,
     on_accent: 0xFFFFFF,
     accent_chip_text: 0xE7F0FA,
     fresh: 0x2E8B52,
@@ -947,8 +951,8 @@ mod theme_tests {
     /// 只量静止态抓不住浅色第一版的病:芥末填充(#AC821F)配深字静止时有
     /// 5.2:1,丑但及格——真正跌破的是 hover 4.3 和按下 3.5,恰恰是手指
     /// 正按着、最需要确认按对了的那两个瞬间。现在浅色是墨蓝 + 白字,
-    /// 三态 7.1 / 5.6 / 9.8。这条挡的是下次调色把任何一个状态挪进
-    /// 低对比区——那里没有任何字色能救。
+    /// hover/按下往深走,三态 5.4 / 6.5 / 8.1——最低点就是静止态。这条
+    /// 挡的是下次调色把任何一个状态挪进低对比区——那里没有任何字色能救。
     #[test]
     fn the_primary_button_stays_legible_in_all_three_states_in_both_palettes() {
         for (mode, palette) in PALETTES {
