@@ -1448,10 +1448,12 @@ pub static ENGLISH: Text = Text {
     guide_hotkeys_header: "HOTKEYS",
     guide_trouble_header: "WHEN SOMETHING LOOKS WRONG",
     guide_first_run: concat!(
-        "1  ·  open the currency exchange in game, take a screenshot, and frame the three areas on it from the calibrate page\n",
-        "2  ·  come back and press start watch, or hit the watch hotkey without leaving the game\n",
-        "3  ·  in game, flip through the pairs you care about - a panel is read once it stops moving, so give each one a second\n",
-        "4  ·  come back to the watchlist and the radar; they only know the pairs you flipped past",
+        "1  ·  in the basics segment, pick your game and client language - the reader matches words in that language, and the wrong one matches nothing\n",
+        "2  ·  open the currency exchange in game, take a screenshot, and frame the three areas on it from the calibrate page\n",
+        "3  ·  press \"save these three\" - framing without saving changes nothing, and the watch keeps reading the old regions\n",
+        "4  ·  come back and press start watch, or hit the watch hotkey without leaving the game\n",
+        "5  ·  in game, flip through the pairs you care about - a panel is read once it stops moving, so give each one a second\n",
+        "6  ·  come back to the watchlist and the radar; they only know the pairs you flipped past",
     ),
     guide_pages: concat!(
         "monitor  ·  is the watcher alive, what did it just read, and what that book is worth\n",
@@ -1903,10 +1905,12 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     guide_hotkeys_header: "热键",
     guide_trouble_header: "看着不对的时候",
     guide_first_run: concat!(
-        "1  ·  在游戏里打开通货兑换面板截一张图，到校准页把三块区域框出来\n",
-        "2  ·  回来点「开始监视」，或者不出游戏直接按监视热键\n",
-        "3  ·  在游戏里翻你关心的那几对 — 面板停稳了才读，所以每一对多停一秒\n",
-        "4  ·  再回到关注列表和雷达；它们只知道你翻过的那几对",
+        "1  ·  先在「基本」段选好游戏和游戏语言 — 识别按这个语言的词表来认字，选错就什么都认不出\n",
+        "2  ·  在游戏里打开通货兑换面板截一张图，到校准页把三块区域框出来\n",
+        "3  ·  点「保存这三块」— 只框不保存等于没框，监视读的还是旧区域\n",
+        "4  ·  回来点「开始监视」，或者不出游戏直接按监视热键\n",
+        "5  ·  在游戏里翻你关心的那几对 — 面板停稳了才读，所以每一对多停一秒\n",
+        "6  ·  再回到关注列表和雷达；它们只知道你翻过的那几对",
     ),
     guide_pages: concat!(
         "监视器  ·  循环还活着吗，刚才读到了什么，这个盘口能怎么赚\n",
