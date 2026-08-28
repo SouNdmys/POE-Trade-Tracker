@@ -1674,47 +1674,59 @@ impl Render for AppShell {
                 // its panel taller than the window instead of scrolling inside
                 // it, and `overflow_y_scroll` further in never has anything to
                 // clip.
+                //
+                // `min_w(0)` on the page is the same sentence about the other
+                // axis, and it is what makes prose wrap. gpui measures text at
+                // "min-content" by laying the whole run out on one line, so a
+                // paragraph's automatic minimum width is its full unwrapped
+                // length. The page could not shrink below that, every panel
+                // inside stretched to match, no line ever ran out of room to
+                // wrap in, and `overflow_hidden` here cut the overhang off at
+                // the window edge — which reads as text that simply stops.
                 div()
                     .flex_1()
                     .min_h(px(0.))
                     .flex()
                     .overflow_hidden()
                     .child(self.nav_rail(cx))
-                    .child(if self.page == Page::Settings {
-                        self.render_settings_page(cx)
-                    } else if self.page == Page::Monitor {
-                        self.render_monitor(cx)
-                    } else if self.page == Page::Opportunities {
-                        self.render_opportunities(cx)
-                    } else if self.page == Page::Convert {
-                        self.render_convert(cx)
-                    } else if self.page == Page::Watchlist {
-                        self.render_watchlist(cx)
-                    } else if self.page == Page::Analytics {
-                        self.render_analytics(cx)
-                    } else if self.page == Page::History {
-                        self.render_history(cx)
-                    } else if self.page == Page::Calibrate {
-                        self.render_calibrate(cx)
-                    } else {
-                        div()
-                            .flex_grow()
-                            .flex()
-                            .flex_col()
-                            .gap(px(SP_8))
-                            .p(px(SP_10))
-                            .child(
-                                mono(match &self.report_pair {
-                                    Some((have, need)) => {
-                                        format!("{}: {have} -> {need}", text.pair_prefix)
-                                    }
-                                    None => text.no_pair_yet.to_owned(),
-                                })
-                                .text_size(fs(FS_12))
-                                .text_color(c(TEXT_META)),
-                            )
-                            .child(self.report_panel(cx))
-                    }),
+                    .child(
+                        (if self.page == Page::Settings {
+                            self.render_settings_page(cx)
+                        } else if self.page == Page::Monitor {
+                            self.render_monitor(cx)
+                        } else if self.page == Page::Opportunities {
+                            self.render_opportunities(cx)
+                        } else if self.page == Page::Convert {
+                            self.render_convert(cx)
+                        } else if self.page == Page::Watchlist {
+                            self.render_watchlist(cx)
+                        } else if self.page == Page::Analytics {
+                            self.render_analytics(cx)
+                        } else if self.page == Page::History {
+                            self.render_history(cx)
+                        } else if self.page == Page::Calibrate {
+                            self.render_calibrate(cx)
+                        } else {
+                            div()
+                                .flex_grow()
+                                .flex()
+                                .flex_col()
+                                .gap(px(SP_8))
+                                .p(px(SP_10))
+                                .child(
+                                    mono(match &self.report_pair {
+                                        Some((have, need)) => {
+                                            format!("{}: {have} -> {need}", text.pair_prefix)
+                                        }
+                                        None => text.no_pair_yet.to_owned(),
+                                    })
+                                    .text_size(fs(FS_12))
+                                    .text_color(c(TEXT_META)),
+                                )
+                                .child(self.report_panel(cx))
+                        })
+                        .min_w(px(0.)),
+                    ),
             )
             .child(
                 // 底部状态栏(22px):故障或最近一条日志。
