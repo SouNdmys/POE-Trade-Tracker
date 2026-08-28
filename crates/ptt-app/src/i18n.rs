@@ -590,6 +590,16 @@ pub struct Text {
     pub guide_first_run: &'static str,
     pub guide_pages: &'static str,
     pub guide_trouble: &'static str,
+    /// 三条 PowerShell 命令那一小节的标题与三个标签。
+    ///
+    /// 命令本身不在 i18n 里——它们是 PowerShell 字面量,翻译只会把它们译坏,
+    /// 而两份译文各存一份就迟早会漂。这里只翻标签,命令是 `settings.rs` 里
+    /// 的常量,旁边挂一个复制按钮:界面上的字一个都选不中,而这几条恰恰是
+    /// 唯一必须原样敲进终端的东西。
+    pub guide_cmd_header: &'static str,
+    pub guide_cmd_check: &'static str,
+    pub guide_cmd_list: &'static str,
+    pub guide_cmd_add: &'static str,
     /// 热键那一段的脚注。键值本身来自设置文件,这里只说它们何时不灵。
     pub guide_hotkeys_note: &'static str,
 
@@ -1037,6 +1047,10 @@ impl Text {
             ("guide_first_run", self.guide_first_run),
             ("guide_pages", self.guide_pages),
             ("guide_trouble", self.guide_trouble),
+            ("guide_cmd_header", self.guide_cmd_header),
+            ("guide_cmd_check", self.guide_cmd_check),
+            ("guide_cmd_list", self.guide_cmd_list),
+            ("guide_cmd_add", self.guide_cmd_add),
             ("guide_hotkeys_note", self.guide_hotkeys_note),
             ("about_version", self.about_version),
             ("about_author", self.about_author),
@@ -1489,14 +1503,18 @@ pub static ENGLISH: Text = Text {
 ",
         "not the same thing  ·  adding a display language is not adding OCR. optical character recognition is a separate tick on the same page, so you can add reading for zh-Hant-TW without windows itself turning chinese\n",
         "how to add one  ·  settings > time & language > language & region. if the language is listed, open its ... menu > language options > optional language features > optical character recognition > install. if it is not listed, use add a language, then on the install page tick optical character recognition and untick set as my windows display language\n",
-        "check what you have  ·  no admin needed. in powershell: [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages - this asks the same windows api the program asks, so what it prints is exactly what the program can use
+        "check what you have  ·  no admin needed. the \"what is installed\" command below asks the same windows api the program asks, so what it prints is exactly what the program can use
 ",
-        "add one by command  ·  in an ADMIN powershell, list them first with Get-WindowsCapability -Online -Name Language.OCR* and copy the Name you need, then Add-WindowsCapability -Online -Name Language.OCR~~~zh-TW~0.0.1.0 (and the en-US one). listing first matters - the exact name can differ by windows build
+        "add one by command  ·  in an ADMIN powershell, run \"what can be added\" first and copy the Name you need, then run \"add traditional chinese\" (and the en-US one). listing first matters - the exact name can differ by windows build
 ",
         "if it will not install  ·  recognizers are downloaded on demand through windows update. with the update service disabled, or the machine managed by group policy or WSUS, the install button spins and quietly goes back to not-installed with no error. turn windows update on, install it, then turn it off again if that is how you keep your machine
 ",
         "if one is missing  ·  nothing fails at launch. the watch starts, every frame is thrown away, and the monitor page counts them as skipped with the reason \"OCR unavailable\" - it never names the language it wanted. install the recognizer, then start the program again",
     ),
+    guide_cmd_header: "COMMANDS",
+    guide_cmd_check: "what is installed",
+    guide_cmd_list: "what can be added",
+    guide_cmd_add: "add traditional chinese",
     guide_first_run: concat!(
         "1  ·  in the basics segment, pick your game and client language - the reader matches words in that language, and the wrong one matches nothing\n",
         "2  ·  open the currency exchange in game, take a screenshot, and frame the three areas on it from the calibrate page\n",
@@ -1968,14 +1986,18 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
 ",
         "不是一回事  ·  加显示语言不等于加 OCR。「光学字符识别」是同一个页面上单独的一个勾，所以可以只给 zh-Hant-TW 加识别，Windows 界面照样是中文的\n",
         "怎么装  ·  设置 > 时间和语言 > 语言和区域。列表里有这个语言的话，点它右边的 ... > 语言选项 > 可选语言功能 > 光学字符识别 > 安装。列表里没有就先「添加语言」，在安装那一页勾上「光学字符识别」，并把「设为我的 Windows 显示语言」取消勾选\n",
-        "先看装了什么  ·  不需要管理员。PowerShell 里敲 [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages — 问的就是本程序问的那个 Windows 接口，它列出来的就是程序能用的
+        "先看装了什么  ·  不需要管理员。下面「查已装的」那条命令，问的就是本程序问的那个 Windows 接口，它列出来的就是程序能用的
 ",
-        "用命令装  ·  管理员 PowerShell。先列：Get-WindowsCapability -Online -Name Language.OCR*，从里面复制要的那个 Name；再装：Add-WindowsCapability -Online -Name Language.OCR~~~zh-TW~0.0.1.0（en-US 同理）。先列一遍是有意义的 — 确切名字在不同 Windows 版本上可能不一样
+        "用命令装  ·  管理员 PowerShell。先跑「列出可装的」，从结果里复制要的那个 Name；再跑「装繁体中文」（en-US 同理）。先列一遍是有意义的 — 确切名字在不同 Windows 版本上可能不一样
 ",
         "装不上的时候  ·  识别器是按需下载的，走 Windows 更新。如果更新服务被禁用了，或者机器被组策略／WSUS 管着，安装按钮会转一下然后悄悄退回未安装，不报任何错。把 Windows 更新打开、装好，之后想关再关回去
 ",
         "少装了会怎样  ·  启动时不会报错。监视照常跑，每一帧都被丢掉，监视器页把它们记成跳过、原因写「OCR 不可用」— 它不会说少的是哪个语言。装好识别器之后重新启动本程序",
     ),
+    guide_cmd_header: "命令",
+    guide_cmd_check: "查已装的",
+    guide_cmd_list: "列出可装的",
+    guide_cmd_add: "装繁体中文",
     guide_first_run: concat!(
         "1  ·  先在「基本」段选好游戏和游戏语言 — 识别按这个语言的词表来认字，选错就什么都认不出\n",
         "2  ·  在游戏里打开通货兑换面板截一张图，到校准页把三块区域框出来\n",

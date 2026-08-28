@@ -326,6 +326,63 @@ impl AppShell {
                 .child(body)
         };
 
+        // 三条命令单独一节,而不是嵌在正文里。
+        //
+        // 界面上的字一个都选不中——gpui 的普通文本没有选区,而这几条恰恰是
+        // 说明书里唯一必须一字不差敲进终端的东西。所以它们从正文里搬出来,
+        // 一条一行,右边挂一个复制按钮,点一下就在剪贴板里。
+        //
+        // 命令是这里的常量而不是 i18n 字段:它们是 PowerShell 字面量,翻译
+        // 只会译坏,两份译文各存一份也迟早会漂。
+        let command_row = |id: &'static str, label: &'static str, command: &'static str| {
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .py(px(2.))
+                .child(
+                    div()
+                        .w(px(132.))
+                        .flex_none()
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(label),
+                )
+                .child(
+                    crate::ui::mono(command)
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_size(fs(FS_11))
+                        .text_color(c(TEXT_SECONDARY)),
+                )
+                .child(gpui_component::clipboard::Clipboard::new(id).value(command))
+        };
+        let commands = div()
+            .flex()
+            .flex_col()
+            .child(inline_section(text.guide_cmd_header))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .pt(px(SP_4))
+                    .child(command_row(
+                        "guide-cmd-check",
+                        text.guide_cmd_check,
+                        "[Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages",
+                    ))
+                    .child(command_row(
+                        "guide-cmd-list",
+                        text.guide_cmd_list,
+                        "Get-WindowsCapability -Online -Name Language.OCR*",
+                    ))
+                    .child(command_row(
+                        "guide-cmd-add",
+                        text.guide_cmd_add,
+                        "Add-WindowsCapability -Online -Name Language.OCR~~~zh-TW~0.0.1.0",
+                    )),
+            );
+
         // 只列真正注册了的两个。`manual_capture` 存在设置里、浮窗段也画着,
         // 但没有任何地方去绑它,写进说明就是教人按一个不会响的键。
         let hotkey_row = |label: &'static str, key: &str| {
@@ -382,6 +439,7 @@ impl AppShell {
                 // 和"没校准好"一模一样,而这一节要在他去框区域之前就读到,
                 // 不是等他卡住了再去翻。
                 .child(section(text.guide_ocr_header, text.guide_ocr, 132.))
+                .child(commands)
                 // 四个宽度是量出来的:识别器那节最长 "traditional chinese"、
                 // 序号一位、页名最长 "analytics"、症状最长 "a hotkey is dead"。
                 .child(section(

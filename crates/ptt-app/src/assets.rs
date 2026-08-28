@@ -17,6 +17,7 @@ impl AssetSource for Assets {
                 "../assets/icons/chevron-down.svg"
             ))),
             "icons/check.svg" => Some(Cow::Borrowed(include_bytes!("../assets/icons/check.svg"))),
+            "icons/copy.svg" => Some(Cow::Borrowed(include_bytes!("../assets/icons/copy.svg"))),
             _ => None,
         })
     }
@@ -34,7 +35,11 @@ mod assets_tests {
     // 不到就是看不见的空白,所以锁住它们。
     #[test]
     fn serves_the_icons_the_components_ask_for() {
-        for path in ["icons/chevron-down.svg", "icons/check.svg"] {
+        for path in [
+            "icons/chevron-down.svg",
+            "icons/check.svg",
+            "icons/copy.svg",
+        ] {
             let bytes = Assets
                 .load(path)
                 .unwrap()
