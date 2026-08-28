@@ -106,19 +106,23 @@ time you run it.
 
 This is the part people get wrong. Nothing is read until the three regions are framed.
 
-1. **Open the currency exchange in game and take a screenshot** — a normal one, saved as PNG or
+1. **In Settings → Basics, pick your game and client language.** The reader matches panel text
+   against that profile's wordlist, and the regions you are about to frame are stored under it
+   too — the wrong profile reads nothing and never says why. The default is PoE 2 with a
+   Traditional Chinese client.
+2. **Open the currency exchange in game and take a screenshot** — a normal one, saved as PNG or
    JPEG. The program does not grab the screen for you; the Calibrate page opens a file picker
    for a still you supply. That is deliberate: the panel only exists while the game has focus,
    and a live fullscreen overlay made people draw rectangles that looked right and were not.
-2. **On the Calibrate page, load that screenshot and frame three areas on it:** the "I need"
+3. **On the Calibrate page, load that screenshot and frame three areas on it:** the "I need"
    name slot, the "I have" name slot, and the two order tables. Text only — leave the icons
    out, they degrade OCR. The page reads "2 / 3 regions framed" until all three are done.
-3. **Press "save these three".** Framing without saving changes nothing. A watch that is
+4. **Press "save these three".** Framing without saving changes nothing. A watch that is
    already running restarts to pick up the new geometry.
-4. **Press start watch**, or hit `Ctrl+Alt+F10` without leaving the game.
-5. **In game, flip through the pairs you care about.** A panel is read once it stops moving, so
+5. **Press start watch**, or hit `Ctrl+Alt+F10` without leaving the game.
+6. **In game, flip through the pairs you care about.** A panel is read once it stops moving, so
    give each one a second.
-6. **Come back to the app.** The watchlist and the radar only know the pairs you flipped past.
+7. **Come back to the app.** The watchlist and the radar only know the pairs you flipped past.
 
 Two behaviours that look like faults and are not: a panel that has not changed is read once and
 then left alone, and a panel that is not where you framed it is skipped rather than guessed at.
