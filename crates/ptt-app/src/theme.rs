@@ -354,11 +354,12 @@ pub static DARK: Palette = Palette {
 ///
 /// 每个值都过了两道尺:正文对面板的对比度,以及金与琥珀的色相距离——
 /// 记在 docs/UI-DESIGN.md,守在本文件底部的测试里。
-// 浅色的金家族刻意避开中段明度:#A0-C0 那一带的黄在白底上就是芥末色,
-// 第一版整套都落在那里,实机一看满屏土黄(用户原话比这难听)。修法是两极
-// 分化——填充沉到深青铜墨(#7E5D0F,白底 6:1),按钮字反转成暖白;描边升到
-// 浅沙,chip 靠青铜色的字读,不靠中调的圈。深色主题不受影响:它的金本来
-// 就亮,发光感正是要的。
+// 浅色的强调色不是金,是石板墨蓝——用户在四个候选里拍板的(对比页:现状
+// 青铜 / 墨蓝 / 黛青 / 石墨)。黄色系在白底上试了两轮:中段(#AC821F)是
+// 芥末,压到深青铜(#7E5D0F)实机看还是"屎色"——黄这个色相在浅色底上就
+// 没有让人舒服的档位。墨蓝和整套浅色底色同族(石板灰蓝),是"纸上蓝墨";
+// 附带的红利是金/琥珀相撞的老问题在浅色下彻底消失。深色主题的金不动:
+// 深底上的金是发光感,从来没被抱怨过。
 pub static LIGHT: Palette = Palette {
     canvas: 0xE4E9F0,
     panel: 0xFFFFFF,
@@ -384,16 +385,16 @@ pub static LIGHT: Palette = Palette {
     text_disabled: 0x8B95A4,
     text_ghost: 0xC6CDD7,
     text_data: 0x232A34,
-    accent: 0x7E5D0F,
-    accent_text: 0x7E5D0F,
-    accent_line: 0xD4BC80,
-    accent_wash: 0xFAF3E2,
-    accent_fill: 0xF5EAD2,
+    accent: 0x2E5A8F,
+    accent_text: 0x2E5A8F,
+    accent_line: 0xAFC6DE,
+    accent_wash: 0xE9F1FA,
+    accent_fill: 0xDFEAF7,
     trend_flat_fill: 0xF4F6FA,
-    accent_hover: 0x8D6A14,
-    accent_pressed: 0x6B4E0C,
-    on_accent: 0xFFF9EC,
-    accent_chip_text: 0xFBF3DE,
+    accent_hover: 0x376AA4,
+    accent_pressed: 0x24476F,
+    on_accent: 0xFFFFFF,
+    accent_chip_text: 0xE7F0FA,
     fresh: 0x2E8B52,
     warn: 0xC06515,
     warn_text: 0x8F5410,
@@ -874,7 +875,11 @@ mod theme_tests {
     /// 读的是两个 `Palette` 自己的值,不是当前生效的那套——否则另一套永远
     /// 测不到。
     ///
-    /// 只量色相,是因为浅色版量不了别的:深色里金还比三个语义色都亮
+    /// 浅色的 accent 已经整个离开暖区(墨蓝),它对琥珀/砖红的距离是
+    /// 平凡地大;这条测试在浅色下真正看守的是琥珀/砖红那一对,在深色下
+    /// 看守全部三对。
+    ///
+    /// 只量色相,是因为(深色)量不了别的:深色里金还比三个语义色都亮
     /// (相对亮度 0.51 对 0.34/0.20/0.14),明暗本身就是第二道线索;浅色里
     /// 四个颜色都得够暗才能在白底上读出来,于是全被压进同一条窄亮度带,
     /// 金/琥珀的亮度比从深色的 1.48 掉到 1.21。试过挪琥珀和压暗金,
@@ -939,11 +944,11 @@ mod theme_tests {
 
     /// Primary 按钮的字在它的金底上、**三个状态里**都要读得清。
     ///
-    /// 只量静止态抓不住第一版浅色的病:芥末填充(#AC821F)配深字静止时有
+    /// 只量静止态抓不住浅色第一版的病:芥末填充(#AC821F)配深字静止时有
     /// 5.2:1,丑但及格——真正跌破的是 hover 4.3 和按下 3.5,恰恰是手指
-    /// 正按着、最需要确认按对了的那两个瞬间。修成深青铜墨 + 暖白字后三态
-    /// 是 5.8 / 4.8 / 7.4。这条挡的是下次调色把任何一个状态挪回中段——
-    /// 中段的黄没有任何字色能救。
+    /// 正按着、最需要确认按对了的那两个瞬间。现在浅色是墨蓝 + 白字,
+    /// 三态 7.1 / 5.6 / 9.8。这条挡的是下次调色把任何一个状态挪进
+    /// 低对比区——那里没有任何字色能救。
     #[test]
     fn the_primary_button_stays_legible_in_all_three_states_in_both_palettes() {
         for (mode, palette) in PALETTES {

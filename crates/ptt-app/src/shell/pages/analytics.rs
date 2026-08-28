@@ -445,8 +445,8 @@ impl AppShell {
                     .into_any_element()
             } else {
                 let relative = asset.trend_bps_relative.unwrap_or(0);
-                // 涨用金(绿被新鲜度占了),跌用砖红,±2% 灰——一半的行都
-                // 持平,全上色就没重点了。
+                // 涨用主题强调色(深色=金,浅色=墨蓝;绿被新鲜度占了),
+                // 跌用砖红,±2% 灰——一半的行都持平,全上色就没重点了。
                 let (line, fill, text_color) = if relative >= FLAT_BAND_BASIS_POINTS {
                     (ACCENT, ACCENT_FILL, ACCENT_TEXT)
                 } else if relative <= -FLAT_BAND_BASIS_POINTS {
