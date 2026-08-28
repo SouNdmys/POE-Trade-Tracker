@@ -96,9 +96,9 @@ impl AppShell {
             Target::Have => layout.have_name,
             Target::Tables => layout.tables_for(language),
         };
-        // 还停在预设上的槽位(§9):图上要把三个框同时画出来,实框 = 已画,
-        // 细琥珀框 = 预设位置——原来一次只画一个,看不出彼此相对位置对不对。
-        // GPUI 画不了虚线边框,1px 琥珀细框就是设计稿里"虚线 = 预设"的替身。
+        // 还停在预设上的槽位(§9):图上要把三个框同时画出来,强调色框 = 已画,
+        // 细灰框 = 预设位置——原来一次只画一个,看不出彼此相对位置对不对。
+        // GPUI 画不了虚线边框,1px 细灰框就是设计稿里"虚线 = 预设"的替身。
         let preset_only = |target: Target| {
             self.calibration
                 .rect(target)
@@ -267,7 +267,7 @@ impl AppShell {
                 // it the loupe shows a magnified patch with no indication of which
                 // pixel of it the cursor is on, which is the one thing it is for.
                 let crosshair = |vertical: bool| {
-                    let line = div().absolute().bg(c_over_game(DANGER));
+                    let line = div().absolute().bg(c(OVER_GAME_DANGER));
                     if vertical {
                         line.left(px(BOX / 2.0)).top_0().w(px(1.0)).h(px(BOX))
                     } else {
@@ -282,7 +282,7 @@ impl AppShell {
                     .h(px(BOX))
                     .overflow_hidden()
                     .border_2()
-                    .border_color(c_over_game(ACCENT))
+                    .border_color(c(OVER_GAME_ACCENT))
                     .bg(c(WELL))
                     .child(
                         gpui::img(path)
@@ -349,10 +349,10 @@ impl AppShell {
                     .absolute()
                     .size_full()
                     .children(preset_guides.iter().map(|(left, top, width, height)| {
-                        // GPUI 画不了虚线;12a 的「虚线 = 预设」用细灰框替身,
-                        // 图例文案也写的是细灰框。画在游戏截图上,所以走
-                        // c_over_game(§11.7):浅色主题的浅灰贴在近黑游戏底上
-                        // 会比金框还响,预设提示反而盖过已框好的框。
+                        // GPUI 画不了虚线;12a 的「虚线 = 预设」用细灰框替身。
+                        // 画在游戏截图上,所以走 OVER_GAME_GUIDE 而不是界面的
+                        // 禁用灰:后者浅色那一版贴在近黑游戏底上会比强调框还响,
+                        // 预设提示反而盖过已框好的框。
                         div()
                             .absolute()
                             .left(px(*left))
@@ -360,7 +360,7 @@ impl AppShell {
                             .w(px(*width))
                             .h(px(*height))
                             .border_1()
-                            .border_color(c_over_game(TEXT_DISABLED))
+                            .border_color(c(OVER_GAME_GUIDE))
                     }))
             }))
             .children(
@@ -380,18 +380,18 @@ impl AppShell {
                             .w(px((end.0 - start.0).abs()))
                             .h(px((end.1 - start.1).abs()))
                             .border_2()
-                            .border_color(c_over_game(ACCENT))
+                            .border_color(c(OVER_GAME_ACCENT))
                     }),
             )
             .children(drawn.into_iter().map(|(active, left, top, w, h)| {
-                // 12a:你框好的一律金框;当前正在框的那块加粗一档提示焦点。
+                // 12a:你框好的一律强调色框;当前正在框的那块加粗一档提示焦点。
                 let frame = div()
                     .absolute()
                     .left(px(left))
                     .top(px(top))
                     .w(px(w))
                     .h(px(h))
-                    .border_color(c_over_game(ACCENT));
+                    .border_color(c(OVER_GAME_ACCENT));
                 if active {
                     frame.border_2()
                 } else {
@@ -733,6 +733,10 @@ impl AppShell {
             );
 
         // 画布脚注(12a):图例说明两种框,右侧是鼠标的源图坐标。
+        //
+        // 两个色块必须取**画在游戏上**的那两个槽位,不是界面的强调色和禁用
+        // 灰:图例的全部作用就是"这个颜色 = 那种框",一旦两边取不同的值,
+        // 图例就在说谎。浅色主题下这条差得最明显(界面墨蓝 vs 提亮的蓝)。
         let legend_swatch = |color: Token| {
             div()
                 .size(px(10.))
@@ -751,14 +755,14 @@ impl AppShell {
             .border_color(c(HAIRLINE))
             .border_t_0()
             .bg(c(PANEL))
-            .child(legend_swatch(TEXT_DISABLED))
+            .child(legend_swatch(OVER_GAME_GUIDE))
             .child(
                 div()
                     .text_size(fs(FS_10_5))
                     .text_color(c(TEXT_DISABLED))
                     .child(text.cal_legend_preset),
             )
-            .child(legend_swatch(ACCENT))
+            .child(legend_swatch(OVER_GAME_ACCENT))
             .child(
                 div()
                     .text_size(fs(FS_10_5))

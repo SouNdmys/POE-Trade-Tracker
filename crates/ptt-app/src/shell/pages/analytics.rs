@@ -21,6 +21,7 @@ use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
     StatusKind, chip, chip_table, empty_state, kv_row, mono, panel, panel_header, scrollable,
+    warning_band,
 };
 
 /// Liquidity class → chip colour: scarce is the interesting gold state,
@@ -186,11 +187,8 @@ impl AppShell {
 
         let mut head = div().p_3().flex().flex_col().gap_1();
         for note in &model.notes {
-            head = head.child(
-                mono(note.clone())
-                    .text_size(fs(FS_10_5))
-                    .text_color(c(WARN_TEXT)),
-            );
+            // 注意条,不是一段琥珀色的字——理由同关注列表页。
+            head = head.child(warning_band(text.note_band_tag, note));
         }
         let season_line = model.season.as_ref().map_or_else(
             || text.analytics_no_season.to_owned(),

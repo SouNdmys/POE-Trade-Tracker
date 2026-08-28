@@ -77,6 +77,14 @@ pub struct Text {
     pub page_watchlist: &'static str,
     pub page_history: &'static str,
 
+    // -- notice band (every page that renders `model.notes`) --
+    /// The tag on the amber notice band. Deliberately short and neutral: the
+    /// same band carries genuine config warnings and purely informational
+    /// lines, and the page cannot tell them apart — the notes arrive as
+    /// opaque strings. A louder word ("WARNING") would shout at someone whose
+    /// only "problem" is that they have not captured anything yet.
+    pub note_band_tag: &'static str,
+
     // -- panels --
     pub panel_last_book: &'static str,
     pub panel_opportunities: &'static str,
@@ -657,6 +665,7 @@ impl Text {
             ("page_convert", self.page_convert),
             ("page_watchlist", self.page_watchlist),
             ("page_history", self.page_history),
+            ("note_band_tag", self.note_band_tag),
             ("panel_last_book", self.panel_last_book),
             ("panel_opportunities", self.panel_opportunities),
             ("panel_skips", self.panel_skips),
@@ -1073,6 +1082,8 @@ pub static ENGLISH: Text = Text {
     page_watchlist: "WATCHLIST",
     page_history: "HISTORY",
 
+    note_band_tag: "NOTE",
+
     panel_last_book: "LAST BOOK",
     panel_opportunities: "OPPORTUNITIES",
     panel_skips: "SKIPS",
@@ -1255,7 +1266,7 @@ pub static ENGLISH: Text = Text {
     preset_applied: "factory regions for 2560x1440 applied",
     applied: "regions written to settings:",
     nothing_to_apply: "already applied - nothing changed",
-    guide_hint: "amber box = where this region usually sits",
+    guide_hint: "the thin frame = where this region usually sits",
     hint_need: "the currency name on the left, icon excluded",
     hint_have: "the currency name on the right, icon and star excluded",
     hint_tables: "from the Available Trades title bar down past the last competing row",
@@ -1335,7 +1346,7 @@ pub static ENGLISH: Text = Text {
     monitor_more_risks: "{} more",
     monitor_see_radar: "full detail on the radar page",
     monitor_cycles_losing: "every cycle loses - only the one-way conversion is worth doing",
-    monitor_queue_legend: "gold bar = queued; it shows on the HUD's bottom line",
+    monitor_queue_legend: "queued - it shows on the HUD's bottom line",
     monitor_skip_frames: "{} frames",
 
     ignored_probes_count: "{} pairs ignored",
@@ -1382,7 +1393,7 @@ pub static ENGLISH: Text = Text {
     convert_leg_takes: "this leg absorbs {}",
 
     history_axis_note: "axis: {} per 1 {}",
-    history_color_legend: "gold = pricier · brick-red = cheaper",
+    history_color_legend: "brick-red candle = cheaper · the other colour = pricier",
     history_candle_progress: "{} candles so far, 24h needs {}",
     history_available_title: "available · what you pay to take",
     history_book_elsewhere: "the live panel is reading another pair; both queues show here once a frame of this pair lands",
@@ -1402,8 +1413,8 @@ pub static ENGLISH: Text = Text {
     cal_save_button: "Save these three",
     cal_in_sync: "matches current settings",
     cal_pending: "{} unsaved changes",
-    cal_legend_preset: "thin gray frame = usual position (preset)",
-    cal_legend_saved: "gold frame = framed by you",
+    cal_legend_preset: "usual position (preset)",
+    cal_legend_saved: "framed by you",
     cal_mouse_label: "mouse",
     cal_zoom_label: "zoom {}",
 
@@ -1529,6 +1540,8 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     page_convert: "兑换",
     page_watchlist: "关注列表",
     page_history: "历史",
+
+    note_band_tag: "提示",
 
     panel_last_book: "最近盘口",
     panel_opportunities: "机会",
@@ -1712,7 +1725,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     preset_applied: "已套用 2560x1440 的预设区域",
     applied: "已写入设置的区域：",
     nothing_to_apply: "与当前设置相同，没有变更",
-    guide_hint: "琥珀色框 = 这个区域通常的位置",
+    guide_hint: "细框 = 这个区域通常的位置",
     hint_need: "左侧的通货名称，不要框进图标",
     hint_have: "右侧的通货名称，不要框进图标和星标",
     hint_tables: "从「可用交易」标题栏开始，一直框到「竞争交易」最后一行下方",
@@ -1792,7 +1805,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     monitor_more_risks: "还有 {} 条",
     monitor_see_radar: "去雷达页看完整明细",
     monitor_cycles_losing: "闭环都在亏 —— 这个盘口只有单向兑换值得做",
-    monitor_queue_legend: "金条 = 已排队，会出现在游戏浮窗最底那一行",
+    monitor_queue_legend: "已排队 —— 会出现在游戏浮窗最底那一行",
     monitor_skip_frames: "{} 帧",
 
     ignored_probes_count: "已忽略 {} 对",
@@ -1839,7 +1852,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     convert_leg_takes: "这一段吃得下 {}",
 
     history_axis_note: "纵轴：换 1 个{}要几个{}",
-    history_color_legend: "金 = 变贵 · 砖红 = 变便宜",
+    history_color_legend: "砖红柱 = 变便宜 · 另一种颜色 = 变贵",
     history_candle_progress: "已有 {} 根，24 小时需要 {} 根",
     history_available_title: "可用 · 你买要付",
     history_book_elsewhere: "盘口面板当前读的是另一对；读到这一对的一帧后，两侧队列会显示在这里",
@@ -1859,8 +1872,8 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     cal_save_button: "保存这三块",
     cal_in_sync: "与当前设置一致",
     cal_pending: "有 {} 处未保存",
-    cal_legend_preset: "细灰框 = 这个区域通常的位置（预设）",
-    cal_legend_saved: "金框 = 你框好的",
+    cal_legend_preset: "这个区域通常的位置（预设）",
+    cal_legend_saved: "你框好的",
     cal_mouse_label: "鼠标",
     cal_zoom_label: "缩放 {}",
 

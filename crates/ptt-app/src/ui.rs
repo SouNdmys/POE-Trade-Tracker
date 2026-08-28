@@ -206,7 +206,11 @@ pub fn warning_band(tag: &str, text: &str) -> Div {
             div()
                 .text_size(fs(FS_11_5))
                 .line_height(px(FS_11_5 * 1.55))
-                .text_color(c(WARN_TEXT))
+                // 正文走中性色:语义已经由 2px 琥珀左条(块)和短标签说完了,
+                // 整段再染一遍是把同一句话喊两遍——而且这条带子现在有六个
+                // 调用点,一屏摞几条就是一片黄。中性字在琥珀 wash 上还更清楚
+                // (浅色 5.6 → 7.3)。
+                .text_color(c(TEXT_SECONDARY))
                 .child(SharedString::from(text.to_string())),
         )
 }

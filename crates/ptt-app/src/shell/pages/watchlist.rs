@@ -14,7 +14,9 @@ use ptt_runtime::reports::{CoverageOutcome, WatchlistModel};
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
-use crate::ui::{LedgerButton, StatusKind, button, empty_state, kv_row, mono, panel};
+use crate::ui::{
+    LedgerButton, StatusKind, button, empty_state, error_band, kv_row, mono, panel, warning_band,
+};
 
 /// A currency's place in the focus set.
 ///
@@ -335,13 +337,11 @@ impl AppShell {
 
         let mut body = div().flex().flex_col();
         for note in &model.notes {
-            body = body.child(
-                mono(note.clone())
-                    .px_3()
-                    .py_1()
-                    .text_size(fs(FS_11))
-                    .text_color(c(WARN_TEXT)),
-            );
+            // 注意条,不是一段琥珀色的字:块色(左边那条 2px)才是"这里要留意"
+            // 的载体,光把整段话染成琥珀是「色块＝语义」的反面。而且第一次
+            // 打开程序时这块是屏幕上唯一的东西——一屏琥珀色段落会让人以为
+            // 出了故障,其实只是还没抓过数据。
+            body = body.child(warning_band(text.note_band_tag, note));
         }
         if model.valuations.is_empty() {
             body = body.child(empty_state(report_text::report(language).no_price_capture));
@@ -699,27 +699,23 @@ impl AppShell {
                 body = body.child(empty_state(report_text::report(language).no_core_currency));
             }
             CoverageOutcome::Failed(reason) => {
-                body = body.child(
-                    mono(report_text::fill(
-                        report_text::report(language).coverage_unavailable,
-                        &[reason],
-                    ))
-                    .text_size(fs(FS_11_5))
-                    .text_color(c(DANGER)),
-                );
+                // `error_band` 而不是一行 `c(DANGER)` 的字:砖红的块色和字色
+                // 是配对的两半(§11.7),块色 6px 的点画在左边,字用 DANGER_TEXT。
+                // 拿块色直接当字色是这条规矩里点名过的那个错。
+                body = body.child(error_band(&report_text::fill(
+                    report_text::report(language).coverage_unavailable,
+                    &[reason],
+                )));
             }
             CoverageOutcome::Ready(coverage) => {
                 // A list that names only settlement currencies leaves nothing
                 // to measure, and the two pairs it does produce look exactly
                 // like a market nobody has captured.
                 if coverage.status == ptt_runtime::domain::FocusScopeStatus::MissingTarget {
-                    body = body.child(
-                        mono(report_text::report(language).focus_has_no_targets)
-                            .px_3()
-                            .py_1()
-                            .text_size(fs(FS_11))
-                            .text_color(c(WARN_TEXT)),
-                    );
+                    body = body.child(warning_band(
+                        text.note_band_tag,
+                        report_text::report(language).focus_has_no_targets,
+                    ));
                 }
                 let incomplete: Vec<_> = coverage
                     .entries

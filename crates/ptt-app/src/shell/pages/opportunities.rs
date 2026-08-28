@@ -32,7 +32,7 @@ use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
     LedgerButton, StatusKind, button, detail_panel, empty_state, freshness_kind, kv_row, mono,
-    panel,
+    panel, warning_band,
 };
 
 /// Execution category → status colour.
@@ -658,29 +658,25 @@ impl AppShell {
             ));
 
         // 出问题才出现的句子:预算耗尽(琥珀,可能漏了),以及结构性备注。
-        let mut warnings =
-            div()
-                .flex_none()
-                .flex()
-                .flex_col()
-                .gap_1()
-                .children(model.notes.iter().map(|note| {
-                    mono(note.clone())
-                        .text_size(fs(FS_11))
-                        .text_color(c(WARN_TEXT))
-                }));
+        // 注意条,不是一段段琥珀色的字——理由同关注列表页。
+        let note_tag = self.text().note_band_tag;
+        let mut warnings = div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .children(model.notes.iter().map(|note| warning_band(note_tag, note)));
         if scan.diagnostics.budget_exhausted {
-            warnings = warnings.child(
-                mono(report_text::fill(
+            warnings = warnings.child(warning_band(
+                note_tag,
+                &report_text::fill(
                     report_text::report(language).partial_scan,
                     &[
                         &scan.diagnostics.skipped_target_count.to_string(),
                         &scan.diagnostics.expansions_used.to_string(),
                     ],
-                ))
-                .text_size(fs(FS_11))
-                .text_color(c(WARN_TEXT)),
-            );
+                ),
+            ));
         }
 
         let table = if scan.items.is_empty() {

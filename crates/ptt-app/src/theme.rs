@@ -6,7 +6,8 @@
 //! 定稿) and the pixel prototype `docs/poe2-ui` (`1a`).
 //!
 //! 总规则「色块＝语义,色字＝主题」:实心色块(圆点/徽章描边/左边框条)只表达
-//! 新鲜度三档与注意/错误;彩色文字只表达主题(金)。三档语义永远带汉字,
+//! 新鲜度三档与注意/错误;彩色文字只表达主题强调色(深色=金,浅色=墨蓝)。
+//! 三档语义永远带汉字,
 //! 颜色只是加速识别。
 
 // Later phases will consume the remaining tokens/components; keep the full set.
@@ -71,6 +72,9 @@ pub enum Token {
     DangerWash,
     NeutralDot,
     DisabledDot,
+    OverGameAccent,
+    OverGameDanger,
+    OverGameGuide,
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +202,32 @@ pub const NEUTRAL_DOT: Token = Token::NeutralDot;
 pub const DISABLED_DOT: Token = Token::DisabledDot;
 
 // ---------------------------------------------------------------------------
+// 画在游戏画面上(校准页的标注)
+// ---------------------------------------------------------------------------
+//
+// 这三个槽位的底不是我们的面板,是 POE 的近黑客户端(量的时候按 #0E1116
+// 算),而那个底不会因为用户切了浅色就变亮。所以它们不是"另一套主题",
+// 是同一件事换了个背景:每套皮肤在这里各自回答一次「画在近黑上该用什么」。
+//
+// 早先这里是一个 `c_over_game()` 函数,做法是"不管选了哪套皮肤都取深色那
+// 一份"。理由对、写法不对:浅色的强调色从金换成墨蓝以后,"深色那一份"就
+// 变成了一个跟浅色界面毫无关系的金色,用户在浅色下会看到一个界面里再没有
+// 出现过的颜色。改成槽位以后,浅色的答案是"把自己的墨蓝提亮到近黑上够
+// 亮",看着仍然是这个 app 的颜色。深色的三个值与函数时代逐字节相同。
+
+/// 画在游戏截图上的强调色(校准框、放大镜外框)。近黑底上至少 4.5:1,
+/// 守在本文件底部的测试里。
+pub const OVER_GAME_ACCENT: Token = Token::OverGameAccent;
+/// 画在游戏截图上的砖红(放大镜十字线)。
+pub const OVER_GAME_DANGER: Token = Token::OverGameDanger;
+/// 画在游戏截图上的灰(预设位置的细框)。
+///
+/// 不能直接用 `TEXT_DISABLED`:浅色版的禁用灰(#8B95A4)贴到近黑上是
+/// 6.2:1,比它旁边的强调框还响,"这块通常在这儿"的提示反而盖过"你已经
+/// 框好的"。这里要的是**比强调色安静一档**,所以浅色另配一个更暗的灰。
+pub const OVER_GAME_GUIDE: Token = Token::OverGameGuide;
+
+// ---------------------------------------------------------------------------
 // Palettes
 // ---------------------------------------------------------------------------
 
@@ -246,6 +276,9 @@ pub struct Palette {
     pub danger_wash: u32,
     pub neutral_dot: u32,
     pub disabled_dot: u32,
+    pub over_game_accent: u32,
+    pub over_game_danger: u32,
+    pub over_game_guide: u32,
 }
 
 impl Palette {
@@ -298,6 +331,9 @@ impl Palette {
             Token::DangerWash => self.danger_wash,
             Token::NeutralDot => self.neutral_dot,
             Token::DisabledDot => self.disabled_dot,
+            Token::OverGameAccent => self.over_game_accent,
+            Token::OverGameDanger => self.over_game_danger,
+            Token::OverGameGuide => self.over_game_guide,
         }
     }
 }
@@ -348,6 +384,11 @@ pub static DARK: Palette = Palette {
     danger_wash: 0x241614,
     neutral_dot: 0x59616E,
     disabled_dot: 0x2B323F,
+    // 深色画在游戏上就是深色本来的三个值(近黑对近黑,不需要改写):
+    // 金 10.05:1,砖红 4.61:1,灰 3.03:1。
+    over_game_accent: 0xD9B978,
+    over_game_danger: 0xD0564B,
+    over_game_guide: 0x59616E,
 };
 
 /// 浅色对位。同一套语义、同一套色相家族,明暗关系整个翻过来。
@@ -410,6 +451,14 @@ pub static LIGHT: Palette = Palette {
     danger_wash: 0xFCEDEA,
     neutral_dot: 0x8A94A3,
     disabled_dot: 0xCFD6DF,
+    // 浅色的三个值全部是"为近黑底重配的",不是界面里那三个:界面上的墨蓝
+    // (#3D6CA5)贴到近黑上只有 3.50:1,框线糊在游戏画面里;提亮到 #8FB6E8
+    // 是 9.03:1,色相 213.7 仍和 #3D6CA5 同族,看着是"这个 app 的蓝,为了
+    // 压在游戏上提亮了一档"。砖红同理(#B93A2E 在近黑上太闷)。灰要比强调
+    // 色安静一档,所以取 3.61:1 而不是禁用灰的 6.2:1。
+    over_game_accent: 0x8FB6E8,
+    over_game_danger: 0xE0705F,
+    over_game_guide: 0x646D7A,
 };
 
 /// 深色还是浅色。
@@ -538,17 +587,6 @@ pub fn hsla_of(token: Token) -> Hsla {
 /// Convenience:槽位 → gpui color for direct styling.
 pub fn c(token: Token) -> Rgba {
     gpui::rgb(active_palette().hex(token))
-}
-
-/// 取深色那一套的值,不管用户选的是哪套皮肤。
-///
-/// 只给一种东西用:画在**游戏画面**上的标注(校准页框在截图上的那几个框、
-/// 放大镜十字线)。它们的背景不是我们的面板,是 POE 的近黑客户端——而那个
-/// 背景不会因为用户切了浅色就变亮。浅色版的金是压暗过的(白底上要读得清),
-/// 拿到近黑背景上亮度只剩深色版的一半,框线反而更难看见。同一条理由让浮窗
-/// 整个留在深色(见 docs/UI-DESIGN.md §11.5)。
-pub fn c_over_game(token: Token) -> Rgba {
-    gpui::rgb(DARK.hex(token))
 }
 
 /// 全局字号缩放。
@@ -757,7 +795,7 @@ mod theme_tests {
 
     /// 加了槽位记得加到这里,否则新槽位不进"两套必须不一样"的体检。
     /// (少配一个**值**是编译错误,那道保险在 `Palette::hex` 的穷尽 match 上。)
-    const ALL_TOKENS: [Token; 43] = [
+    const ALL_TOKENS: [Token; 46] = [
         Token::Canvas,
         Token::Panel,
         Token::Rail,
@@ -801,7 +839,15 @@ mod theme_tests {
         Token::DangerWash,
         Token::NeutralDot,
         Token::DisabledDot,
+        Token::OverGameAccent,
+        Token::OverGameDanger,
+        Token::OverGameGuide,
     ];
+
+    /// 校准页的标注画在 POE 客户端的近黑面板上,不是我们的面板上。取
+    /// 「订单书那块底」的实测值当代表——它同时是我们自己 `WELL` 的深色值,
+    /// 所以这个常量既是游戏底也是我们量过最暗的底。
+    const GAME_PANEL: u32 = 0x0E1116;
 
     /// 切到某套皮肤,装出一份 `ThemeColor`,再把全局拨回原位。
     ///
@@ -984,6 +1030,56 @@ mod theme_tests {
             palette_mode_for(ptt_settings::UiTheme::Light),
             PaletteMode::Light
         );
+    }
+
+    /// 画在游戏上的标注,存在的理由就是"在近黑的游戏画面上要看得见"——
+    /// 可这件事以前没有任何东西守着。守不住的代价是具体的:浅色的强调色
+    /// (#3D6CA5)贴到近黑上只有 3.50:1,框线会糊进游戏画面里,而在浅色
+    /// 界面上它读得清清楚楚,截图和肉眼都不会报警。
+    ///
+    /// 门槛取 AA 的 4.5:1 而不是正文的 7:1,是因为这里量的是 1~2px 的框线
+    /// 和十字线,不是成段的字;深色的砖红十字线本来就是 4.61:1,抬到 7 会把
+    /// 一个从来没出过问题的现状判成不合格。
+    #[test]
+    fn over_game_marks_stay_visible_on_a_near_black_game_panel_in_both_palettes() {
+        for (mode, palette) in PALETTES {
+            for (hex, name) in [
+                (palette.over_game_accent, "OVER_GAME_ACCENT"),
+                (palette.over_game_danger, "OVER_GAME_DANGER"),
+            ] {
+                let ratio = contrast_ratio(hex, GAME_PANEL);
+                assert!(
+                    ratio >= 4.5,
+                    "{mode:?}: {name} is only {ratio:.2}:1 on the near-black game panel - the \
+                     annotation the user is supposed to aim with disappears into the screenshot"
+                );
+            }
+        }
+    }
+
+    /// 预设细框是三个 over-game 槽位里**唯一一个不许够亮**的。
+    ///
+    /// 它说的是"这块通常在这儿",是给你对位用的参考线;真正该被看见的是
+    /// 你自己框好的那个框。所以它的合格线是一条**上限**:一旦冲到 4.5 以上
+    /// 就和强调框一个响度,预设提示反倒盖过了正主——这正是当初不能直接用
+    /// `TEXT_DISABLED` 的原因(浅色的禁用灰在近黑上是 6.2:1)。
+    /// 下限 2.5 守另一头:安静不等于消失,量到底了这条参考线就白画了。
+    #[test]
+    fn the_over_game_preset_guide_stays_quieter_than_the_frames_it_hints_at() {
+        for (mode, palette) in PALETTES {
+            let guide = contrast_ratio(palette.over_game_guide, GAME_PANEL);
+            assert!(
+                guide < 4.5,
+                "{mode:?}: OVER_GAME_GUIDE is {guide:.2}:1 on the near-black game panel - that is \
+                 frame-strength, so the \"usual position\" hint now competes with the region the \
+                 user actually framed"
+            );
+            assert!(
+                guide >= 2.5,
+                "{mode:?}: OVER_GAME_GUIDE is only {guide:.2}:1 on the near-black game panel - \
+                 quieter than the frames was the point, invisible was not"
+            );
+        }
     }
 
     /// 一次复制粘贴就能让浅色调色板留着深色的值,而那种错误在深色模式下

@@ -23,7 +23,7 @@ use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
     LedgerButton, StatusKind, button, chip, empty_state, freshness_kind, kv_row, mono, panel,
-    panel_header,
+    panel_header, warning_band,
 };
 
 /// One row of a currency picker: what the reader sees, and what is picked.
@@ -370,11 +370,8 @@ impl AppShell {
 
         let mut column = div().flex_1().min_w(px(0.)).flex().flex_col().gap(px(SP_8));
         for note in &model.notes {
-            column = column.child(
-                mono(note.clone())
-                    .text_size(fs(FS_11))
-                    .text_color(c(WARN_TEXT)),
-            );
+            // 注意条,不是一段琥珀色的字——理由同关注列表页。
+            column = column.child(warning_band(self.text().note_band_tag, note));
         }
 
         let body: gpui::Div = if let Some(route) = shown {
