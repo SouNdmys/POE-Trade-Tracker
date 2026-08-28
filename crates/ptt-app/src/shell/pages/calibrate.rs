@@ -282,7 +282,7 @@ impl AppShell {
                     .h(px(BOX))
                     .overflow_hidden()
                     .border_2()
-                    .border_color(c(ACCENT))
+                    .border_color(c_over_game(ACCENT))
                     .bg(c(WELL))
                     .child(
                         gpui::img(path)
@@ -350,7 +350,9 @@ impl AppShell {
                     .size_full()
                     .children(preset_guides.iter().map(|(left, top, width, height)| {
                         // GPUI 画不了虚线;12a 的「虚线 = 预设」用细灰框替身,
-                        // 图例文案也写的是细灰框。
+                        // 图例文案也写的是细灰框。画在游戏截图上,所以走
+                        // c_over_game(§11.7):浅色主题的浅灰贴在近黑游戏底上
+                        // 会比金框还响,预设提示反而盖过已框好的框。
                         div()
                             .absolute()
                             .left(px(*left))
@@ -358,7 +360,7 @@ impl AppShell {
                             .w(px(*width))
                             .h(px(*height))
                             .border_1()
-                            .border_color(c(TEXT_DISABLED))
+                            .border_color(c_over_game(TEXT_DISABLED))
                     }))
             }))
             .children(
