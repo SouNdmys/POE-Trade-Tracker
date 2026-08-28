@@ -1,6 +1,6 @@
 [package]
 name = "ptt-ocr-onnx"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/SouNdmys/POE-Trade-Tracker"
