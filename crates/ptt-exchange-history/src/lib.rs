@@ -5,6 +5,8 @@
 //! 本模块只做纯解析与规整，不碰网络：release 档是 `panic = "abort"`，
 //! 所以网络输入必须全部落进 `Result`，而纯函数才测得动。
 
+pub mod fetch;
+
 use std::collections::BTreeMap;
 
 use serde::Deserialize;

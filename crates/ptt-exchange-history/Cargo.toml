@@ -11,3 +11,7 @@ description = "GGG currency-exchange hourly history: parse, fetch, and plan for 
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# rustls 0.23 + ring 是 gpui 已经带进来的那份，共用不新增锁条目。
+# 和 update.rs 不同这里要 gzip：一小时的 JSON 约 1.3MB，压后 ~130KB，
+# 回补两周是几百个请求，省的是十倍带宽。
+ureq = { version = "3.4", default-features = false, features = ["rustls", "gzip"] }
