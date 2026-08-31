@@ -24,6 +24,12 @@ impl AppShell {
         self.begin_exchange_sync(cx);
     }
 
+    /// 设置改了联赛之后从头来一轮。`begin` 自己会前进代次，
+    /// 旧链在下一次醒来时发现代次不对就安静退场。
+    pub(crate) fn restart_exchange_sync(&mut self, cx: &mut Context<Self>) {
+        self.begin_exchange_sync(cx);
+    }
+
     fn begin_exchange_sync(&mut self, cx: &mut Context<Self>) {
         let game = self.settings.active_profile.game;
         let exchange = self.settings.market_tuning(game).exchange.clone();

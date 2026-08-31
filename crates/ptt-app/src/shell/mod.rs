@@ -322,6 +322,8 @@ pub struct AppShell {
     tuning_inputs: pages::tuning::TuningInputs,
     /// The new-season label box on the settings page.
     pub(crate) season_input: gpui::Entity<gpui_component::input::InputState>,
+    /// 交易所联赛名（GGG 英文名）。空 = 不抓取，是历史同步的总开关。
+    pub(crate) exchange_league_input: gpui::Entity<gpui_component::input::InputState>,
     /// The season boundary date box (YYYY-MM-DD; empty = right now). One box
     /// serves both "start on this date" and "ended on this date".
     pub(crate) season_date_input: gpui::Entity<gpui_component::input::InputState>,
@@ -519,6 +521,19 @@ impl AppShell {
         let walk_input = Self::new_holdings_input(window, cx);
         let season_input =
             cx.new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("0.6"));
+        // 预填当前值:这是"改一个已有设置"的框,空着会让人以为没配过。
+        let exchange_league_input = {
+            let league = settings
+                .market_tuning(settings.active_profile.game)
+                .exchange
+                .league
+                .clone();
+            cx.new(|cx| {
+                gpui_component::input::InputState::new(window, cx)
+                    .default_value(league)
+                    .placeholder("Runes of Aldur")
+            })
+        };
         let season_date_input = cx
             .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
         // A picked currency or a typed holding is a new question, so the page
@@ -575,6 +590,7 @@ impl AppShell {
             #[cfg(windows)]
             tuning_inputs,
             season_input,
+            exchange_league_input,
             season_date_input,
             season_info: None,
             purge_armed: false,

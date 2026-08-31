@@ -78,6 +78,39 @@ impl AppShell {
                     ),
             );
 
+        body = body.child(
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .w(px(150.))
+                        .flex_none()
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(TEXT_META))
+                        .child(text.exchange_league_label),
+                )
+                .child(
+                    div()
+                        .w(px(200.))
+                        .flex_none()
+                        .child(Input::new(&self.exchange_league_input).with_size(Size::Small)),
+                )
+                .child(
+                    button(
+                        "exchange-league-save",
+                        LedgerButton::Secondary,
+                        text.exchange_league_save,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.save_exchange_league(cx);
+                        cx.notify();
+                    })),
+                ),
+        );
+
         let purge_label = if self.purge_armed {
             text.season_purge_confirm
         } else {
@@ -182,6 +215,36 @@ impl AppShell {
                 self.push_log(format!("season date {raw:?} is not YYYY-MM-DD"));
                 None
             }
+        }
+    }
+
+    /// 保存交易所联赛名并立刻按新联赛开一轮同步。
+    ///
+    /// 换联赛 = 换一本账：新 (game, league) 的水位从零回补，旧联赛的数据
+    /// 原地保留。旧同步链靠代次作废，不会出现两条链同时抓。
+    #[cfg(windows)]
+    fn save_exchange_league(&mut self, cx: &mut Context<Self>) {
+        let league = self
+            .exchange_league_input
+            .read(cx)
+            .value()
+            .trim()
+            .to_string();
+        let game = self.settings.active_profile.game;
+        if self.settings.market_tuning(game).exchange.league == league {
+            return;
+        }
+        self.settings.market_tuning_mut(game).exchange.league = league.clone();
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => {
+                self.push_log(if league.is_empty() {
+                    "exchange: league cleared, sync off".to_owned()
+                } else {
+                    format!("exchange: league set to {league}")
+                });
+                self.restart_exchange_sync(cx);
+            }
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
         }
     }
 
