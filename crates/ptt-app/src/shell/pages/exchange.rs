@@ -15,6 +15,10 @@ use crate::ui::{StatusKind, chip, empty_state, mono, panel};
 /// 全量列表等滚动容器一起来。
 const ROW_LIMIT: usize = 40;
 
+/// 走势列宽：最多 14 根柱 × (3px 柱 + 1px 缝) + 余量。
+const SPARK_WIDTH: f32 = 70.;
+const SPARK_DAYS: usize = 14;
+
 impl AppShell {
     /// The Exchange page.
     #[cfg(windows)]
@@ -121,6 +125,7 @@ impl AppShell {
             .child(head_cell(text.exchange_col_asset, 210.))
             .child(head_cell(text.exchange_col_value, 110.))
             .child(head_cell(text.exchange_col_trend, 80.))
+            .child(head_cell(text.exchange_col_spark, SPARK_WIDTH))
             .child(head_cell(text.exchange_col_volume, 90.))
             .child(head_cell(text.exchange_col_depth, 90.))
             .child(head_cell(text.exchange_surge_tag, 70.))
@@ -167,6 +172,12 @@ impl AppShell {
                 )
                 .child(data_cell(value, 110.))
                 .child(data_cell(trend, 80.))
+                .child(
+                    div()
+                        .w(px(SPARK_WIDTH))
+                        .flex_none()
+                        .child(spark_bars(&row.value_by_day)),
+                )
                 .child(data_cell(compact_amount(row.volume_per_hour_anchor), 90.))
                 .child(data_cell(
                     row.depth_anchor
@@ -226,6 +237,29 @@ fn data_cell(value: String, width: f32) -> gpui::Div {
         .w(px(width))
         .flex_none()
         .child(mono(value).text_size(fs(FS_11_5)))
+}
+
+/// 迷你日柱：有几天画几根，不画假折线（Analytics 页的既定裁定 §6）。
+/// min-max 归一化只决定柱高，f32 只在这条绘制边界上出现。
+fn spark_bars(values: &[ptt_trade_domain::Ratio]) -> gpui::Div {
+    let recent = values.len().saturating_sub(SPARK_DAYS);
+    let points: Vec<f32> = values[recent..]
+        .iter()
+        .map(|rate| rate.numerator as f32 / (rate.denominator as f32).max(1.0))
+        .collect();
+    let mut row = div().h(px(16.)).h_flex().items_end().gap(px(1.));
+    if points.len() < 2 {
+        // 一天以内说不出"走势"，留白比一根孤柱诚实。
+        return row;
+    }
+    let min = points.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let span = (max - min).max(f32::EPSILON);
+    for value in &points {
+        let height = 4.0 + 12.0 * ((value - min) / span);
+        row = row.child(div().w(px(3.)).h(px(height)).bg(c(TEXT_GHOST)));
+    }
+    row
 }
 
 /// `+50.00%` / `-26.00%`：与监视页同款，正负一眼可辨。

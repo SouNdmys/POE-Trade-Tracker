@@ -3445,6 +3445,9 @@ pub struct ExchangeRow {
     pub top_partner: Option<MarketAssetId>,
     /// 已在结算/关注/桥/仅观察任一列表里。大雷达拿它反选"新面孔"。
     pub tracked: bool,
+    /// 日 VWAP 序列（升序），迷你走势列的原料。保持 Ratio：
+    /// 归一化成像素高度是绘制的事，f32 只出现在那条边界上。
+    pub value_by_day: Vec<ptt_trade_domain::Ratio>,
 }
 
 #[derive(Clone, Debug)]
@@ -3586,6 +3589,11 @@ pub fn exchange_model(
             surge_percent: asset.surge_percent,
             top_partner: asset.top_partner.clone(),
             tracked: tracked.contains(&asset.asset_id),
+            value_by_day: asset
+                .value_by_day
+                .iter()
+                .map(|(_, rate)| rate.clone())
+                .collect(),
         })
         .collect();
 
@@ -7014,6 +7022,8 @@ mod exchange_model_tests {
         );
         // 只配了结算锚,神圣不在任何列表里 -> 大雷达眼中的"新面孔"。
         assert!(!divine.tracked);
+        // 迷你走势列的原料:九天日 VWAP 完整到行。
+        assert_eq!(divine.value_by_day.len(), 9);
         let lines = render_exchange(&model, UiLanguage::Chinese);
         assert!(lines[0].contains("Runes of Aldur"));
     }
