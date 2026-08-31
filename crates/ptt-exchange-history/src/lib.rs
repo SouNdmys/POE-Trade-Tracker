@@ -6,6 +6,7 @@
 //! 所以网络输入必须全部落进 `Result`，而纯函数才测得动。
 
 pub mod fetch;
+pub mod mapping;
 
 use std::collections::BTreeMap;
 

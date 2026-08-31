@@ -1,0 +1,3242 @@
+[
+  {
+    "path": "Metadata/Items/Currency/Abyss/AbyssPinnacleKey",
+    "asset_id": "kulemaks_invitation",
+    "note": "Kulemak's Invitation"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketArmour",
+    "asset_id": "preserved_rib",
+    "note": "Preserved Rib"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketArmourHigh",
+    "asset_id": "ancient_rib",
+    "note": "Ancient Rib"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketArmourLow",
+    "asset_id": "broken_rib",
+    "note": "Gnawed Rib"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketBreach",
+    "asset_id": "altered_collarbone",
+    "note": "Altered Collarbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketJewel",
+    "asset_id": "preserved_skull",
+    "note": "Preserved Cranium"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketJewellery",
+    "asset_id": "preserved_clavicle",
+    "note": "Preserved Collarbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketJewelleryHigh",
+    "asset_id": "ancient_clavicle",
+    "note": "Ancient Collarbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketJewelleryLow",
+    "asset_id": "broken_clavicle",
+    "note": "Gnawed Collarbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketWaystone",
+    "asset_id": "preserved_spine",
+    "note": "Preserved Vertebrae"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketWeapon",
+    "asset_id": "preserved_jawbone",
+    "note": "Preserved Jawbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketWeaponHigh",
+    "asset_id": "ancient_jawbone",
+    "note": "Ancient Jawbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/AbyssalBenchTicketWeaponLow",
+    "asset_id": "broken_jawbone",
+    "note": "Gnawed Jawbone"
+  },
+  {
+    "path": "Metadata/Items/Currency/Breach/BreachPinnacleKey",
+    "asset_id": "breachlord_sac",
+    "note": "Breachlord Sac"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddEquipmentSocket",
+    "asset_id": "artificers_orb",
+    "note": "Artificer's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddEquipmentSocketShard",
+    "asset_id": "artificers_shard",
+    "note": "Artificer's Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToMagic",
+    "asset_id": "augmentation_orb",
+    "note": "Orb of Augmentation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToMagic2",
+    "asset_id": "greater_augmentation_orb",
+    "note": "Greater Orb of Augmentation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToMagic3",
+    "asset_id": "perfect_augmentation_orb",
+    "note": "Perfect Orb of Augmentation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRare",
+    "asset_id": "exalted_orb",
+    "note": "Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRare2",
+    "asset_id": "greater_exalted_orb",
+    "note": "Greater Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRare3",
+    "asset_id": "perfect_exalted_orb",
+    "note": "Perfect Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddSkillGemSocket3",
+    "asset_id": "lesser_jewellers_orb",
+    "note": "Lesser Jeweller's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddSkillGemSocket4",
+    "asset_id": "greater_jewellers_orb",
+    "note": "Greater Jeweller's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddSkillGemSocket5",
+    "asset_id": "perfect_jewellers_orb",
+    "note": "Perfect Jeweller's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionShard",
+    "asset_id": "simulacrum_splinter",
+    "note": "Simulacrum Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyArcaneFluxChaos",
+    "asset_id": "void_flux",
+    "note": "Void Flux"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyArcaneFluxCold",
+    "asset_id": "chilling_flux",
+    "note": "Chilling Flux"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyArcaneFluxFire",
+    "asset_id": "blazing_flux",
+    "note": "Blazing Flux"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyArcaneFluxLightning",
+    "asset_id": "crackling_flux",
+    "note": "Crackling Flux"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyArmourQuality",
+    "asset_id": "armourers_scrap",
+    "note": "Armourer's Scrap"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyBreachShard",
+    "asset_id": "breach_splinter",
+    "note": "Breach Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorrupt",
+    "asset_id": "vaal_orb",
+    "note": "Vaal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorruptedEssenceAbyss",
+    "asset_id": "abyss_essence",
+    "note": "Essence of the Abyss"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorruptedEssenceBreach",
+    "asset_id": "breach_essence",
+    "note": "Essence of the Breach"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorruptedEssenceDelirium",
+    "asset_id": "delirium_essence",
+    "note": "Essence of Delirium"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorruptedEssenceHorror",
+    "asset_id": "horror_essence",
+    "note": "Essence of Horror"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorruptedEssenceHysteria",
+    "asset_id": "hysteria_essence",
+    "note": "Essence of Hysteria"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorruptedEssenceInsanity",
+    "asset_id": "insanity_essence",
+    "note": "Essence of Insanity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDuplicate",
+    "asset_id": "mirror_of_kalandra",
+    "note": "Mirror of Kalandra"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAlly",
+    "asset_id": "command_essence",
+    "note": "Essence of Command"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAttack",
+    "asset_id": "battle_essence",
+    "note": "Essence of Battle"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAttribute",
+    "asset_id": "infinite_essence",
+    "note": "Essence of the Infinite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceCaster",
+    "asset_id": "sorcery_essence",
+    "note": "Essence of Sorcery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceChaos",
+    "asset_id": "ruin_essence",
+    "note": "Essence of Ruin"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceCold",
+    "asset_id": "ice_essence",
+    "note": "Essence of Ice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceColdResist",
+    "asset_id": "thawing_essence",
+    "note": "Essence of Thawing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceCritical",
+    "asset_id": "seeking_essence",
+    "note": "Essence of Seeking"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDefences",
+    "asset_id": "enhancement_essence",
+    "note": "Essence of Enhancement"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFire",
+    "asset_id": "flames_essence",
+    "note": "Essence of Flames"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFireResist",
+    "asset_id": "insulation_essence",
+    "note": "Essence of Insulation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLife",
+    "asset_id": "body_essence",
+    "note": "Essence of the Body"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLightning",
+    "asset_id": "electricity_essence",
+    "note": "Essence of Electricity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLightningResist",
+    "asset_id": "grounding_essence",
+    "note": "Essence of Grounding"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceMana",
+    "asset_id": "mind_essence",
+    "note": "Essence of the Mind"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssencePhysical",
+    "asset_id": "abrasion_essence",
+    "note": "Essence of Abrasion"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceRarity",
+    "asset_id": "opulence_essence",
+    "note": "Essence of Opulence"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSpeed",
+    "asset_id": "haste_essence",
+    "note": "Essence of Haste"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSpeedCaster",
+    "asset_id": "alacrity_essence",
+    "note": "Essence of Alacrity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyFlaskQuality",
+    "asset_id": "glassblowers_bauble",
+    "note": "Glassblower's Bauble"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyFractureRare",
+    "asset_id": "fracturing_orb",
+    "note": "Fracturing Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGemQuality",
+    "asset_id": "gemcutters_prism",
+    "note": "Gemcutter's Prism"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceAlly",
+    "asset_id": "greater_command_essence",
+    "note": "Greater Essence of Command"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceAttack",
+    "asset_id": "greater_battle_essence",
+    "note": "Greater Essence of Battle"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceAttribute",
+    "asset_id": "greater_infinite_essence",
+    "note": "Greater Essence of the Infinite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceCaster",
+    "asset_id": "greater_sorcery_essence",
+    "note": "Greater Essence of Sorcery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceChaos",
+    "asset_id": "greater_ruin_essence",
+    "note": "Greater Essence of Ruin"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceCold",
+    "asset_id": "greater_ice_essence",
+    "note": "Greater Essence of Ice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceColdResist",
+    "asset_id": "greater_thawing_essence",
+    "note": "Greater Essence of Thawing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceCritical",
+    "asset_id": "greater_seeking_essence",
+    "note": "Greater Essence of Seeking"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceDefences",
+    "asset_id": "greater_enhancement_essence",
+    "note": "Greater Essence of Enhancement"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceFire",
+    "asset_id": "greater_flames_essence",
+    "note": "Greater Essence of Flames"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceFireResist",
+    "asset_id": "greater_insulation_essence",
+    "note": "Greater Essence of Insulation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceLife",
+    "asset_id": "greater_body_essence",
+    "note": "Greater Essence of the Body"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceLightning",
+    "asset_id": "greater_electricity_essence",
+    "note": "Greater Essence of Electricity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceLightningResist",
+    "asset_id": "greater_grounding_essence",
+    "note": "Greater Essence of Grounding"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceMana",
+    "asset_id": "greater_mind_essence",
+    "note": "Greater Essence of the Mind"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssencePhysical",
+    "asset_id": "greater_abrasion_essence",
+    "note": "Greater Essence of Abrasion"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceRarity",
+    "asset_id": "greater_opulence_essence",
+    "note": "Greater Essence of Opulence"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceSpeed",
+    "asset_id": "greater_haste_essence",
+    "note": "Greater Essence of Haste"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGreaterEssenceSpeedCaster",
+    "asset_id": "greater_alacrity_essence",
+    "note": "Greater Essence of Alacrity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHinekorasLock",
+    "asset_id": "hinekoras_lock",
+    "note": "Hinekora's Lock"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIdentification",
+    "asset_id": "scroll_of_wisdom",
+    "note": "Scroll of Wisdom"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionCasterWeaponQuality",
+    "asset_id": "vaal_arcanists_infuser",
+    "note": "Vaal Arcanist's Infuser"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionCorruptTablet",
+    "asset_id": "ancient_infuser",
+    "note": "Ancient Infuser"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionDoubleCorrupt",
+    "asset_id": "architects_orb",
+    "note": "Architect's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionDoubleCorruptGem",
+    "asset_id": "crystallised_corruption",
+    "note": "Crystallised Corruption"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionExtractAllSocketablesCurrency",
+    "asset_id": "orb_of_extraction",
+    "note": "Orb of Extraction"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionJewelleryQuality",
+    "asset_id": "vaal_catalysing_infuser",
+    "note": "Vaal Catalysing Infuser"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionMartialWeaponQuality",
+    "asset_id": "vaal_blacksmiths_infuser",
+    "note": "Vaal Blacksmith's Infuser"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionModifySoulCore",
+    "asset_id": "core_destabiliser",
+    "note": "Core Destabiliser"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionMutateUnique",
+    "asset_id": "vaal_cultivation_orb",
+    "note": "Vaal Cultivation Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionVaalIncubator",
+    "asset_id": "vaal_siphoner",
+    "note": "Vaal Siphoner"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionWeaponOrArmourQualityHigh",
+    "asset_id": "vaal_armourers_infuser",
+    "note": "Vaal Armourer's Infuser"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttack",
+    "asset_id": "reaver_catalyst",
+    "note": "Reaver Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttribute",
+    "asset_id": "adaptive_catalyst",
+    "note": "Adaptive Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCaster",
+    "asset_id": "sibilant_catalyst",
+    "note": "Sibilant Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityChaos",
+    "asset_id": "chaos_catalyst",
+    "note": "Chayula's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCold",
+    "asset_id": "cold_catalyst",
+    "note": "Tul's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityDefences",
+    "asset_id": "carapace_catalyst",
+    "note": "Carapace Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityFire",
+    "asset_id": "fire_catalyst",
+    "note": "Xoph's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityLife",
+    "asset_id": "life_catalyst",
+    "note": "Flesh Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityLightning",
+    "asset_id": "lightning_catalyst",
+    "note": "Esh's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityMana",
+    "asset_id": "mana_catalyst",
+    "note": "Neural Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityPhysical",
+    "asset_id": "physical_catalyst",
+    "note": "Uul-Netol's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualitySpeed",
+    "asset_id": "skittering_catalyst",
+    "note": "Skittering Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityAttack",
+    "asset_id": "refined_reaver_catalyst",
+    "note": "Refined Reaver Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityAttribute",
+    "asset_id": "refined_adaptive_catalyst",
+    "note": "Refined Adaptive Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityCaster",
+    "asset_id": "refined_sibilant_catalyst",
+    "note": "Refined Sibilant Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityChaos",
+    "asset_id": "refined_chayulas_catalyst",
+    "note": "Refined Chayula's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityCold",
+    "asset_id": "refined_tuls_catalyst",
+    "note": "Refined Tul's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityDefences",
+    "asset_id": "refined_carapace_catalyst",
+    "note": "Refined Carapace Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityFire",
+    "asset_id": "refined_xophs_catalyst",
+    "note": "Refined Xoph's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityLife",
+    "asset_id": "refined_flesh_catalyst",
+    "note": "Refined Flesh Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityLightning",
+    "asset_id": "refined_eshs_catalyst",
+    "note": "Refined Esh's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityMana",
+    "asset_id": "refined_neural_catalyst",
+    "note": "Refined Neural Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityPhysical",
+    "asset_id": "refined_uul_netols_catalyst",
+    "note": "Refined Uul-Netol's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualitySpeed",
+    "asset_id": "refined_skittering_catalyst",
+    "note": "Refined Skittering Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceAlly",
+    "asset_id": "lesser_command_essence",
+    "note": "Lesser Essence of Command"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceAttack",
+    "asset_id": "lesser_battle_essence",
+    "note": "Lesser Essence of Battle"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceAttribute",
+    "asset_id": "lesser_infinite_essence",
+    "note": "Lesser Essence of the Infinite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceCaster",
+    "asset_id": "lesser_sorcery_essence",
+    "note": "Lesser Essence of Sorcery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceChaos",
+    "asset_id": "lesser_ruin_essence",
+    "note": "Lesser Essence of Ruin"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceCold",
+    "asset_id": "lesser_ice_essence",
+    "note": "Lesser Essence of Ice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceColdResist",
+    "asset_id": "lesser_thawing_essence",
+    "note": "Lesser Essence of Thawing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceCritical",
+    "asset_id": "lesser_seeking_essence",
+    "note": "Lesser Essence of Seeking"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceDefences",
+    "asset_id": "lesser_enhancement_essence",
+    "note": "Lesser Essence of Enhancement"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceFire",
+    "asset_id": "lesser_flames_essence",
+    "note": "Lesser Essence of Flames"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceFireResist",
+    "asset_id": "lesser_insulation_essence",
+    "note": "Lesser Essence of Insulation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceLife",
+    "asset_id": "lesser_body_essence",
+    "note": "Lesser Essence of the Body"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceLightning",
+    "asset_id": "lesser_electricity_essence",
+    "note": "Lesser Essence of Electricity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceLightningResist",
+    "asset_id": "lesser_grounding_essence",
+    "note": "Lesser Essence of Grounding"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceMana",
+    "asset_id": "lesser_mind_essence",
+    "note": "Lesser Essence of the Mind"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssencePhysical",
+    "asset_id": "lesser_abrasion_essence",
+    "note": "Lesser Essence of Abrasion"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceRarity",
+    "asset_id": "lesser_opulence_essence",
+    "note": "Lesser Essence of Opulence"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceSpeed",
+    "asset_id": "lesser_haste_essence",
+    "note": "Lesser Essence of Haste"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLesserEssenceSpeedCaster",
+    "asset_id": "lesser_alacrity_essence",
+    "note": "Lesser Essence of Alacrity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMagicQuality",
+    "asset_id": "arcanists_etcher",
+    "note": "Arcanist's Etcher"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyModValues",
+    "asset_id": "divine_orb",
+    "note": "Divine Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceAlly",
+    "asset_id": "perfect_command_essence",
+    "note": "Perfect Essence of Command"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceAttack",
+    "asset_id": "perfect_battle_essence",
+    "note": "Perfect Essence of Battle"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceAttribute",
+    "asset_id": "perfect_infinite_essence",
+    "note": "Perfect Essence of the Infinite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceCaster",
+    "asset_id": "perfect_sorcery_essence",
+    "note": "Perfect Essence of Sorcery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceChaos",
+    "asset_id": "perfect_ruin_essence",
+    "note": "Perfect Essence of Ruin"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceCold",
+    "asset_id": "perfect_ice_essence",
+    "note": "Perfect Essence of Ice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceColdResist",
+    "asset_id": "perfect_thawing_essence",
+    "note": "Perfect Essence of Thawing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceCritical",
+    "asset_id": "perfect_seeking_essence",
+    "note": "Perfect Essence of Seeking"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceDefences",
+    "asset_id": "perfect_enhancement_essence",
+    "note": "Perfect Essence of Enhancement"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceFire",
+    "asset_id": "perfect_flames_essence",
+    "note": "Perfect Essence of Flames"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceFireResist",
+    "asset_id": "perfect_insulation_essence",
+    "note": "Perfect Essence of Insulation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceLife",
+    "asset_id": "perfect_body_essence",
+    "note": "Perfect Essence of the Body"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceLightning",
+    "asset_id": "perfect_electricity_essence",
+    "note": "Perfect Essence of Electricity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceLightningResist",
+    "asset_id": "perfect_grounding_essence",
+    "note": "Perfect Essence of Grounding"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceMana",
+    "asset_id": "perfect_mind_essence",
+    "note": "Perfect Essence of the Mind"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssencePhysical",
+    "asset_id": "perfect_abrasion_essence",
+    "note": "Perfect Essence of Abrasion"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceRarity",
+    "asset_id": "perfect_opulence_essence",
+    "note": "Perfect Essence of Opulence"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceSpeed",
+    "asset_id": "perfect_haste_essence",
+    "note": "Perfect Essence of Haste"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPerfectEssenceSpeedCaster",
+    "asset_id": "perfect_alacrity_essence",
+    "note": "Perfect Essence of Alacrity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRemoveMod",
+    "asset_id": "orb_of_annulment",
+    "note": "Orb of Annulment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRare",
+    "asset_id": "chaos_orb",
+    "note": "Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRare2",
+    "asset_id": "greater_chaos_orb",
+    "note": "Greater Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRare3",
+    "asset_id": "perfect_chaos_orb",
+    "note": "Perfect Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel10",
+    "asset_id": "thaumaturgic_flux_level_10",
+    "note": "Thaumaturgic Flux (Level 10)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel11",
+    "asset_id": "thaumaturgic_flux_level_11",
+    "note": "Thaumaturgic Flux (Level 11)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel12",
+    "asset_id": "thaumaturgic_flux_level_12",
+    "note": "Thaumaturgic Flux (Level 12)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel13",
+    "asset_id": "thaumaturgic_flux_level_13",
+    "note": "Thaumaturgic Flux (Level 13)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel14",
+    "asset_id": "thaumaturgic_flux_level_14",
+    "note": "Thaumaturgic Flux (Level 14)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel15",
+    "asset_id": "thaumaturgic_flux_level_15",
+    "note": "Thaumaturgic Flux (Level 15)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel16",
+    "asset_id": "thaumaturgic_flux_level_16",
+    "note": "Thaumaturgic Flux (Level 16)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel17",
+    "asset_id": "thaumaturgic_flux_level_17",
+    "note": "Thaumaturgic Flux (Level 17)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel18",
+    "asset_id": "thaumaturgic_flux_level_18",
+    "note": "Thaumaturgic Flux (Level 18)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel19",
+    "asset_id": "thaumaturgic_flux_level_19",
+    "note": "Thaumaturgic Flux (Level 19)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel20",
+    "asset_id": "thaumaturgic_flux_level_20",
+    "note": "Thaumaturgic Flux (Level 20)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel5",
+    "asset_id": "thaumaturgic_flux_level_5",
+    "note": "Thaumaturgic Flux (Level 5)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel6",
+    "asset_id": "thaumaturgic_flux_level_6",
+    "note": "Thaumaturgic Flux (Level 6)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel7",
+    "asset_id": "thaumaturgic_flux_level_7",
+    "note": "Thaumaturgic Flux (Level 7)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel8",
+    "asset_id": "thaumaturgic_flux_level_8",
+    "note": "Thaumaturgic Flux (Level 8)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel9",
+    "asset_id": "thaumaturgic_flux_level_9",
+    "note": "Thaumaturgic Flux (Level 9)"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeInherentTo20",
+    "asset_id": "perfect_flux",
+    "note": "Perfect Flux"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeMagicToRare",
+    "asset_id": "regal_orb",
+    "note": "Regal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeMagicToRare2",
+    "asset_id": "greater_regal_orb",
+    "note": "Greater Regal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeMagicToRare3",
+    "asset_id": "perfect_regal_orb",
+    "note": "Perfect Regal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeMagicToRareShard",
+    "asset_id": "regal_shard",
+    "note": "Regal Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeRandomly",
+    "asset_id": "orb_of_chance",
+    "note": "Orb of Chance"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeRandomlyShard",
+    "asset_id": "chance_shard",
+    "note": "Chance Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToMagic",
+    "asset_id": "transmutation_orb",
+    "note": "Orb of Transmutation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToMagic2",
+    "asset_id": "greater_transmutation_orb",
+    "note": "Greater Orb of Transmutation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToMagic3",
+    "asset_id": "perfect_transmutation_orb",
+    "note": "Perfect Orb of Transmutation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToMagicShard",
+    "asset_id": "transmutation_shard",
+    "note": "Transmutation Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToRare",
+    "asset_id": "orb_of_alchemy",
+    "note": "Orb of Alchemy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy1",
+    "asset_id": "runic_alloy",
+    "note": "Runic Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy10",
+    "asset_id": "celestial_alloy",
+    "note": "Celestial Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy11",
+    "asset_id": "transcendent_alloy",
+    "note": "Transcendent Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy12",
+    "asset_id": "the_runebinders_alloy",
+    "note": "The Runebinder's Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy13",
+    "asset_id": "the_runefathers_alloy",
+    "note": "The Runefather's Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy2",
+    "asset_id": "adaptive_alloy",
+    "note": "Adaptive Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy3",
+    "asset_id": "protective_alloy",
+    "note": "Protective Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy4",
+    "asset_id": "expansive_alloy",
+    "note": "Expansive Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy5",
+    "asset_id": "swift_alloy",
+    "note": "Swift Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy6",
+    "asset_id": "cyclonic_alloy",
+    "note": "Cyclonic Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy7",
+    "asset_id": "prismatic_alloy",
+    "note": "Prismatic Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy8",
+    "asset_id": "mystic_alloy",
+    "note": "Mystic Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumAlloy9",
+    "asset_id": "sovereign_alloy",
+    "note": "Sovereign Alloy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumMetal1",
+    "asset_id": "verisium",
+    "note": "Verisium"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumMetal2",
+    "asset_id": "exceptional_verisium",
+    "note": "Exceptional Verisium"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumMetalUnique1",
+    "asset_id": "medveds_crest_of_the_circle",
+    "note": "Medved's Crest of the Circle"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumMetalUnique2",
+    "asset_id": "voranas_crest_of_the_scythe",
+    "note": "Vorana's Crest of the Scythe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumMetalUnique3",
+    "asset_id": "uhtreds_crest_of_the_chalice",
+    "note": "Uhtred's Crest of the Chalice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumMetalUnique4",
+    "asset_id": "olroths_crest_of_the_sun",
+    "note": "Olroth's Crest of the Sun"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumOreUniqueEventidePetals",
+    "asset_id": "veridical_starlit_ore",
+    "note": "Veridical Starlit Ore"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumOreUniqueEyesOfTheRunefather",
+    "asset_id": "venerable_starlit_ore",
+    "note": "Venerable Starlit Ore"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumOreUniqueSerlesGrit",
+    "asset_id": "starlit_ore",
+    "note": "Starlit Ore"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumOreUniqueStolvarheim",
+    "asset_id": "warding_starlit_ore",
+    "note": "Warding Starlit Ore"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyVerisiumOreUniqueTheUnleashed",
+    "asset_id": "revered_starlit_ore",
+    "note": "Revered Starlit Ore"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyWeaponQuality",
+    "asset_id": "blacksmiths_whetstone",
+    "note": "Blacksmith's Whetstone"
+  },
+  {
+    "path": "Metadata/Items/Currency/Delirium/DeliriumPinnacleKey",
+    "asset_id": "ravens_reflection",
+    "note": "Raven's Reflection"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion1",
+    "asset_id": "diluted_liquid_rage",
+    "note": "Diluted Liquid Ire"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion10",
+    "asset_id": "concentrated_liquid_isolation",
+    "note": "Concentrated Liquid Isolation"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion2",
+    "asset_id": "diluted_liquid_guilt",
+    "note": "Diluted Liquid Guilt"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion3",
+    "asset_id": "diluted_liquid_greed",
+    "note": "Diluted Liquid Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion4",
+    "asset_id": "liquid_paranoia",
+    "note": "Liquid Paranoia"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion5",
+    "asset_id": "liquid_envy",
+    "note": "Liquid Envy"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion6",
+    "asset_id": "liquid_disgust",
+    "note": "Liquid Disgust"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion7",
+    "asset_id": "liquid_despair",
+    "note": "Liquid Despair"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion8",
+    "asset_id": "concentrated_liquid_fear",
+    "note": "Concentrated Liquid Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotion9",
+    "asset_id": "concentrated_liquid_suffering",
+    "note": "Concentrated Liquid Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost1",
+    "asset_id": "ancient_diluted_liquid_rage",
+    "note": "Ancient Diluted Liquid Ire"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost10",
+    "asset_id": "ancient_concentrated_liquid_isolation",
+    "note": "Ancient Concentrated Liquid Isolation"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost2",
+    "asset_id": "ancient_diluted_liquid_guilt",
+    "note": "Ancient Diluted Liquid Guilt"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost3",
+    "asset_id": "ancient_diluted_liquid_greed",
+    "note": "Ancient Diluted Liquid Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost4",
+    "asset_id": "ancient_liquid_paranoia",
+    "note": "Ancient Liquid Paranoia"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost5",
+    "asset_id": "ancient_liquid_envy",
+    "note": "Ancient Liquid Envy"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost6",
+    "asset_id": "ancient_liquid_disgust",
+    "note": "Ancient Liquid Disgust"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost7",
+    "asset_id": "ancient_liquid_despair",
+    "note": "Ancient Liquid Despair"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost8",
+    "asset_id": "ancient_concentrated_liquid_fear",
+    "note": "Ancient Concentrated Liquid Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/DistilledEmotionTimeLost9",
+    "asset_id": "ancient_concentrated_liquid_suffering",
+    "note": "Ancient Concentrated Liquid Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/EndgameDistilledEmotion1",
+    "asset_id": "potent_liquid_melancholy",
+    "note": "Potent Liquid Melancholy"
+  },
+  {
+    "path": "Metadata/Items/Currency/EndgameDistilledEmotion2",
+    "asset_id": "potent_liquid_ferocity",
+    "note": "Potent Liquid Ferocity"
+  },
+  {
+    "path": "Metadata/Items/Currency/EndgameDistilledEmotion3",
+    "asset_id": "potent_liquid_contempt",
+    "note": "Potent Liquid Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/EndgameDistilledEmotionTimeLost1",
+    "asset_id": "ancient_potent_liquid_melancholy",
+    "note": "Ancient Potent Liquid Melancholy"
+  },
+  {
+    "path": "Metadata/Items/Currency/EndgameDistilledEmotionTimeLost2",
+    "asset_id": "ancient_potent_liquid_ferocity",
+    "note": "Ancient Potent Liquid Ferocity"
+  },
+  {
+    "path": "Metadata/Items/Currency/EndgameDistilledEmotionTimeLost3",
+    "asset_id": "ancient_potent_liquid_contempt",
+    "note": "Ancient Potent Liquid Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/Expedition/ExpeditionPinnacleKey",
+    "asset_id": "the_triskelion_reforged",
+    "note": "The Triskelion Reforged"
+  },
+  {
+    "path": "Metadata/Items/Currency/Expedition/ExpeditionPinnacleKeyShard",
+    "asset_id": "shattered_triskelion",
+    "note": "Shattered Triskelion"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenGambleNoGoldCost",
+    "asset_id": "omen_of_gambling",
+    "note": "Omen of Gambling"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssAddPrefixes",
+    "asset_id": "omen_of_sinistral_necromancy",
+    "note": "Omen of Sinistral Necromancy"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssAddSuffixes",
+    "asset_id": "omen_of_dextral_necromancy",
+    "note": "Omen of Dextral Necromancy"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssGuarenteeLichTypeMod1",
+    "asset_id": "omen_of_the_sovereign",
+    "note": "Omen of the Sovereign"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssGuarenteeLichTypeMod2",
+    "asset_id": "omen_of_the_liege",
+    "note": "Omen of the Liege"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssGuarenteeLichTypeMod3",
+    "asset_id": "omen_of_the_blackblooded",
+    "note": "Omen of the Blackblooded"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssRerollOptions",
+    "asset_id": "omen_of_abyssal_echoes",
+    "note": "Omen of Abyssal Echoes"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAbyssVeilAllAndCorrupt",
+    "asset_id": "omen_of_putrefaction",
+    "note": "Omen of Putrefaction"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAnnulRemoveAbyssMod",
+    "asset_id": "omen_of_light",
+    "note": "Omen of Light"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAnnulRemovePrefixes",
+    "asset_id": "omen_of_sinistral_annulment",
+    "note": "Omen of Sinistral Annulment"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnAnnulRemoveSuffixes",
+    "asset_id": "omen_of_dextral_annulment",
+    "note": "Omen of Dextral Annulment"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChanceAncientOrb",
+    "asset_id": "omen_of_the_ancients",
+    "note": "Omen of the Ancients"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChanceNotDestroy",
+    "asset_id": "omen_of_chance",
+    "note": "Omen of Chance"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosLowestLevelMod",
+    "asset_id": "omen_of_whittling",
+    "note": "Omen of Whittling"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosMapItemRarity",
+    "asset_id": "omen_of_chaotic_rarity",
+    "note": "Omen of Chaotic Rarity"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosMapMonsterEffectiveness",
+    "asset_id": "omen_of_chaotic_effectiveness",
+    "note": "Omen of Chaotic Effectiveness"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosMapMonsterRarity",
+    "asset_id": "omen_of_chaotic_monsters",
+    "note": "Omen of Chaotic Monsters"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosMapPackSize",
+    "asset_id": "omen_of_chaotic_quantity",
+    "note": "Omen of Chaotic Quantity"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosPrefix",
+    "asset_id": "omen_of_sinistral_erasure",
+    "note": "Omen of Sinistral Erasure"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnChaosSuffix",
+    "asset_id": "omen_of_dextral_erasure",
+    "note": "Omen of Dextral Erasure"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnDeathPreventExpLoss",
+    "asset_id": "omen_of_amelioration",
+    "note": "Omen of Amelioration"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnDivineRerollImplicits",
+    "asset_id": "omen_of_the_blessed",
+    "note": "Omen of the Blessed"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnDivineSanctify",
+    "asset_id": "omen_of_sanctification",
+    "note": "Omen of Sanctification"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnExaltAddPrefixes",
+    "asset_id": "omen_of_sinistral_exaltation",
+    "note": "Omen of Sinistral Exaltation"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnExaltAddSuffixes",
+    "asset_id": "omen_of_dextral_exaltation",
+    "note": "Omen of Dextral Exaltation"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnExaltAddTwoMods",
+    "asset_id": "omen_of_greater_exaltation",
+    "note": "Omen of Greater Exaltation"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnExaltConsumeQuality",
+    "asset_id": "omen_of_catalysing_exaltation",
+    "note": "Omen of Catalysing Exaltation"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnLowLifeFullyHeal",
+    "asset_id": "omen_of_resurgence",
+    "note": "Omen of Resurgence"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnLowLifeRecoverCharges",
+    "asset_id": "omen_of_refreshment",
+    "note": "Omen of Refreshment"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnPerfectEssencePrefix",
+    "asset_id": "omen_of_sinistral_crystallisation",
+    "note": "Omen of Sinistral Crystallisation"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenOnPerfectEssenceSuffix",
+    "asset_id": "omen_of_dextral_crystallisation",
+    "note": "Omen of Dextral Crystallisation"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenRogueExileSummonsPartyMember",
+    "asset_id": "omen_of_reinforcements",
+    "note": "Omen of Reinforcements"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenSellVendorRandomise",
+    "asset_id": "omen_of_bartering",
+    "note": "Omen of Bartering"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenShrineAdditionalEffect",
+    "asset_id": "omen_of_answered_prayers",
+    "note": "Omen of Answered Prayers"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenStrongboxOpenableAgain",
+    "asset_id": "omen_of_secret_compartments",
+    "note": "Omen of Secret Compartments"
+  },
+  {
+    "path": "Metadata/Items/Currency/OmenTormentedMonsterReleased",
+    "asset_id": "omen_of_the_hunt",
+    "note": "Omen of the Hunt"
+  },
+  {
+    "path": "Metadata/Items/Currency/Ritual/RitualPinnacleKey",
+    "asset_id": "head_of_the_king",
+    "note": "Head of the King"
+  },
+  {
+    "path": "Metadata/Items/Expedition/Expedition2Logbook",
+    "asset_id": "expedition_logbook",
+    "note": "Expedition Logbook"
+  },
+  {
+    "path": "Metadata/Items/Expedition/Expedition2LogbookMedved",
+    "asset_id": "medveds_saga",
+    "note": "Medved's Saga"
+  },
+  {
+    "path": "Metadata/Items/Expedition/Expedition2LogbookOlroth",
+    "asset_id": "olroths_saga",
+    "note": "Olroth's Saga"
+  },
+  {
+    "path": "Metadata/Items/Expedition/Expedition2LogbookSpecial",
+    "asset_id": "aldurs_saga",
+    "note": "Aldur's Saga"
+  },
+  {
+    "path": "Metadata/Items/Expedition/Expedition2LogbookUhtred",
+    "asset_id": "uhtreds_saga",
+    "note": "Uhtred's Saga"
+  },
+  {
+    "path": "Metadata/Items/Expedition/Expedition2LogbookVorana",
+    "asset_id": "voranas_saga",
+    "note": "Vorana's Saga"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemAmanamusTithe",
+    "asset_id": "amanamu_tithe",
+    "note": "Amanamu's Tithe"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemAmmoConservationFour",
+    "asset_id": "arjun_medal",
+    "note": "Arjun's Medal"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemArakaalisLust",
+    "asset_id": "arakaali_lust",
+    "note": "Arakaali's Lust"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemArbitersIgnition",
+    "asset_id": "arbiter_ignition",
+    "note": "Arbiter's Ignition"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemArbitersReach",
+    "asset_id": "arbiters_reach",
+    "note": "Arbiter's Reach"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemAtzirisAllure",
+    "asset_id": "atziri_allure",
+    "note": "Atziri's Allure"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemAtzirisCommunion",
+    "asset_id": "atziris_communion",
+    "note": "Atziri's Communion"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemAtzirisImpatience",
+    "asset_id": "atziri_impatience",
+    "note": "Atziri's Impatience"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemBreachlordsAmalgam",
+    "asset_id": "breachlords_amalgam",
+    "note": "Breachlord's Amalgam"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemBreachlordsRift",
+    "asset_id": "breachlords_rift",
+    "note": "Breachlord's Rift"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemCathasBrilliance",
+    "asset_id": "cathas_brilliance",
+    "note": "Catha's Brilliance"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemCombatReload",
+    "asset_id": "ratha_assault",
+    "note": "Ratha's Assault"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemDaressosPassion",
+    "asset_id": "daresso_passion",
+    "note": "Daresso's Passion"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemDiallasDesire",
+    "asset_id": "dialla_desire",
+    "note": "Dialla's Desire"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemDoedresUndoing",
+    "asset_id": "doedres_undoing",
+    "note": "Doedre's Undoing"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemEshsProwess",
+    "asset_id": "eshs_prowess",
+    "note": "Esh's Prowess"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemEshsRadiance",
+    "asset_id": "esh_radiance",
+    "note": "Esh's Radiance"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemFlukeTwo",
+    "asset_id": "ixchel_torment",
+    "note": "Ixchel's Torment"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemGarukhansResolve",
+    "asset_id": "garukhan_resolve",
+    "note": "Garukhan's Resolve"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemGreatwood",
+    "asset_id": "cirel_cultivation",
+    "note": "Cirel's Cultivation"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemGuatelitzi",
+    "asset_id": "guatelitzi_ablation",
+    "note": "Guatelitzi's Ablation"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemHardyTotemsThree",
+    "asset_id": "tawhoa_tending",
+    "note": "Tawhoa's Tending"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemHayoxisFulmination",
+    "asset_id": "hayoxi_fulmination",
+    "note": "Hayoxi's Fulmination"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemHelbrymsHide",
+    "asset_id": "helbryms_hide",
+    "note": "Helbrym's Hide"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemHerDeclaration",
+    "asset_id": "her_declaration",
+    "note": "Her Declaration"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemKalisasCrescendo",
+    "asset_id": "kalisa_crescendo",
+    "note": "Kalisa's Crescendo"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemKaomsMadness",
+    "asset_id": "kaom_madness",
+    "note": "Kaom's Madness"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemKhatalsRejuvenation",
+    "asset_id": "khatal_rejuvenation",
+    "note": "Khatal's Rejuvenation"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemKulemaksDominion",
+    "asset_id": "kulemak_dominion",
+    "note": "Kulemak's Dominion"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemKurgalsLeash",
+    "asset_id": "kurgal_leash",
+    "note": "Kurgal's Leash"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemMedvedsFelling",
+    "asset_id": "medveds_felling",
+    "note": "Medved's Felling"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemMorganasTempest",
+    "asset_id": "morgana_tempest",
+    "note": "Morgana's Tempest"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemMorrigansInsight",
+    "asset_id": "morrigans_insight",
+    "note": "Mórrigan's Insight"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemPietysMercy",
+    "asset_id": "dominus_grasp",
+    "note": "Dominus' Grasp"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemPrototypeSeventeen",
+    "asset_id": "prototype_seventeen",
+    "note": "Prototype Seventeen"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemRakiatasFlow",
+    "asset_id": "rakiata_flow",
+    "note": "Rakiata's Flow"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemRigwaldsFerocity",
+    "asset_id": "rigwald_ferocity",
+    "note": "Rigwald's Ferocity"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemRomirasRequital",
+    "asset_id": "romira_requital",
+    "note": "Romira's Requital"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemSeraphsHeart",
+    "asset_id": "seraphs_heart",
+    "note": "Seraph's Heart"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemStyrnsFerocity",
+    "asset_id": "styrns_ferocity",
+    "note": "Styrn's Ferocity"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemStyrnsMountain",
+    "asset_id": "styrns_mountain",
+    "note": "Styrn's Mountain"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTacatisIre",
+    "asset_id": "tacati_ire",
+    "note": "Tacati's Ire"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTangmazusThurible",
+    "asset_id": "tangmazus_thurible",
+    "note": "Tangmazu's Thurible"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTasaliosRhythm",
+    "asset_id": "tasalio_rhythm",
+    "note": "Tasalio's Rhythm"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTecrodsRevenge",
+    "asset_id": "tecrods_revenge",
+    "note": "Tecrod's Revenge"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTrickstersShard",
+    "asset_id": "tricksters_shard",
+    "note": "Trickster's Shard"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTulsAvalanche",
+    "asset_id": "tuls_avalanche",
+    "note": "Tul's Avalanche"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemTulsStillness",
+    "asset_id": "tul_stillness",
+    "note": "Tul's Stillness"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemUhtredsAugury",
+    "asset_id": "uhtred_augury",
+    "note": "Uhtred's Augury"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemUhtredsConstellation",
+    "asset_id": "uhtreds_constellation",
+    "note": "Uhtred's Constellation"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemUhtredsExodus",
+    "asset_id": "uhtred_exodus",
+    "note": "Uhtred's Exodus"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemUhtredsOmen",
+    "asset_id": "uhtred_omen",
+    "note": "Uhtred's Omen"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemUhtredsRite",
+    "asset_id": "uhtreds_rite",
+    "note": "Uhtred's Rite"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemUulNetolsEmbrace",
+    "asset_id": "uul_netol_embrace",
+    "note": "Uul-Netol's Embrace"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemVarashtasBlessing",
+    "asset_id": "varashta_blessing",
+    "note": "Varashta's Blessing"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemVoranasSiege",
+    "asset_id": "voranas_siege",
+    "note": "Vorana's Siege"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemVruunsAftermath",
+    "asset_id": "vruuns_aftermath",
+    "note": "Vruun's Aftermath"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemVruunsInevitability",
+    "asset_id": "vruuns_inevitability",
+    "note": "Vruun's Inevitability"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemWildshardsThree",
+    "asset_id": "sione_temper",
+    "note": "Sione's Temper"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemXibaquasRending",
+    "asset_id": "xibaqua_rending",
+    "note": "Xibaqua's Rending"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemXophsPyre",
+    "asset_id": "xoph_pyre",
+    "note": "Xoph's Pyre"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemZarokhsRefrain",
+    "asset_id": "zarokh_refrain",
+    "note": "Zarokh's Refrain"
+  },
+  {
+    "path": "Metadata/Items/Gem/SupportGemZerphisLegacy",
+    "asset_id": "zerphi_infamy",
+    "note": "Zerphi's Infamy"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut10",
+    "asset_id": "uncut_spirit_gem_level_10",
+    "note": "Uncut Spirit Gem (Level 10)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut11",
+    "asset_id": "uncut_spirit_gem_level_11",
+    "note": "Uncut Spirit Gem (Level 11)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut12",
+    "asset_id": "uncut_spirit_gem_level_12",
+    "note": "Uncut Spirit Gem (Level 12)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut13",
+    "asset_id": "uncut_spirit_gem_level_13",
+    "note": "Uncut Spirit Gem (Level 13)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut14",
+    "asset_id": "uncut_spirit_gem_level_14",
+    "note": "Uncut Spirit Gem (Level 14)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut15",
+    "asset_id": "uncut_spirit_gem_level_15",
+    "note": "Uncut Spirit Gem (Level 15)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut16",
+    "asset_id": "uncut_spirit_gem_level_16",
+    "note": "Uncut Spirit Gem (Level 16)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut17",
+    "asset_id": "uncut_spirit_gem_level_17",
+    "note": "Uncut Spirit Gem (Level 17)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut18",
+    "asset_id": "uncut_spirit_gem_level_18",
+    "note": "Uncut Spirit Gem (Level 18)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut19",
+    "asset_id": "uncut_spirit_gem_level_19",
+    "note": "Uncut Spirit Gem (Level 19)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut20",
+    "asset_id": "uncut_spirit_gem_level_20",
+    "note": "Uncut Spirit Gem (Level 20)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut4",
+    "asset_id": "uncut_spirit_gem_level_4",
+    "note": "Uncut Spirit Gem (Level 4)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut5",
+    "asset_id": "uncut_spirit_gem_level_5",
+    "note": "Uncut Spirit Gem (Level 5)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut6",
+    "asset_id": "uncut_spirit_gem_level_6",
+    "note": "Uncut Spirit Gem (Level 6)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut7",
+    "asset_id": "uncut_spirit_gem_level_7",
+    "note": "Uncut Spirit Gem (Level 7)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut8",
+    "asset_id": "uncut_spirit_gem_level_8",
+    "note": "Uncut Spirit Gem (Level 8)"
+  },
+  {
+    "path": "Metadata/Items/Gems/ReservationGemUncut9",
+    "asset_id": "uncut_spirit_gem_level_9",
+    "note": "Uncut Spirit Gem (Level 9)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut1",
+    "asset_id": "uncut_skill_gem_level_1",
+    "note": "Uncut Skill Gem (Level 1)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut10",
+    "asset_id": "uncut_skill_gem_level_10",
+    "note": "Uncut Skill Gem (Level 10)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut11",
+    "asset_id": "uncut_skill_gem_level_11",
+    "note": "Uncut Skill Gem (Level 11)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut12",
+    "asset_id": "uncut_skill_gem_level_12",
+    "note": "Uncut Skill Gem (Level 12)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut13",
+    "asset_id": "uncut_skill_gem_level_13",
+    "note": "Uncut Skill Gem (Level 13)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut14",
+    "asset_id": "uncut_skill_gem_level_14",
+    "note": "Uncut Skill Gem (Level 14)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut15",
+    "asset_id": "uncut_skill_gem_level_15",
+    "note": "Uncut Skill Gem (Level 15)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut16",
+    "asset_id": "uncut_skill_gem_level_16",
+    "note": "Uncut Skill Gem (Level 16)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut17",
+    "asset_id": "uncut_skill_gem_level_17",
+    "note": "Uncut Skill Gem (Level 17)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut18",
+    "asset_id": "uncut_skill_gem_level_18",
+    "note": "Uncut Skill Gem (Level 18)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut19",
+    "asset_id": "uncut_skill_gem_level_19",
+    "note": "Uncut Skill Gem (Level 19)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut2",
+    "asset_id": "uncut_skill_gem_level_2",
+    "note": "Uncut Skill Gem (Level 2)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut20",
+    "asset_id": "uncut_skill_gem_level_20",
+    "note": "Uncut Skill Gem (Level 20)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut3",
+    "asset_id": "uncut_skill_gem_level_3",
+    "note": "Uncut Skill Gem (Level 3)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut4",
+    "asset_id": "uncut_skill_gem_level_4",
+    "note": "Uncut Skill Gem (Level 4)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut5",
+    "asset_id": "uncut_skill_gem_level_5",
+    "note": "Uncut Skill Gem (Level 5)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut6",
+    "asset_id": "uncut_skill_gem_level_6",
+    "note": "Uncut Skill Gem (Level 6)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut7",
+    "asset_id": "uncut_skill_gem_level_7",
+    "note": "Uncut Skill Gem (Level 7)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut8",
+    "asset_id": "uncut_skill_gem_level_8",
+    "note": "Uncut Skill Gem (Level 8)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SkillGemUncut9",
+    "asset_id": "uncut_skill_gem_level_9",
+    "note": "Uncut Skill Gem (Level 9)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemAhnsCitadel",
+    "asset_id": "ahn_citadel",
+    "note": "Ahn's Citadel"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemAilithLineage",
+    "asset_id": "ailith_chimes",
+    "note": "Ailith's Chimes"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemAtaluiBloodletting",
+    "asset_id": "atalui_bloodletting",
+    "note": "Atalui's Bloodletting"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemBhatairsVengeance",
+    "asset_id": "bhatair_vengeance",
+    "note": "Bhatair's Vengeance"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemBrutusBrain",
+    "asset_id": "brutus_brain",
+    "note": "Brutus' Brain"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemCorruptingCryThree",
+    "asset_id": "paquate_pact",
+    "note": "Paquate's Pact"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemEinharsBeastrite",
+    "asset_id": "einhar_beastrite",
+    "note": "Einhar's Beastrite"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemEonyrsThunder",
+    "asset_id": "eonyrs_thunder",
+    "note": "Eonyr's Thunder"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemOisinsOath",
+    "asset_id": "oisin_oath",
+    "note": "Oisín's Oath"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemOlrothsHubris",
+    "asset_id": "olroths_hubris",
+    "note": "Olroth's Hubris"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemUncut1",
+    "asset_id": "uncut_support_gem_level_1",
+    "note": "Uncut Support Gem (Level 1)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemUncut2",
+    "asset_id": "uncut_support_gem_level_2",
+    "note": "Uncut Support Gem (Level 2)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemUncut3",
+    "asset_id": "uncut_support_gem_level_3",
+    "note": "Uncut Support Gem (Level 3)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemUncut4",
+    "asset_id": "uncut_support_gem_level_4",
+    "note": "Uncut Support Gem (Level 4)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemUncut5",
+    "asset_id": "uncut_support_gem_level_5",
+    "note": "Uncut Support Gem (Level 5)"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemUruksSmelting",
+    "asset_id": "uruk_smelting",
+    "note": "Uruk's Smelting"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemVilentasPropulsion",
+    "asset_id": "vilenta_propulsion",
+    "note": "Vilenta's Propulsion"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportGemZarokhsRevolt",
+    "asset_id": "zarokh_revolt",
+    "note": "Zarokh's Revolt"
+  },
+  {
+    "path": "Metadata/Items/Gems/SupportOlrothsConviction",
+    "asset_id": "olroths_conviction",
+    "note": "Olroth's Conviction"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyAfflictionFragment",
+    "asset_id": "simulacrum",
+    "note": "Simulacrum"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyBreachFragment",
+    "asset_id": "breachstone",
+    "note": "Breachstone"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyAzmeriSpirits",
+    "asset_id": "azmeri_vault_key",
+    "note": "Azmeri Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyBreach",
+    "asset_id": "xeshts_vault_key",
+    "note": "Xesht's Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyDelirium",
+    "asset_id": "tangmazu_vault_key",
+    "note": "Tangmazu's Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyExpedition",
+    "asset_id": "olroths_vault_key",
+    "note": "Olroth's Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyPinnacle",
+    "asset_id": "arbiter_vault_key",
+    "note": "The Arbiter's Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyRitual",
+    "asset_id": "ritual_vault_key",
+    "note": "Ritualistic Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeySanctumRelic2",
+    "asset_id": "zarokhs_vault_key_against_the_darkness",
+    "note": "Zarokh's Reliquary Key: Against the Darkness"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeySanctumRelic3",
+    "asset_id": "zarokhs_vault_key_sandstorm_veil",
+    "note": "Zarokh's Reliquary Key: Sandstorm Visage"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeySanctumRelic4",
+    "asset_id": "zarokhs_vault_key_bonds_of_benediction",
+    "note": "Zarokh's Reliquary Key: Blessed Bonds"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeySanctumRelic5",
+    "asset_id": "zarokhs_vault_key_sekhemas_resolve",
+    "note": "Zarokh's Reliquary Key: Sekhema's Resolve"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeySanctumRelic6",
+    "asset_id": "zarokhs_vault_key_temporal_object",
+    "note": "Zarokh's Reliquary Key: Temporalis"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyUltimatum",
+    "asset_id": "trialmaster_vault_key",
+    "note": "The Trialmaster's Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VaultKeyWorldDrop",
+    "asset_id": "dawn_vault_key",
+    "note": "Twilight Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/BurningMonolithKey1",
+    "asset_id": "ancient_crisis_fragment",
+    "note": "Ancient Crisis Fragment"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/BurningMonolithKey2",
+    "asset_id": "faded_crisis_fragment",
+    "note": "Faded Crisis Fragment"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/BurningMonolithKey3",
+    "asset_id": "weathered_crisis_fragment",
+    "note": "Weathered Crisis Fragment"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/AmanamusGaze",
+    "asset_id": "amanamus_gaze",
+    "note": "Amanamu's Gaze"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/AugmentAnoint",
+    "asset_id": "raven_touched_shard",
+    "note": "Raven-Touched Shard"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/CarvedCunning",
+    "asset_id": "carved_cunning",
+    "note": "Carved Cunning"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/CarvedMajesty",
+    "asset_id": "carved_majesty",
+    "note": "Carved Majesty"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/CarvedMischief",
+    "asset_id": "carved_mischief",
+    "note": "Carved Mischief"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/CarvedTenacity",
+    "asset_id": "carved_tenacity",
+    "note": "Carved Tenacity"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/EmergentInstinct",
+    "asset_id": "emergent_instinct",
+    "note": "Emergent Instinct"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/EmergentPossibility",
+    "asset_id": "emergent_possibility",
+    "note": "Emergent Possibility"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/EmergentProtection",
+    "asset_id": "emergent_protection",
+    "note": "Emergent Protection"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/EmergentVigour",
+    "asset_id": "emergent_vigour",
+    "note": "Emergent Vigour"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolCorrupted1",
+    "asset_id": "idol_of_the_sycophant",
+    "note": "Idol of the Sycophant"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolCorrupted2",
+    "asset_id": "idol_of_the_martyr",
+    "note": "Idol of the Martyr"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolCorrupted3",
+    "asset_id": "idol_of_the_pharisee",
+    "note": "Idol of the Pharisee"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolHawk",
+    "asset_id": "hawk_idol",
+    "note": "Hawk Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolPanther",
+    "asset_id": "panther_idol",
+    "note": "Panther Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial1",
+    "asset_id": "idol_of_greust",
+    "note": "Idol of Greust"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial2",
+    "asset_id": "idol_of_yeena",
+    "note": "Idol of Yeena"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial3",
+    "asset_id": "idol_of_eramir",
+    "note": "Idol of Eramir"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial4",
+    "asset_id": "idol_of_oak",
+    "note": "Idol of Oak"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial5",
+    "asset_id": "idol_of_alira",
+    "note": "Idol of Alira"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial6",
+    "asset_id": "idol_of_kraityn",
+    "note": "Idol of Kraityn"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolSpecial7",
+    "asset_id": "idol_of_silk",
+    "note": "Idol of Silk"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/IdolStoat",
+    "asset_id": "stoat_idol",
+    "note": "Stoat Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/KurgalsGaze",
+    "asset_id": "kurgals_gaze",
+    "note": "Kurgal's Gaze"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneAccuracy",
+    "asset_id": "vision_rune",
+    "note": "Vision Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneAccuracyGreater",
+    "asset_id": "greater_vision_rune",
+    "note": "Greater Vision Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneAccuracyLesser",
+    "asset_id": "lesser_vision_rune",
+    "note": "Lesser Vision Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneAccuracyPerfect",
+    "asset_id": "perfect_vision_rune",
+    "note": "Perfect Vision Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneCold",
+    "asset_id": "glacial_rune",
+    "note": "Glacial Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneColdGreater",
+    "asset_id": "greater_glacial_rune",
+    "note": "Greater Glacial Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneColdLesser",
+    "asset_id": "lesser_glacial_rune",
+    "note": "Lesser Glacial Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneColdPerfect",
+    "asset_id": "perfect_glacial_rune",
+    "note": "Perfect Glacial Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneConvertChaos",
+    "asset_id": "betrayal_of_aldur",
+    "note": "Betrayal of Aldur"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneConvertCold",
+    "asset_id": "breath_of_aldur",
+    "note": "Breath of Aldur"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneConvertFire",
+    "asset_id": "passion_of_aldur",
+    "note": "Passion of Aldur"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneConvertLightning",
+    "asset_id": "ire_of_aldur",
+    "note": "Ire of Aldur"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneDexterity",
+    "asset_id": "adept_rune",
+    "note": "Adept Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneDexterityGreater",
+    "asset_id": "greater_adept_rune",
+    "note": "Greater Adept Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneDexterityLesser",
+    "asset_id": "lesser_adept_rune",
+    "note": "Lesser Adept Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneDexterityPerfect",
+    "asset_id": "perfect_adept_rune",
+    "note": "Perfect Adept Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneEnhance",
+    "asset_id": "iron_rune",
+    "note": "Iron Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneEnhanceGreater",
+    "asset_id": "greater_iron_rune",
+    "note": "Greater Iron Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneEnhanceLesser",
+    "asset_id": "lesser_iron_rune",
+    "note": "Lesser Iron Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneEnhancePerfect",
+    "asset_id": "perfect_iron_rune",
+    "note": "Perfect Iron Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneFire",
+    "asset_id": "desert_rune",
+    "note": "Desert Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneFireGreater",
+    "asset_id": "greater_desert_rune",
+    "note": "Greater Desert Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneFireLesser",
+    "asset_id": "lesser_desert_rune",
+    "note": "Lesser Desert Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneFirePerfect",
+    "asset_id": "perfect_desert_rune",
+    "note": "Perfect Desert Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneIntelligence",
+    "asset_id": "resolve_rune",
+    "note": "Resolve Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneIntelligenceGreater",
+    "asset_id": "greater_resolve_rune",
+    "note": "Greater Resolve Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneIntelligenceLesser",
+    "asset_id": "lesser_resolve_rune",
+    "note": "Lesser Resolve Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneIntelligencePerfect",
+    "asset_id": "perfect_resolve_rune",
+    "note": "Perfect Resolve Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLife",
+    "asset_id": "body_rune",
+    "note": "Body Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifeGreater",
+    "asset_id": "greater_body_rune",
+    "note": "Greater Body Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifeLesser",
+    "asset_id": "lesser_body_rune",
+    "note": "Lesser Body Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifePerfect",
+    "asset_id": "perfect_body_rune",
+    "note": "Perfect Body Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifeRecovery",
+    "asset_id": "rebirth_rune",
+    "note": "Rebirth Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifeRecoveryGreater",
+    "asset_id": "greater_rebirth_rune",
+    "note": "Greater Rebirth Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifeRecoveryLesser",
+    "asset_id": "lesser_rebirth_rune",
+    "note": "Lesser Rebirth Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLifeRecoveryPerfect",
+    "asset_id": "perfect_rebirth_rune",
+    "note": "Perfect Rebirth Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLightning",
+    "asset_id": "storm_rune",
+    "note": "Storm Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLightningGreater",
+    "asset_id": "greater_storm_rune",
+    "note": "Greater Storm Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLightningLesser",
+    "asset_id": "lesser_storm_rune",
+    "note": "Lesser Storm Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneLightningPerfect",
+    "asset_id": "perfect_storm_rune",
+    "note": "Perfect Storm Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneMana",
+    "asset_id": "mind_rune",
+    "note": "Mind Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaGreater",
+    "asset_id": "greater_mind_rune",
+    "note": "Greater Mind Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaLesser",
+    "asset_id": "lesser_mind_rune",
+    "note": "Lesser Mind Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaPerfect",
+    "asset_id": "perfect_mind_rune",
+    "note": "Perfect Mind Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaRecovery",
+    "asset_id": "inspiration_rune",
+    "note": "Inspiration Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaRecoveryGreater",
+    "asset_id": "greater_inspiration_rune",
+    "note": "Greater Inspiration Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaRecoveryLesser",
+    "asset_id": "lesser_inspiration_rune",
+    "note": "Lesser Inspiration Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneManaRecoveryPerfect",
+    "asset_id": "perfect_inspiration_rune",
+    "note": "Perfect Inspiration Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients1",
+    "asset_id": "ancient_rune_of_splinters",
+    "note": "Ancient Rune of Splinters"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients10",
+    "asset_id": "ancient_rune_of_the_horde",
+    "note": "Ancient Rune of the Horde"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients11",
+    "asset_id": "ancient_rune_of_animosity",
+    "note": "Ancient Rune of Animosity"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients12",
+    "asset_id": "ancient_rune_of_detonation",
+    "note": "Ancient Rune of Detonation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients13",
+    "asset_id": "ancient_rune_of_retaliation",
+    "note": "Ancient Rune of Retaliation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients14",
+    "asset_id": "rune_of_vitality",
+    "note": "Rune of Vitality"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients15",
+    "asset_id": "rune_of_the_hunt",
+    "note": "Rune of the Hunt"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients16",
+    "asset_id": "rune_of_acrobatics",
+    "note": "Rune of Acrobatics"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients17",
+    "asset_id": "rune_of_culmination",
+    "note": "Rune of Culmination"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients18",
+    "asset_id": "rune_of_renown",
+    "note": "Rune of Renown"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients19",
+    "asset_id": "rune_of_accumulation",
+    "note": "Rune of Accumulation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients2",
+    "asset_id": "ancient_rune_of_dueling",
+    "note": "Ancient Rune of Dueling"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients20",
+    "asset_id": "rune_of_foundations",
+    "note": "Rune of Foundations"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients21",
+    "asset_id": "rune_of_the_prism",
+    "note": "Rune of the Prism"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients22",
+    "asset_id": "rune_of_the_blossom",
+    "note": "Rune of the Blossom"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients23",
+    "asset_id": "rune_of_consistency",
+    "note": "Rune of Consistency"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients24",
+    "asset_id": "rune_of_reach",
+    "note": "Rune of Reach"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients25",
+    "asset_id": "rune_of_vital_flame",
+    "note": "Rune of Vital Flame"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients26",
+    "asset_id": "rune_of_confrontation",
+    "note": "Rune of Confrontation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients3",
+    "asset_id": "ancient_rune_of_the_titan",
+    "note": "Ancient Rune of the Titan"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients4",
+    "asset_id": "ancient_rune_of_shattering",
+    "note": "Ancient Rune of Shattering"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients5",
+    "asset_id": "ancient_rune_of_prowess",
+    "note": "Ancient Rune of Prowess"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients6",
+    "asset_id": "ancient_rune_of_control",
+    "note": "Ancient Rune of Control"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients7",
+    "asset_id": "ancient_rune_of_discovery",
+    "note": "Ancient Rune of Discovery"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients8",
+    "asset_id": "ancient_rune_of_decay",
+    "note": "Ancient Rune of Decay"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneOfTheAncients9",
+    "asset_id": "ancient_rune_of_witchcraft",
+    "note": "Ancient Rune of Witchcraft"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial1",
+    "asset_id": "greater_rune_of_leadership",
+    "note": "Greater Rune of Leadership"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial10",
+    "asset_id": "craiceanns_rune_of_warding",
+    "note": "Craiceann's Rune of Warding"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial11",
+    "asset_id": "saqawals_rune_of_memory",
+    "note": "Saqawal's Rune of Memory"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial12",
+    "asset_id": "saqawals_rune_of_erosion",
+    "note": "Saqawal's Rune of Erosion"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial13",
+    "asset_id": "farruls_rune_of_the_hunt",
+    "note": "Farrul's Rune of the Hunt"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial14",
+    "asset_id": "craiceanns_rune_of_recovery",
+    "note": "Craiceann's Rune of Recovery"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial15",
+    "asset_id": "courtesan_mannans_rune_of_cruelty",
+    "note": "Courtesan Mannan's Rune of Cruelty"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial16",
+    "asset_id": "thane_grannells_rune_of_mastery",
+    "note": "Thane Grannell's Rune of Mastery"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial17",
+    "asset_id": "fenumus_rune_of_spinning",
+    "note": "Fenumus' Rune of Spinning"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial18",
+    "asset_id": "countess_seskes_rune_of_archery",
+    "note": "Countess Seske's Rune of Archery"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial19",
+    "asset_id": "thane_girts_rune_of_wildness",
+    "note": "Thane Girt's Rune of Wildness"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial2",
+    "asset_id": "greater_rune_of_tithing",
+    "note": "Greater Rune of Tithing"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial20",
+    "asset_id": "fenumus_rune_of_draining",
+    "note": "Fenumus' Rune of Draining"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial21",
+    "asset_id": "thane_myrks_rune_of_summer",
+    "note": "Thane Myrk's Rune of Summer"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial22",
+    "asset_id": "lady_hestras_rune_of_winter",
+    "note": "Lady Hestra's Rune of Winter"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial23",
+    "asset_id": "thane_lelds_rune_of_spring",
+    "note": "Thane Leld's Rune of Spring"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial24",
+    "asset_id": "greatwolfs_rune_of_claws",
+    "note": "The Greatwolf's Rune of Claws"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial25",
+    "asset_id": "greatwolfs_rune_of_willpower",
+    "note": "The Greatwolf's Rune of Willpower"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial3",
+    "asset_id": "greater_rune_of_alacrity",
+    "note": "Greater Rune of Alacrity"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial4",
+    "asset_id": "greater_rune_of_nobility",
+    "note": "Greater Rune of Nobility"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial5",
+    "asset_id": "hedgewitch_assandras_rune_of_wisdom",
+    "note": "Hedgewitch Assandra's Rune of Wisdom"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial6",
+    "asset_id": "saqawals_rune_of_the_sky",
+    "note": "Saqawal's Rune of the Sky"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial7",
+    "asset_id": "fenumus_rune_of_agony",
+    "note": "Fenumus' Rune of Agony"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial8",
+    "asset_id": "farruls_rune_of_grace",
+    "note": "Farrul's Rune of Grace"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneSpecial9",
+    "asset_id": "farruls_rune_of_the_chase",
+    "note": "Farrul's Rune of the Chase"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStrength",
+    "asset_id": "robust_rune",
+    "note": "Robust Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStrengthGreater",
+    "asset_id": "greater_robust_rune",
+    "note": "Greater Robust Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStrengthLesser",
+    "asset_id": "lesser_robust_rune",
+    "note": "Lesser Robust Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStrengthPerfect",
+    "asset_id": "perfect_robust_rune",
+    "note": "Perfect Robust Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStun",
+    "asset_id": "stone_rune",
+    "note": "Stone Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStunGreater",
+    "asset_id": "greater_stone_rune",
+    "note": "Greater Stone Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStunLesser",
+    "asset_id": "lesser_stone_rune",
+    "note": "Lesser Stone Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneStunPerfect",
+    "asset_id": "perfect_stone_rune",
+    "note": "Perfect Stone Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneUpgrade",
+    "asset_id": "masterwork_rune",
+    "note": "Masterwork Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard1Greater",
+    "asset_id": "greater_ward_rune",
+    "note": "Greater Ward Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard1Lesser",
+    "asset_id": "lesser_ward_rune",
+    "note": "Lesser Ward Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard1Normal",
+    "asset_id": "ward_rune",
+    "note": "Ward Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard1Perfect",
+    "asset_id": "perfect_ward_rune",
+    "note": "Perfect Ward Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard2Greater",
+    "asset_id": "greater_charging_rune",
+    "note": "Greater Charging Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard2Lesser",
+    "asset_id": "lesser_charging_rune",
+    "note": "Lesser Charging Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard2Normal",
+    "asset_id": "charging_rune",
+    "note": "Charging Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWard2Perfect",
+    "asset_id": "perfect_charging_rune",
+    "note": "Perfect Charging Rune"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial1",
+    "asset_id": "warding_rune_of_reinforcement",
+    "note": "Warding Rune of Reinforcement"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial10",
+    "asset_id": "warding_rune_of_stability",
+    "note": "Warding Rune of Stability"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial13",
+    "asset_id": "warding_rune_of_glancing",
+    "note": "Warding Rune of Glancing"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial14",
+    "asset_id": "warding_rune_of_heart",
+    "note": "Warding Rune of Heart"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial15",
+    "asset_id": "warding_rune_of_nourishment",
+    "note": "Warding Rune of Nourishment"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial16",
+    "asset_id": "warding_rune_of_annihilation",
+    "note": "Warding Rune of Annihilation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial18",
+    "asset_id": "warding_rune_of_armature",
+    "note": "Warding Rune of Armature"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial19",
+    "asset_id": "warding_rune_of_obsession",
+    "note": "Warding Rune of Obsession"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial2",
+    "asset_id": "warding_rune_of_protection",
+    "note": "Warding Rune of Protection"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial20",
+    "asset_id": "warding_rune_of_equinox",
+    "note": "Warding Rune of Equinox"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial21",
+    "asset_id": "warding_rune_of_salvaging",
+    "note": "Warding Rune of Salvaging"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial23",
+    "asset_id": "warding_rune_of_bodyguards",
+    "note": "Warding Rune of Bodyguards"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial24",
+    "asset_id": "warding_rune_of_hollowing",
+    "note": "Warding Rune of Hollowing"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial3",
+    "asset_id": "warding_rune_of_disintegration",
+    "note": "Warding Rune of Disintegration"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial4",
+    "asset_id": "warding_rune_of_desperation",
+    "note": "Warding Rune of Desperation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial8",
+    "asset_id": "warding_rune_of_symbiosis",
+    "note": "Warding Rune of Symbiosis"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWardSpecial9",
+    "asset_id": "warding_rune_of_courage",
+    "note": "Warding Rune of Courage"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingAdditionalCraftedMod",
+    "asset_id": "astrids_creativity",
+    "note": "Astrid's Creativity"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingAdditionalSuffix",
+    "asset_id": "serles_triumph",
+    "note": "Serle's Triumph"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingBerserkerInfluence",
+    "asset_id": "voranas_carnage",
+    "note": "Vorana's Carnage"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingCreateJewelSocket",
+    "asset_id": "cadigans_epiphany",
+    "note": "Cadigan's Epiphany"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingDecayInfluence",
+    "asset_id": "katlas_gloom",
+    "note": "Katla's Gloom"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingDestructionInfluence",
+    "asset_id": "thruds_might",
+    "note": "Thrud's Might"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingMarksmanInfluence",
+    "asset_id": "kolrs_hunt",
+    "note": "Kolr's Hunt"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingOlrothsLegacy",
+    "asset_id": "aldurs_legacy",
+    "note": "Aldur's Legacy"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingSoulInfluence",
+    "asset_id": "medveds_tending",
+    "note": "Medved's Tending"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/RuneWarpingTimeInfluence",
+    "asset_id": "uhtreds_sidereus",
+    "note": "Uhtred's Sidereus"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreBleed",
+    "asset_id": "opiloti_soul_core",
+    "note": "Soul Core of Opiloti"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreChaos",
+    "asset_id": "tacati_soul_core",
+    "note": "Soul Core of Tacati"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreCrit",
+    "asset_id": "ticaba_soul_core",
+    "note": "Soul Core of Ticaba"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreDexterity",
+    "asset_id": "cholotl_soul_core",
+    "note": "Soul Core of Cholotl"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreElemental",
+    "asset_id": "tupatati_soul_core",
+    "note": "Soul Core of Topotante"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreEnlighten",
+    "asset_id": "citaqualotl_soul_core",
+    "note": "Soul Core of Citaqualotl"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreFreeze",
+    "asset_id": "tzamoto_soul_core",
+    "note": "Soul Core of Tzamoto"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreIgnite",
+    "asset_id": "puhuarte_soul_core",
+    "note": "Soul Core of Puhuarte"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreIntelligence",
+    "asset_id": "zantipi_soul_core",
+    "note": "Soul Core of Zantipi"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreLight",
+    "asset_id": "azcapa_soul_core",
+    "note": "Soul Core of Azcapa"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreMaxLife",
+    "asset_id": "jiquani_soul_core",
+    "note": "Soul Core of Jiquani"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreMaxMana",
+    "asset_id": "zalatl_soul_core",
+    "note": "Soul Core of Zalatl"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreShock",
+    "asset_id": "xopec_soul_core",
+    "note": "Soul Core of Xopec"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial1",
+    "asset_id": "hayoxi_heatproofing_soul_core",
+    "note": "Hayoxi's Soul Core of Heatproofing"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial10",
+    "asset_id": "xopec_power_soul_core",
+    "note": "Xopec's Soul Core of Power"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial11",
+    "asset_id": "estazunti_convalescence_soul_core",
+    "note": "Estazunti's Soul Core of Convalescence"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial12",
+    "asset_id": "tacati_affliction_soul_core",
+    "note": "Tacati's Soul Core of Affliction"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial13",
+    "asset_id": "cholotl_war_soul_core",
+    "note": "Cholotl's Soul Core of War"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial14",
+    "asset_id": "citaqualotl_foulness_soul_core",
+    "note": "Citaqualotl's Soul Core of Foulness"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial15",
+    "asset_id": "xipocado_dominion_soul_core",
+    "note": "Xipocado's Soul Core of Dominion"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial2",
+    "asset_id": "zalatl_insulation_soul_core",
+    "note": "Zalatl's Soul Core of Insulation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial3",
+    "asset_id": "topotante_dampening_soul_core",
+    "note": "Topotante's Soul Core of Dampening"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial4",
+    "asset_id": "atetemaha_retreat_soul_core",
+    "note": "Atmohua's Soul Core of Retreat"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial5",
+    "asset_id": "quipolatl_flow_soul_core",
+    "note": "Quipolatl's Soul Core of Flow"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial6",
+    "asset_id": "tzamoto_ferocity_soul_core",
+    "note": "Tzamoto's Soul Core of Ferocity"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial7",
+    "asset_id": "uromoti_attenuation_soul_core",
+    "note": "Uromoti's Soul Core of Attenuation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial8",
+    "asset_id": "opiloti_assault_soul_core",
+    "note": "Opiloti's Soul Core of Assault"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial9",
+    "asset_id": "guatelitzi_endurance_soul_core",
+    "note": "Guatelitzi's Soul Core of Endurance"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpeed",
+    "asset_id": "quipolatl_soul_core",
+    "note": "Soul Core of Quipolatl"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreStrength",
+    "asset_id": "atetemaha_soul_core",
+    "note": "Soul Core of Atmohua"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanBear",
+    "asset_id": "bear_idol",
+    "note": "Bear Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanBoar",
+    "asset_id": "boar_idol",
+    "note": "Boar Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanCat",
+    "asset_id": "cat_idol",
+    "note": "Cat Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanFox",
+    "asset_id": "fox_idol",
+    "note": "Fox Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanMonkey",
+    "asset_id": "primate_idol",
+    "note": "Primate Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanOwl",
+    "asset_id": "nightbird_idol",
+    "note": "Owl Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanOx",
+    "asset_id": "bull_idol",
+    "note": "Ox Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanRabbit",
+    "asset_id": "hare_idol",
+    "note": "Rabbit Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSnake",
+    "asset_id": "python_idol",
+    "note": "Snake Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial1",
+    "asset_id": "sirrius_idol",
+    "note": "Idol of Sirrius"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial2",
+    "asset_id": "tuldana_idol",
+    "note": "Idol of Thruldana"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial3",
+    "asset_id": "grold_idol",
+    "note": "Idol of Grold"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial4",
+    "asset_id": "eeshta_idol",
+    "note": "Idol of Eeshta"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial5",
+    "asset_id": "egrin_idol",
+    "note": "Idol of Egrin"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial6",
+    "asset_id": "masaris_idol",
+    "note": "Idol of Maxarius"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanSpecial7",
+    "asset_id": "ralakesh_idol",
+    "note": "Idol of Ralakesh"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanStag",
+    "asset_id": "stag_idol",
+    "note": "Stag Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TalismanWolf",
+    "asset_id": "wolf_idol",
+    "note": "Wolf Idol"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/TecrodsGaze",
+    "asset_id": "tecrodos_gaze",
+    "note": "Tecrod's Gaze"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/ThesisOfBlood",
+    "asset_id": "guatelitzi_hypothesis",
+    "note": "Guatelitzi's Thesis"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/ThesisOfExperiments",
+    "asset_id": "quipolatl_hypothesis",
+    "note": "Quipolatl's Thesis"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/ThesisOfSacrifice",
+    "asset_id": "citaqualotl_hypothesis",
+    "note": "Citaqualotl's Thesis"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/ThesisOfSouls",
+    "asset_id": "jiquani_hypothesis",
+    "note": "Jiquani's Thesis"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/UlamansGaze",
+    "asset_id": "ulamans_gaze",
+    "note": "Ulaman's Gaze"
+  },
+  {
+    "path": "Metadata/Items/Ultimatum/TrialmasterKey1",
+    "asset_id": "cowardly_fate",
+    "note": "Cowardly Fate"
+  },
+  {
+    "path": "Metadata/Items/Ultimatum/TrialmasterKey2",
+    "asset_id": "deadly_fate",
+    "note": "Deadly Fate"
+  },
+  {
+    "path": "Metadata/Items/Ultimatum/TrialmasterKey3",
+    "asset_id": "victorious_fate",
+    "note": "Victorious Fate"
+  }
+]
