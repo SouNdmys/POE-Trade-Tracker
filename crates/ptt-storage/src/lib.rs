@@ -140,6 +140,66 @@ CREATE TABLE IF NOT EXISTS rollup_marks (
     computed_at TEXT NOT NULL,
     PRIMARY KEY (game, utc_day)
 ) STRICT;
+
+-- 官方通货交易所小时史（P11）。资产列存 GGG 原始 Metadata 路径而不是 catalog id：
+-- 映射表会迭代，原始路径让映射每改一版全部历史立刻升级、零重抓。
+-- exchange_hours 的一行 = "这一小时抓过了"，它就是抓取水位；market_count=0 是
+-- 确认为空的小时（赛季前），和"还没抓"由行的存在与否区分。
+CREATE TABLE IF NOT EXISTS exchange_hours (
+    game TEXT NOT NULL CHECK (game IN ('poe1', 'poe2')),
+    league TEXT NOT NULL CHECK (length(league) > 0),
+    hour_ts INTEGER NOT NULL CHECK (hour_ts > 0 AND hour_ts % 3600 = 0),
+    market_count INTEGER NOT NULL CHECK (market_count >= 0),
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (game, league, hour_ts)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS exchange_hour_markets (
+    game TEXT NOT NULL CHECK (game IN ('poe1', 'poe2')),
+    league TEXT NOT NULL CHECK (length(league) > 0),
+    hour_ts INTEGER NOT NULL CHECK (hour_ts > 0 AND hour_ts % 3600 = 0),
+    asset_a TEXT NOT NULL,
+    asset_b TEXT NOT NULL,
+    volume_a INTEGER NOT NULL CHECK (volume_a >= 0),
+    volume_b INTEGER NOT NULL CHECK (volume_b >= 0),
+    lowest_stock_a INTEGER NOT NULL CHECK (lowest_stock_a >= 0),
+    lowest_stock_b INTEGER NOT NULL CHECK (lowest_stock_b >= 0),
+    highest_stock_a INTEGER NOT NULL CHECK (highest_stock_a >= 0),
+    highest_stock_b INTEGER NOT NULL CHECK (highest_stock_b >= 0),
+    lowest_ratio_a TEXT NOT NULL,
+    lowest_ratio_b TEXT NOT NULL,
+    highest_ratio_a TEXT NOT NULL,
+    highest_ratio_b TEXT NOT NULL,
+    PRIMARY KEY (game, league, hour_ts, asset_a, asset_b),
+    CHECK (asset_a < asset_b)
+) STRICT;
+
+-- 小时折成的日线，永久保留（一年后 CDN 过期，这里就是唯一副本）。
+-- exchange_day_marks 遵守 R4 纪律：任何删除路径都不能碰它；
+-- exchange_hours 的抓取 mark 不在 R4 范围（CDN 一年内可重抓，删了能修回来）。
+CREATE TABLE IF NOT EXISTS exchange_day_markets (
+    game TEXT NOT NULL CHECK (game IN ('poe1', 'poe2')),
+    league TEXT NOT NULL CHECK (length(league) > 0),
+    utc_day TEXT NOT NULL CHECK (length(utc_day) = 10),
+    asset_a TEXT NOT NULL,
+    asset_b TEXT NOT NULL,
+    volume_a INTEGER NOT NULL CHECK (volume_a >= 0),
+    volume_b INTEGER NOT NULL CHECK (volume_b >= 0),
+    hours_covered INTEGER NOT NULL CHECK (hours_covered > 0),
+    computed_at TEXT NOT NULL,
+    PRIMARY KEY (game, league, utc_day, asset_a, asset_b),
+    CHECK (asset_a < asset_b)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS exchange_day_marks (
+    game TEXT NOT NULL CHECK (game IN ('poe1', 'poe2')),
+    league TEXT NOT NULL CHECK (length(league) > 0),
+    utc_day TEXT NOT NULL CHECK (length(utc_day) = 10),
+    hour_count INTEGER NOT NULL CHECK (hour_count >= 0),
+    market_count INTEGER NOT NULL CHECK (market_count >= 0),
+    computed_at TEXT NOT NULL,
+    PRIMARY KEY (game, league, utc_day)
+) STRICT;
 "#;
 
 /// Columns added after the first shipped baseline; applied idempotently so
@@ -219,6 +279,58 @@ pub struct RollupMarkRow {
     pub computed_at: DateTime<Utc>,
 }
 
+/// 交易所小时数据的一条市场行。`hour_ts` 随行携带，范围读取保持扁平；
+/// 写入时它必须等于 replace 目标，防止一批行悄悄写进错的小时。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExchangeHourMarketRow {
+    pub hour_ts: i64,
+    pub asset_a: String,
+    pub asset_b: String,
+    pub volume_a: u64,
+    pub volume_b: u64,
+    pub lowest_stock_a: u64,
+    pub lowest_stock_b: u64,
+    pub highest_stock_a: u64,
+    pub highest_stock_b: u64,
+    pub lowest_ratio_a: String,
+    pub lowest_ratio_b: String,
+    pub highest_ratio_a: String,
+    pub highest_ratio_b: String,
+}
+
+/// "这一小时抓过了"的水位记录。market_count=0 = 确认为空（赛季前）。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExchangeHourMark {
+    pub hour_ts: i64,
+    pub market_count: u32,
+    pub fetched_at: DateTime<Utc>,
+}
+
+/// 日折行：一天内两侧成交量的合计。比值即该日 VWAP，永久保留。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExchangeDayMarketRow {
+    pub utc_day: String,
+    pub asset_a: String,
+    pub asset_b: String,
+    pub volume_a: u64,
+    pub volume_b: u64,
+    pub hours_covered: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExchangeDayMark {
+    pub utc_day: String,
+    pub hour_count: u32,
+    pub market_count: u32,
+    pub computed_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ExchangeHourPruneStats {
+    pub hours_deleted: u64,
+    pub markets_deleted: u64,
+}
+
 /// What a deletion actually did. `freed_bytes_estimate` is freelist growth ×
 /// page size: space SQLite will reuse, not space returned to the OS (that
 /// takes the separate `vacuum`).
@@ -243,13 +355,17 @@ pub struct DatabaseFootprint {
 const TIME_UNBOUNDED: &str = "9999-12-31T23:59:59+00:00";
 
 /// Tables reported by `database_footprint`, in display order.
-const FOOTPRINT_TABLES: [&str; 6] = [
+const FOOTPRINT_TABLES: [&str; 10] = [
     "market_contexts",
     "market_snapshots",
     "quote_edges",
     "seasons",
     "pair_day_rollups",
     "rollup_marks",
+    "exchange_hours",
+    "exchange_hour_markets",
+    "exchange_day_markets",
+    "exchange_day_marks",
 ];
 
 pub struct MarketStore {
@@ -1036,6 +1152,341 @@ impl MarketStore {
             .map_err(|_| StorageError::Corrupt("rollup delete count".into()))
     }
 
+    // ----- exchange history (official hourly market feed, P11) -----
+
+    /// 一个事务写完一个 (game, league, hour)：先写小时 mark 再写行。
+    /// mark 的 market_count 从 rows 派生——少一个能说谎的地方；确认为空的
+    /// 小时就是 rows 为空、mark 记 0，mark 的存在本身就是抓取水位。
+    pub fn replace_exchange_hour(
+        &mut self,
+        game: &str,
+        league: &str,
+        hour_ts: i64,
+        rows: &[ExchangeHourMarketRow],
+        fetched_at: DateTime<Utc>,
+    ) -> Result<(), StorageError> {
+        validate_hour_ts(hour_ts)?;
+        for row in rows {
+            if row.hour_ts != hour_ts {
+                return Err(StorageError::Rejected(format!(
+                    "exchange row hour {} does not match replace target {hour_ts}",
+                    row.hour_ts
+                )));
+            }
+        }
+        let market_count = i64::try_from(rows.len())
+            .map_err(|_| StorageError::Rejected("too many exchange rows".into()))?;
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        transaction.execute(
+            "INSERT OR REPLACE INTO exchange_hours
+                 (game, league, hour_ts, market_count, fetched_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![game, league, hour_ts, market_count, fetched_at.to_rfc3339()],
+        )?;
+        transaction.execute(
+            "DELETE FROM exchange_hour_markets
+             WHERE game = ?1 AND league = ?2 AND hour_ts = ?3",
+            params![game, league, hour_ts],
+        )?;
+        for row in rows {
+            transaction.execute(
+                "INSERT INTO exchange_hour_markets (game, league, hour_ts, asset_a, asset_b,
+                     volume_a, volume_b, lowest_stock_a, lowest_stock_b,
+                     highest_stock_a, highest_stock_b,
+                     lowest_ratio_a, lowest_ratio_b, highest_ratio_a, highest_ratio_b)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                params![
+                    game,
+                    league,
+                    hour_ts,
+                    row.asset_a,
+                    row.asset_b,
+                    volume_column(row.volume_a)?,
+                    volume_column(row.volume_b)?,
+                    volume_column(row.lowest_stock_a)?,
+                    volume_column(row.lowest_stock_b)?,
+                    volume_column(row.highest_stock_a)?,
+                    volume_column(row.highest_stock_b)?,
+                    row.lowest_ratio_a,
+                    row.lowest_ratio_b,
+                    row.highest_ratio_a,
+                    row.highest_ratio_b,
+                ],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// 已抓小时的最大 hour_ts。抓取计划从这里 +3600 往前推进；
+    /// `None` = 这个 (game, league) 一小时都还没抓过。
+    pub fn exchange_watermark(
+        &self,
+        game: &str,
+        league: &str,
+    ) -> Result<Option<i64>, StorageError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT MAX(hour_ts) FROM exchange_hours WHERE game = ?1 AND league = ?2",
+        )?;
+        let watermark: Option<i64> =
+            statement.query_row(params![game, league], |row| row.get(0))?;
+        Ok(watermark)
+    }
+
+    /// 全部小时 mark 按时间升序，给覆盖审计和空洞检查用。
+    pub fn list_exchange_hour_marks(
+        &self,
+        game: &str,
+        league: &str,
+    ) -> Result<Vec<ExchangeHourMark>, StorageError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT hour_ts, market_count, fetched_at FROM exchange_hours
+             WHERE game = ?1 AND league = ?2 ORDER BY hour_ts",
+        )?;
+        let rows = statement.query_map(params![game, league], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        let mut marks = Vec::new();
+        for row in rows {
+            let (hour_ts, market_count, fetched_at) = row?;
+            marks.push(ExchangeHourMark {
+                hour_ts,
+                market_count: count_u32(market_count)?,
+                fetched_at: timestamp(&fetched_at)?,
+            });
+        }
+        Ok(marks)
+    }
+
+    /// `[from_ts, to_ts)` 区间的小时市场行，扁平返回、时间升序。
+    pub fn load_exchange_hours(
+        &self,
+        game: &str,
+        league: &str,
+        from_ts: i64,
+        to_ts: i64,
+    ) -> Result<Vec<ExchangeHourMarketRow>, StorageError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT hour_ts, asset_a, asset_b, volume_a, volume_b,
+                 lowest_stock_a, lowest_stock_b, highest_stock_a, highest_stock_b,
+                 lowest_ratio_a, lowest_ratio_b, highest_ratio_a, highest_ratio_b
+             FROM exchange_hour_markets
+             WHERE game = ?1 AND league = ?2 AND hour_ts >= ?3 AND hour_ts < ?4
+             ORDER BY hour_ts, asset_a, asset_b",
+        )?;
+        let rows = statement.query_map(params![game, league, from_ts, to_ts], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, i64>(7)?,
+                row.get::<_, i64>(8)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, String>(10)?,
+                row.get::<_, String>(11)?,
+                row.get::<_, String>(12)?,
+            ))
+        })?;
+        let mut markets = Vec::new();
+        for row in rows {
+            let values = row?;
+            markets.push(ExchangeHourMarketRow {
+                hour_ts: values.0,
+                asset_a: values.1,
+                asset_b: values.2,
+                volume_a: column_volume(values.3)?,
+                volume_b: column_volume(values.4)?,
+                lowest_stock_a: column_volume(values.5)?,
+                lowest_stock_b: column_volume(values.6)?,
+                highest_stock_a: column_volume(values.7)?,
+                highest_stock_b: column_volume(values.8)?,
+                lowest_ratio_a: values.9,
+                lowest_ratio_b: values.10,
+                highest_ratio_a: values.11,
+                highest_ratio_b: values.12,
+            });
+        }
+        Ok(markets)
+    }
+
+    /// 一个事务写完一天的日折：删旧行、写新行、盖 day mark。
+    /// day mark 遵守 R4：它是"重折不会把真数据盖成空"的唯一屏障，
+    /// 任何删除路径都不能碰它。
+    pub fn replace_exchange_day(
+        &mut self,
+        game: &str,
+        league: &str,
+        utc_day: &str,
+        rows: &[ExchangeDayMarketRow],
+        hour_count: u32,
+        computed_at: DateTime<Utc>,
+    ) -> Result<(), StorageError> {
+        validate_day_key(utc_day)?;
+        for row in rows {
+            if row.utc_day != utc_day {
+                return Err(StorageError::Rejected(format!(
+                    "exchange day row {} does not match replace target {utc_day}",
+                    row.utc_day
+                )));
+            }
+        }
+        let market_count = i64::try_from(rows.len())
+            .map_err(|_| StorageError::Rejected("too many exchange day rows".into()))?;
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        transaction.execute(
+            "DELETE FROM exchange_day_markets
+             WHERE game = ?1 AND league = ?2 AND utc_day = ?3",
+            params![game, league, utc_day],
+        )?;
+        for row in rows {
+            transaction.execute(
+                "INSERT INTO exchange_day_markets (game, league, utc_day, asset_a, asset_b,
+                     volume_a, volume_b, hours_covered, computed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    game,
+                    league,
+                    utc_day,
+                    row.asset_a,
+                    row.asset_b,
+                    volume_column(row.volume_a)?,
+                    volume_column(row.volume_b)?,
+                    i64::from(row.hours_covered),
+                    computed_at.to_rfc3339(),
+                ],
+            )?;
+        }
+        transaction.execute(
+            "INSERT OR REPLACE INTO exchange_day_marks
+                 (game, league, utc_day, hour_count, market_count, computed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                game,
+                league,
+                utc_day,
+                i64::from(hour_count),
+                market_count,
+                computed_at.to_rfc3339(),
+            ],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// 全部 day mark 按日升序，日折构建器用它跳过已完成的天。
+    pub fn list_exchange_day_marks(
+        &self,
+        game: &str,
+        league: &str,
+    ) -> Result<Vec<ExchangeDayMark>, StorageError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT utc_day, hour_count, market_count, computed_at FROM exchange_day_marks
+             WHERE game = ?1 AND league = ?2 ORDER BY utc_day",
+        )?;
+        let rows = statement.query_map(params![game, league], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        let mut marks = Vec::new();
+        for row in rows {
+            let (utc_day, hour_count, market_count, computed_at) = row?;
+            marks.push(ExchangeDayMark {
+                utc_day,
+                hour_count: count_u32(hour_count)?,
+                market_count: count_u32(market_count)?,
+                computed_at: timestamp(&computed_at)?,
+            });
+        }
+        Ok(marks)
+    }
+
+    /// `[from_day, to_day]`（两端含）的日折行，日升序。
+    pub fn load_exchange_days(
+        &self,
+        game: &str,
+        league: &str,
+        from_day: &str,
+        to_day: &str,
+    ) -> Result<Vec<ExchangeDayMarketRow>, StorageError> {
+        validate_day_key(from_day)?;
+        validate_day_key(to_day)?;
+        let mut statement = self.connection.prepare_cached(
+            "SELECT utc_day, asset_a, asset_b, volume_a, volume_b, hours_covered
+             FROM exchange_day_markets
+             WHERE game = ?1 AND league = ?2 AND utc_day >= ?3 AND utc_day <= ?4
+             ORDER BY utc_day, asset_a, asset_b",
+        )?;
+        let rows = statement.query_map(params![game, league, from_day, to_day], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+            ))
+        })?;
+        let mut markets = Vec::new();
+        for row in rows {
+            let (utc_day, asset_a, asset_b, volume_a, volume_b, hours_covered) = row?;
+            markets.push(ExchangeDayMarketRow {
+                utc_day,
+                asset_a,
+                asset_b,
+                volume_a: column_volume(volume_a)?,
+                volume_b: column_volume(volume_b)?,
+                hours_covered: count_u32(hours_covered)?,
+            });
+        }
+        Ok(markets)
+    }
+
+    /// 删掉一天的小时行和小时 mark（清理原语，保持 dumb）。调用方必须先做
+    /// ground-truth 核对——该天的日折行真实存在——才允许调用，纪律同
+    /// `prune_raw_days`。小时 mark 不在 R4 范围：CDN 一年内可重抓。
+    pub fn delete_exchange_hours_of_day(
+        &mut self,
+        game: &str,
+        league: &str,
+        utc_day: &str,
+    ) -> Result<ExchangeHourPruneStats, StorageError> {
+        let (day_start, day_end) = day_hour_bounds(utc_day)?;
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let markets_deleted = transaction.execute(
+            "DELETE FROM exchange_hour_markets
+             WHERE game = ?1 AND league = ?2 AND hour_ts >= ?3 AND hour_ts < ?4",
+            params![game, league, day_start, day_end],
+        )?;
+        let hours_deleted = transaction.execute(
+            "DELETE FROM exchange_hours
+             WHERE game = ?1 AND league = ?2 AND hour_ts >= ?3 AND hour_ts < ?4",
+            params![game, league, day_start, day_end],
+        )?;
+        transaction.commit()?;
+        Ok(ExchangeHourPruneStats {
+            hours_deleted: hours_deleted as u64,
+            markets_deleted: markets_deleted as u64,
+        })
+    }
+
     /// Totals and per-table row counts for the Settings page. COUNT(*)
     /// scans — call on page open, never per capture.
     pub fn database_footprint(&self) -> Result<DatabaseFootprint, StorageError> {
@@ -1122,6 +1573,43 @@ fn validate_day_key(utc_day: &str) -> Result<(), StorageError> {
 /// observed panel ratios (u64 well under i64::MAX); failure means corruption.
 fn rate_column(value: u64) -> Result<i64, StorageError> {
     i64::try_from(value).map_err(|_| StorageError::Corrupt("rollup rate".into()))
+}
+
+/// 交易所成交量/库存进 INTEGER 列。超出 i64 硬错不饱和——
+/// 对齐 RollupOverflow 的纪律：宁可整小时跳过并报告，也不写一个错的数。
+fn volume_column(value: u64) -> Result<i64, StorageError> {
+    i64::try_from(value)
+        .map_err(|_| StorageError::RollupOverflow(format!("exchange volume {value}")))
+}
+
+/// INTEGER 列读回 u64。CHECK 保证非负，负数出现即库损坏。
+fn column_volume(value: i64) -> Result<u64, StorageError> {
+    u64::try_from(value)
+        .map_err(|_| StorageError::Corrupt(format!("negative exchange volume {value}")))
+}
+
+fn count_u32(value: i64) -> Result<u32, StorageError> {
+    u32::try_from(value).map_err(|_| StorageError::Corrupt(format!("bad count {value}")))
+}
+
+fn validate_hour_ts(hour_ts: i64) -> Result<(), StorageError> {
+    if hour_ts > 0 && hour_ts % 3600 == 0 {
+        Ok(())
+    } else {
+        Err(StorageError::Rejected(format!("bad hour ts: {hour_ts}")))
+    }
+}
+
+/// 一个 UTC 日对应的小时时间戳半开区间 `[00:00, 次日 00:00)`。
+fn day_hour_bounds(utc_day: &str) -> Result<(i64, i64), StorageError> {
+    let date = chrono::NaiveDate::parse_from_str(utc_day, "%Y-%m-%d")
+        .map_err(|error| StorageError::Rejected(format!("bad day key {utc_day}: {error}")))?;
+    let start = date
+        .and_hms_opt(0, 0, 0)
+        .ok_or_else(|| StorageError::Rejected(format!("bad day key: {utc_day}")))?
+        .and_utc()
+        .timestamp();
+    Ok((start, start + 24 * 3600))
 }
 
 /// Serializes a domain enum through its serde snake_case representation so
