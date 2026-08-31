@@ -8,6 +8,7 @@
 //! earlier layers can already stamp work with the session that issued it.
 
 pub mod analysis;
+pub mod exchange_rollup;
 #[cfg(windows)]
 pub mod live;
 #[cfg(windows)]
