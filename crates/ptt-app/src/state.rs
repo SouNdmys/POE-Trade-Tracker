@@ -37,6 +37,8 @@ pub enum PageData {
     History(Box<ptt_runtime::reports::HistoryModel>),
     /// The season-scale market pulse: value, supply and demand, anchor health.
     Analytics(Box<ptt_runtime::reports::AnalyticsModel>),
+    /// 官方交易所总览:成交量证据域的 ninja 式表格。
+    Exchange(Box<ptt_runtime::reports::ExchangeModel>),
     Failed(String),
 }
 
@@ -51,7 +53,8 @@ impl PageData {
             | Self::Convert(_)
             | Self::Watchlist(_)
             | Self::History(_)
-            | Self::Analytics(_) => true,
+            | Self::Analytics(_)
+            | Self::Exchange(_) => true,
             _ => false,
         }
     }

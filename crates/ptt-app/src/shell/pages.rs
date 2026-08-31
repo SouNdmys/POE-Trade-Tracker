@@ -7,6 +7,7 @@
 pub(super) mod analytics;
 pub(super) mod calibrate;
 pub(super) mod convert;
+pub(super) mod exchange;
 pub(super) mod history;
 pub(super) mod monitor;
 pub mod opportunities;

@@ -72,15 +72,18 @@ pub enum Page {
     Watchlist,
     History,
     Analytics,
+    Exchange,
     Settings,
 }
 
 impl Page {
     // 用户定的导航序:按"每天先看什么"排——先看市场活没活(监视器),再看行情
     // (市场分析/关注列表),再找机会(雷达/兑换),历史和一次性的校准、设置沉底。
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::Monitor,
         Self::Analytics,
+        // 交易所紧跟市场分析:同属"看行情",一个读 OCR 的账,一个读官方的账。
+        Self::Exchange,
         Self::Watchlist,
         Self::Opportunities,
         Self::Convert,
@@ -98,6 +101,7 @@ impl Page {
             Self::Watchlist => text.page_watchlist,
             Self::History => text.page_history,
             Self::Analytics => text.page_analytics,
+            Self::Exchange => text.page_exchange,
             Self::Settings => text.page_settings,
         }
     }
@@ -118,6 +122,7 @@ impl Page {
             | Self::Calibrate
             | Self::Watchlist
             | Self::Analytics
+            | Self::Exchange
             | Self::Settings => false,
             Self::Convert | Self::History => true,
         }
@@ -134,7 +139,8 @@ impl Page {
             | Self::Convert
             | Self::Watchlist
             | Self::History
-            | Self::Analytics => true,
+            | Self::Analytics
+            | Self::Exchange => true,
         }
     }
 
@@ -151,6 +157,7 @@ impl Page {
             Self::Watchlist => "page-watchlist",
             Self::History => "page-history",
             Self::Analytics => "page-analytics",
+            Self::Exchange => "page-exchange",
             Self::Settings => "page-settings",
         }
     }
@@ -1129,7 +1136,8 @@ impl AppShell {
             | PageData::Convert(_)
             | PageData::Watchlist(_)
             | PageData::History(_)
-            | PageData::Analytics(_) => vec![text.nothing_yet.to_owned()],
+            | PageData::Analytics(_)
+            | PageData::Exchange(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
             PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
@@ -1269,6 +1277,18 @@ fn build_page_data(request: &PageRequest) -> crate::state::PageData {
     if request.page == Page::Analytics {
         return match load_analytics(request) {
             Ok(model) => PageData::Analytics(Box::new(model)),
+            Err(reason) => PageData::Failed(reason),
+        };
+    }
+    if request.page == Page::Exchange {
+        return match load_exchange(request) {
+            Ok(Some(model)) => PageData::Exchange(Box::new(model)),
+            // 没配联赛不是错误,是一句"去哪打开"的指路。
+            Ok(None) => PageData::Text(vec![
+                crate::i18n::text(request.language)
+                    .exchange_no_league
+                    .to_owned(),
+            ]),
             Err(reason) => PageData::Failed(reason),
         };
     }
@@ -1516,6 +1536,35 @@ fn load_convert(
     .map(Some)
 }
 
+/// 官方交易所总览。读的是 exchange 四表,不是 OCR 的账——联赛没配就返回
+/// `None`,页面显示指路一句话而不是报错。
+#[cfg(windows)]
+fn load_exchange(
+    request: &PageRequest,
+) -> Result<Option<ptt_runtime::reports::ExchangeModel>, String> {
+    let league = request.tuning.exchange.league.trim().to_owned();
+    if league.is_empty() {
+        return Ok(None);
+    }
+    let store = ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+        .map_err(|error| format!("storage: {error}"))?;
+    let game = request.profile.game.as_str();
+    let now = chrono::Utc::now();
+    // 小时窗口 48h:激增基准要 8+ 小时,最新价要最近的完整小时。
+    let hour_rows = store
+        .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
+        .map_err(|error| format!("hours: {error}"))?;
+    // 日窗口 14 天:趋势是 2 天近期对 7 天基线,余量给缺天。
+    let from_day = (now - chrono::Duration::days(14))
+        .format("%Y-%m-%d")
+        .to_string();
+    let to_day = now.format("%Y-%m-%d").to_string();
+    let day_rows = store
+        .load_exchange_days(game, &league, &from_day, &to_day)
+        .map_err(|error| format!("days: {error}"))?;
+    ptt_runtime::reports::exchange_model(&day_rows, &hour_rows, &league, &request.tuning).map(Some)
+}
+
 #[cfg(windows)]
 fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
     use ptt_runtime::live::domain_asset_id;
@@ -1538,6 +1587,8 @@ fn load_page_lines(request: &PageRequest) -> Result<Vec<String>, String> {
         Page::Watchlist => Ok(Vec::new()),
         // Answered as a model by `load_analytics`.
         Page::Analytics => Ok(Vec::new()),
+        // Answered as a model by `load_exchange`.
+        Page::Exchange => Ok(Vec::new()),
         Page::Convert | Page::History => {
             let Some((have, need)) = &request.pair else {
                 return Ok(Vec::new());
@@ -1732,6 +1783,8 @@ impl Render for AppShell {
                             self.render_watchlist(cx)
                         } else if self.page == Page::Analytics {
                             self.render_analytics(cx)
+                        } else if self.page == Page::Exchange {
+                            self.render_exchange(cx)
                         } else if self.page == Page::History {
                             self.render_history(cx)
                         } else if self.page == Page::Calibrate {
