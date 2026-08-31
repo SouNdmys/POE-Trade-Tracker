@@ -40,6 +40,7 @@ sha2.workspace = true
 # 会出错的路。rustls 0.23 和 ring 是 gpui 已经带进来的那份,共用。
 ureq = { version = "3.4", default-features = false, features = ["rustls"] }
 ptt-core = { path = "../ptt-core" }
+ptt-exchange-history = { path = "../ptt-exchange-history" }
 ptt-platform-win = { path = "../ptt-platform-win" }
 ptt-settings = { path = "../ptt-settings" }
 windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

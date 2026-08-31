@@ -7,6 +7,9 @@ pub mod pages;
 // 状态机跟着一起门控。
 #[cfg(windows)]
 mod updater;
+// 交易所历史同步和自更新同理:网络依赖全在 windows target 下。
+#[cfg(windows)]
+mod exchange_sync;
 
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
@@ -368,6 +371,13 @@ pub struct AppShell {
     /// 启动那次自动检查的插销:`tick` 每 120ms 来一趟,这个让它只响一次。
     #[cfg(windows)]
     update_checked: bool,
+    /// 交易所历史同步的插销,和 `update_checked` 同一个道理。
+    #[cfg(windows)]
+    exchange_sync_kicked: bool,
+    /// 哪一条同步链有资格续命。设置换了游戏/联赛时代次前进,旧链自然断掉,
+    /// 不会出现两条链同时在每小时抓一遍。
+    #[cfg(windows)]
+    exchange_sync_generation: u64,
     /// 哪一次检查/安装的答案有资格写回来。
     ///
     /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
@@ -624,6 +634,8 @@ impl AppShell {
             update_state: updater::UpdateState::default(),
             #[cfg(windows)]
             update_checked: false,
+            exchange_sync_kicked: false,
+            exchange_sync_generation: 0,
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
@@ -648,6 +660,8 @@ impl AppShell {
             // 启动之后问一次有没有新版本。放在这里而不是 `new` 里,是为了让
             // 第一帧先画出来;插销在函数内部,这里每 120ms 叫一次也只响一次。
             self.kick_update_check(cx);
+            // 交易所历史同步同理:第一轮补拉在后台跑,之后每小时自续。
+            self.kick_exchange_sync(cx);
             // 摆放模式的回声:拖动落点与顶条按钮点击都由 wndproc 留言,
             // 这里是唯一取走留言的地方。
             self.poll_hud_placement(cx);

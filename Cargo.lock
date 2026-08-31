@@ -4368,6 +4368,7 @@ dependencies = [
  "gpui",
  "gpui-component",
  "ptt-core",
+ "ptt-exchange-history",
  "ptt-monitoring",
  "ptt-platform-win",
  "ptt-recognition",
