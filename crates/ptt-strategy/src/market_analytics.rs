@@ -597,7 +597,7 @@ fn attribute(
 /// (anchor per secondary) × (secondary per asset) = anchor per asset.
 /// Exact u128 multiply, gcd-reduced; `None` when the reduced ratio cannot
 /// fit u64 (the value is then simply not composed rather than approximated).
-fn compose(anchor_per_secondary: &Ratio, secondary_per_asset: &Ratio) -> Option<Ratio> {
+pub(crate) fn compose(anchor_per_secondary: &Ratio, secondary_per_asset: &Ratio) -> Option<Ratio> {
     let numerator = u128::from(anchor_per_secondary.numerator)
         .checked_mul(u128::from(secondary_per_asset.numerator))?;
     let denominator = u128::from(anchor_per_secondary.denominator)
@@ -620,7 +620,7 @@ const fn gcd(mut left: u128, mut right: u128) -> u128 {
 /// Recent-window median vs baseline-window median, in basis points. `None`
 /// when the recent window has fewer than two observed days or the baseline
 /// none — "insufficient data" is an answer, never a guess.
-fn window_trend_bps(
+pub(crate) fn window_trend_bps(
     days: &BTreeMap<NaiveDate, Ratio>,
     as_of_day: NaiveDate,
     thresholds: &AnalyticsThresholds,
@@ -669,7 +669,7 @@ fn bps_between(from: &Ratio, to: &Ratio) -> i64 {
 
 /// units × (anchor per unit), floor division — the one place a quantity
 /// becomes an anchor amount.
-fn anchor_value(units: u128, value: &Ratio) -> u128 {
+pub(crate) fn anchor_value(units: u128, value: &Ratio) -> u128 {
     units.saturating_mul(u128::from(value.numerator)) / u128::from(value.denominator).max(1)
 }
 

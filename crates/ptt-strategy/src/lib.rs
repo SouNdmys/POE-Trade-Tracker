@@ -9,6 +9,7 @@
 mod anchor_value;
 mod day_rollup;
 mod exact;
+mod exchange_pulse;
 mod execution_safety;
 mod maker_strategy;
 mod market_analytics;
@@ -21,6 +22,9 @@ pub use anchor_value::{
     Valuation, ValuationMode, ValuationRequest, ValuationStatus, value_against_anchor,
 };
 pub use day_rollup::{PairDayRollup, SnapshotPairFold, build_pair_day_rollups};
+pub use exchange_pulse::{
+    ExchangeAssetPulse, ExchangePairDay, ExchangePairHour, ExchangePulse, exchange_pulse,
+};
 pub use execution_safety::{
     Actionability, ExecutionRisk, ModelCaveat, RiskAssessment, RiskThresholds, assess_path,
     assess_steps, assess_triangle,
