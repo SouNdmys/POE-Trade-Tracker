@@ -179,6 +179,8 @@ pub struct MarketTuning {
     pub risk: RiskTuning,
     #[serde(default)]
     pub analytics: AnalyticsTuning,
+    #[serde(default)]
+    pub exchange: ExchangeTuning,
     /// How much history each report page loads, in hours. Must reach past the
     /// red freshness band: a window shorter than `usable_seconds` can never
     /// even load the data the yellow and red lights exist to warn about.
@@ -276,6 +278,7 @@ impl Default for MarketTuning {
             radar: RadarTuning::default(),
             risk: RiskTuning::default(),
             analytics: AnalyticsTuning::default(),
+            exchange: ExchangeTuning::default(),
             report_window_hours: default_report_window_hours(),
         }
     }
@@ -532,6 +535,43 @@ impl Default for AnalyticsTuning {
             quiet_floor_anchor_units: default_quiet_floor_anchor_units(),
             thin_norm_percent: default_thin_norm_percent(),
             raw_retention_days: 0,
+        }
+    }
+}
+
+/// 官方通货历史 API（浮士德小时线）的接入配置。
+///
+/// 和 OCR 侧一个字段都不共享：API 数据按 GGG 的真实联赛名分账，
+/// OCR 侧的 "live-league" 常量不动，两个世界只靠 game + 小时时间戳对账。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExchangeTuning {
+    /// GGG 的联赛英文名（如 "Runes of Aldur"）。**空字符串 = 不抓取**——
+    /// 这是总开关。换赛季改这里，新联赛的水位自动从零开始回补。
+    #[serde(default)]
+    pub league: String,
+    /// 首次回补往回拉多少天。之后的增量抓取与此无关（水位接着走）。
+    #[serde(default = "default_exchange_backfill_days")]
+    pub backfill_days: u64,
+    /// 小时线折成日线后再保留多少天，过期整天清理。0 = 不清理。
+    /// 默认开着（14 天）而不是像 raw_retention_days 那样默认 0：
+    /// 小时行是可再生的（CDN 一年内可重抓），日线才是唯一副本。
+    #[serde(default = "default_exchange_hour_retention_days")]
+    pub hour_retention_days: u64,
+}
+
+fn default_exchange_backfill_days() -> u64 {
+    14
+}
+fn default_exchange_hour_retention_days() -> u64 {
+    14
+}
+
+impl Default for ExchangeTuning {
+    fn default() -> Self {
+        Self {
+            league: String::new(),
+            backfill_days: default_exchange_backfill_days(),
+            hour_retention_days: default_exchange_hour_retention_days(),
         }
     }
 }

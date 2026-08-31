@@ -7,6 +7,7 @@
 
 pub mod fetch;
 pub mod mapping;
+pub mod plan;
 
 use std::collections::BTreeMap;
 
