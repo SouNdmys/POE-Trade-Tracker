@@ -4402,6 +4402,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptt-exchange-history"
+version = "1.0.4"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "ptt-market-book"
 version = "1.0.4"
 dependencies = [

@@ -4,6 +4,7 @@ members = [
     "crates/ptt-app",
     "crates/ptt-catalog",
     "crates/ptt-core",
+    "crates/ptt-exchange-history",
     "crates/ptt-monitoring",
     "crates/ptt-ocr-onnx",
     "crates/ptt-ocr-win",
