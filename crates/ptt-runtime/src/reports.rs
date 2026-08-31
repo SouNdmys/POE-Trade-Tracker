@@ -3459,7 +3459,39 @@ pub struct ExchangeModel {
     pub market_median_move_bps: Option<i64>,
     /// 按锚计价成交量降序（表格的默认排序）。
     pub rows: Vec<ExchangeRow>,
+    /// 大雷达："新面孔"条。全市场注意力信号，不看流通量门槛、不保证
+    /// 可执行，措辞永远是"值得看 + 证据"，不是利润承诺。小雷达
+    /// （`run_opportunity_radar`）管关注组内的可执行机会，两者分工见
+    /// CORE-TRADING-MODEL P11。
+    pub radar: Vec<ExchangeRadarItem>,
 }
+
+/// 大雷达的一条证据。枚举而不是一句现成话：界面按语言渲染，证据保持结构化。
+#[derive(Clone, Copy, Debug)]
+pub enum ExchangeRadarSignal {
+    /// 最新小时锚计价成交量达自身小时中位的 percent%。
+    VolumeSurge { percent: u64 },
+    /// 扣除市场漂移后仍在显著升值。
+    Appreciating { relative_bps: i64 },
+    /// 最新小时快照区间中点偏离成交 VWAP——"表面看有利可图"的原始形态。
+    PriceGap { gap_bps: i64 },
+}
+
+#[derive(Clone, Debug)]
+pub struct ExchangeRadarItem {
+    pub asset_id: MarketAssetId,
+    pub signal: ExchangeRadarSignal,
+    /// 锚计价小时成交量。兼作 `ignored_suggestions` 的 prominence：
+    /// 在关注列表页忽略过的通货，量翻倍前不再上榜。
+    pub prominence: u64,
+}
+
+/// 三个信号阈值都是首过值，等新赛季的干净数据校准——手头的赛季末数据
+/// 按既定纪律不做长期阈值的依据。
+const RADAR_SURGE_PERCENT: u64 = 300;
+const RADAR_RISE_BPS: i64 = 1000;
+const RADAR_GAP_BPS: i64 = 800;
+const RADAR_LIMIT: usize = 5;
 
 /// 官方交易所总览。自产 `ExchangePulse`，所以和 `analytics_model` 一样
 /// 没有 `MarketPulse` 参数——两套脉搏分域，不互相注入。
@@ -3540,7 +3572,7 @@ pub fn exchange_model(
         .filter_map(|slug| crate::live::domain_asset_id(slug).ok())
         .collect();
 
-    let rows = pulse
+    let rows: Vec<ExchangeRow> = pulse
         .assets
         .iter()
         .map(|asset| ExchangeRow {
@@ -3557,6 +3589,47 @@ pub fn exchange_model(
         })
         .collect();
 
+    // ---- 大雷达：新面孔条 ----
+    // 候选 = 不在任何关注类列表里的资产（"从没关注过的"），三信号取其一，
+    // 每资产只讲最强的那个故事。无流通量门槛是用户明确的豁免：这条是
+    // 注意力信号，不是可执行承诺。
+    let gaps = exchange_price_gaps(hour_rows, &mapping, &mut cache, &anchor);
+    let mut radar: Vec<ExchangeRadarItem> = rows
+        .iter()
+        .filter(|row| !row.tracked)
+        .filter_map(|row| {
+            let signal = row
+                .surge_percent
+                .filter(|percent| *percent >= RADAR_SURGE_PERCENT)
+                .map(|percent| ExchangeRadarSignal::VolumeSurge { percent })
+                .or_else(|| {
+                    row.trend_bps_relative
+                        .filter(|relative| *relative >= RADAR_RISE_BPS)
+                        .map(|relative_bps| ExchangeRadarSignal::Appreciating { relative_bps })
+                })
+                .or_else(|| {
+                    gaps.get(&row.asset_id)
+                        .copied()
+                        .filter(|gap| gap.abs() >= RADAR_GAP_BPS)
+                        .map(|gap_bps| ExchangeRadarSignal::PriceGap { gap_bps })
+                })?;
+            // 在关注列表页忽略过的，量翻倍前不再打扰——同一份忽略列表，
+            // 不另造一套语义。
+            let due = tuning
+                .ignored_suggestions
+                .iter()
+                .find(|ignored| ignored.asset_id == row.asset_id.as_str())
+                .is_none_or(|ignored| ignored.is_due_again(row.volume_per_hour_anchor));
+            due.then(|| ExchangeRadarItem {
+                asset_id: row.asset_id.clone(),
+                signal,
+                prominence: row.volume_per_hour_anchor,
+            })
+        })
+        .collect();
+    radar.sort_by(|left, right| right.prominence.cmp(&left.prominence));
+    radar.truncate(RADAR_LIMIT);
+
     Ok(ExchangeModel {
         league: league.to_owned(),
         anchor_asset_id: anchor,
@@ -3569,7 +3642,84 @@ pub fn exchange_model(
         as_of_day: pulse.as_of_day.map(|day| day.to_string()),
         market_median_move_bps: pulse.market_median_move_bps,
         rows,
+        radar,
     })
+}
+
+/// 每资产最新直连锚小时的"快照区间中点 vs 成交 VWAP"偏离（bps，带号）。
+///
+/// 快照区间只在这里被消费——它是"现在挂着的价"，VWAP 是"实际成交的价"，
+/// 两者的差就是大雷达第三信号的原料。u128 交叉相乘，不走浮点。
+fn exchange_price_gaps(
+    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+    mapping: &BTreeMap<String, String>,
+    cache: &mut BTreeMap<String, Option<MarketAssetId>>,
+    anchor: &MarketAssetId,
+) -> BTreeMap<MarketAssetId, i64> {
+    use ptt_trade_domain::Ratio;
+
+    let mut latest: BTreeMap<MarketAssetId, (i64, i64)> = BTreeMap::new();
+    for row in hour_rows {
+        let (Some(asset_a), Some(asset_b)) = (
+            exchange_domain_id(mapping, cache, &row.asset_a),
+            exchange_domain_id(mapping, cache, &row.asset_b),
+        ) else {
+            continue;
+        };
+        // 只看直连锚的市场：合成价差是二手信息，误报多过发现。
+        let (asset, own_volume, quote_volume, ratio_pairs) = if asset_a == *anchor {
+            (
+                asset_b,
+                row.volume_b,
+                row.volume_a,
+                [
+                    (&row.lowest_ratio_a, &row.lowest_ratio_b),
+                    (&row.highest_ratio_a, &row.highest_ratio_b),
+                ],
+            )
+        } else if asset_b == *anchor {
+            (
+                asset_a,
+                row.volume_a,
+                row.volume_b,
+                [
+                    (&row.lowest_ratio_b, &row.lowest_ratio_a),
+                    (&row.highest_ratio_b, &row.highest_ratio_a),
+                ],
+            )
+        } else {
+            continue;
+        };
+        if own_volume == 0 || quote_volume == 0 {
+            continue;
+        }
+        if latest.get(&asset).is_some_and(|(at, _)| *at >= row.hour_ts) {
+            continue;
+        }
+        // 快照对 (锚数, 资产数) → 锚每单位资产。两个快照的中点做"表面价"。
+        let parse = |(anchor_side, own_side): (&String, &String)| {
+            Ratio::parse(&format!("{anchor_side}:{own_side}")).ok()
+        };
+        let (Some(first), Some(second)) = (parse(ratio_pairs[0]), parse(ratio_pairs[1])) else {
+            continue;
+        };
+        // mid = (first + second) / 2，通分后交叉相乘。
+        let mid_numerator = u128::from(first.numerator) * u128::from(second.denominator)
+            + u128::from(second.numerator) * u128::from(first.denominator);
+        let mid_denominator = 2 * u128::from(first.denominator) * u128::from(second.denominator);
+        // gap = (mid / vwap − 1) × 10000，vwap = quote/own。
+        let scaled = mid_numerator
+            .saturating_mul(u128::from(own_volume))
+            .saturating_mul(10_000)
+            / (mid_denominator.saturating_mul(u128::from(quote_volume))).max(1);
+        let gap =
+            i64::try_from(i128::try_from(scaled).unwrap_or(i128::MAX) - 10_000).unwrap_or(i64::MAX);
+        latest.insert(asset, (row.hour_ts, gap));
+    }
+    latest
+        .into_iter()
+        .map(|(asset, (_, gap))| (asset, gap))
+        .collect()
 }
 
 /// 文本包装，形状同其余 `*_report`。

@@ -66,6 +66,51 @@ impl AppShell {
                 ),
         );
 
+        // ---- 大雷达："新面孔"条 ----
+        // 值得看 + 证据，一行一个；没有新面孔就整条不画，不占注意力。
+        // 忽略语义与关注列表页共用同一份列表（量翻倍才再提醒），
+        // 这里暂不放忽略按钮——去关注列表页忽略同样生效。
+        if !model.radar.is_empty() {
+            let mut band = div()
+                .px_3()
+                .pb_1()
+                .h_flex()
+                .items_center()
+                .gap_3()
+                .flex_wrap();
+            band = band.child(chip(StatusKind::Warning, text.exchange_radar_tag));
+            for item in &model.radar {
+                let reason = match item.signal {
+                    ptt_runtime::reports::ExchangeRadarSignal::VolumeSurge { percent } => {
+                        ptt_runtime::report_text::fill(
+                            text.exchange_radar_surge,
+                            &[&percent.to_string()],
+                        )
+                    }
+                    ptt_runtime::reports::ExchangeRadarSignal::Appreciating { relative_bps } => {
+                        ptt_runtime::report_text::fill(
+                            text.exchange_radar_rise,
+                            &[&signed_percent(relative_bps)],
+                        )
+                    }
+                    ptt_runtime::reports::ExchangeRadarSignal::PriceGap { gap_bps } => {
+                        ptt_runtime::report_text::fill(
+                            text.exchange_radar_gap,
+                            &[&signed_percent(gap_bps)],
+                        )
+                    }
+                };
+                band = band.child(
+                    mono(format!(
+                        "{} · {reason}",
+                        self.display_name(item.asset_id.as_str())
+                    ))
+                    .text_size(fs(FS_10_5)),
+                );
+            }
+            head = head.child(band);
+        }
+
         // ---- 表头 ----
         let header = div()
             .px_3()
