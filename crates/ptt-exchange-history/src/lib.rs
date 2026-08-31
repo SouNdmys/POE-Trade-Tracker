@@ -274,6 +274,29 @@ mod parse_tests {
     }
 
     #[test]
+    fn unknown_fields_are_tolerated() {
+        // 这是别人的 API：GGG 加新字段不该弄崩我们。这条测试锁的是
+        // "信封不 deny_unknown_fields" 这个设计决定本身。
+        let json = market_json(&format!(r#"["{DIVINE}", "{EXALTED}"]"#)).replace(
+            r#""market_id": "test""#,
+            r#""market_id": "test", "brand_new_field": {"nested": true}"#,
+        );
+        let hour = parse_hour(json.as_bytes()).expect("unknown fields ignored");
+        assert_eq!(hour.markets.len(), 1);
+    }
+
+    #[test]
+    fn rejects_wrong_pair_length() {
+        let json = market_json(&format!(
+            r#"["{DIVINE}", "{EXALTED}", "Metadata/Items/Currency/CurrencyRerollRare"]"#
+        ));
+        assert!(matches!(
+            parse_hour(json.as_bytes()),
+            Err(ExchangeHistoryError::PairLength { actual: 3, .. })
+        ));
+    }
+
+    #[test]
     fn rejects_self_pair() {
         let json = market_json(&format!(r#"["{DIVINE}", "{DIVINE}"]"#));
         assert!(matches!(
