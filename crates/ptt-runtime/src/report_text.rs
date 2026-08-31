@@ -40,6 +40,11 @@ pub struct ReportText {
     pub worse_than_direct: &'static str,
     pub level_with_direct: &'static str,
     pub no_direct_route: &'static str,
+    /// Slots: league, coverage percent.
+    pub exchange_header: &'static str,
+    /// Slot: market median drift in percent.
+    pub exchange_drift: &'static str,
+    pub exchange_no_data: &'static str,
     /// One leg of a route against the listings it would have to take right
     /// now. Slots: from, to, listed, taken, share.
     ///
@@ -157,6 +162,9 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     worse_than_direct: "-{} ({} worse than direct)",
     level_with_direct: "level with direct",
     no_direct_route: "no direct route to compare",
+    exchange_header: "official exchange, league {} (mapping coverage {}%)",
+    exchange_drift: "market median drift {}",
+    exchange_no_data: "no exchange data yet -- set the league in Settings, the sync fills in on its own",
     leg_take: "{} -> {}   {} listed, this trip takes {}{}",
     leg_share: " ({}%)",
     leg_covered: "listings cover it",
@@ -244,6 +252,9 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     worse_than_direct: "-{}（比直兑低 {}）",
     level_with_direct: "与直兑持平",
     no_direct_route: "没有直兑路线可比",
+    exchange_header: "官方交易所，联赛 {}（映射覆盖 {}%）",
+    exchange_drift: "市场中位漂移 {}",
+    exchange_no_data: "还没有交易所数据——去设置页填联赛名，同步会自己补齐",
     leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
     leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",

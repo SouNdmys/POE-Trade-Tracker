@@ -3426,6 +3426,237 @@ fn analytics_thresholds_from(tuning: &MarketTuning) -> Option<ptt_strategy::Anal
     .ok()
 }
 
+// ---------------------------------------------------------------------------
+// Exchange overview（官方交易所小时史，P11 阶段 2）
+// ---------------------------------------------------------------------------
+
+/// ninja 式总览表的一行。数值保持原始类型（Ratio / bps / 整数），格式化
+/// 与名字翻译都留给界面——names.rs 是唯一的翻译点，这里不复制它。
+#[derive(Clone, Debug)]
+pub struct ExchangeRow {
+    pub asset_id: MarketAssetId,
+    pub value_in_anchor: Option<ptt_trade_domain::Ratio>,
+    pub trend_bps_raw: Option<i64>,
+    pub trend_bps_relative: Option<i64>,
+    pub verdict: Option<ptt_strategy::TrendVerdict>,
+    pub volume_per_hour_anchor: u64,
+    pub depth_anchor: Option<u64>,
+    pub surge_percent: Option<u64>,
+    pub top_partner: Option<MarketAssetId>,
+    /// 已在结算/关注/桥/仅观察任一列表里。大雷达拿它反选"新面孔"。
+    pub tracked: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExchangeModel {
+    pub league: String,
+    pub anchor_asset_id: MarketAssetId,
+    /// 行数口径的映射覆盖率（0–100）。诚实字段：没映上的行不是消失了，
+    /// 是变成了这里的缺口——catalog 合入新通货后重跑映射生成即回补。
+    pub coverage_percent: u64,
+    pub hours_seen: u64,
+    pub as_of_day: Option<String>,
+    pub market_median_move_bps: Option<i64>,
+    /// 按锚计价成交量降序（表格的默认排序）。
+    pub rows: Vec<ExchangeRow>,
+}
+
+/// 官方交易所总览。自产 `ExchangePulse`，所以和 `analytics_model` 一样
+/// 没有 `MarketPulse` 参数——两套脉搏分域，不互相注入。
+pub fn exchange_model(
+    day_rows: &[ptt_storage::ExchangeDayMarketRow],
+    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+    league: &str,
+    tuning: &MarketTuning,
+) -> Result<ExchangeModel, String> {
+    let mapping =
+        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+    let mut cache: BTreeMap<String, Option<MarketAssetId>> = BTreeMap::new();
+    let mut total_rows = 0u64;
+    let mut mapped_rows = 0u64;
+
+    let mut day_stats = Vec::with_capacity(day_rows.len());
+    for row in day_rows {
+        total_rows += 1;
+        let (Some(asset_a), Some(asset_b)) = (
+            exchange_domain_id(&mapping, &mut cache, &row.asset_a),
+            exchange_domain_id(&mapping, &mut cache, &row.asset_b),
+        ) else {
+            continue;
+        };
+        let day = chrono::NaiveDate::parse_from_str(&row.utc_day, "%Y-%m-%d")
+            .map_err(|error| format!("day {}: {error}", row.utc_day))?;
+        mapped_rows += 1;
+        day_stats.push(ptt_strategy::ExchangePairDay {
+            day,
+            asset_a,
+            asset_b,
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+        });
+    }
+    let mut hour_stats = Vec::with_capacity(hour_rows.len());
+    for row in hour_rows {
+        total_rows += 1;
+        let (Some(asset_a), Some(asset_b)) = (
+            exchange_domain_id(&mapping, &mut cache, &row.asset_a),
+            exchange_domain_id(&mapping, &mut cache, &row.asset_b),
+        ) else {
+            continue;
+        };
+        mapped_rows += 1;
+        hour_stats.push(ptt_strategy::ExchangePairHour {
+            hour_ts: row.hour_ts,
+            asset_a,
+            asset_b,
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+            lowest_stock_a: row.lowest_stock_a,
+            highest_stock_a: row.highest_stock_a,
+            lowest_stock_b: row.lowest_stock_b,
+            highest_stock_b: row.highest_stock_b,
+        });
+    }
+
+    // 锚随用户设置走（赛季主流换了，用户换锚，这页跟着走），回落规则与
+    // `anchor_asset` 的文档语义一致：锚必须在结算列表内，否则列表第一个。
+    let anchor_slug = tuning
+        .anchor_asset
+        .clone()
+        .filter(|anchor| tuning.settlement_assets.contains(anchor))
+        .or_else(|| tuning.settlement_assets.first().cloned())
+        .ok_or("no settlement asset configured")?;
+    let anchor =
+        crate::live::domain_asset_id(&anchor_slug).map_err(|error| format!("{error:?}"))?;
+    let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
+    let pulse = ptt_strategy::exchange_pulse(&day_stats, &hour_stats, &anchor, &thresholds);
+
+    let tracked: std::collections::BTreeSet<MarketAssetId> = tuning
+        .settlement_assets
+        .iter()
+        .chain(tuning.focus_assets.iter())
+        .chain(tuning.bridge_assets.iter())
+        .chain(tuning.watch_only_assets.iter())
+        .filter_map(|slug| crate::live::domain_asset_id(slug).ok())
+        .collect();
+
+    let rows = pulse
+        .assets
+        .iter()
+        .map(|asset| ExchangeRow {
+            asset_id: asset.asset_id.clone(),
+            value_in_anchor: asset.value_in_anchor.clone(),
+            trend_bps_raw: asset.trend_bps_raw,
+            trend_bps_relative: asset.trend_bps_relative,
+            verdict: asset.verdict,
+            volume_per_hour_anchor: asset.volume_per_hour_anchor,
+            depth_anchor: asset.depth_anchor,
+            surge_percent: asset.surge_percent,
+            top_partner: asset.top_partner.clone(),
+            tracked: tracked.contains(&asset.asset_id),
+        })
+        .collect();
+
+    Ok(ExchangeModel {
+        league: league.to_owned(),
+        anchor_asset_id: anchor,
+        coverage_percent: if total_rows == 0 {
+            100
+        } else {
+            mapped_rows * 100 / total_rows
+        },
+        hours_seen: pulse.hours_seen,
+        as_of_day: pulse.as_of_day.map(|day| day.to_string()),
+        market_median_move_bps: pulse.market_median_move_bps,
+        rows,
+    })
+}
+
+/// 文本包装，形状同其余 `*_report`。
+pub fn exchange_report(
+    day_rows: &[ptt_storage::ExchangeDayMarketRow],
+    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+    league: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<Vec<String>, String> {
+    let model = exchange_model(day_rows, hour_rows, league, tuning)?;
+    Ok(render_exchange(&model, language))
+}
+
+/// 文本版总览，探针与文本兜底共用。f64 只出现在这条展示边界上。
+pub fn render_exchange(model: &ExchangeModel, language: UiLanguage) -> Vec<String> {
+    let text = crate::report_text::report(language);
+    let mut lines = Vec::new();
+    lines.push(crate::report_text::fill(
+        text.exchange_header,
+        &[&model.league, &model.coverage_percent.to_string()],
+    ));
+    if let Some(drift) = model.market_median_move_bps {
+        lines.push(crate::report_text::fill(
+            text.exchange_drift,
+            &[&percent_from_bps(drift)],
+        ));
+    }
+    if model.rows.is_empty() {
+        lines.push(text.exchange_no_data.to_owned());
+        return lines;
+    }
+    for row in model.rows.iter().take(30) {
+        let value = row
+            .value_in_anchor
+            .as_ref()
+            .map_or_else(|| "-".to_owned(), ratio_display);
+        let trend = row
+            .trend_bps_relative
+            .map_or_else(|| "-".to_owned(), percent_from_bps);
+        let partner = row
+            .top_partner
+            .as_ref()
+            .map_or_else(|| "-".to_owned(), ToString::to_string);
+        lines.push(format!(
+            "{:<28} {:>12} {:>9} {:>12} {:>12}  {}",
+            row.asset_id,
+            value,
+            trend,
+            row.volume_per_hour_anchor,
+            row.depth_anchor.unwrap_or(0),
+            partner,
+        ));
+    }
+    lines
+}
+
+fn exchange_domain_id(
+    mapping: &BTreeMap<String, String>,
+    cache: &mut BTreeMap<String, Option<MarketAssetId>>,
+    path: &str,
+) -> Option<MarketAssetId> {
+    if let Some(hit) = cache.get(path) {
+        return hit.clone();
+    }
+    let resolved = mapping
+        .get(path)
+        .and_then(|catalog_id| crate::live::domain_asset_id(catalog_id).ok());
+    cache.insert(path.to_owned(), resolved.clone());
+    resolved
+}
+
+/// bps → "+3.42%"。正负号保留，界面统一百分比的既有裁定。
+fn percent_from_bps(bps: i64) -> String {
+    format!("{:+.2}%", bps as f64 / 100.0)
+}
+
+/// Ratio → 展示用小数。大数不带小数位，小数保留三位。
+fn ratio_display(ratio: &ptt_trade_domain::Ratio) -> String {
+    let value = ratio.numerator as f64 / (ratio.denominator as f64).max(1.0);
+    if value >= 100.0 {
+        format!("{value:.0}")
+    } else {
+        format!("{value:.3}")
+    }
+}
+
 /// The analytics model as text lines — the probe's verification surface and
 /// the parity reference for the page.
 #[must_use]
@@ -6566,5 +6797,91 @@ mod route_walk_tests {
             Some(120),
             "3 × 2 × 1/5 = 6/5, so 100 comes back as 120"
         );
+    }
+}
+
+#[cfg(test)]
+mod exchange_model_tests {
+    use super::*;
+
+    const EXALTED: &str = "Metadata/Items/Currency/CurrencyAddModToRare";
+    const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
+
+    fn day_row(day: &str, volume_a: u64, volume_b: u64) -> ptt_storage::ExchangeDayMarketRow {
+        ptt_storage::ExchangeDayMarketRow {
+            utc_day: day.to_owned(),
+            asset_a: EXALTED.to_owned(),
+            asset_b: DIVINE.to_owned(),
+            volume_a,
+            volume_b,
+            hours_covered: 24,
+        }
+    }
+
+    fn hour_row(volume_a: u64, volume_b: u64) -> ptt_storage::ExchangeHourMarketRow {
+        ptt_storage::ExchangeHourMarketRow {
+            hour_ts: 1_788_159_600,
+            asset_a: EXALTED.to_owned(),
+            asset_b: DIVINE.to_owned(),
+            volume_a,
+            volume_b,
+            lowest_stock_a: volume_a,
+            highest_stock_a: volume_a,
+            lowest_stock_b: volume_b,
+            highest_stock_b: volume_b,
+            lowest_ratio_a: "1".to_owned(),
+            lowest_ratio_b: "1".to_owned(),
+            highest_ratio_a: "1".to_owned(),
+            highest_ratio_b: "1".to_owned(),
+        }
+    }
+
+    fn tuning() -> MarketTuning {
+        MarketTuning {
+            settlement_assets: vec!["exalted_orb".to_owned()],
+            anchor_asset: None,
+            ..MarketTuning::default()
+        }
+    }
+
+    #[test]
+    fn prices_against_the_configured_anchor_through_the_real_mapping() {
+        // 真实的 GGG 路径走真实的映射表:路径名与资产名的反差(AddModToRare
+        // = 崇高)在这条链上不许再骗到任何人。
+        let days: Vec<_> = (1..=9)
+            .map(|day| day_row(&format!("2026-08-{day:02}"), 4000, 10))
+            .collect();
+        let hours = vec![hour_row(4150, 10)];
+        let model = exchange_model(&days, &hours, "Runes of Aldur", &tuning()).expect("model");
+        assert_eq!(model.coverage_percent, 100);
+        assert_eq!(model.anchor_asset_id.to_string(), "exalted-orb");
+        assert_eq!(model.rows.len(), 1);
+        let divine = &model.rows[0];
+        assert_eq!(divine.asset_id.to_string(), "divine-orb");
+        assert_eq!(
+            divine.value_in_anchor,
+            Some(ptt_trade_domain::Ratio::from_parts(415, 1).expect("ratio"))
+        );
+        // 只配了结算锚,神圣不在任何列表里 -> 大雷达眼中的"新面孔"。
+        assert!(!divine.tracked);
+        let lines = render_exchange(&model, UiLanguage::Chinese);
+        assert!(lines[0].contains("Runes of Aldur"));
+    }
+
+    #[test]
+    fn unmapped_paths_become_a_coverage_gap_not_a_silent_loss() {
+        let days = vec![
+            day_row("2026-08-01", 4000, 10),
+            ptt_storage::ExchangeDayMarketRow {
+                utc_day: "2026-08-01".to_owned(),
+                asset_a: "Metadata/Items/Currency/BrandNewThing".to_owned(),
+                asset_b: DIVINE.to_owned(),
+                volume_a: 1,
+                volume_b: 1,
+                hours_covered: 1,
+            },
+        ];
+        let model = exchange_model(&days, &[], "Runes of Aldur", &tuning()).expect("model");
+        assert_eq!(model.coverage_percent, 50);
     }
 }
