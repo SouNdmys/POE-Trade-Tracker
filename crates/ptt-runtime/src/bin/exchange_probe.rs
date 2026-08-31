@@ -15,6 +15,15 @@
 //!       同时给出成交量口径与挂单库存口径的两份流动性读数，供证据分工裁定。
 //!   `exchange_probe --reconcile --league "<联赛名>" [--cache DIR]`
 //!       把 OCR 库里的 taker 汇率逐条对进同小时同对的 API 区间，输出命中率。
+//!   `exchange_probe --status`
+//!       读生产表：水位、近 48 小时覆盖、日折/清理进度、映射覆盖率。
+//!       镜像 app 同步的读路径，app 里看到的数字和这里对不上就是漂移。
+//!   `exchange_probe --audit`
+//!       复查 market_count=0 的小时 mark：CDN 不可变、可重查，假空直接
+//!       重抓覆写修复（replace 连 mark 带行一起换，不需要删除原语）。
+//!
+//! `--status`/`--audit` 的联赛默认取设置里的 `exchange.league`，
+//! `--league` 可覆盖；其余子命令仍要求显式 `--league`。
 
 #[cfg(windows)]
 mod probe {
@@ -34,11 +43,29 @@ mod probe {
                 .and_then(|index| arguments.get(index + 1))
                 .cloned()
         };
-        if !(has("--fetch") || has("--paths") || has("--trend") || has("--reconcile")) {
-            return Err("nothing to do: pass --fetch / --paths / --trend / --reconcile".to_owned());
+        let any_command = has("--fetch")
+            || has("--paths")
+            || has("--trend")
+            || has("--reconcile")
+            || has("--status")
+            || has("--audit");
+        if !any_command {
+            return Err("nothing to do: see the file header for subcommands".to_owned());
         }
 
-        let league = option("--league").ok_or("--league \"<联赛英文名>\" is required")?;
+        let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+        let settings = ptt_settings::SettingsStore::release_default_from(&local)
+            .load()
+            .settings;
+        let configured_league = settings
+            .market_tuning(settings.active_profile.game)
+            .exchange
+            .league
+            .trim()
+            .to_owned();
+        let league = option("--league")
+            .or_else(|| (!configured_league.is_empty()).then(|| configured_league.clone()))
+            .ok_or("--league \"<联赛英文名>\" is required (or set it in Settings)")?;
         let hours: u64 = option("--hours")
             .unwrap_or_else(|| "48".to_owned())
             .parse()
@@ -48,10 +75,6 @@ mod probe {
             .parse()
             .map_err(|error| format!("--top: {error}"))?;
 
-        let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
-        let settings = ptt_settings::SettingsStore::release_default_from(&local)
-            .load()
-            .settings;
         let realm = settings.active_profile.game.as_str().to_owned();
 
         let cache_dir = option("--cache").map_or_else(
@@ -78,6 +101,12 @@ mod probe {
         }
         if has("--reconcile") {
             session.reconcile()?;
+        }
+        if has("--status") {
+            session.status()?;
+        }
+        if has("--audit") {
+            session.audit()?;
         }
         Ok(())
     }
@@ -590,6 +619,135 @@ mod probe {
                 println!("{line}");
             }
             Ok(())
+        }
+    }
+
+    impl Session {
+        /// 生产表的健康面：水位、近 48 小时覆盖、日折/清理进度、映射覆盖。
+        /// app 的同步读的就是这些数字，这里对不上 = 探针或生产漂移了。
+        fn status(&self) -> Result<(), String> {
+            let store =
+                ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+                    .map_err(|error| format!("storage: {error}"))?;
+            let now_ts = chrono::Utc::now().timestamp();
+            let watermark = store
+                .exchange_watermark(&self.realm, &self.league)
+                .map_err(|error| format!("watermark: {error}"))?;
+            match watermark {
+                Some(mark) => println!(
+                    "watermark: {mark} ({}) age {} min",
+                    format_hour(mark.max(0) as u64),
+                    (now_ts - mark) / 60,
+                ),
+                None => println!("watermark: none -- this (game, league) has never synced"),
+            }
+            let marks = store
+                .list_exchange_hour_marks(&self.realm, &self.league)
+                .map_err(|error| format!("hour marks: {error}"))?;
+            let recent_floor = now_ts - 48 * 3600;
+            let recent: Vec<_> = marks
+                .iter()
+                .filter(|mark| mark.hour_ts >= recent_floor)
+                .collect();
+            let empties = recent.iter().filter(|mark| mark.market_count == 0).count();
+            println!(
+                "hours: total={} last-48h={} (empty {empties})",
+                marks.len(),
+                recent.len(),
+            );
+            let day_marks = store
+                .list_exchange_day_marks(&self.realm, &self.league)
+                .map_err(|error| format!("day marks: {error}"))?;
+            println!(
+                "days folded: {} ({} .. {})",
+                day_marks.len(),
+                day_marks.first().map_or("-", |mark| &mark.utc_day),
+                day_marks.last().map_or("-", |mark| &mark.utc_day),
+            );
+
+            // 映射覆盖：近 24 小时存进来的行里，两侧路径都映射得上的占比。
+            let mapping = poe2_index().map_err(|error| format!("mapping: {error}"))?;
+            let rows = store
+                .load_exchange_hours(&self.realm, &self.league, now_ts - 24 * 3600, now_ts)
+                .map_err(|error| format!("hours: {error}"))?;
+            let mapped = rows
+                .iter()
+                .filter(|row| {
+                    mapping.contains_key(&row.asset_a) && mapping.contains_key(&row.asset_b)
+                })
+                .count();
+            if rows.is_empty() {
+                println!("mapping: no stored rows in the last 24h to measure");
+            } else {
+                println!(
+                    "mapping: {mapped}/{} stored rows fully mapped ({}%)",
+                    rows.len(),
+                    mapped * 100 / rows.len(),
+                );
+            }
+            Ok(())
+        }
+
+        /// 复查确认为空的小时。CDN 不可变、可重查：当时空、现在有数据,
+        /// 说明护栏被穿了(发布延迟超过三小时)。修复就是重抓覆写——
+        /// `replace_exchange_hour` 连 mark 带行整体换,不需要删除原语。
+        fn audit(&self) -> Result<(), String> {
+            let mut store =
+                ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+                    .map_err(|error| format!("storage: {error}"))?;
+            let empties: Vec<i64> = store
+                .list_exchange_hour_marks(&self.realm, &self.league)
+                .map_err(|error| format!("hour marks: {error}"))?
+                .into_iter()
+                .filter(|mark| mark.market_count == 0)
+                .map(|mark| mark.hour_ts)
+                .collect();
+            println!("audit: {} confirmed-empty hours to re-check", empties.len());
+            let now = chrono::Utc::now();
+            let mut throttled = false;
+            let mut repaired = 0usize;
+            for hour_ts in empties {
+                // 走缓存优先的同一条取数路,审计本身不该打爆 CDN。
+                let bytes = self.load_hour(hour_ts.max(0) as u64, &mut throttled)?;
+                let hour =
+                    parse_hour(&bytes).map_err(|error| format!("parse {hour_ts}: {error}"))?;
+                let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
+                    .rows_for_league(&self.league)
+                    .map(|row| storage_row(hour_ts, row))
+                    .collect();
+                if rows.is_empty() {
+                    continue;
+                }
+                store
+                    .replace_exchange_hour(&self.realm, &self.league, hour_ts, &rows, now)
+                    .map_err(|error| format!("repair {hour_ts}: {error}"))?;
+                println!(
+                    "  REPAIRED {hour_ts} ({}): {} rows were published after all",
+                    format_hour(hour_ts.max(0) as u64),
+                    rows.len(),
+                );
+                repaired += 1;
+            }
+            println!("audit: repaired {repaired}");
+            Ok(())
+        }
+    }
+
+    fn storage_row(hour_ts: i64, row: &MarketRow) -> ptt_storage::ExchangeHourMarketRow {
+        ptt_storage::ExchangeHourMarketRow {
+            hour_ts,
+            asset_a: row.asset_a.clone(),
+            asset_b: row.asset_b.clone(),
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+            lowest_stock_a: row.lowest_stock_a,
+            lowest_stock_b: row.lowest_stock_b,
+            highest_stock_a: row.highest_stock_a,
+            highest_stock_b: row.highest_stock_b,
+            lowest_ratio_a: row.lowest_ratio_a.clone(),
+            lowest_ratio_b: row.lowest_ratio_b.clone(),
+            highest_ratio_a: row.highest_ratio_a.clone(),
+            highest_ratio_b: row.highest_ratio_b.clone(),
         }
     }
 
