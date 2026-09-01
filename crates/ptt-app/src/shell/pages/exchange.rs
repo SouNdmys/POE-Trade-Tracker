@@ -75,6 +75,15 @@ impl AppShell {
                     .text_color(c(TEXT_META)),
                 )
                 .child(
+                    // 手上真实有几天日线——"拉没拉到"从此有地方看。
+                    mono(ptt_runtime::report_text::fill(
+                        text.exchange_data_days,
+                        &[&model.data_days.to_string()],
+                    ))
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_META)),
+                )
+                .child(
                     mono(format!("{} {drift}", text.exchange_drift))
                         .text_size(fs(FS_10_5))
                         .text_color(c(TEXT_META)),
@@ -329,10 +338,15 @@ impl AppShell {
         if days.is_empty() {
             days.push(1);
         }
+        // 真实数据天数永远是一个可选档——五测教训：40 天落在 30 和 45 的
+        // 档位缝里，拉成功了界面上却看不出任何变化。
+        if !days.contains(&u64::from(data_days)) {
+            days.push(u64::from(data_days));
+        }
         if !days.contains(&selected) {
             days.push(selected);
-            days.sort_unstable();
         }
+        days.sort_unstable();
         let choices: Vec<AssetChoice> = days
             .iter()
             .map(|day| {

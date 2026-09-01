@@ -184,12 +184,26 @@ fn run_sync_round(
             .map_err(|error| format!("marks: {error}"))?
             .first()
             .map(|mark| mark.hour_ts);
+        // 已折成完整日线的天不再抓（五测的死循环：小时明细超出保留窗被清，
+        // 只认小时 mark 的计划就永远重抓那段）。小时层是脚手架，日线是账本。
+        let folded: std::collections::BTreeSet<String> = store
+            .list_exchange_day_marks(game, league)
+            .map_err(|error| format!("day marks: {error}"))?
+            .into_iter()
+            .filter(|mark| mark.hour_count >= 24)
+            .map(|mark| mark.utc_day)
+            .collect();
         plan_backward(
             earliest,
             now.timestamp(),
             floor,
             exchange.backfill_days,
             48 - forward.len(),
+            |hour_ts| {
+                chrono::DateTime::from_timestamp(hour_ts, 0)
+                    .map(|ts| ts.format("%Y-%m-%d").to_string())
+                    .is_some_and(|day| folded.contains(&day))
+            },
         )
     } else {
         Vec::new()

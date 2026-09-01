@@ -68,6 +68,10 @@ pub fn plan_fetch(
 /// 旧历史永远补不进来——"设置没生效"。降序是刻意的：mark 集合始终保持
 /// "连续后缀"的形状，中断在哪都能靠"当前最早 mark"重新算出下一步，
 /// 不会在中间留洞（日折叠的连续性检查依赖这一点）。
+/// `already_folded(hour_ts)` = 这个小时所在的天已经折成完整日线，不必再抓。
+/// 五测教训：小时明细超出保留窗会被清理，只看"最早的小时 mark"的计划
+/// 会永远重抓那段已折叠的历史——小时层是临时脚手架，日线才是账本，
+/// 计划必须认账本。
 #[must_use]
 pub fn plan_backward(
     earliest_mark: Option<i64>,
@@ -75,6 +79,7 @@ pub fn plan_backward(
     floor_ts: Option<i64>,
     backfill_days: u64,
     max_hours_per_run: usize,
+    already_folded: impl Fn(i64) -> bool,
 ) -> Vec<i64> {
     let Some(earliest) = earliest_mark else {
         // 一小时都没有：冷启动归正向计划管，这里没活。
@@ -90,7 +95,9 @@ pub fn plan_backward(
     let mut hours = Vec::new();
     let mut hour_ts = earliest - 3600;
     while hour_ts >= floor && hours.len() < max_hours_per_run {
-        hours.push(hour_ts);
+        if !already_folded(hour_ts) {
+            hours.push(hour_ts);
+        }
         hour_ts -= 3600;
     }
     hours
@@ -152,7 +159,7 @@ mod plan_tests {
     fn backward_extends_history_when_the_window_grows() {
         // 已有 14 天，回补改成 30：往回走 16 天，降序、紧贴最早 mark。
         let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
-        let hours = plan_backward(Some(earliest), NOW, None, 30, 10_000);
+        let hours = plan_backward(Some(earliest), NOW, None, 30, 10_000, |_| false);
         assert_eq!(hours.len(), 16 * 24);
         assert_eq!(hours[0], earliest - 3600);
         assert!(hours.windows(2).all(|pair| pair[1] == pair[0] - 3600));
@@ -161,18 +168,32 @@ mod plan_tests {
     #[test]
     fn backward_is_idle_when_history_already_reaches_the_floor() {
         let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
-        assert!(plan_backward(Some(earliest), NOW, None, 14, 10_000).is_empty());
-        assert!(plan_backward(None, NOW, None, 30, 10_000).is_empty());
+        assert!(plan_backward(Some(earliest), NOW, None, 14, 10_000, |_| false).is_empty());
+        assert!(plan_backward(None, NOW, None, 30, 10_000, |_| false).is_empty());
     }
 
     #[test]
     fn backward_respects_the_run_cap() {
         let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
-        let hours = plan_backward(Some(earliest), NOW, None, 30, 48);
+        let hours = plan_backward(Some(earliest), NOW, None, 30, 48, |_| false);
         assert_eq!(hours.len(), 48);
         // 下一轮从新的"最早 mark"接着走。
-        let next = plan_backward(Some(*hours.last().unwrap()), NOW, None, 30, 48);
+        let next = plan_backward(Some(*hours.last().unwrap()), NOW, None, 30, 48, |_| false);
         assert_eq!(next[0], hours.last().unwrap() - 3600);
+    }
+
+    #[test]
+    fn backward_skips_days_already_folded_to_daily_lines() {
+        // 已折叠的天被清掉小时明细后，计划必须跳过它们去够更深的历史，
+        // 否则就是"抓了折、折了清、清了又抓"的死循环。
+        let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
+        let folded_floor = earliest - 5 * 24 * 3600;
+        let hours = plan_backward(Some(earliest), NOW, None, 30, 10_000, |hour_ts| {
+            hour_ts >= folded_floor
+        });
+        assert!(!hours.is_empty());
+        // 计划里不含已折叠区间的任何小时，且真的够到了更深处。
+        assert!(hours.iter().all(|hour_ts| *hour_ts < folded_floor));
     }
 
     #[test]
