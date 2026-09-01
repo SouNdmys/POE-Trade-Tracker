@@ -21,16 +21,18 @@ impl AppShell {
             return;
         }
         self.exchange_sync_kicked = true;
-        self.begin_exchange_sync(cx);
+        self.begin_exchange_sync(cx, false);
     }
 
-    /// 设置改了联赛之后从头来一轮。`begin` 自己会前进代次，
-    /// 旧链在下一次醒来时发现代次不对就安静退场。
+    /// 手动来一轮（按钮/设置变更）。`begin` 自己会前进代次，旧链在下一次
+    /// 醒来时发现代次不对就安静退场。手动轮永远出声——四测反馈：
+    /// 点了没反馈，分不清生效、无事可做还是网断了。
     pub(crate) fn restart_exchange_sync(&mut self, cx: &mut Context<Self>) {
-        self.begin_exchange_sync(cx);
+        self.push_log("exchange: sync started".to_owned());
+        self.begin_exchange_sync(cx, true);
     }
 
-    fn begin_exchange_sync(&mut self, cx: &mut Context<Self>) {
+    fn begin_exchange_sync(&mut self, cx: &mut Context<Self>, manual: bool) {
         let game = self.settings.active_profile.game;
         let exchange = self.settings.market_tuning(game).exchange.clone();
         let game_key = game.as_str().to_owned();
@@ -73,6 +75,12 @@ impl AppShell {
                         }
                         if round.worth_a_log_line() {
                             this.push_log(round.log_line());
+                        } else if manual {
+                            // 自动轮安静无妨，手动轮必须交代"没事可做"。
+                            this.push_log(
+                                "exchange: nothing to fetch -- already at the latest hour"
+                                    .to_owned(),
+                            );
                         }
                         cx.notify();
                     }
@@ -97,7 +105,7 @@ impl AppShell {
             cx.background_executor().timer(delay).await;
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.exchange_sync_generation == generation {
-                    this.begin_exchange_sync(cx);
+                    this.begin_exchange_sync(cx, false);
                 }
             })
             .ok();
@@ -152,12 +160,14 @@ fn run_sync_round(
     let watermark = store
         .exchange_watermark(game, league)
         .map_err(|error| format!("watermark: {error}"))?;
-    // 配置过赛季就从赛季起点回补，没配就用默认窗口（backfill_days）。
-    let floor = store
-        .active_season(game)
-        .ok()
-        .flatten()
-        .map(|row| row.started_at.timestamp());
+    // 四测修正：两个下限**都**生效——不早于赛季起点，也不超过用户要的
+    // 天数窗口。此前赛季起点完全接管，"拉取历史(天)"成了摆设；想拉全季
+    // 就把天数填大，回补自动停在赛季起点。
+    let floor = store.active_season(game).ok().flatten().map(|row| {
+        let window_floor =
+            now.timestamp() - (exchange.backfill_days as i64).saturating_mul(24 * 3600);
+        row.started_at.timestamp().max(window_floor)
+    });
     let forward = plan_fetch(
         watermark,
         now.timestamp(),
