@@ -3473,8 +3473,11 @@ pub struct ExchangeModel {
     pub synced_through: Option<i64>,
     /// 水位距最新完整小时还差几个小时。0 = 追平。
     pub hours_behind: i64,
-    /// 涨跌列的天数（用户在表头轮换的那个 N）。
+    /// 涨跌列的天数（用户选的那个 N）。
     pub trend_days: u32,
+    /// 手上真实握有的日线天数。涨跌选择器的上限由它定：
+    /// 只回补了 14 天就别让人选 30，选了也是假的。
+    pub data_days: u32,
 }
 
 /// 大雷达的一条证据。枚举而不是一句现成话：界面按语言渲染，证据保持结构化。
@@ -3665,6 +3668,12 @@ pub fn exchange_model(
         synced_through: None,
         hours_behind: 0,
         trend_days,
+        data_days: {
+            let mut days: Vec<&str> = day_rows.iter().map(|row| row.utc_day.as_str()).collect();
+            days.sort_unstable();
+            days.dedup();
+            u32::try_from(days.len()).unwrap_or(u32::MAX)
+        },
     })
 }
 

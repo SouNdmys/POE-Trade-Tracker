@@ -133,6 +133,12 @@ impl AppShell {
                         })),
                     ),
             );
+        // 二测反馈：两个数字框光有名字看不懂，给一行人话。
+        body = body.child(
+            mono(text.exchange_settings_hint)
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META)),
+        );
 
         let purge_label = if self.purge_armed {
             text.season_purge_confirm
@@ -269,8 +275,15 @@ impl AppShell {
             .trim()
             .to_string();
         let exchange = self.settings.market_tuning(game).exchange.clone();
+        // 上限 365：三测提出"一次拉 30000 天怎么办"。回补真正的硬下限是
+        // 赛季起点（配置了就到赛季为止），这里的钳位只是把荒谬值挡在门口
+        // 并说一声，而不是静默接受或崩掉。
         let mut parse_days = |raw: &str, label: &str, current: u64| -> u64 {
             match raw.parse::<u64>() {
+                Ok(days) if days > 365 => {
+                    self.push_log(format!("exchange: {label} {days} clamped to 365"));
+                    365
+                }
                 Ok(days) => days,
                 Err(_) => {
                     self.push_log(format!(

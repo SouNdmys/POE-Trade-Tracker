@@ -45,11 +45,13 @@ pub fn ensure_exchange_day_rollups(
     if marks.is_empty() {
         return Ok(outcome);
     }
-    let done: std::collections::BTreeSet<String> = store
+    // day → 折叠时数。留时数而不是只留"折过"：向回补历史会让旧天长出
+    // 新小时，时数对不上就重折——mark 挡"重复劳动"，不挡"账变了"。
+    let done: BTreeMap<String, u32> = store
         .list_exchange_day_marks(game, league)
         .map_err(|error| format!("day marks: {error}"))?
         .into_iter()
-        .map(|mark| mark.utc_day)
+        .map(|mark| (mark.utc_day, mark.hour_count))
         .collect();
 
     let today = now.format("%Y-%m-%d").to_string();
@@ -66,7 +68,8 @@ pub fn ensure_exchange_day_rollups(
         if *day >= today {
             continue;
         }
-        if done.contains(day) {
+        let marks_now = u32::try_from(day_marks.len()).unwrap_or(u32::MAX);
+        if done.get(day).copied() == Some(marks_now) {
             outcome.days_already_done += 1;
             continue;
         }
@@ -292,6 +295,26 @@ mod exchange_rollup_tests {
         let outcome =
             ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
         assert_eq!(outcome.days_processed.len(), 1);
+    }
+
+    #[test]
+    fn backfilled_hours_reopen_a_folded_day() {
+        // 联赛头部的半天先折了（12 小时）；向回补把前半天补齐后，
+        // 时数对不上必须重折——mark 挡重复劳动，不挡账变了。
+        let mut store = MarketStore::open_in_memory().expect("store");
+        write_hours(&mut store, DAY_START + 12 * 3600, 12);
+        let first =
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+        assert_eq!(first.days_processed.len(), 1);
+        write_hours(&mut store, DAY_START, 12);
+        let healed =
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("refold");
+        assert_eq!(healed.days_processed, vec!["2026-08-30".to_owned()]);
+        let days = store
+            .load_exchange_days("poe2", LEAGUE, "2026-08-30", "2026-08-30")
+            .expect("days");
+        assert_eq!(days[0].hours_covered, 24);
+        assert_eq!(days[0].volume_a, 24 * 400);
     }
 
     #[test]

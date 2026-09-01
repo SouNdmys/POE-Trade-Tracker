@@ -143,7 +143,7 @@ fn run_sync_round(
     exchange: &ptt_settings::ExchangeTuning,
 ) -> Result<SyncRound, String> {
     use ptt_exchange_history::fetch::ExchangeFetcher;
-    use ptt_exchange_history::plan::{EmptyHourVerdict, classify_empty, plan_fetch};
+    use ptt_exchange_history::plan::{EmptyHourVerdict, classify_empty, plan_backward, plan_fetch};
 
     let league = exchange.league.trim();
     let mut store = ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
@@ -158,55 +158,85 @@ fn run_sync_round(
         .ok()
         .flatten()
         .map(|row| row.started_at.timestamp());
-    let hours = plan_fetch(
+    let forward = plan_fetch(
         watermark,
         now.timestamp(),
         floor,
         exchange.backfill_days,
         48,
     );
+    // 剩余预算往回补：用户把回补天数改大时，历史从这里长出来。
+    // 首测教训：正向计划只会从水位往前走，"设置没生效"就是缺了这半边。
+    // 两段分开循环——正向最新小时"还没发布"只该停下正向，不该饿死回补。
+    let backward = if forward.len() < 48 {
+        let earliest = store
+            .list_exchange_hour_marks(game, league)
+            .map_err(|error| format!("marks: {error}"))?
+            .first()
+            .map(|mark| mark.hour_ts);
+        plan_backward(
+            earliest,
+            now.timestamp(),
+            floor,
+            exchange.backfill_days,
+            48 - forward.len(),
+        )
+    } else {
+        Vec::new()
+    };
 
     let fetcher = ExchangeFetcher::new();
-    let planned = hours.len();
-    let mut deferred = false;
+    let planned = forward.len() + backward.len();
     let mut stored = 0usize;
     let mut league_rows = 0usize;
     let mut published_hours = 0usize;
-    for (index, hour_ts) in hours.iter().enumerate() {
-        if index > 0 {
-            // 对公开 CDN 的礼貌节流；历史不可变，不赶时间。
-            std::thread::sleep(Duration::from_millis(250));
-        }
-        let bytes = fetcher
-            .fetch_hour(game, *hour_ts as u64)
-            .map_err(|error| format!("fetch {hour_ts}: {error}"))?;
-        let hour = ptt_exchange_history::parse_hour(&bytes)
-            .map_err(|error| format!("parse {hour_ts}: {error}"))?;
-        if hour.markets.is_empty() {
-            match classify_empty(*hour_ts, now.timestamp()) {
-                // 可能只是还没发布：不写 mark，收工，下一轮从这里续。
-                EmptyHourVerdict::RetryLater => {
-                    deferred = true;
-                    break;
-                }
-                EmptyHourVerdict::ConfirmedEmpty => {
-                    store
-                        .replace_exchange_hour(game, league, *hour_ts, &[], now)
-                        .map_err(|error| format!("store {hour_ts}: {error}"))?;
-                    stored += 1;
-                }
+    let mut throttled = false;
+    let mut fetch_one =
+        |hour_ts: i64, store: &mut ptt_storage::MarketStore| -> Result<bool, String> {
+            if throttled {
+                // 对公开 CDN 的礼貌节流；历史不可变，不赶时间。
+                std::thread::sleep(Duration::from_millis(250));
             }
-        } else {
-            published_hours += 1;
-            let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
-                .rows_for_league(league)
-                .map(|row| to_storage_row(*hour_ts, row))
-                .collect();
-            league_rows += rows.len();
-            store
-                .replace_exchange_hour(game, league, *hour_ts, &rows, now)
-                .map_err(|error| format!("store {hour_ts}: {error}"))?;
-            stored += 1;
+            throttled = true;
+            let bytes = fetcher
+                .fetch_hour(game, hour_ts as u64)
+                .map_err(|error| format!("fetch {hour_ts}: {error}"))?;
+            let hour = ptt_exchange_history::parse_hour(&bytes)
+                .map_err(|error| format!("parse {hour_ts}: {error}"))?;
+            if hour.markets.is_empty() {
+                match classify_empty(hour_ts, now.timestamp()) {
+                    // 可能只是还没发布：不写 mark，这一段收工，下一轮再续。
+                    EmptyHourVerdict::RetryLater => return Ok(false),
+                    EmptyHourVerdict::ConfirmedEmpty => {
+                        store
+                            .replace_exchange_hour(game, league, hour_ts, &[], now)
+                            .map_err(|error| format!("store {hour_ts}: {error}"))?;
+                        stored += 1;
+                    }
+                }
+            } else {
+                published_hours += 1;
+                let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
+                    .rows_for_league(league)
+                    .map(|row| to_storage_row(hour_ts, row))
+                    .collect();
+                league_rows += rows.len();
+                store
+                    .replace_exchange_hour(game, league, hour_ts, &rows, now)
+                    .map_err(|error| format!("store {hour_ts}: {error}"))?;
+                stored += 1;
+            }
+            Ok(true)
+        };
+    for hour_ts in &forward {
+        if !fetch_one(*hour_ts, &mut store)? {
+            break;
+        }
+    }
+    for hour_ts in &backward {
+        // 回补的小时都足够老，不会撞"还没发布"；撞上也照常跳段。
+        if !fetch_one(*hour_ts, &mut store)? {
+            break;
         }
     }
 
@@ -226,9 +256,10 @@ fn run_sync_round(
         days_folded: fold.days_processed.len(),
         days_pruned: prune.days_deleted.len(),
         league_name_suspect: published_hours >= 3 && league_rows == 0,
-        // 计划排满 48 且没撞"还没发布"，几乎必然还有欠账。
-        // （恰好整 48 追平的边界情形只多跑一轮空转，无害。）
-        caught_up: planned < 48 || deferred,
+        // 计划排满 48（正向或回补被预算截断）就必然还有欠账；
+        // 计划不满时，即便最新小时"还没发布"（deferred），剩下的也只有
+        // 等发布这一件事，照常睡到整点。恰好整 48 的边界多空转一轮，无害。
+        caught_up: planned < 48,
     })
 }
 

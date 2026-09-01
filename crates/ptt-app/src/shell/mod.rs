@@ -334,6 +334,10 @@ pub struct AppShell {
     /// 交易所回补天数与小时线保留天数（首测反馈：设置得有地方改）。
     pub(crate) exchange_backfill_input: gpui::Entity<gpui_component::input::InputState>,
     pub(crate) exchange_retention_input: gpui::Entity<gpui_component::input::InputState>,
+    /// 涨跌天数下拉（二测反馈：轮换按钮不如选单，且上限要跟数据走）。
+    pub(crate) exchange_trend_select: pages::convert::AssetSelect,
+    /// 选单上次按 (数据天数, 选中值) 装配的签名，变了才重建选项。
+    pub(crate) exchange_trend_synced: (u32, u64),
     /// The season boundary date box (YYYY-MM-DD; empty = right now). One box
     /// serves both "start on this date" and "ended on this date".
     pub(crate) season_date_input: gpui::Entity<gpui_component::input::InputState>,
@@ -558,6 +562,31 @@ impl AppShell {
                 }),
             )
         };
+        // 涨跌天数下拉。选项列表跟着数据天数走,在 render 里装配
+        // (重建选项需要 window,后台答案带不动它,和兑换页选择器同一个理由)。
+        let exchange_trend_select = Self::new_asset_select(window, cx);
+        cx.subscribe(
+            &exchange_trend_select,
+            |this: &mut AppShell, _, event, cx| {
+                let gpui_component::select::SelectEvent::Confirm(Some(value)) = event else {
+                    return;
+                };
+                let Ok(days) = value.to_string().parse::<u64>() else {
+                    return;
+                };
+                let game = this.settings.active_profile.game;
+                if this.settings.market_tuning(game).exchange.trend_days == days {
+                    return;
+                }
+                this.settings.market_tuning_mut(game).exchange.trend_days = days;
+                match this.settings_store.save(&this.settings) {
+                    Ok(()) => this.report_stale = true,
+                    Err(error) => this.push_log(format!("settings save failed: {error}")),
+                }
+                cx.notify();
+            },
+        )
+        .detach();
         let season_date_input = cx
             .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
         // A picked currency or a typed holding is a new question, so the page
@@ -617,6 +646,8 @@ impl AppShell {
             exchange_league_input,
             exchange_backfill_input,
             exchange_retention_input,
+            exchange_trend_select,
+            exchange_trend_synced: (0, 0),
             season_date_input,
             season_info: None,
             purge_armed: false,
@@ -1584,8 +1615,9 @@ fn load_exchange(
     let hour_rows = store
         .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
         .map_err(|error| format!("hours: {error}"))?;
-    // 日窗口 14 天:趋势是 2 天近期对 7 天基线,余量给缺天。
-    let from_day = (now - chrono::Duration::days(14))
+    // 日窗口 60 天:日折行小而永久,窗口宽一点让"回补 30 天 + 30 天涨跌"
+    // 都装得下;真正算多少天由涨跌选择器和数据长度决定。
+    let from_day = (now - chrono::Duration::days(60))
         .format("%Y-%m-%d")
         .to_string();
     let to_day = now.format("%Y-%m-%d").to_string();
@@ -1667,6 +1699,8 @@ impl Render for AppShell {
         // frame after one lands.
         #[cfg(windows)]
         self.sync_convert_selects(window, cx);
+        #[cfg(windows)]
+        self.sync_exchange_trend_select(window, cx);
         let text = self.text();
         let (dot_kind, state_label) = if self.fault.is_some() {
             (StatusKind::Error, text.state_fault)

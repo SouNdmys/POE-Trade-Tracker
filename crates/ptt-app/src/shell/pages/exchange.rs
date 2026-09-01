@@ -4,8 +4,9 @@
 //! 并排放着：同一个市场，两本账，各说各的事实，谁也不冒充谁。
 
 use gpui::{Context, ParentElement, Styled, div, px};
-use gpui_component::StyledExt as _;
+use gpui_component::{Sizable, Size, StyledExt as _, select::Select};
 
+use super::convert::{AssetChoice, AssetList};
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
@@ -14,13 +15,20 @@ use crate::ui::{LedgerButton, StatusKind, button, chip, empty_state, mono, panel
 /// 滚动列表也设个上限：尾巴里是每小时几笔的冷门，画六百行 div 换不来信息。
 const ROW_LIMIT: usize = 200;
 
-/// 涨跌列可轮换的天数档。任意值可在 settings.json 的
-/// `exchange.trend_days` 里手填，计算对数据长度自动钳位。
-const TREND_DAY_STEPS: [u64; 6] = [1, 2, 3, 5, 7, 14];
+/// 涨跌天数下拉的候选档。装配时按"手上真实有几天数据"截断——
+/// 只回补了 14 天就别让人选 30，选了也是假的（二测反馈）。
+const TREND_DAY_CHOICES: [u64; 18] = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 17, 21, 25, 30, 45, 60,
+];
 
-/// 走势列宽：最多 14 根柱 × (3px 柱 + 1px 缝) + 余量。
-const SPARK_WIDTH: f32 = 70.;
-const SPARK_DAYS: usize = 14;
+/// 走势列宽。柱宽随天数自适应，7 天到 60 天都塞得进这一格。
+const SPARK_WIDTH: f32 = 100.;
+
+/// 柱图画多少天：跟涨跌选择器同一个 N（二测反馈：两处不同步看着像坏了），
+/// 但至少 7 根——一两根柱子摆不出"走势"这个词。
+fn spark_days(model: &ptt_runtime::reports::ExchangeModel) -> usize {
+    (model.trend_days as usize).clamp(7, 60)
+}
 
 impl AppShell {
     /// The Exchange page.
@@ -108,6 +116,12 @@ impl AppShell {
                         this.restart_exchange_sync(cx);
                         cx.notify();
                     })),
+                )
+                .child(
+                    div()
+                        .w(px(96.))
+                        .flex_none()
+                        .child(Select::new(&self.exchange_trend_select).with_size(Size::Small)),
                 ),
         );
 
@@ -129,7 +143,7 @@ impl AppShell {
                     ptt_runtime::reports::ExchangeRadarSignal::VolumeSurge { percent } => {
                         ptt_runtime::report_text::fill(
                             text.exchange_radar_surge,
-                            &[&percent.to_string()],
+                            &[&format!("{:.1}", percent as f64 / 100.0)],
                         )
                     }
                     ptt_runtime::reports::ExchangeRadarSignal::Appreciating { relative_bps } => {
@@ -165,25 +179,20 @@ impl AppShell {
             .gap_2()
             .child(head_cell(text.exchange_col_asset, 210.))
             .child(head_cell(text.exchange_col_value, 110.))
-            // 涨跌列的表头是个按钮：点一下换一档天数（1/2/3/5/7/14 轮转）。
-            .child(
-                div().w(px(80.)).flex_none().child(
-                    button(
-                        "exchange-trend-days",
-                        LedgerButton::Quiet,
-                        &ptt_runtime::report_text::fill(
-                            text.exchange_col_trend_days,
-                            &[&model.trend_days.to_string()],
-                        ),
-                        cx,
-                    )
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.cycle_exchange_trend_days();
-                        cx.notify();
-                    })),
+            .child(head_cell(
+                &ptt_runtime::report_text::fill(
+                    text.exchange_col_trend_days,
+                    &[&model.trend_days.to_string()],
                 ),
-            )
-            .child(head_cell(text.exchange_col_spark, SPARK_WIDTH))
+                80.,
+            ))
+            .child(head_cell(
+                &ptt_runtime::report_text::fill(
+                    text.exchange_col_trend_days,
+                    &[&spark_days(&model).to_string()],
+                ),
+                SPARK_WIDTH,
+            ))
             .child(head_cell(text.exchange_col_volume, 90.))
             .child(head_cell(text.exchange_col_depth, 90.))
             .child(head_cell(text.exchange_surge_tag, 70.))
@@ -215,7 +224,8 @@ impl AppShell {
                 .top_partner
                 .as_ref()
                 .map_or_else(String::new, |partner| self.display_name(partner.as_str()));
-            // 放量标签只在显著时出现（≥2 倍自身小时中位），别把每行都点亮。
+            // 放量标签只在显著时出现（≥2 倍自身常态），别把每行都点亮。
+            // 展示成倍数（×4.8）而不是百分比：二测反馈百分比读不懂。
             let surge = row.surge_percent.filter(|percent| *percent >= 200);
             let mut line = div()
                 .px_3()
@@ -239,7 +249,7 @@ impl AppShell {
                     div()
                         .w(px(SPARK_WIDTH))
                         .flex_none()
-                        .child(spark_bars(&row.value_by_day)),
+                        .child(spark_bars(&row.value_by_day, spark_days(&model))),
                 )
                 .child(data_cell(compact_amount(row.volume_per_hour_anchor), 90.))
                 .child(data_cell(
@@ -248,12 +258,10 @@ impl AppShell {
                     90.,
                 ));
             line = if let Some(percent) = surge {
-                line.child(
-                    div()
-                        .w(px(70.))
-                        .flex_none()
-                        .child(chip(StatusKind::Warning, &format!("{percent}%"))),
-                )
+                line.child(div().w(px(70.)).flex_none().child(chip(
+                    StatusKind::Warning,
+                    &format!("×{:.1}", percent as f64 / 100.0),
+                )))
             } else {
                 line.child(div().w(px(70.)).flex_none())
             };
@@ -286,22 +294,64 @@ impl AppShell {
             )
     }
 
-    /// 涨跌列天数轮换：找当前档的下一档，写设置，标脏重算。
-    /// 手填的任意值不在档位表里时，从最接近的一档继续往下走。
+    /// 把涨跌天数下拉的选项对齐到"手上真实有几天数据"。
+    ///
+    /// 重建选项需要 window，后台答案带不动它，所以在每帧 render 里装配，
+    /// 靠 (数据天数, 选中值) 的签名挡住重复重建——和兑换页选择器同一个套路。
+    /// settings.json 里手填的任意天数不在档位表里也会被塞进选项，
+    /// 免得选单显示空白把人吓一跳。
     #[cfg(windows)]
-    fn cycle_exchange_trend_days(&mut self) {
-        let game = self.settings.active_profile.game;
-        let current = self.settings.market_tuning(game).exchange.trend_days;
-        let next = TREND_DAY_STEPS
+    pub(crate) fn sync_exchange_trend_select(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        let PageData::Exchange(model) = &self.report else {
+            return;
+        };
+        let data_days = model.data_days.max(1);
+        let selected = self
+            .settings
+            .market_tuning(self.settings.active_profile.game)
+            .exchange
+            .trend_days;
+        if self.exchange_trend_synced == (data_days, selected) {
+            return;
+        }
+        self.exchange_trend_synced = (data_days, selected);
+
+        let text = self.text();
+        let mut days: Vec<u64> = TREND_DAY_CHOICES
             .iter()
             .copied()
-            .find(|step| *step > current)
-            .unwrap_or(TREND_DAY_STEPS[0]);
-        self.settings.market_tuning_mut(game).exchange.trend_days = next;
-        match self.settings_store.save(&self.settings) {
-            Ok(()) => self.report_stale = true,
-            Err(error) => self.push_log(format!("settings save failed: {error}")),
+            .filter(|day| *day <= u64::from(data_days))
+            .collect();
+        if days.is_empty() {
+            days.push(1);
         }
+        if !days.contains(&selected) {
+            days.push(selected);
+            days.sort_unstable();
+        }
+        let choices: Vec<AssetChoice> = days
+            .iter()
+            .map(|day| {
+                AssetChoice::new(
+                    day.to_string(),
+                    ptt_runtime::report_text::fill(
+                        text.exchange_col_trend_days,
+                        &[&day.to_string()],
+                    ),
+                    vec![day.to_string()],
+                )
+            })
+            .collect();
+        let select = self.exchange_trend_select.clone();
+        let value = gpui::SharedString::from(selected.to_string());
+        select.update(cx, |state, cx| {
+            state.set_items(AssetList::new(choices), window, cx);
+            state.set_selected_value(&value, window, cx);
+        });
     }
 }
 
@@ -334,8 +384,8 @@ fn local_hour(hour_ts: i64) -> String {
 
 /// 迷你日柱：有几天画几根，不画假折线（Analytics 页的既定裁定 §6）。
 /// min-max 归一化只决定柱高，f32 只在这条绘制边界上出现。
-fn spark_bars(values: &[ptt_trade_domain::Ratio]) -> gpui::Div {
-    let recent = values.len().saturating_sub(SPARK_DAYS);
+fn spark_bars(values: &[ptt_trade_domain::Ratio], span_days: usize) -> gpui::Div {
+    let recent = values.len().saturating_sub(span_days);
     let points: Vec<f32> = values[recent..]
         .iter()
         .map(|rate| rate.numerator as f32 / (rate.denominator as f32).max(1.0))
@@ -348,9 +398,11 @@ fn spark_bars(values: &[ptt_trade_domain::Ratio]) -> gpui::Div {
     let min = points.iter().copied().fold(f32::INFINITY, f32::min);
     let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     let span = (max - min).max(f32::EPSILON);
+    // 柱宽吃满列宽：60 根时 ~1px，7 根时封顶 5px。
+    let bar = ((SPARK_WIDTH - 4.0) / span_days as f32 - 1.0).clamp(1.0, 5.0);
     for value in &points {
         let height = 4.0 + 12.0 * ((value - min) / span);
-        row = row.child(div().w(px(3.)).h(px(height)).bg(c(TEXT_GHOST)));
+        row = row.child(div().w(px(bar)).h(px(height)).bg(c(TEXT_GHOST)));
     }
     row
 }

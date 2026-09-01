@@ -62,6 +62,40 @@ pub fn plan_fetch(
     hours
 }
 
+/// 往回补历史：从最早的 mark 往更早处走，降序，直到 floor。
+///
+/// 首测教训：用户把回补天数从 14 改成 30，正向计划只会从水位往前走，
+/// 旧历史永远补不进来——"设置没生效"。降序是刻意的：mark 集合始终保持
+/// "连续后缀"的形状，中断在哪都能靠"当前最早 mark"重新算出下一步，
+/// 不会在中间留洞（日折叠的连续性检查依赖这一点）。
+#[must_use]
+pub fn plan_backward(
+    earliest_mark: Option<i64>,
+    now_ts: i64,
+    floor_ts: Option<i64>,
+    backfill_days: u64,
+    max_hours_per_run: usize,
+) -> Vec<i64> {
+    let Some(earliest) = earliest_mark else {
+        // 一小时都没有：冷启动归正向计划管，这里没活。
+        return Vec::new();
+    };
+    let newest_complete = now_ts.div_euclid(3600) * 3600 - 3600;
+    let default_floor = newest_complete - (backfill_days as i64).saturating_mul(24 * 3600) + 3600;
+    let floor = floor_ts
+        .map_or(default_floor, |value| {
+            value.div_euclid(3600) * 3600 + i64::from(value.rem_euclid(3600) != 0) * 3600
+        })
+        .max(3600);
+    let mut hours = Vec::new();
+    let mut hour_ts = earliest - 3600;
+    while hour_ts >= floor && hours.len() < max_hours_per_run {
+        hours.push(hour_ts);
+        hour_ts -= 3600;
+    }
+    hours
+}
+
 #[cfg(test)]
 mod plan_tests {
     use super::*;
@@ -112,6 +146,33 @@ mod plan_tests {
         // 下一轮从这轮的"水位"接着走，最终能追平。
         let next = plan_fetch(Some(*hours.last().unwrap()), NOW, None, 14, 48);
         assert_eq!(next[0], hours.last().unwrap() + 3600);
+    }
+
+    #[test]
+    fn backward_extends_history_when_the_window_grows() {
+        // 已有 14 天，回补改成 30：往回走 16 天，降序、紧贴最早 mark。
+        let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
+        let hours = plan_backward(Some(earliest), NOW, None, 30, 10_000);
+        assert_eq!(hours.len(), 16 * 24);
+        assert_eq!(hours[0], earliest - 3600);
+        assert!(hours.windows(2).all(|pair| pair[1] == pair[0] - 3600));
+    }
+
+    #[test]
+    fn backward_is_idle_when_history_already_reaches_the_floor() {
+        let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
+        assert!(plan_backward(Some(earliest), NOW, None, 14, 10_000).is_empty());
+        assert!(plan_backward(None, NOW, None, 30, 10_000).is_empty());
+    }
+
+    #[test]
+    fn backward_respects_the_run_cap() {
+        let earliest = NEWEST_COMPLETE - 14 * 24 * 3600 + 3600;
+        let hours = plan_backward(Some(earliest), NOW, None, 30, 48);
+        assert_eq!(hours.len(), 48);
+        // 下一轮从新的"最早 mark"接着走。
+        let next = plan_backward(Some(*hours.last().unwrap()), NOW, None, 30, 48);
+        assert_eq!(next[0], hours.last().unwrap() - 3600);
     }
 
     #[test]
