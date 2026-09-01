@@ -3467,6 +3467,12 @@ pub struct ExchangeModel {
     /// （`run_opportunity_radar`）管关注组内的可执行机会，两者分工见
     /// CORE-TRADING-MODEL P11。
     pub radar: Vec<ExchangeRadarItem>,
+    /// 抓取水位（unix 整点秒）。由 loader 填充——水位是存储层的事实，
+    /// 模型函数不碰 store。首测教训：回补进行中页面一片空白又不说进度，
+    /// 看起来就像卡死了。
+    pub synced_through: Option<i64>,
+    /// 水位距最新完整小时还差几个小时。0 = 追平。
+    pub hours_behind: i64,
 }
 
 /// 大雷达的一条证据。枚举而不是一句现成话：界面按语言渲染，证据保持结构化。
@@ -3651,6 +3657,8 @@ pub fn exchange_model(
         market_median_move_bps: pulse.market_median_move_bps,
         rows,
         radar,
+        synced_through: None,
+        hours_behind: 0,
     })
 }
 

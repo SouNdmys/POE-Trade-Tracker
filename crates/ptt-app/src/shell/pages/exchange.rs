@@ -9,7 +9,7 @@ use gpui_component::StyledExt as _;
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
-use crate::ui::{StatusKind, chip, empty_state, mono, panel};
+use crate::ui::{LedgerButton, StatusKind, button, chip, empty_state, mono, panel};
 
 /// 首版列出多少行。按锚计价成交量降序，前 40 已覆盖绝大部分成交额；
 /// 全量列表等滚动容器一起来。
@@ -22,7 +22,7 @@ const SPARK_DAYS: usize = 14;
 impl AppShell {
     /// The Exchange page.
     #[cfg(windows)]
-    pub(crate) fn render_exchange(&mut self, _cx: &mut Context<Self>) -> gpui::Div {
+    pub(crate) fn render_exchange(&mut self, cx: &mut Context<Self>) -> gpui::Div {
         let PageData::Exchange(model) = &self.report else {
             return div().flex_grow().flex().flex_col().gap_3().p_3().child(
                 panel()
@@ -67,6 +67,44 @@ impl AppShell {
                     mono(format!("{} {drift}", text.exchange_drift))
                         .text_size(fs(FS_10_5))
                         .text_color(c(TEXT_META)),
+                ),
+        );
+
+        // ---- 同步进度行 + 手动同步 ----
+        // 首测教训：回补进行中页面空白又不报进度，看起来像卡死。
+        // 水位、欠账、按钮放在一行，"到哪了"和"推一把"都有地方。
+        let sync_line = model.synced_through.map_or_else(
+            || text.exchange_no_data.to_owned(),
+            |mark| {
+                ptt_runtime::report_text::fill(
+                    text.exchange_synced_through,
+                    &[&local_hour(mark), &model.hours_behind.to_string()],
+                )
+            },
+        );
+        head = head.child(
+            div()
+                .h_flex()
+                .items_center()
+                .gap_2()
+                .child(mono(sync_line).text_size(fs(FS_10_5)).text_color(
+                    if model.hours_behind > 1 {
+                        c(TEXT_DATA)
+                    } else {
+                        c(TEXT_META)
+                    },
+                ))
+                .child(
+                    button(
+                        "exchange-sync-now",
+                        LedgerButton::Secondary,
+                        text.exchange_sync_now,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.restart_exchange_sync(cx);
+                        cx.notify();
+                    })),
                 ),
         );
 
@@ -137,7 +175,12 @@ impl AppShell {
 
         let mut rows = div().flex().flex_col().min_h(px(0.));
         if model.rows.is_empty() {
-            rows = rows.child(empty_state(text.exchange_no_data));
+            // 在回补和真没数据是两句话：前者是"等一下"，后者是"去检查"。
+            rows = rows.child(empty_state(if model.hours_behind > 1 {
+                text.exchange_backfilling
+            } else {
+                text.exchange_no_data
+            }));
         }
         for row in model.rows.iter().take(ROW_LIMIT) {
             let name = self.display_name(row.asset_id.as_str());
@@ -237,6 +280,18 @@ fn data_cell(value: String, width: f32) -> gpui::Div {
         .w(px(width))
         .flex_none()
         .child(mono(value).text_size(fs(FS_11_5)))
+}
+
+/// 水位时间戳按本地时区显示——个人工具，读表的人在哪个时区一目了然。
+fn local_hour(hour_ts: i64) -> String {
+    chrono::DateTime::from_timestamp(hour_ts, 0).map_or_else(
+        || "?".to_owned(),
+        |ts| {
+            ts.with_timezone(&chrono::Local)
+                .format("%m-%d %H:00")
+                .to_string()
+        },
+    )
 }
 
 /// 迷你日柱：有几天画几根，不画假折线（Analytics 页的既定裁定 §6）。

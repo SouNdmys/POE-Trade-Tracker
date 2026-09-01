@@ -50,13 +50,26 @@ impl AppShell {
                         .await,
                 )
             };
+            // 没追平就立刻续跑：单轮 48 小时是界不是目标，冷启动的 336 小时
+            // 要是每小时才走一轮，追平要七个钟头——首测就是这么卡住的。
+            let caught_up = match &outcome {
+                Some(Ok(round)) => round.caught_up,
+                // 出错等下一个整点再试；没配联赛也是。
+                Some(Err(_)) | None => true,
+            };
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.exchange_sync_generation != generation {
                     return;
                 }
                 match outcome {
-                    Some(Ok(round)) if round.worth_a_log_line() => {
-                        this.push_log(round.log_line());
+                    Some(Ok(round)) => {
+                        if round.stored > 0 || round.days_folded > 0 {
+                            // 新数据落库了，正开着的页面得知道账变了。
+                            this.report_stale = true;
+                        }
+                        if round.worth_a_log_line() {
+                            this.push_log(round.log_line());
+                        }
                         cx.notify();
                     }
                     Some(Err(error)) => {
@@ -64,13 +77,18 @@ impl AppShell {
                         this.push_log(format!("exchange: {error}"));
                         cx.notify();
                     }
-                    _ => {}
+                    None => {}
                 }
             })
             .ok();
-            // 睡到下一个 HH:05：数据整点后才发布且有延迟，错开 5 分钟。
-            // 睡过头（系统休眠）也没关系，醒来这轮照样从水位续传。
-            cx.background_executor().timer(until_next_five_past()).await;
+            // 追平了才睡到下一个 HH:05（数据整点后才发布，错开 5 分钟）；
+            // 睡过头（系统休眠）也没关系，醒来照样从水位续传。
+            let delay = if caught_up {
+                until_next_five_past()
+            } else {
+                Duration::from_secs(1)
+            };
+            cx.background_executor().timer(delay).await;
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.exchange_sync_generation == generation {
                     this.begin_exchange_sync(cx);
@@ -89,6 +107,9 @@ struct SyncRound {
     days_pruned: usize,
     /// 小时发布了、这个联赛却一行都没有——最常见的原因是联赛名拼错。
     league_name_suspect: bool,
+    /// 这轮之后水位已到最新。false = 撞上单轮上限，还有历史欠着，
+    /// 立刻续跑下一轮而不是睡到整点。
+    caught_up: bool,
 }
 
 impl SyncRound {
@@ -140,6 +161,8 @@ fn run_sync_round(
     );
 
     let fetcher = ExchangeFetcher::new();
+    let planned = hours.len();
+    let mut deferred = false;
     let mut stored = 0usize;
     let mut league_rows = 0usize;
     let mut published_hours = 0usize;
@@ -156,7 +179,10 @@ fn run_sync_round(
         if hour.markets.is_empty() {
             match classify_empty(*hour_ts, now.timestamp()) {
                 // 可能只是还没发布：不写 mark，收工，下一轮从这里续。
-                EmptyHourVerdict::RetryLater => break,
+                EmptyHourVerdict::RetryLater => {
+                    deferred = true;
+                    break;
+                }
                 EmptyHourVerdict::ConfirmedEmpty => {
                     store
                         .replace_exchange_hour(game, league, *hour_ts, &[], now)
@@ -194,6 +220,9 @@ fn run_sync_round(
         days_folded: fold.days_processed.len(),
         days_pruned: prune.days_deleted.len(),
         league_name_suspect: published_hours >= 3 && league_rows == 0,
+        // 计划排满 48 且没撞"还没发布"，几乎必然还有欠账。
+        // （恰好整 48 追平的边界情形只多跑一轮空转，无害。）
+        caught_up: planned < 48 || deferred,
     })
 }
 
@@ -236,6 +265,7 @@ mod exchange_sync_tests {
             days_folded: 0,
             days_pruned: 0,
             league_name_suspect: false,
+            caught_up: true,
         };
         assert!(!quiet.worth_a_log_line());
     }
@@ -247,6 +277,7 @@ mod exchange_sync_tests {
             days_folded: 0,
             days_pruned: 0,
             league_name_suspect: true,
+            caught_up: true,
         };
         assert!(suspect.worth_a_log_line());
         assert!(suspect.log_line().contains("league name"));

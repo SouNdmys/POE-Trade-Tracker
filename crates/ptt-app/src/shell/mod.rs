@@ -1562,7 +1562,16 @@ fn load_exchange(
     let day_rows = store
         .load_exchange_days(game, &league, &from_day, &to_day)
         .map_err(|error| format!("days: {error}"))?;
-    ptt_runtime::reports::exchange_model(&day_rows, &hour_rows, &league, &request.tuning).map(Some)
+    let mut model =
+        ptt_runtime::reports::exchange_model(&day_rows, &hour_rows, &league, &request.tuning)?;
+    // 水位与欠账在这里补进模型：进度是存储层的事实，模型函数不碰 store。
+    let watermark = store
+        .exchange_watermark(game, &league)
+        .map_err(|error| format!("watermark: {error}"))?;
+    let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
+    model.synced_through = watermark;
+    model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+    Ok(Some(model))
 }
 
 #[cfg(windows)]
