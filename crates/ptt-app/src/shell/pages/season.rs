@@ -78,38 +78,61 @@ impl AppShell {
                     ),
             );
 
-        body = body.child(
-            div()
-                .h_flex()
-                .items_center()
-                .gap_2()
-                .child(
-                    div()
-                        .w(px(150.))
-                        .flex_none()
-                        .text_size(fs(FS_11_5))
-                        .text_color(c(TEXT_META))
-                        .child(text.exchange_league_label),
-                )
-                .child(
-                    div()
-                        .w(px(200.))
-                        .flex_none()
-                        .child(Input::new(&self.exchange_league_input).with_size(Size::Small)),
-                )
-                .child(
-                    button(
-                        "exchange-league-save",
-                        LedgerButton::Secondary,
-                        text.exchange_league_save,
-                        cx,
+        body =
+            body.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .w(px(150.))
+                            .flex_none()
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.exchange_league_label),
                     )
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.save_exchange_league(cx);
-                        cx.notify();
-                    })),
-                ),
-        );
+                    .child(
+                        div()
+                            .w(px(200.))
+                            .flex_none()
+                            .child(Input::new(&self.exchange_league_input).with_size(Size::Small)),
+                    )
+                    .child(
+                        div()
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.exchange_backfill_label),
+                    )
+                    .child(
+                        div().w(px(56.)).flex_none().child(
+                            Input::new(&self.exchange_backfill_input).with_size(Size::Small),
+                        ),
+                    )
+                    .child(
+                        div()
+                            .text_size(fs(FS_11_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.exchange_retention_label),
+                    )
+                    .child(
+                        div().w(px(56.)).flex_none().child(
+                            Input::new(&self.exchange_retention_input).with_size(Size::Small),
+                        ),
+                    )
+                    .child(
+                        button(
+                            "exchange-league-save",
+                            LedgerButton::Secondary,
+                            text.exchange_league_save,
+                            cx,
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.save_exchange_league(cx);
+                            cx.notify();
+                        })),
+                    ),
+            );
 
         let purge_label = if self.purge_armed {
             text.season_purge_confirm
@@ -218,10 +241,12 @@ impl AppShell {
         }
     }
 
-    /// 保存交易所联赛名并立刻按新联赛开一轮同步。
+    /// 保存交易所三项设置（联赛/回补天数/保留天数）并立刻按新配置开一轮。
     ///
     /// 换联赛 = 换一本账：新 (game, league) 的水位从零回补，旧联赛的数据
     /// 原地保留。旧同步链靠代次作废，不会出现两条链同时抓。
+    /// 数字框留空或写不成数就保持原值——静默吞掉一个坏输入比报错更糟，
+    /// 所以保持原值也要在日志里说一声。
     #[cfg(windows)]
     fn save_exchange_league(&mut self, cx: &mut Context<Self>) {
         let league = self
@@ -231,16 +256,50 @@ impl AppShell {
             .trim()
             .to_string();
         let game = self.settings.active_profile.game;
-        if self.settings.market_tuning(game).exchange.league == league {
+        let backfill_raw = self
+            .exchange_backfill_input
+            .read(cx)
+            .value()
+            .trim()
+            .to_string();
+        let retention_raw = self
+            .exchange_retention_input
+            .read(cx)
+            .value()
+            .trim()
+            .to_string();
+        let exchange = self.settings.market_tuning(game).exchange.clone();
+        let mut parse_days = |raw: &str, label: &str, current: u64| -> u64 {
+            match raw.parse::<u64>() {
+                Ok(days) => days,
+                Err(_) => {
+                    self.push_log(format!(
+                        "exchange: {label} \"{raw}\" ignored, kept {current}"
+                    ));
+                    current
+                }
+            }
+        };
+        let backfill_days = parse_days(&backfill_raw, "backfill", exchange.backfill_days);
+        let retention_days = parse_days(&retention_raw, "retention", exchange.hour_retention_days);
+        if exchange.league == league
+            && exchange.backfill_days == backfill_days
+            && exchange.hour_retention_days == retention_days
+        {
             return;
         }
-        self.settings.market_tuning_mut(game).exchange.league = league.clone();
+        {
+            let tuning = self.settings.market_tuning_mut(game);
+            tuning.exchange.league = league.clone();
+            tuning.exchange.backfill_days = backfill_days;
+            tuning.exchange.hour_retention_days = retention_days;
+        }
         match self.settings_store.save(&self.settings) {
             Ok(()) => {
                 self.push_log(if league.is_empty() {
                     "exchange: league cleared, sync off".to_owned()
                 } else {
-                    format!("exchange: league set to {league}")
+                    format!("exchange: league {league}, backfill {backfill_days}d, keep {retention_days}d")
                 });
                 self.restart_exchange_sync(cx);
             }

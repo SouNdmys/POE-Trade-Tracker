@@ -331,6 +331,9 @@ pub struct AppShell {
     pub(crate) season_input: gpui::Entity<gpui_component::input::InputState>,
     /// 交易所联赛名（GGG 英文名）。空 = 不抓取，是历史同步的总开关。
     pub(crate) exchange_league_input: gpui::Entity<gpui_component::input::InputState>,
+    /// 交易所回补天数与小时线保留天数（首测反馈：设置得有地方改）。
+    pub(crate) exchange_backfill_input: gpui::Entity<gpui_component::input::InputState>,
+    pub(crate) exchange_retention_input: gpui::Entity<gpui_component::input::InputState>,
     /// The season boundary date box (YYYY-MM-DD; empty = right now). One box
     /// serves both "start on this date" and "ended on this date".
     pub(crate) season_date_input: gpui::Entity<gpui_component::input::InputState>,
@@ -387,6 +390,9 @@ pub struct AppShell {
     /// 不会出现两条链同时在每小时抓一遍。
     #[cfg(windows)]
     exchange_sync_generation: u64,
+    /// 交易所页每分钟例行刷新的上一次时刻(见 `tick`)。
+    #[cfg(windows)]
+    exchange_page_refreshed: Option<std::time::Instant>,
     /// 哪一次检查/安装的答案有资格写回来。
     ///
     /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
@@ -529,17 +535,28 @@ impl AppShell {
         let season_input =
             cx.new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("0.6"));
         // 预填当前值:这是"改一个已有设置"的框,空着会让人以为没配过。
-        let exchange_league_input = {
-            let league = settings
+        let (exchange_league_input, exchange_backfill_input, exchange_retention_input) = {
+            let exchange = settings
                 .market_tuning(settings.active_profile.game)
                 .exchange
-                .league
                 .clone();
-            cx.new(|cx| {
-                gpui_component::input::InputState::new(window, cx)
-                    .default_value(league)
-                    .placeholder("Runes of Aldur")
-            })
+            (
+                cx.new(|cx| {
+                    gpui_component::input::InputState::new(window, cx)
+                        .default_value(exchange.league.clone())
+                        .placeholder("Runes of Aldur")
+                }),
+                cx.new(|cx| {
+                    gpui_component::input::InputState::new(window, cx)
+                        .default_value(exchange.backfill_days.to_string())
+                        .placeholder("14")
+                }),
+                cx.new(|cx| {
+                    gpui_component::input::InputState::new(window, cx)
+                        .default_value(exchange.hour_retention_days.to_string())
+                        .placeholder("14")
+                }),
+            )
         };
         let season_date_input = cx
             .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
@@ -598,6 +615,8 @@ impl AppShell {
             tuning_inputs,
             season_input,
             exchange_league_input,
+            exchange_backfill_input,
+            exchange_retention_input,
             season_date_input,
             season_info: None,
             purge_armed: false,
@@ -659,6 +678,7 @@ impl AppShell {
             update_checked: false,
             exchange_sync_kicked: false,
             exchange_sync_generation: 0,
+            exchange_page_refreshed: None,
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
@@ -685,6 +705,16 @@ impl AppShell {
             self.kick_update_check(cx);
             // 交易所历史同步同理:第一轮补拉在后台跑,之后每小时自续。
             self.kick_exchange_sync(cx);
+            // 交易所页上的"落后 N 小时"是对着钟走的数,光等同步事件它会
+            // 陈旧。每分钟标脏一次:有界的一次读,不违反"报表不上帧循环"。
+            if self.page == Page::Exchange
+                && self
+                    .exchange_page_refreshed
+                    .is_none_or(|at| at.elapsed() >= Duration::from_secs(60))
+            {
+                self.exchange_page_refreshed = Some(std::time::Instant::now());
+                self.report_stale = true;
+            }
             // 摆放模式的回声:拖动落点与顶条按钮点击都由 wndproc 留言,
             // 这里是唯一取走留言的地方。
             self.poll_hud_placement(cx);

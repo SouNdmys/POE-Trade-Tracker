@@ -557,6 +557,10 @@ pub struct ExchangeTuning {
     /// 小时行是可再生的（CDN 一年内可重抓），日线才是唯一副本。
     #[serde(default = "default_exchange_hour_retention_days")]
     pub hour_retention_days: u64,
+    /// 交易所页涨跌列的天数（"N 天涨跌"）。表头点击轮换，
+    /// 数据不足 N 天时计算自动退到最早那天——上限受已有数据限制。
+    #[serde(default = "default_exchange_trend_days")]
+    pub trend_days: u64,
 }
 
 fn default_exchange_backfill_days() -> u64 {
@@ -565,6 +569,9 @@ fn default_exchange_backfill_days() -> u64 {
 fn default_exchange_hour_retention_days() -> u64 {
     14
 }
+fn default_exchange_trend_days() -> u64 {
+    7
+}
 
 impl Default for ExchangeTuning {
     fn default() -> Self {
@@ -572,6 +579,7 @@ impl Default for ExchangeTuning {
             league: String::new(),
             backfill_days: default_exchange_backfill_days(),
             hour_retention_days: default_exchange_hour_retention_days(),
+            trend_days: default_exchange_trend_days(),
         }
     }
 }

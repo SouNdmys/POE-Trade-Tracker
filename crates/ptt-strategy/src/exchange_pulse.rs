@@ -16,7 +16,7 @@ use ptt_trade_domain::{MarketAssetId, Ratio};
 
 use crate::day_rollup::lower_middle;
 use crate::market_analytics::{
-    AnalyticsThresholds, TrendVerdict, anchor_value, compose, window_trend_bps,
+    AnalyticsThresholds, TrendVerdict, anchor_value, bps_between, compose,
 };
 
 /// 一天里一个无向对的成交合计（已映射到 domain 资产 id）。
@@ -88,6 +88,7 @@ pub fn exchange_pulse(
     day_stats: &[ExchangePairDay],
     hour_stats: &[ExchangePairHour],
     anchor: &MarketAssetId,
+    trend_days: u32,
     thresholds: &AnalyticsThresholds,
 ) -> ExchangePulse {
     // ---- 每日锚计价：先直连，后桥接 ----
@@ -271,11 +272,9 @@ pub fn exchange_pulse(
         .filter_map(|days| days.keys().next_back().copied())
         .max();
     let mut raw_trend: BTreeMap<&MarketAssetId, i64> = BTreeMap::new();
-    if let Some(as_of) = as_of_day {
-        for (asset, days) in &value_by_day {
-            if let Some(bps) = window_trend_bps(days, as_of, thresholds) {
-                raw_trend.insert(asset, bps);
-            }
+    for (asset, days) in &value_by_day {
+        if let Some(bps) = endpoint_trend_bps(days, trend_days) {
+            raw_trend.insert(asset, bps);
         }
     }
     let market_median_move_bps = lower_middle(raw_trend.values().copied().collect());
@@ -366,6 +365,24 @@ pub fn exchange_pulse(
     }
 }
 
+/// N 天涨跌：最新一天的日 VWAP 对"N 天前或更早的最近一天"的 bps。
+///
+/// 端点比较而不是窗口中位——这列回答的是 ninja 式的"过去 N 天涨了多少"，
+/// N 由用户在表头轮换。数据不足 N 天时退到最早那天：
+/// 上限自动受已有数据限制（用户裁定），"不足"不该变成一列空白。
+fn endpoint_trend_bps(days: &BTreeMap<NaiveDate, Ratio>, trend_days: u32) -> Option<i64> {
+    let (latest_day, latest) = days.iter().next_back()?;
+    let target = *latest_day - chrono::Days::new(u64::from(trend_days));
+    let (baseline_day, baseline) = days
+        .range(..=target)
+        .next_back()
+        .or_else(|| days.iter().next())?;
+    if baseline_day == latest_day {
+        return None;
+    }
+    Some(bps_between(baseline, latest))
+}
+
 /// u128 累计量折回 Ratio。约分后仍溢出 u64 就放弃——不近似。
 fn ratio_from_u128(numerator: u128, denominator: u128) -> Option<Ratio> {
     if numerator == 0 || denominator == 0 {
@@ -437,7 +454,7 @@ mod exchange_pulse_tests {
         days.push(day_stat(7, "divine-orb", 10, 1200));
         days.push(day_stat(8, "divine-orb", 10, 1200));
         let hours = vec![hour_stat(0, "exalted-orb", "divine-orb", 1200, 10)];
-        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds());
         let divine = &pulse.assets[0];
         assert_eq!(divine.asset_id, asset("divine-orb"));
         assert_eq!(
@@ -470,7 +487,7 @@ mod exchange_pulse_tests {
             .iter()
             .map(|id| hour_stat(0, "exalted-orb", id, 1000, 10))
             .collect();
-        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds());
         assert_eq!(pulse.market_median_move_bps, Some(2000));
         let mirror = pulse
             .assets
@@ -502,7 +519,7 @@ mod exchange_pulse_tests {
                 volume_b: 1,
             },
         ];
-        let pulse = exchange_pulse(&days, &[], &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&days, &[], &asset("exalted-orb"), 7, &thresholds());
         // 断言走日序列：魔镜没有小时数据，不进 assets 主表，但日价必须合成出来。
         // （runtime 层会同时喂小时和日；这里验证的是合成本身。）
         assert!(pulse.assets.is_empty());
@@ -511,7 +528,7 @@ mod exchange_pulse_tests {
             hour_stat(0, "divine-orb", "exalted-orb", 10, 4000),
             hour_stat(0, "divine-orb", "mirror-of-kalandra", 100, 1),
         ];
-        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds());
         let mirror = pulse
             .assets
             .iter()
@@ -531,7 +548,7 @@ mod exchange_pulse_tests {
             hour_stat(0, "exalted-orb", "chaos-orb", 500, 50),
             hour_stat(0, "chaos-orb", "divine-orb", 40, 1),
         ];
-        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), 7, &thresholds());
         assert_eq!(pulse.assets[0].asset_id, asset("divine-orb"));
         assert_eq!(pulse.assets[0].top_partner, Some(asset("exalted-orb")));
         assert!(pulse.assets[0].volume_per_hour_anchor >= pulse.assets[1].volume_per_hour_anchor);
@@ -545,14 +562,14 @@ mod exchange_pulse_tests {
             hours.push(hour_stat(hour, "exalted-orb", "divine-orb", 1000, 10));
         }
         hours.push(hour_stat(8, "exalted-orb", "divine-orb", 5000, 50));
-        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), 7, &thresholds());
         assert_eq!(pulse.assets[0].surge_percent, Some(500));
         // 只有两个小时的历史撑不起"异常"的说法。
         let short = vec![
             hour_stat(0, "exalted-orb", "divine-orb", 1000, 10),
             hour_stat(1, "exalted-orb", "divine-orb", 5000, 50),
         ];
-        let pulse = exchange_pulse(&[], &short, &asset("exalted-orb"), &thresholds());
+        let pulse = exchange_pulse(&[], &short, &asset("exalted-orb"), 7, &thresholds());
         assert_eq!(pulse.assets[0].surge_percent, None);
     }
 }

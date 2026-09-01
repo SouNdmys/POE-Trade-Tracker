@@ -54,9 +54,13 @@ impl AppShell {
             // 要是每小时才走一轮，追平要七个钟头——首测就是这么卡住的。
             let caught_up = match &outcome {
                 Some(Ok(round)) => round.caught_up,
-                // 出错等下一个整点再试；没配联赛也是。
-                Some(Err(_)) | None => true,
+                // 没配联赛：等下一个整点（用户随时可能填上）。
+                None => true,
+                // 出错半分钟后重试，而不是睡到整点：回补半途一个 CDN 抖动
+                // 就把 157 小时的欠账挂一个钟头，看起来和卡死没有区别。
+                Some(Err(_)) => false,
             };
+            let errored = matches!(&outcome, Some(Err(_)));
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.exchange_sync_generation != generation {
                     return;
@@ -83,7 +87,9 @@ impl AppShell {
             .ok();
             // 追平了才睡到下一个 HH:05（数据整点后才发布，错开 5 分钟）；
             // 睡过头（系统休眠）也没关系，醒来照样从水位续传。
-            let delay = if caught_up {
+            let delay = if errored {
+                Duration::from_secs(30)
+            } else if caught_up {
                 until_next_five_past()
             } else {
                 Duration::from_secs(1)

@@ -3473,6 +3473,8 @@ pub struct ExchangeModel {
     pub synced_through: Option<i64>,
     /// 水位距最新完整小时还差几个小时。0 = 追平。
     pub hours_behind: i64,
+    /// 涨跌列的天数（用户在表头轮换的那个 N）。
+    pub trend_days: u32,
 }
 
 /// 大雷达的一条证据。枚举而不是一句现成话：界面按语言渲染，证据保持结构化。
@@ -3570,7 +3572,10 @@ pub fn exchange_model(
     let anchor =
         crate::live::domain_asset_id(&anchor_slug).map_err(|error| format!("{error:?}"))?;
     let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
-    let pulse = ptt_strategy::exchange_pulse(&day_stats, &hour_stats, &anchor, &thresholds);
+    // 1..=60 的钳位：0 天没有意义，60 天之外日窗口本来也没加载。
+    let trend_days = u32::try_from(tuning.exchange.trend_days.clamp(1, 60)).unwrap_or(7);
+    let pulse =
+        ptt_strategy::exchange_pulse(&day_stats, &hour_stats, &anchor, trend_days, &thresholds);
 
     let tracked: std::collections::BTreeSet<MarketAssetId> = tuning
         .settlement_assets
@@ -3659,6 +3664,7 @@ pub fn exchange_model(
         radar,
         synced_through: None,
         hours_behind: 0,
+        trend_days,
     })
 }
 

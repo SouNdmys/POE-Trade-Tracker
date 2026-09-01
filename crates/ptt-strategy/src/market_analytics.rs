@@ -659,7 +659,7 @@ fn median_rate_value(mut rates: Vec<Ratio>) -> Option<Ratio> {
 /// ((to / from) − 1) × 10000, floored via u128 cross-multiplication and
 /// saturated at the i64 rails (display/verdict use only; the rails are
 /// unreachable for real panel rates).
-fn bps_between(from: &Ratio, to: &Ratio) -> i64 {
+pub(crate) fn bps_between(from: &Ratio, to: &Ratio) -> i64 {
     let numerator = u128::from(to.numerator) * u128::from(from.denominator);
     let denominator = u128::from(to.denominator) * u128::from(from.numerator);
     let scaled = numerator.saturating_mul(10_000) / denominator.max(1);

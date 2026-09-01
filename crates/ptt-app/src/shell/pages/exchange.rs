@@ -9,11 +9,14 @@ use gpui_component::StyledExt as _;
 use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
-use crate::ui::{LedgerButton, StatusKind, button, chip, empty_state, mono, panel};
+use crate::ui::{LedgerButton, StatusKind, button, chip, empty_state, mono, panel, scrollable};
 
-/// 首版列出多少行。按锚计价成交量降序，前 40 已覆盖绝大部分成交额；
-/// 全量列表等滚动容器一起来。
-const ROW_LIMIT: usize = 40;
+/// 滚动列表也设个上限：尾巴里是每小时几笔的冷门，画六百行 div 换不来信息。
+const ROW_LIMIT: usize = 200;
+
+/// 涨跌列可轮换的天数档。任意值可在 settings.json 的
+/// `exchange.trend_days` 里手填，计算对数据长度自动钳位。
+const TREND_DAY_STEPS: [u64; 6] = [1, 2, 3, 5, 7, 14];
 
 /// 走势列宽：最多 14 根柱 × (3px 柱 + 1px 缝) + 余量。
 const SPARK_WIDTH: f32 = 70.;
@@ -162,7 +165,24 @@ impl AppShell {
             .gap_2()
             .child(head_cell(text.exchange_col_asset, 210.))
             .child(head_cell(text.exchange_col_value, 110.))
-            .child(head_cell(text.exchange_col_trend, 80.))
+            // 涨跌列的表头是个按钮：点一下换一档天数（1/2/3/5/7/14 轮转）。
+            .child(
+                div().w(px(80.)).flex_none().child(
+                    button(
+                        "exchange-trend-days",
+                        LedgerButton::Quiet,
+                        &ptt_runtime::report_text::fill(
+                            text.exchange_col_trend_days,
+                            &[&model.trend_days.to_string()],
+                        ),
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.cycle_exchange_trend_days();
+                        cx.notify();
+                    })),
+                ),
+            )
             .child(head_cell(text.exchange_col_spark, SPARK_WIDTH))
             .child(head_cell(text.exchange_col_volume, 90.))
             .child(head_cell(text.exchange_col_depth, 90.))
@@ -262,8 +282,26 @@ impl AppShell {
                     .overflow_hidden()
                     .child(head)
                     .child(header)
-                    .child(rows),
+                    .child(scrollable(rows, "exchange-rows")),
             )
+    }
+
+    /// 涨跌列天数轮换：找当前档的下一档，写设置，标脏重算。
+    /// 手填的任意值不在档位表里时，从最接近的一档继续往下走。
+    #[cfg(windows)]
+    fn cycle_exchange_trend_days(&mut self) {
+        let game = self.settings.active_profile.game;
+        let current = self.settings.market_tuning(game).exchange.trend_days;
+        let next = TREND_DAY_STEPS
+            .iter()
+            .copied()
+            .find(|step| *step > current)
+            .unwrap_or(TREND_DAY_STEPS[0]);
+        self.settings.market_tuning_mut(game).exchange.trend_days = next;
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
     }
 }
 
