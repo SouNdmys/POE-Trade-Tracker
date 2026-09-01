@@ -230,3 +230,42 @@ fn footprint_reports_the_exchange_tables() {
         assert!(names.contains(&table), "footprint missing {table}");
     }
 }
+
+#[test]
+fn a_wrong_season_start_can_be_amended_backward() {
+    // 三测的实况：0.5 被记成 08-22，真实开服 05-30。单调约束挡住了
+    // "重开一个更早的赛季"，所以必须有显式的修正通道。
+    let mut store = MarketStore::open_in_memory().expect("store");
+    let wrong = Utc.with_ymd_and_hms(2026, 8, 22, 13, 55, 0).unwrap();
+    store.start_season("poe2", "0.5", wrong).expect("start");
+    let truth = Utc.with_ymd_and_hms(2026, 5, 30, 0, 0, 0).unwrap();
+    let amended = store.amend_season_start("poe2", truth).expect("amend");
+    assert_eq!(amended.started_at, truth);
+    let active = store.active_season("poe2").expect("read").expect("some");
+    assert_eq!(active.started_at, truth);
+    assert_eq!(active.label, "0.5");
+}
+
+#[test]
+fn amendment_drags_an_auto_end_but_may_not_eat_the_previous_season() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    let old_start = Utc.with_ymd_and_hms(2026, 3, 1, 0, 0, 0).unwrap();
+    store
+        .start_season("poe2", "0.4", old_start)
+        .expect("start 0.4");
+    let wrong = Utc.with_ymd_and_hms(2026, 8, 22, 0, 0, 0).unwrap();
+    store.start_season("poe2", "0.5", wrong).expect("start 0.5");
+    // 0.4 的结束是 0.5 开启时自动盖的章（=错误的 08-22）——修正 0.5 到
+    // 05-30 时它必须跟着挪，而不是反过来挡住纠错。
+    let truth = Utc.with_ymd_and_hms(2026, 5, 30, 0, 0, 0).unwrap();
+    store.amend_season_start("poe2", truth).expect("amend");
+    let seasons = store.list_seasons("poe2").expect("list");
+    assert_eq!(seasons[0].started_at, truth);
+    assert_eq!(seasons[1].ended_at, Some(truth));
+    // 但吃进上一季的地盘（早于 0.4 的开始）永远非法。
+    let overlap = Utc.with_ymd_and_hms(2026, 2, 1, 0, 0, 0).unwrap();
+    assert!(matches!(
+        store.amend_season_start("poe2", overlap),
+        Err(StorageError::Rejected(_))
+    ));
+}

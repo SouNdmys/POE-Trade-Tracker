@@ -75,6 +75,13 @@ impl AppShell {
                                 this.end_active_season(cx);
                                 cx.notify();
                             })),
+                    )
+                    .child(
+                        button("season-amend", LedgerButton::Quiet, text.season_amend, cx)
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.amend_season_start(cx);
+                                cx.notify();
+                            })),
                     ),
             );
 
@@ -343,6 +350,37 @@ impl AppShell {
                     ));
                     // Every page now reads a clamped window.
                     self.report_stale = true;
+                }
+                Err(error) => self.push_log(format!("season: {error}")),
+            },
+            Err(error) => self.push_log(format!("storage: {error}")),
+        }
+        self.season_info = None;
+        self.purge_armed = false;
+    }
+
+    /// 修正当前赛季的开始日期（日期框必填——"修正到现在"没有意义）。
+    /// 成功后立刻重启交易所同步：回补下限变了，历史从新起点长出来。
+    #[cfg(windows)]
+    fn amend_season_start(&mut self, cx: &mut Context<Self>) {
+        if self.season_date_input.read(cx).value().trim().is_empty() {
+            self.push_log("season: give the corrected date in the date box first".to_owned());
+            return;
+        }
+        let Some(started_at) = self.season_boundary(cx) else {
+            return;
+        };
+        let game = self.settings.active_profile.game.as_str().to_owned();
+        match ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path()) {
+            Ok(mut store) => match store.amend_season_start(&game, started_at) {
+                Ok(season) => {
+                    self.push_log(format!(
+                        "season {} start corrected to {}",
+                        season.label,
+                        season.started_at.format("%Y-%m-%d")
+                    ));
+                    self.report_stale = true;
+                    self.restart_exchange_sync(cx);
                 }
                 Err(error) => self.push_log(format!("season: {error}")),
             },

@@ -740,6 +740,69 @@ impl MarketStore {
         Ok(active)
     }
 
+    /// 修正当前赛季的开始时间——填错了得能改（三测的教训：0.5 被记成
+    /// 08-22，真实开服 05-30，而"开启新赛季"的单调约束把纠错也一起挡了）。
+    ///
+    /// `season_id` 由开始时间派生，跟着一起换。唯一的硬约束是不许吃进
+    /// 上一季的地盘：新起点必须晚于上一季的结束（或其开始，若没记结束）。
+    pub fn amend_season_start(
+        &mut self,
+        game: &str,
+        started_at: DateTime<Utc>,
+    ) -> Result<SeasonRow, StorageError> {
+        let seasons = self.season_rows(game)?;
+        let Some(active) = seasons.first().cloned() else {
+            return Err(StorageError::Rejected(
+                "no season configured for this game".to_owned(),
+            ));
+        };
+        let mut drag_previous_end: Option<&SeasonRow> = None;
+        if let Some(previous) = seasons.get(1) {
+            // 上一季的结束若是"开新季时自动盖的章"（正是要修的那个错值），
+            // 它得跟着新起点一起挪，否则错误反过来挡住纠错。
+            let auto_ended = previous.ended_at == Some(active.started_at);
+            let previous_edge = if auto_ended {
+                previous.started_at
+            } else {
+                previous.ended_at.unwrap_or(previous.started_at)
+            };
+            if started_at <= previous_edge {
+                return Err(StorageError::Rejected(format!(
+                    "season start {} would overlap the previous season (up to {})",
+                    started_at.to_rfc3339(),
+                    previous_edge.to_rfc3339()
+                )));
+            }
+            if auto_ended {
+                drag_previous_end = Some(previous);
+            }
+        }
+        if let Some(ended_at) = active.ended_at {
+            if started_at >= ended_at {
+                return Err(StorageError::Rejected(format!(
+                    "season start {} is not before its end {}",
+                    started_at.to_rfc3339(),
+                    ended_at.to_rfc3339()
+                )));
+            }
+        }
+        if let Some(previous) = drag_previous_end {
+            self.connection.execute(
+                "UPDATE seasons SET ended_at = ?3 WHERE game = ?1 AND season_id = ?2",
+                params![previous.game, previous.season_id, started_at.to_rfc3339()],
+            )?;
+        }
+        self.connection.execute(
+            "UPDATE seasons SET season_id = ?3, started_at = ?3
+             WHERE game = ?1 AND season_id = ?2",
+            params![active.game, active.season_id, started_at.to_rfc3339()],
+        )?;
+        let mut amended = active;
+        amended.season_id = started_at.to_rfc3339();
+        amended.started_at = started_at;
+        Ok(amended)
+    }
+
     /// Latest `started_at` for the game; `None` when no season row exists.
     /// Callers treat `None` as "no clamp" — today's behavior exactly.
     pub fn active_season(&self, game: &str) -> Result<Option<SeasonRow>, StorageError> {
