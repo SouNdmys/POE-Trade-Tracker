@@ -1,12 +1,17 @@
 # POE Trade Tracker
 
 POE Trade Tracker is a Windows desktop program that reads the in-game currency exchange panel
-off your screen while you flip through pairs, and keeps every order book it reads. There is no
-game API and no price site behind it: what it knows is what you have looked at. From that pile
+off your screen while you flip through pairs, and keeps every order book it reads. From that pile
 of books it works out what each currency is worth against a settlement currency you choose,
 which currencies are scarce and which are oversupplied, what multi-hop routes exist between the
-pairs you have actually visited, and what each route returns if you come back the other way. It
-shows that across eight pages.
+pairs you have actually visited, and what each route returns if you come back the other way.
+
+Beside those books it keeps a second ledger. Once you name your league, it fetches the official
+currency-exchange history — hourly volumes and prices, published by Grinding Gear Games at
+`web.poecdn.com` — and runs the same route search over it, so the Exchange page and the
+exchange radar see the whole market, not only the pairs you flipped past. That is the only
+thing it fetches, it is read-only and anonymous, and it stays off until a league name is set.
+It shows all of that across nine pages.
 
 It does not tell you what to trade. The rule written at the top of
 [docs/CORE-TRADING-MODEL.md](docs/CORE-TRADING-MODEL.md) is that a number you can display and
@@ -20,9 +25,10 @@ Three limits worth knowing before you read further:
 - **You have to calibrate it first**, against a screenshot of your own client. The shipped
   region presets are drawn for 2560×1440 windowed fullscreen; at any other resolution they will
   not line up and framing the three regions yourself is not optional.
-- **It only knows the pairs you flipped past.** Nothing runs while you are elsewhere, nothing
-  is fetched, and putting a currency on the watchlist does not make the program go get data —
-  it only means coverage keeps measuring it.
+- **The books only know the pairs you flipped past.** Nothing is captured while you are
+  elsewhere, and putting a currency on the watchlist does not make the program go capture it —
+  it only means coverage keeps measuring it. The official exchange history is the one thing
+  that arrives on its own, once an hour, and only after you set a league name.
 
 Licensed under PolyForm Noncommercial 1.0.0: source-available, free for personal use,
 commercial use not granted. See [Licence](#licence).
@@ -46,7 +52,14 @@ docs/screenshots/ commits normally.
 ## Requirements
 
 **Windows, x64.** There is no Linux or macOS build — screen capture, the global hotkeys, the
-overlay and the OCR engine are all Win32/WinRT.
+overlay and the OCR engine are all Win32/WinRT. Windows 10 or newer: `Windows.Media.Ocr` and
+the DirectX-backed interface both need it.
+
+**The Visual C++ 2015–2022 x64 Redistributable.** `ptt-app.exe` and the ONNX runtime it loads
+both link the Microsoft C runtime dynamically. A machine without it fails in two different
+ways: the exe refuses to start with a "VCRUNTIME140.dll not found" dialog, and if only
+`onnxruntime.dll` is missing its runtime, the app starts but quietly loses the PP-OCRv5 fallback
+and recognises fewer currency names. Most machines with a game on them already have it.
 
 **Windows OCR language packs.** Recognition uses `Windows.Media.Ocr` as its primary engine, so
 the recognizers have to be installed on the machine:
@@ -93,7 +106,7 @@ second pipeline. How much real-frame evidence stands behind each profile differs
 |---|---|---|
 | PoE 2 · 繁體中文 | 51 | The calibrated reference. [docs/P1-CALIBRATION-NOTES.md](docs/P1-CALIBRATION-NOTES.md) documents it end to end: text polarity, geometry, layout constants, popup position modes. |
 | PoE 1 · 繁體中文 | 26 | Real exchange-panel frames. The +14px Traditional-Chinese table offset was measured against them, not guessed. |
-| PoE 1 · English | 12 | Ground truth from a hand-annotated fixture store — a human marked every field on ten real screenshots. |
+| PoE 1 · English | 12 | Ground truth from a hand-annotated fixture store — a human marked every field on twelve real screenshots. |
 | PoE 2 · English | 6 | The smallest corpus of the four. |
 
 All four corpora are 2560×1440. They are driven by the `book-probe --manifest` binary against
@@ -108,7 +121,7 @@ language offset applied, because it was already drawn on their own client.
 There is no installer, no elevation prompt, and no registry writes.
 
 1. Download the release zip from the Releases page.
-2. **Create a folder and extract into it.** The zip carries no folder of its own: nine files
+2. **Create a folder and extract into it.** The zip carries no folder of its own: twelve files
    arrive as four loose ones plus `assets\` and `licenses\`, so extracting into Downloads
    scatters them.
 3. Run `ptt-app.exe`. The window opens at 1180×640.
@@ -124,12 +137,14 @@ time you run it.
 
 ## First run
 
-This is the part people get wrong. Nothing is read until the three regions are framed.
+This is the part people get wrong. Nothing is read until the three regions are framed, and
+"start watch" refuses to start until they are — the refusal names the Calibrate page.
 
 1. **In Settings → Basics, pick your game and client language.** The reader matches panel text
    against that profile's wordlist, and the regions you are about to frame are stored under it
    too — the wrong profile reads nothing and never says why. The default is PoE 2 with a
-   Traditional Chinese client.
+   Traditional Chinese client, so an English-client player has to change it before anything
+   else.
 2. **Open the currency exchange in game and take a screenshot** — a normal one, saved as PNG or
    JPEG. The program does not grab the screen for you; the Calibrate page opens a file picker
    for a still you supply. That is deliberate: the panel only exists while the game has focus,
@@ -143,6 +158,17 @@ This is the part people get wrong. Nothing is read until the three regions are f
 6. **In game, flip through the pairs you care about.** A panel is read once it stops moving, so
    give each one a second.
 7. **Come back to the app.** The watchlist and the radar only know the pairs you flipped past.
+8. **Name your league** in Settings → Season & storage, in the exact form the game's API uses:
+   for PoE 2 the full name, e.g. `Runes of Aldur`; for PoE 1 the short id, e.g. `Allflame`
+   (not "Curse of the Allflame"); hardcore leagues carry the `HC ` prefix. The Exchange page
+   starts filling within a minute. If the name is wrong, the Exchange page says so in red and
+   lists the league names that actually appear in the data — it never sits on "syncing" forever.
+
+**How long until something useful appears.** The Exchange page needs no calibration and no OCR
+language pack; with a league name set it shows the first hours within a minute and the full
+two-week backfill within a few minutes. The radar and Convert pages need books: a route needs at
+least three captured markets that connect, so flip through about ten pairs before expecting a
+row, and expect the first day's radar to be thin.
 
 Two behaviours that look like faults and are not: a panel that has not changed is read once and
 then left alone, and a panel that is not where you framed it is skipped rather than guessed at.
@@ -175,8 +201,9 @@ The nav order is "what do I look at first each day", not a menu tree.
 | **Radar** | Every route the captured books already imply, ranked — the page that answers before you ask. |
 | **Convert** | I hold this and want that: what a route returns, and whether to take the fill or list against it. |
 | **History** | What one pair has been doing, as a summary, a chart, and a note on what looks off. |
+| **Exchange** | The official ledger: hourly volume and price per currency for your league, a market-wide "new faces" radar, and a check of your captured books against it. Needs a league name; needs no calibration. |
 | **Calibrate** | Where the three regions sit on your screen, drawn on a screenshot. |
-| **Settings** | Game and language, the overlay, season and storage, the algorithm numbers, a usage guide, and About. |
+| **Settings** | Game and language, the overlay, season and storage (including the league name), the algorithm numbers, a usage guide, and About. |
 
 A few things those one-liners do not fit:
 
@@ -239,57 +266,56 @@ Everything is under `%LOCALAPPDATA%\PoeTradeTracker\`:
 
 | | |
 |---|---|
-| `settings.json` | settings, calibration rectangles, hotkeys, per-game tuning |
-| `market.sqlite` | every capture, rollup and season — one file, both games |
+| `settings.json` | settings, calibration rectangles, hotkeys, per-game tuning, the league name |
+| `settings.json.corrupt-<stamp>` | a settings file that could not be parsed, moved aside so nothing overwrites it |
+| `market.sqlite` | every capture, rollup and season, plus the official exchange hours — one file, both games |
+| `panic.log` | one line per crash: time, version, where, why |
 | `updates\pending-update.zip` | a downloaded update, deleted on failure |
 
 No server, no account, no sync, no sharing, no telemetry. Your market data never leaves the
 machine.
 
-Settings are read leniently — missing, unreadable or malformed all yield defaults rather than an
-error — and written atomically (temp file, fsync, rename). A file written by a newer schema puts
-the store into read-only mode instead of being clobbered.
+Settings are written atomically (temp file, fsync, rename). A missing file yields defaults. A
+file that exists but cannot be parsed is **not** silently replaced: it is renamed to
+`settings.json.corrupt-<stamp>`, the status line says so in red, and the program runs on
+defaults until you fix or delete the copy. A file written by a newer schema puts the store into
+read-only mode instead of being clobbered.
 
-Nothing is pruned by default: raw retention is 0 days, which means keep everything. Settings →
-Season & storage shows the database size and offers "clear pre-season raw data" and "compact
-database" as explicit actions. Compacting is disabled while a watch runs, because rewriting the
-file blocks the capture writer.
+Captured books are never pruned by default: raw retention is 0 days, which means keep
+everything. The official exchange ledger is the exception — hourly detail older than 14 days is
+dropped by default (Settings → Season & storage, "hourly retention"), the daily figures it was
+folded into are kept. Settings → Season & storage also shows the database size and offers
+"clear pre-season raw data" and "compact database" as explicit actions. Compacting is disabled
+while a watch runs, because rewriting the file blocks the capture writer.
 
 Uninstalling is deleting the program folder and deleting `%LOCALAPPDATA%\PoeTradeTracker\`.
 
 ## What this does to your game client
 
-It reads pixels. That is the entire interaction.
+It reads pixels. That is the entire interaction with the game.
 
-- It copies a rectangle of the desktop — the one you calibrated — with GDI `BitBlt`. Not the
+- **It copies a rectangle of the desktop** — the one you calibrated — with GDI `BitBlt`. Not the
   whole screen, and not "the game window": it has no idea which window it is looking at, it
   reads screen coordinates.
-- It never finds, opens or reads the game process. There is no `FindWindow`,
-  `GetForegroundWindow`, `EnumWindows`, `OpenProcess`, `ReadProcessMemory`,
-  `WriteProcessMemory`, or `CreateRemoteThread` anywhere in the workspace.
-- It never reads the game's memory, its files, or its log.
-- It injects no input. No `SendInput`, no `keybd_event`, no `mouse_event`, no `SetCursorPos`, no
-  `PostMessage`/`SendMessage` to any window. Nothing is clicked or typed for you; you place
-  every order yourself.
-- There is no keyboard hook of any kind. It registers exactly two global hotkeys through
-  `RegisterHotKey`.
-- One thing worth getting ahead of, because someone will find the code: a low-level mouse hook
-  (`WH_MOUSE_LL`) exists in `ptt-platform-win`, inherited from POE Alarm. **The application
-  never installs it** — its only callers are the platform self-test and that test's integration
-  harness. In normal operation no hook is active and no mouse event is ever swallowed.
-- The overlay is a topmost layered tool window that is click-through by default, so it cannot
-  take a click away from the game. It becomes clickable only while you are dragging it into
-  place. It is excluded from capture only when it geometrically overlaps a calibrated region,
-  so the tool does not read its own overlay back as game text; a HUD parked elsewhere stays
-  screenshottable.
-- The only network traffic is the updater: a GET to
-  `https://api.github.com/repos/SouNdmys/POE-Trade-Tracker/releases/latest` once per launch,
-  and — only if you press install — a GET of that release's download URL. There is no POST or
-  PUT anywhere in the workspace, no telemetry and no crash reporting.
-- The only places it writes are `%LOCALAPPDATA%\PoeTradeTracker\` and — when you press install
-  on an update — its own program folder, which is what installing an update means. No registry
-  writes, no system settings, no autostart entry, no clipboard access, and it spawns no
-  processes.
+- **It never touches the game process**: it does not find its window, open it, or read its
+  memory, files or log.
+- **It injects no input and installs no hook.** Nothing is clicked or typed for you; you place
+  every order yourself. It registers exactly two global hotkeys through `RegisterHotKey`. (A
+  low-level mouse hook exists in `ptt-platform-win`, inherited from POE Alarm; the application
+  never installs it — only the platform self-test does.)
+- **The overlay** is a topmost layered tool window that is click-through by default, so it
+  cannot take a click away from the game. It becomes clickable only while you are dragging it
+  into place, and it is excluded from capture only where it overlaps a calibrated region.
+- **Network, in full:** anonymous, read-only GETs to two places. GitHub Releases once per
+  launch to ask whether there is a newer version (and, only if you press install, that
+  release's download URL); and `https://web.poecdn.com/api/currency-exchange/...` once an
+  hour for the official exchange history, only while a league name is set. There is no POST or
+  PUT anywhere in the workspace, no telemetry and no crash reporting — crashes go to a local
+  `panic.log` and nowhere else.
+- **Writes, in full:** `%LOCALAPPDATA%\PoeTradeTracker\`, and — when you press install on an
+  update — its own program folder. No registry writes, no system settings, no autostart entry,
+  and it spawns no processes. The clipboard is written only when you press a copy button in
+  the in-app guide.
 
 Whether reading your own screen is acceptable under the game's terms is your call to make; the
 program takes no position on it and neither does this document.
@@ -338,9 +364,9 @@ cargo test --workspace
 cargo clippy --workspace --all-targets
 ```
 
-Both run from a clean clone. The single test that needs a private screenshot corpus is
-`#[ignore]`d behind an environment variable. There is no CI in this repository; the baselines
-are run locally.
+Both run from a clean clone. The two tests that need the local ONNX runtime and a private
+screenshot corpus are `#[ignore]`d behind an environment variable. There is no CI in this
+repository; the baselines are run locally.
 
 **Packaging.**
 
@@ -360,8 +386,20 @@ uncompressed payload has a 55 MiB budget. Output lands in `target\package\`.
 Bumping the ONNX runtime pin is a calibration event, not a version-string edit: the OCR
 fallback was calibrated against that build.
 
+**Releasing.** The version lives in one place, `[workspace.package] version` in `Cargo.toml`;
+the exe's version resource, the About segment and the package manifest all read it from there.
+A release is: bump it in its own `release: x.y.z` commit, run the two baselines, run the two
+packaging scripts, then tag the tip `vx.y.z` and publish the zip with
+`gh release create vx.y.z target\package\<zip> --notes-file docs/releases/vx.y.z.md`. Publish it
+as a normal release — not a draft, not a pre-release — and attach only that one zip: the
+updater asks GitHub for `releases/latest`, which skips drafts and pre-releases, and it picks the
+first zip whose name carries the program's name. Release notes are kept under `docs/releases/`.
+
 **Environment variables.** `PTT_ONNXRUNTIME_DLL` overrides where the runtime is loaded from;
 `PTT_DEBUG_OCR`, `PTT_DEBUG_GRID`, `PTT_DEBUG_COMPARATOR` and `PTT_OCR_SCALE` are diagnostics.
+`PTT_POE` (`1` or `2`) and `PTT_LIGHT` pick the game and the light palette for the component
+gallery, `PTT_PREVIEW_PROBE` points the gallery at a probe output, and
+`PTT_PRIVATE_SCREENSHOT_ROOT` unlocks the ignored corpus test.
 
 **The crates**, bottom up:
 
@@ -382,7 +420,8 @@ fallback was calibrated against that build.
 | `ptt-recognition` | Per-profile order-book field recognition routing |
 | `ptt-platform-win` | Isolated Win32 platform services |
 | `ptt-monitoring` | The auto-watch loop: fingerprint gate, stability, double-read confirmation, de-duplication |
-| `ptt-runtime` | Page models and reports, the collection pipeline, the daily rollup, and the `*_probe` verification binaries |
+| `ptt-exchange-history` | The official currency-exchange history: fetching the hourly files from `web.poecdn.com`, parsing them, mapping their item paths onto the catalogues |
+| `ptt-runtime` | Page models and reports, the collection pipeline, the daily rollup, the exchange ledger, and the `*_probe` verification binaries |
 | `ptt-app` | The GPUI desktop app |
 
 Read [docs/CORE-TRADING-MODEL.md](docs/CORE-TRADING-MODEL.md) before changing anything that
@@ -445,7 +484,11 @@ Third-party software:
 
 Every one of the 499 packages that link into the Windows build carries a permissive licence;
 there is no GPL, LGPL, MPL, CDDL or EPL code in the shipped binary. The release zip ships
-`LICENSE.md` plus notices for ONNX Runtime and PaddlePaddle under `licenses/`.
+`LICENSE.md` plus the notices for ONNX Runtime, PaddlePaddle, gpui, gpui-component and Lucide
+under `licenses/`.
+
+The official exchange history is Grinding Gear Games' data, fetched from their CDN as
+published; the program stores it locally and does not redistribute it.
 
 This program is the successor to POE2-Trade-Tracker (Electron) and POE1-Trade-Tracker, built on
 the [POE Alarm](https://github.com/SouNdmys/POE-Alarm) Rust + GPUI workspace.
