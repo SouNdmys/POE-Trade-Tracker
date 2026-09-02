@@ -23,7 +23,8 @@ pub use anchor_value::{
 };
 pub use day_rollup::{PairDayRollup, SnapshotPairFold, build_pair_day_rollups};
 pub use exchange_pulse::{
-    ExchangeAssetPulse, ExchangePairDay, ExchangePairHour, ExchangePulse, exchange_pulse,
+    ExchangeAssetPulse, ExchangeHourLedger, ExchangeHourPoint, ExchangePairDay, ExchangePairHour,
+    ExchangePulse, exchange_hour_ledger, exchange_pulse, peak_window,
 };
 pub use execution_safety::{
     Actionability, ExecutionRisk, ModelCaveat, RiskAssessment, RiskThresholds, assess_path,

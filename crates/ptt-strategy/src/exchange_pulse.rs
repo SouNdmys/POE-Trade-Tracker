@@ -189,109 +189,15 @@ pub fn exchange_pulse(
     }
 
     // ---- 小时侧：最新价、成交量、深度、激增、对手 ----
-    let mut direct_by_hour: BTreeMap<i64, BTreeMap<&MarketAssetId, (u128, u128)>> = BTreeMap::new();
-    for stat in hour_stats {
-        let (asset, own, quote) = if stat.asset_a == *anchor {
-            (&stat.asset_b, stat.volume_b, stat.volume_a)
-        } else if stat.asset_b == *anchor {
-            (&stat.asset_a, stat.volume_a, stat.volume_b)
-        } else {
-            continue;
-        };
-        if own == 0 || quote == 0 {
-            continue;
-        }
-        let fold = direct_by_hour
-            .entry(stat.hour_ts)
-            .or_default()
-            .entry(asset)
-            .or_insert((0, 0));
-        fold.0 += u128::from(quote);
-        fold.1 += u128::from(own);
-    }
-    let hour_rate = |hour_ts: i64, asset: &MarketAssetId| -> Option<Ratio> {
-        let (quote, own) = *direct_by_hour.get(&hour_ts)?.get(asset)?;
-        ratio_from_u128(quote, own)
-    };
-
-    struct HourFold {
-        latest_value: Option<(i64, Ratio)>,
-        anchor_volume_by_hour: BTreeMap<i64, u128>,
-        depth_sum: u128,
-        depth_samples: u64,
-        partner_volume: BTreeMap<MarketAssetId, u128>,
-    }
-    let mut folds: BTreeMap<&MarketAssetId, HourFold> = BTreeMap::new();
-    let hours_seen: u64 = {
-        let mut hours: Vec<i64> = hour_stats.iter().map(|stat| stat.hour_ts).collect();
-        hours.sort_unstable();
-        hours.dedup();
-        hours.len() as u64
-    };
-
-    for stat in hour_stats {
-        for (asset, own, low, high, partner, partner_volume) in [
-            (
-                &stat.asset_a,
-                stat.volume_a,
-                stat.lowest_stock_a,
-                stat.highest_stock_a,
-                &stat.asset_b,
-                stat.volume_b,
-            ),
-            (
-                &stat.asset_b,
-                stat.volume_b,
-                stat.lowest_stock_b,
-                stat.highest_stock_b,
-                &stat.asset_a,
-                stat.volume_a,
-            ),
-        ] {
-            if asset == anchor || own == 0 || partner_volume == 0 {
-                continue;
-            }
-            // 该小时这资产的锚价：直连优先，否则经对手一步桥接。
-            let value = hour_rate(stat.hour_ts, asset).or_else(|| {
-                let anchor_per_partner = hour_rate(stat.hour_ts, partner)?;
-                let partner_per_asset = ratio_from_u128(partner_volume.into(), own.into())?;
-                compose(&anchor_per_partner, &partner_per_asset)
-            });
-            let Some(value) = value else { continue };
-            let fold = folds.entry(asset).or_insert_with(|| HourFold {
-                latest_value: None,
-                anchor_volume_by_hour: BTreeMap::new(),
-                depth_sum: 0,
-                depth_samples: 0,
-                partner_volume: BTreeMap::new(),
-            });
-            let traded_anchor = anchor_value(u128::from(own), &value);
-            *fold.anchor_volume_by_hour.entry(stat.hour_ts).or_insert(0) += traded_anchor;
-            *fold.partner_volume.entry(partner.clone()).or_insert(0) += traded_anchor;
-            let stock_mid = (u128::from(low) + u128::from(high)) / 2;
-            fold.depth_sum += anchor_value(stock_mid, &value);
-            fold.depth_samples += 1;
-            if fold
-                .latest_value
-                .as_ref()
-                .is_none_or(|(at, _)| *at <= stat.hour_ts)
-            {
-                fold.latest_value = Some((stat.hour_ts, value));
-            }
-        }
-    }
+    // 折叠与小时账本（`exchange_hour_ledger`）共用同一个函数：定价规则只写一遍，
+    // 表里的最新价和明细栏里的曲线终点就永远是同一个数。
+    let HourFolds { mut folds, hours } = fold_hours(hour_stats, anchor);
+    let hours_seen = hours.len() as u64;
 
     // 只有日线的资产也进表：历史视角下没有任何小时，表不能因此空掉。
     for asset in value_by_day.keys() {
-        folds.entry(asset).or_insert_with(|| HourFold {
-            latest_value: None,
-            anchor_volume_by_hour: BTreeMap::new(),
-            depth_sum: 0,
-            depth_samples: 0,
-            partner_volume: BTreeMap::new(),
-        });
+        folds.entry(asset).or_default();
     }
-
     // ---- 日成交额（锚计价）----
     // 该日所有含此资产的市场里，此资产的成交单位数 × 当日锚价（直连或桥接）。
     // 没算出当日锚价的那天不计——"算不出"不冒充零。
@@ -376,7 +282,7 @@ pub fn exchange_pulse(
                 .max_by_key(|(_, volume)| **volume)
                 .map(|(partner, _)| partner.clone());
             ExchangeAssetPulse {
-                value_in_anchor: fold.latest_value.map(|(_, value)| value),
+                value_in_anchor: fold.latest_value(),
                 value_by_day: value_by_day
                     .get(&asset_id)
                     .map(|days| {
@@ -451,6 +357,264 @@ fn endpoint_trend_bps(days: &BTreeMap<NaiveDate, Ratio>, trend_days: u32) -> Opt
     Some(bps_between(baseline, latest))
 }
 
+/// 一个资产在一小时里的账：锚计价 VWAP 与锚计价成交额。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExchangeHourPoint {
+    pub hour_ts: i64,
+    /// 该小时的锚价：直连优先，否则经对手一步桥接（多条桥取对手成交量大的那条）。
+    pub value: Ratio,
+    /// 该小时所有含此资产的市场里，此资产的成交单位数 × 该小时锚价。
+    pub anchor_volume: u64,
+}
+
+/// 全部保留小时的逐资产账本。只装有成交的小时——没成交的小时不是零，
+/// 是"没有这一行"，缺口由 `missing_hours` 数出来而不是补零。
+///
+/// 和 `exchange_pulse` 共用同一个折叠：表里的最新价、成交/小时和这里的
+/// 曲线终点、窗口均值永远出自同一套定价，测试钉死这一点。
+#[derive(Clone, Debug)]
+pub struct ExchangeHourLedger {
+    pub anchor: MarketAssetId,
+    /// 输入里出现过的小时（升序、去重）：缺口的分母。
+    pub hours: Vec<i64>,
+    /// 每资产按小时升序。锚自己不在里面（同脉搏）。
+    pub series: BTreeMap<MarketAssetId, Vec<ExchangeHourPoint>>,
+}
+
+pub fn exchange_hour_ledger(
+    hour_stats: &[ExchangePairHour],
+    anchor: &MarketAssetId,
+) -> ExchangeHourLedger {
+    let HourFolds { folds, hours } = fold_hours(hour_stats, anchor);
+    let series = folds
+        .into_iter()
+        .map(|(asset, fold)| {
+            let points = fold
+                .anchor_volume_by_hour
+                .iter()
+                .filter_map(|(hour_ts, volume)| {
+                    let (value, _) = fold.value_by_hour.get(hour_ts)?;
+                    Some(ExchangeHourPoint {
+                        hour_ts: *hour_ts,
+                        value: value.clone(),
+                        anchor_volume: u64::try_from(*volume).unwrap_or(u64::MAX),
+                    })
+                })
+                .collect();
+            (asset.clone(), points)
+        })
+        .collect();
+    ExchangeHourLedger {
+        anchor: anchor.clone(),
+        hours,
+        series,
+    }
+}
+
+impl ExchangeHourLedger {
+    /// 窗口 = 以账本最新小时为终点、往回 `hours` 个整点（含两端）；None = 全部。
+    /// 终点钉在数据上而不是"现在"：API 落后一两小时，钉在现在会凭空画出一段死区。
+    pub fn window(&self, hours: Option<u32>) -> Option<(i64, i64)> {
+        let end = *self.hours.last()?;
+        let first = *self.hours.first()?;
+        let start = match hours {
+            Some(hours) => end - (i64::from(hours.max(1)) - 1) * 3600,
+            None => first,
+        };
+        Some((start.max(first), end))
+    }
+
+    pub fn points_in(&self, asset: &MarketAssetId, hours: Option<u32>) -> &[ExchangeHourPoint] {
+        let Some((start, end)) = self.window(hours) else {
+            return &[];
+        };
+        let Some(points) = self.series.get(asset) else {
+            return &[];
+        };
+        let from = points.partition_point(|point| point.hour_ts < start);
+        let to = points.partition_point(|point| point.hour_ts <= end);
+        &points[from..to]
+    }
+
+    /// (锚计价成交额合计, 有成交的小时数)。表格窗口档位的排序键就是它。
+    pub fn window_volume(&self, asset: &MarketAssetId, hours: Option<u32>) -> (u64, u32) {
+        let points = self.points_in(asset, hours);
+        let total = points
+            .iter()
+            .fold(0u64, |sum, point| sum.saturating_add(point.anchor_volume));
+        (total, points.len() as u32)
+    }
+
+    /// 合计 / 有成交小时数——与 `volume_per_hour_anchor` 同口径
+    /// （分母是有数据的小时，不是窗口长度）。
+    pub fn window_mean_per_hour(&self, asset: &MarketAssetId, hours: Option<u32>) -> u64 {
+        let (total, count) = self.window_volume(asset, hours);
+        total / u64::from(count.max(1))
+    }
+
+    /// 24 桶：本地钟点 = (hour_ts + utc_offset_seconds) 落在一天里的哪个小时。
+    /// 这一层不认时区，偏移由调用方给；夏令时切换那天的小时会落到邻桶，接受。
+    pub fn hour_of_day_profile(
+        &self,
+        asset: &MarketAssetId,
+        hours: Option<u32>,
+        utc_offset_seconds: i32,
+    ) -> [u64; 24] {
+        let mut buckets = [0u64; 24];
+        for point in self.points_in(asset, hours) {
+            let local = point.hour_ts + i64::from(utc_offset_seconds);
+            let bucket = local.div_euclid(3600).rem_euclid(24) as usize;
+            buckets[bucket] = buckets[bucket].saturating_add(point.anchor_volume);
+        }
+        buckets
+    }
+
+    /// 窗口内账本见过、此资产却没成交的小时数。
+    pub fn missing_hours(&self, asset: &MarketAssetId, hours: Option<u32>) -> u32 {
+        let Some((start, end)) = self.window(hours) else {
+            return 0;
+        };
+        let seen = self
+            .hours
+            .iter()
+            .filter(|hour| (start..=end).contains(hour))
+            .count();
+        let traded = self.points_in(asset, hours).len();
+        seen.saturating_sub(traded) as u32
+    }
+}
+
+/// 24 桶里合计最大的连续三桶，返回 (起点钟点, 终点钟点+1)："峰值 20:00–23:00"。
+/// 可跨午夜（23、0、1 → (23, 2)）；平局取最早的起点；全 0 是 None——
+/// 没数据不该报出一个"峰值"。
+pub fn peak_window(profile: &[u64; 24]) -> Option<(u8, u8)> {
+    if profile.iter().all(|volume| *volume == 0) {
+        return None;
+    }
+    let (start, _) = (0..24)
+        .map(|start| {
+            let sum: u128 = (0..3).map(|k| u128::from(profile[(start + k) % 24])).sum();
+            (start, sum)
+        })
+        .max_by(|left, right| left.1.cmp(&right.1).then_with(|| right.0.cmp(&left.0)))?;
+    Some((start as u8, ((start + 3) % 24) as u8))
+}
+
+/// 一个资产在小时侧的折叠。`value_by_hour` 是每小时选定的锚价，附带桥的粗细
+/// （直连记 u128::MAX，桥接记对手成交量）：粗桥优先，和日侧一个规矩。
+#[derive(Default)]
+struct HourFold {
+    value_by_hour: BTreeMap<i64, (Ratio, u128)>,
+    anchor_volume_by_hour: BTreeMap<i64, u128>,
+    depth_sum: u128,
+    depth_samples: u64,
+    partner_volume: BTreeMap<MarketAssetId, u128>,
+}
+
+impl HourFold {
+    fn latest_value(&self) -> Option<Ratio> {
+        self.value_by_hour
+            .last_key_value()
+            .map(|(_, (value, _))| value.clone())
+    }
+}
+
+struct HourFolds<'a> {
+    folds: BTreeMap<&'a MarketAssetId, HourFold>,
+    /// 输入里出现过的小时，升序去重。
+    hours: Vec<i64>,
+}
+
+/// 小时侧的折叠，脉搏与账本共用。每小时每资产：直连锚市场的成交量比就是锚价，
+/// 没直连的经当行对手一步桥接。成交额按每一行自己的价累计（一行一桥），
+/// 选定的小时价取直连、否则最粗的桥。
+fn fold_hours<'a>(hour_stats: &'a [ExchangePairHour], anchor: &MarketAssetId) -> HourFolds<'a> {
+    let mut direct_by_hour: BTreeMap<i64, BTreeMap<&MarketAssetId, (u128, u128)>> = BTreeMap::new();
+    for stat in hour_stats {
+        let (asset, own, quote) = if stat.asset_a == *anchor {
+            (&stat.asset_b, stat.volume_b, stat.volume_a)
+        } else if stat.asset_b == *anchor {
+            (&stat.asset_a, stat.volume_a, stat.volume_b)
+        } else {
+            continue;
+        };
+        if own == 0 || quote == 0 {
+            continue;
+        }
+        let fold = direct_by_hour
+            .entry(stat.hour_ts)
+            .or_default()
+            .entry(asset)
+            .or_insert((0, 0));
+        fold.0 += u128::from(quote);
+        fold.1 += u128::from(own);
+    }
+    let hour_rate = |hour_ts: i64, asset: &MarketAssetId| -> Option<Ratio> {
+        let (quote, own) = *direct_by_hour.get(&hour_ts)?.get(asset)?;
+        ratio_from_u128(quote, own)
+    };
+    let mut hours: Vec<i64> = hour_stats.iter().map(|stat| stat.hour_ts).collect();
+    hours.sort_unstable();
+    hours.dedup();
+
+    let mut folds: BTreeMap<&MarketAssetId, HourFold> = BTreeMap::new();
+    for stat in hour_stats {
+        for (asset, own, low, high, partner, partner_volume) in [
+            (
+                &stat.asset_a,
+                stat.volume_a,
+                stat.lowest_stock_a,
+                stat.highest_stock_a,
+                &stat.asset_b,
+                stat.volume_b,
+            ),
+            (
+                &stat.asset_b,
+                stat.volume_b,
+                stat.lowest_stock_b,
+                stat.highest_stock_b,
+                &stat.asset_a,
+                stat.volume_a,
+            ),
+        ] {
+            if asset == anchor || own == 0 || partner_volume == 0 {
+                continue;
+            }
+            // 该小时这资产的锚价：直连优先，否则经对手一步桥接。
+            let (value, weight) = match hour_rate(stat.hour_ts, asset) {
+                Some(value) => (value, u128::MAX),
+                None => {
+                    let Some(anchor_per_partner) = hour_rate(stat.hour_ts, partner) else {
+                        continue;
+                    };
+                    let Some(partner_per_asset) =
+                        ratio_from_u128(partner_volume.into(), own.into())
+                    else {
+                        continue;
+                    };
+                    let Some(value) = compose(&anchor_per_partner, &partner_per_asset) else {
+                        continue;
+                    };
+                    (value, u128::from(partner_volume))
+                }
+            };
+            let fold = folds.entry(asset).or_default();
+            let traded_anchor = anchor_value(u128::from(own), &value);
+            *fold.anchor_volume_by_hour.entry(stat.hour_ts).or_insert(0) += traded_anchor;
+            *fold.partner_volume.entry(partner.clone()).or_insert(0) += traded_anchor;
+            let stock_mid = (u128::from(low) + u128::from(high)) / 2;
+            fold.depth_sum += anchor_value(stock_mid, &value);
+            fold.depth_samples += 1;
+            match fold.value_by_hour.get(&stat.hour_ts) {
+                Some((_, existing)) if *existing >= weight => {}
+                _ => {
+                    fold.value_by_hour.insert(stat.hour_ts, (value, weight));
+                }
+            }
+        }
+    }
+    HourFolds { folds, hours }
+}
 /// u128 累计量折回 Ratio。约分后仍溢出 u64 就放弃——不近似。
 fn ratio_from_u128(numerator: u128, denominator: u128) -> Option<Ratio> {
     if numerator == 0 || denominator == 0 {
@@ -696,5 +860,161 @@ mod exchange_pulse_tests {
         assert_eq!(pulse.assets[0].asset_id, asset("divine-orb"));
         assert_eq!(pulse.assets[1].asset_id, asset("chaos-orb"));
         assert_eq!(pulse.assets[1].anchor_volume_by_day, vec![(day(0), 200)]);
+    }
+}
+
+#[cfg(test)]
+mod exchange_hour_ledger_tests {
+    use super::*;
+
+    const HOUR0: i64 = 1_788_000_000 / 3600 * 3600;
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    fn ratio(numerator: u64, denominator: u64) -> Ratio {
+        Ratio::from_parts(numerator, denominator).expect("ratio")
+    }
+
+    fn hour_stat(hour: i64, a: &str, b: &str, volume_a: u64, volume_b: u64) -> ExchangePairHour {
+        ExchangePairHour {
+            hour_ts: HOUR0 + hour * 3600,
+            asset_a: asset(a),
+            asset_b: asset(b),
+            volume_a,
+            volume_b,
+            lowest_stock_a: 0,
+            highest_stock_a: 0,
+            lowest_stock_b: 0,
+            highest_stock_b: 0,
+        }
+    }
+
+    #[test]
+    fn direct_hour_is_priced_and_volume_is_anchor_units() {
+        let hours = vec![hour_stat(0, "exalted-orb", "divine-orb", 1200, 10)];
+        let ledger = exchange_hour_ledger(&hours, &asset("exalted-orb"));
+        assert_eq!(ledger.hours, vec![HOUR0]);
+        let points = &ledger.series[&asset("divine-orb")];
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0].hour_ts, HOUR0);
+        assert_eq!(points[0].value, ratio(120, 1));
+        assert_eq!(points[0].anchor_volume, 1200);
+        // 锚自己不进账本。
+        assert!(!ledger.series.contains_key(&asset("exalted-orb")));
+    }
+
+    #[test]
+    fn bridge_uses_the_row_partner_and_the_fatter_bridge_wins() {
+        let hours = vec![
+            hour_stat(0, "exalted-orb", "divine-orb", 1000, 10), // divine = 100
+            hour_stat(0, "exalted-orb", "chaos-orb", 1000, 100), // chaos = 10
+            hour_stat(0, "divine-orb", "mirror-of-kalandra", 200, 1), // 100 × 200 = 20000
+            hour_stat(0, "chaos-orb", "mirror-of-kalandra", 30000, 2), // 10 × 15000 = 150000
+        ];
+        let ledger = exchange_hour_ledger(&hours, &asset("exalted-orb"));
+        let mirror = &ledger.series[&asset("mirror-of-kalandra")];
+        assert_eq!(mirror.len(), 1);
+        // 选定价取对手成交量大的那条桥（混沌 30000 > 神圣 200）。
+        assert_eq!(mirror[0].value, ratio(150_000, 1));
+        // 成交额每行按自己的桥算：1 × 20000 + 2 × 150000。
+        assert_eq!(mirror[0].anchor_volume, 320_000);
+    }
+
+    #[test]
+    fn ledger_and_pulse_agree_on_latest_value_and_mean_volume() {
+        let hours = vec![
+            hour_stat(0, "exalted-orb", "divine-orb", 1000, 10),
+            hour_stat(1, "exalted-orb", "divine-orb", 2200, 20),
+            hour_stat(1, "exalted-orb", "chaos-orb", 500, 50),
+            hour_stat(1, "divine-orb", "mirror-of-kalandra", 330, 3),
+            hour_stat(2, "exalted-orb", "chaos-orb", 900, 100),
+            hour_stat(2, "chaos-orb", "mirror-of-kalandra", 40000, 2),
+        ];
+        let anchor = asset("exalted-orb");
+        let thresholds = AnalyticsThresholds::try_new(2, 7, 70, 500, 300, 0).expect("thresholds");
+        let pulse = exchange_pulse(&[], &hours, &anchor, 7, &thresholds, None);
+        let ledger = exchange_hour_ledger(&hours, &anchor);
+        assert_eq!(pulse.hours_seen, ledger.hours.len() as u64);
+        assert_eq!(pulse.assets.len(), 3);
+        for pulse_asset in &pulse.assets {
+            let series = &ledger.series[&pulse_asset.asset_id];
+            assert_eq!(
+                pulse_asset.value_in_anchor.as_ref(),
+                series.last().map(|point| &point.value),
+                "{}",
+                pulse_asset.asset_id
+            );
+            assert_eq!(
+                pulse_asset.volume_per_hour_anchor,
+                ledger.window_mean_per_hour(&pulse_asset.asset_id, None),
+                "{}",
+                pulse_asset.asset_id
+            );
+        }
+    }
+
+    #[test]
+    fn window_ends_at_the_latest_hour_not_now() {
+        let hours: Vec<ExchangePairHour> = (0..10)
+            .map(|hour| hour_stat(hour, "exalted-orb", "divine-orb", 1000, 10))
+            .collect();
+        let ledger = exchange_hour_ledger(&hours, &asset("exalted-orb"));
+        let divine = asset("divine-orb");
+        assert_eq!(
+            ledger.window(Some(3)),
+            Some((HOUR0 + 7 * 3600, HOUR0 + 9 * 3600))
+        );
+        assert_eq!(ledger.points_in(&divine, Some(3)).len(), 3);
+        assert_eq!(ledger.window(None), Some((HOUR0, HOUR0 + 9 * 3600)));
+        // 窗口比数据长：起点钳到最早的小时，不往前伸出空气。
+        assert_eq!(ledger.window(Some(100)), Some((HOUR0, HOUR0 + 9 * 3600)));
+        assert_eq!(ledger.window_volume(&divine, Some(3)), (3000, 3));
+        assert_eq!(ledger.window_mean_per_hour(&divine, None), 1000);
+    }
+
+    #[test]
+    fn hour_of_day_buckets_use_the_offset() {
+        // HOUR0 是 10:00 UTC；+13 小时 = 23:00 UTC。
+        let hours = vec![hour_stat(13, "exalted-orb", "divine-orb", 700, 7)];
+        let ledger = exchange_hour_ledger(&hours, &asset("exalted-orb"));
+        let divine = asset("divine-orb");
+        let utc = ledger.hour_of_day_profile(&divine, None, 0);
+        assert_eq!(utc[23], 700);
+        let east8 = ledger.hour_of_day_profile(&divine, None, 8 * 3600);
+        assert_eq!(east8[7], 700);
+        assert_eq!(east8.iter().sum::<u64>(), 700);
+    }
+
+    #[test]
+    fn missing_hours_counts_seen_hours_without_a_point() {
+        let mut hours: Vec<ExchangePairHour> = (0..5)
+            .map(|hour| hour_stat(hour, "exalted-orb", "chaos-orb", 100, 10))
+            .collect();
+        for hour in [0, 2, 4] {
+            hours.push(hour_stat(hour, "exalted-orb", "divine-orb", 1000, 10));
+        }
+        let ledger = exchange_hour_ledger(&hours, &asset("exalted-orb"));
+        let divine = asset("divine-orb");
+        assert_eq!(ledger.missing_hours(&divine, None), 2);
+        // 窗口 = 小时 3、4：见过 2 个，神圣只在 4 成交 → 缺 1。
+        assert_eq!(ledger.missing_hours(&divine, Some(2)), 1);
+        assert_eq!(ledger.missing_hours(&asset("chaos-orb"), None), 0);
+    }
+
+    #[test]
+    fn peak_window_is_the_best_three_consecutive_buckets_and_wraps_midnight() {
+        let mut profile = [0u64; 24];
+        profile[23] = 5;
+        profile[0] = 5;
+        profile[1] = 5;
+        profile[12] = 9;
+        assert_eq!(peak_window(&profile), Some((23, 2)));
+        assert_eq!(peak_window(&[0u64; 24]), None);
+        // 平局取最早的起点：只有 5 点有量时，3–6 是第一个盖住它的窗口。
+        let mut lone = [0u64; 24];
+        lone[5] = 1;
+        assert_eq!(peak_window(&lone), Some((3, 6)));
     }
 }
