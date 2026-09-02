@@ -1529,14 +1529,50 @@ fn load_opportunities(
 
     let (context_key, observations) = load_window(request)?;
     let analytics = load_pulse(request);
-    ptt_runtime::reports::opportunities_model(
+    let mut model = ptt_runtime::reports::opportunities_model(
         &observations,
         &context_key,
         LIVE_LEAGUE,
         &request.tuning,
         request.language,
         analytics.as_ref().map(|model| &model.pulse),
-    )
+    )?;
+    // 交易所雷达（大雷达）是同一页的另一个页签。算不出来只记一条 note，
+    // 不拖垮抓取雷达——两层各自独立，坏一层另一层照常。
+    match load_exchange_radar(request) {
+        Ok(exchange) => model.exchange = exchange,
+        Err(error) => model.notes.push(format!("exchange radar: {error}")),
+    }
+    Ok(model)
+}
+
+/// 官方小时行 → 大雷达模型。联赛没配 = `None`。
+#[cfg(windows)]
+fn load_exchange_radar(
+    request: &PageRequest,
+) -> Result<Option<ptt_runtime::reports::ExchangeRadarModel>, String> {
+    let league = request.tuning.exchange.league.trim().to_owned();
+    if league.is_empty() {
+        return Ok(None);
+    }
+    let store = ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+        .map_err(|error| format!("storage: {error}"))?;
+    let game = request.profile.game.as_str();
+    let now = chrono::Utc::now();
+    // 48 小时：模型只取每对最新一小时，但 API 落后一两小时、周末更久，
+    // 窗口宽一点才不会一到周一就空白。
+    let hour_rows = store
+        .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
+        .map_err(|error| format!("hours: {error}"))?;
+    let mut model =
+        ptt_runtime::reports::exchange_radar_model(&hour_rows, &league, &request.tuning, now)?;
+    // 水位是存储层的事实，模型函数不碰 store（与交易所页同一条规矩）。
+    let watermark = store
+        .exchange_watermark(game, &league)
+        .map_err(|error| format!("watermark: {error}"))?;
+    let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
+    model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+    Ok(Some(model))
 }
 
 /// The focus set, its valuations and its gaps.

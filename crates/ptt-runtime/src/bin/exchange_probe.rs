@@ -24,8 +24,11 @@
 //!   `exchange_probe --export [--out DIR]`
 //!       镜像交易所页的导出按钮：读生产日线表，写 CSV + JSON 到 DIR
 //!       （默认数据库旁的 exports/），并打印行数与几行样本核对数量级。
+//!   `exchange_probe --radar`
+//!       镜像雷达页「交易所雷达」段：读近 48 小时的小时行，按官方成交均价跑
+//!       与抓取雷达同一套环路搜索，打印耗时、数据小时与每条环。
 //!
-//! `--status`/`--audit`/`--export` 的联赛默认取设置里的 `exchange.league`，
+//! `--status`/`--audit`/`--export`/`--radar` 的联赛默认取设置里的 `exchange.league`，
 //! `--league` 可覆盖；其余子命令仍要求显式 `--league`。
 
 #[cfg(windows)]
@@ -52,7 +55,8 @@ mod probe {
             || has("--reconcile")
             || has("--status")
             || has("--audit")
-            || has("--export");
+            || has("--export")
+            || has("--radar");
         if !any_command {
             return Err("nothing to do: see the file header for subcommands".to_owned());
         }
@@ -115,10 +119,57 @@ mod probe {
         if has("--export") {
             session.export(option("--out").map(std::path::PathBuf::from))?;
         }
+        if has("--radar") {
+            session.radar()?;
+        }
         Ok(())
     }
 
     impl Session {
+        /// 镜像雷达页「交易所雷达」段：同一个模型函数，多打印耗时——
+        /// 大雷达的图是全连接的，先在真实库上量一次，再决定要不要按小时缓存。
+        fn radar(&self) -> Result<(), String> {
+            let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+            let settings = ptt_settings::SettingsStore::release_default_from(&local)
+                .load()
+                .settings;
+            let tuning = settings.market_tuning(settings.active_profile.game);
+            let store =
+                ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+                    .map_err(|error| format!("storage: {error}"))?;
+            let now = chrono::Utc::now();
+            let hour_rows = store
+                .load_exchange_hours(
+                    &self.realm,
+                    &self.league,
+                    now.timestamp() - 48 * 3600,
+                    now.timestamp(),
+                )
+                .map_err(|error| format!("hours: {error}"))?;
+            let started = std::time::Instant::now();
+            let mut model =
+                ptt_runtime::reports::exchange_radar_model(&hour_rows, &self.league, &tuning, now)?;
+            let elapsed = started.elapsed();
+            let watermark = store
+                .exchange_watermark(&self.realm, &self.league)
+                .map_err(|error| format!("watermark: {error}"))?;
+            let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
+            model.hours_behind =
+                watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+            println!(
+                "hour rows (48h): {} · model built in {} ms",
+                hour_rows.len(),
+                elapsed.as_millis()
+            );
+            for line in ptt_runtime::reports::render_exchange_radar(&model, settings.ui_language) {
+                println!("{line}");
+            }
+            if let ptt_runtime::reports::RadarScan::Ran(scan) = &model.scan {
+                println!("diagnostics: {:?}", scan.diagnostics);
+            }
+            Ok(())
+        }
+
         /// 与 app 的导出按钮同一条路径（同一个模型函数、同样的文件名规则），
         /// 只多打印样本：数量级对不对，一眼看得出来。
         fn export(&self, out: Option<std::path::PathBuf>) -> Result<(), String> {

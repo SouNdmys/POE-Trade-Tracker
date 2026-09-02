@@ -550,6 +550,8 @@ pub struct CoverageModel {
 /// "Where is the money right now": the unified radar.
 #[derive(Clone, Debug)]
 pub struct OpportunitiesModel {
+    /// 交易所雷达（大雷达）：同一页的另一个页签。`None` = 没配联赛。
+    pub exchange: Option<ExchangeRadarModel>,
     pub notes: Notes,
     pub scan: RadarScan,
 }
@@ -2260,6 +2262,7 @@ pub fn opportunities_model(
     // commentary on a scan that never ran.
     if policy.core_liquidity.is_empty() {
         return Ok(OpportunitiesModel {
+            exchange: None,
             notes: Vec::new(),
             scan: RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency),
         });
@@ -2279,6 +2282,7 @@ pub fn opportunities_model(
     seen.dedup();
     if seen.len() < 2 {
         return Ok(OpportunitiesModel {
+            exchange: None,
             notes: Vec::new(),
             scan: RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket),
         });
@@ -2319,6 +2323,7 @@ pub fn opportunities_model(
     }
     if starts.is_empty() {
         return Ok(OpportunitiesModel {
+            exchange: None,
             notes: Vec::new(),
             scan: RadarScan::Unavailable(RadarUnavailable::NoStartUnits {
                 anchor: policy.core_liquidity.first().cloned(),
@@ -2420,6 +2425,7 @@ pub fn opportunities_model(
     boost_probe_candidates(&mut probe_candidates, pulse);
 
     Ok(OpportunitiesModel {
+        exchange: None,
         notes,
         scan: RadarScan::Ran(Box::new(RadarScanResult {
             starts: start_names,
@@ -4114,6 +4120,330 @@ pub fn render_exchange(model: &ExchangeModel, language: UiLanguage) -> Vec<Strin
             row.volume_per_hour_anchor,
             row.depth_anchor.unwrap_or(0),
             partner,
+        ));
+    }
+    lines
+}
+
+/// 交易所雷达（大雷达）：官方小时成交均价跑的环。与抓取雷达是**同一套**
+/// 搜索（`run_opportunity_radar`），差别只在原料——每对一条均价边、库存 =
+/// 当小时成交量、不看挂单。它回答的是"哪组通货值得去抓"，抓回来的真实
+/// 订单书再由抓取雷达裁决；三层闭环见 CORE-TRADING-MODEL P11。
+#[derive(Clone, Debug)]
+pub struct ExchangeRadarModel {
+    pub league: String,
+    /// 图里最新一小时的起点（unix 秒）。`None` = 没有任何可用小时。
+    pub data_hour_ts: Option<i64>,
+    /// 水位距最新完整小时的差，由 loader 填（存储层的事实，模型不碰 store）。
+    pub hours_behind: i64,
+    pub assets_used: usize,
+    pub pairs_used: usize,
+    pub minimum_profit_basis_points: u32,
+    /// 复用抓取雷达的容器：同一张表、同一个明细栏画得出来。
+    pub scan: RadarScan,
+}
+
+/// 只拿成交额最大的这么多资产进图：环路评估随资产数三次方涨，120 个已经
+/// 盖住全部有意义的成交额，再往后是每小时成交几个的长尾。
+pub const EXCHANGE_RADAR_ASSETS: usize = 120;
+/// 一对市场最多回看多少小时：超过一天的均价不是"现在的市场"。
+pub const EXCHANGE_RADAR_MAX_AGE_HOURS: i64 = 24;
+/// 环路评估预算。引擎上限一百万；二十万在几百个市场上够扫完四环。
+const EXCHANGE_RADAR_EVALUATIONS: u32 = 1_000_000;
+/// 比抓取雷达的默认 12 条多：这页是线索清单，不是执行清单。
+const EXCHANGE_RADAR_RESULTS: u16 = 20;
+
+/// 交易所雷达的文本包装（探针用）。
+pub fn exchange_radar_report(
+    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+    league: &str,
+    tuning: &MarketTuning,
+    language: UiLanguage,
+) -> Result<Vec<String>, String> {
+    let model = exchange_radar_model(hour_rows, league, tuning, Utc::now())?;
+    Ok(render_exchange_radar(&model, language))
+}
+
+/// 小时桶按小时衰老，不按分钟：官方数据本来就落后一两个小时，
+/// 三小时内算新鲜、六小时内还能用，再往后是旧账。
+fn exchange_radar_freshness() -> Result<FreshnessPolicy, String> {
+    FreshnessPolicy::try_new(3 * 3_600, 6 * 3_600, 24 * 3_600)
+        .map_err(|error| format!("freshness: {error:?}"))
+}
+
+pub fn exchange_radar_model(
+    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+    league: &str,
+    tuning: &MarketTuning,
+    now: chrono::DateTime<Utc>,
+) -> Result<ExchangeRadarModel, String> {
+    let minimum_bps =
+        u32::try_from(tuning.radar.minimum_profit_basis_points.min(1_000_000)).unwrap_or(100);
+    let mut model = ExchangeRadarModel {
+        league: league.to_owned(),
+        data_hour_ts: None,
+        hours_behind: 0,
+        assets_used: 0,
+        pairs_used: 0,
+        minimum_profit_basis_points: minimum_bps,
+        scan: RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency),
+    };
+    if tuning.settlement_assets.is_empty() {
+        return Ok(model);
+    }
+    // 锚与交易所页同一条回落规则：锚必须在结算列表内，否则列表第一个。
+    let anchor_slug = tuning
+        .anchor_asset
+        .clone()
+        .filter(|anchor| tuning.settlement_assets.contains(anchor))
+        .or_else(|| tuning.settlement_assets.first().cloned())
+        .ok_or("no settlement asset configured")?;
+    let anchor =
+        crate::live::domain_asset_id(&anchor_slug).map_err(|error| format!("{error:?}"))?;
+
+    let mapping =
+        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+    let mut cache: BTreeMap<String, Option<MarketAssetId>> = BTreeMap::new();
+    let mut hour_stats = Vec::with_capacity(hour_rows.len());
+    for row in hour_rows {
+        let (Some(asset_a), Some(asset_b)) = (
+            exchange_domain_id(&mapping, &mut cache, &row.asset_a),
+            exchange_domain_id(&mapping, &mut cache, &row.asset_b),
+        ) else {
+            continue;
+        };
+        hour_stats.push(ptt_strategy::ExchangePairHour {
+            hour_ts: row.hour_ts,
+            asset_a,
+            asset_b,
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+            lowest_stock_a: row.lowest_stock_a,
+            highest_stock_a: row.highest_stock_a,
+            lowest_stock_b: row.lowest_stock_b,
+            highest_stock_b: row.highest_stock_b,
+        });
+    }
+    // 图里放哪些资产：资产少就全放；多了才按锚计价成交额挑前 N 个——
+    // 排序只用来挑资产，成交量不进流动性档位（证据分工的裁定，P11）。
+    let settlement: Vec<MarketAssetId> = tuning
+        .settlement_assets
+        .iter()
+        .filter_map(|slug| crate::live::domain_asset_id(slug).ok())
+        .collect();
+    let all_assets: std::collections::BTreeSet<MarketAssetId> = hour_stats
+        .iter()
+        .flat_map(|hour| [hour.asset_a.clone(), hour.asset_b.clone()])
+        .collect();
+    let members: std::collections::BTreeSet<MarketAssetId> = if all_assets.len()
+        <= EXCHANGE_RADAR_ASSETS
+    {
+        all_assets
+    } else {
+        let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
+        let pulse = ptt_strategy::exchange_pulse(&[], &hour_stats, &anchor, 1, &thresholds, None);
+        pulse
+            .assets
+            .iter()
+            .take(EXCHANGE_RADAR_ASSETS)
+            .map(|asset| asset.asset_id.clone())
+            .chain(settlement.iter().cloned())
+            .collect()
+    };
+    let candidates: Vec<ptt_workflows::ExchangeMarketHour> = hour_stats
+        .iter()
+        .filter(|hour| members.contains(&hour.asset_a) && members.contains(&hour.asset_b))
+        .map(|hour| ptt_workflows::ExchangeMarketHour {
+            hour_ts: hour.hour_ts,
+            asset_a: hour.asset_a.clone(),
+            asset_b: hour.asset_b.clone(),
+            volume_a: hour.volume_a,
+            volume_b: hour.volume_b,
+        })
+        .collect();
+    let hours = ptt_workflows::latest_market_hours(&candidates, now, EXCHANGE_RADAR_MAX_AGE_HOURS);
+    let traded: std::collections::BTreeSet<MarketAssetId> = hours
+        .iter()
+        .flat_map(|hour| [hour.asset_a.clone(), hour.asset_b.clone()])
+        .collect();
+    model.data_hour_ts = hours.iter().map(|hour| hour.hour_ts).max();
+    model.assets_used = traded.len();
+    model.pairs_used = hours.len();
+    if hours.len() < 2 {
+        model.scan = RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket);
+        return Ok(model);
+    }
+    let starts: Vec<MarketAssetId> = settlement
+        .into_iter()
+        .filter(|start| traded.contains(start))
+        .collect();
+    if starts.is_empty() {
+        model.scan = RadarScan::Unavailable(RadarUnavailable::NoStartUnits {
+            anchor: Some(anchor),
+        });
+        return Ok(model);
+    }
+
+    let request = ptt_workflows::ExchangeRadarRequest {
+        context_key: format!("exchange:{league}"),
+        starts: starts.clone(),
+        minimum_profit_basis_points: minimum_bps,
+        // 三或四：图是全连接的，五环起评估数爆炸，而且说不出四环说不了的话。
+        max_cycle_length: u8::try_from(tuning.radar.max_cycle_length.clamp(3, 4)).unwrap_or(4),
+        max_triangle_evaluations: EXCHANGE_RADAR_EVALUATIONS,
+        max_results: EXCHANGE_RADAR_RESULTS,
+        thresholds: risk_thresholds_from(tuning, None),
+        freshness: exchange_radar_freshness()?,
+        now,
+    };
+    let result = ptt_workflows::run_exchange_radar(&hours, &request)
+        .map_err(|error| format!("exchange radar: {error:?}"))?;
+
+    // 每条腿的"书"就是那条均价边：明细栏按这个给读者填的数量算账。
+    let books = exchange_leg_books(&hours);
+    let freshness = request.freshness;
+    let items = result
+        .items
+        .into_iter()
+        .map(|item| {
+            let light = item
+                .conversion_path
+                .as_ref()
+                .and_then(|path| path.capture_time_evidence.as_ref())
+                .or_else(|| {
+                    item.triangle
+                        .as_ref()
+                        .and_then(|triangle| triangle.capture_time_evidence.as_ref())
+                })
+                .map(|evidence| {
+                    freshness
+                        .classify(evidence.earliest_captured_at, now)
+                        .status
+                });
+            let steps = item
+                .conversion_path
+                .as_ref()
+                .map(|path| path.steps.as_slice())
+                .or_else(|| {
+                    item.triangle
+                        .as_ref()
+                        .map(|triangle| triangle.steps.as_slice())
+                })
+                .unwrap_or(&[]);
+            let leg_books: Vec<RouteLegBook> = steps
+                .iter()
+                .map(|step| {
+                    let key = (step.from_asset_id.clone(), step.to_asset_id.clone());
+                    let book = books.get(&key);
+                    RouteLegBook {
+                        from_asset_id: step.from_asset_id.clone(),
+                        to_asset_id: step.to_asset_id.clone(),
+                        rate: book.map(|(rate, _, _)| rate.clone()),
+                        front_capacity: book.map(|(_, capacity, _)| *capacity),
+                        listed: book.map(|(_, _, listed)| *listed),
+                        single_listing: false,
+                    }
+                })
+                .collect();
+            OpportunityRow {
+                item,
+                light,
+                structural: Vec::new(),
+                leg_books,
+            }
+        })
+        .collect();
+    model.scan = RadarScan::Ran(Box::new(RadarScanResult {
+        starts,
+        items,
+        probe_candidates: Vec::new(),
+        diagnostics: result.diagnostics,
+    }));
+    Ok(model)
+}
+
+/// (from, to) → (均价, 这一小时 from 侧成交量, to 侧成交量)。
+/// 均价边的"前排能吃下"就是当小时的成交量：那是市场真做过的量。
+#[allow(clippy::type_complexity)]
+fn exchange_leg_books(
+    hours: &[ptt_workflows::ExchangeMarketHour],
+) -> BTreeMap<(MarketAssetId, MarketAssetId), (ptt_trade_domain::Ratio, u64, u64)> {
+    let mut books = BTreeMap::new();
+    for hour in hours {
+        for (from, to, volume_from, volume_to) in [
+            (&hour.asset_a, &hour.asset_b, hour.volume_a, hour.volume_b),
+            (&hour.asset_b, &hour.asset_a, hour.volume_b, hour.volume_a),
+        ] {
+            if let Ok(rate) = ptt_trade_domain::Ratio::parse(&format!("{volume_to}:{volume_from}"))
+            {
+                books.insert((from.clone(), to.clone()), (rate, volume_from, volume_to));
+            }
+        }
+    }
+    books
+}
+
+/// 交易所雷达作为文本行（探针与文本报表）。
+pub fn render_exchange_radar(model: &ExchangeRadarModel, language: UiLanguage) -> Vec<String> {
+    use crate::report_text::fill;
+    let text = crate::report_text::report(language);
+    let max_age = EXCHANGE_RADAR_MAX_AGE_HOURS.to_string();
+    let scan = match &model.scan {
+        RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency) => {
+            return vec![text.no_core_currency.to_owned()];
+        }
+        RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket) => {
+            return vec![fill(text.exchange_radar_no_data, &[&max_age])];
+        }
+        RadarScan::Unavailable(RadarUnavailable::NoStartUnits { anchor }) => {
+            return vec![fill(
+                text.exchange_radar_no_start,
+                &[anchor.as_ref().map_or("?", MarketAssetId::as_str), &max_age],
+            )];
+        }
+        RadarScan::Ran(scan) => scan,
+    };
+    let data_hour = model
+        .data_hour_ts
+        .and_then(|ts| chrono::DateTime::<Utc>::from_timestamp(ts, 0))
+        .map_or_else(
+            || "-".to_owned(),
+            |at| at.format("%m-%d %H:00Z").to_string(),
+        );
+    let mut lines = vec![
+        fill(
+            text.exchange_radar_header,
+            &[
+                &model.league,
+                &data_hour,
+                &model.hours_behind.to_string(),
+                &model.assets_used.to_string(),
+                &model.pairs_used.to_string(),
+                &percent_from_bps(i64::from(model.minimum_profit_basis_points)),
+            ],
+        ),
+        text.exchange_radar_caveat.to_owned(),
+        fill(
+            text.exchange_radar_diagnostics,
+            &[
+                &scan.diagnostics.triangle_evaluation_count.to_string(),
+                &scan.diagnostics.profitable_loop_count.to_string(),
+            ],
+        ),
+    ];
+    if scan.diagnostics.budget_exhausted {
+        lines.push(text.exchange_radar_budget_exhausted.to_owned());
+    }
+    if scan.items.is_empty() {
+        lines.push(text.exchange_radar_no_loop.to_owned());
+        return lines;
+    }
+    for row in &scan.items {
+        lines.extend(radar_item_lines(
+            &row.item,
+            walk_route(&row.leg_books, 1).rate,
+            row.light,
+            language,
         ));
     }
     lines
@@ -7612,5 +7942,170 @@ mod exchange_reconcile_tests {
             lines[0].contains("1/4"),
             "summary carries hits/samples: {lines:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod exchange_radar_model_tests {
+    use super::*;
+    use ptt_exchange_history::mapping::{CHAOS_PATH, DIVINE_PATH, EXALTED_PATH};
+
+    const HOUR: i64 = 1_788_159_600;
+
+    fn hour_row(
+        a: &str,
+        b: &str,
+        volume_a: u64,
+        volume_b: u64,
+    ) -> ptt_storage::ExchangeHourMarketRow {
+        ptt_storage::ExchangeHourMarketRow {
+            hour_ts: HOUR,
+            asset_a: a.to_owned(),
+            asset_b: b.to_owned(),
+            volume_a,
+            volume_b,
+            lowest_stock_a: 1,
+            highest_stock_a: 1,
+            lowest_stock_b: 1,
+            highest_stock_b: 1,
+            lowest_ratio_a: "1".to_owned(),
+            lowest_ratio_b: "1".to_owned(),
+            highest_ratio_a: "1".to_owned(),
+            highest_ratio_b: "1".to_owned(),
+        }
+    }
+
+    fn now() -> chrono::DateTime<Utc> {
+        chrono::DateTime::<Utc>::from_timestamp(HOUR + 2 * 3_600, 0).expect("time")
+    }
+
+    fn id(slug: &str) -> MarketAssetId {
+        crate::live::domain_asset_id(slug).expect("asset id")
+    }
+
+    /// 崇高→神圣 2、神圣→混沌 3、混沌→崇高 1/5：绕一圈 1.2。
+    fn inconsistent_triangle() -> [ptt_storage::ExchangeHourMarketRow; 3] {
+        [
+            hour_row(EXALTED_PATH, DIVINE_PATH, 100, 200),
+            hour_row(DIVINE_PATH, CHAOS_PATH, 100, 300),
+            hour_row(EXALTED_PATH, CHAOS_PATH, 100, 500),
+        ]
+    }
+
+    #[test]
+    fn an_inconsistent_triangle_on_real_paths_is_one_loop_with_its_leg_books() {
+        let model = exchange_radar_model(
+            &inconsistent_triangle(),
+            "Test",
+            &MarketTuning::default(),
+            now(),
+        )
+        .expect("model");
+
+        assert_eq!(model.data_hour_ts, Some(HOUR));
+        assert_eq!(model.assets_used, 3);
+        assert_eq!(model.pairs_used, 3);
+        let RadarScan::Ran(scan) = &model.scan else {
+            panic!("{:?}", model.scan);
+        };
+        assert_eq!(scan.starts, vec![id("divine-orb"), id("chaos-orb")]);
+        assert!(scan.probe_candidates.is_empty());
+        let loops: Vec<&OpportunityRow> = scan
+            .items
+            .iter()
+            .filter(|row| row.item.kind == ptt_workflows::RadarItemKind::Loop)
+            .collect();
+        assert_eq!(loops.len(), 1, "{:?}", scan.items);
+        let row = loops[0];
+        assert_eq!(row.item.round_trip_basis_points, Some(2_000));
+        assert_ne!(
+            row.item.category,
+            ptt_strategy::Actionability::InstantExecutable
+        );
+        assert_eq!(row.leg_books.len(), 3);
+        assert!(
+            row.leg_books
+                .iter()
+                .all(|leg| leg.rate.is_some() && leg.listed.is_some() && !leg.single_listing)
+        );
+        // 均价小时结束于 HOUR+1h，now 是 HOUR+2h：一小时的账，三小时内算新鲜。
+        assert_eq!(row.light, Some(FreshnessStatus::Fresh));
+    }
+
+    #[test]
+    fn without_a_settlement_currency_in_the_data_there_is_nowhere_to_start() {
+        let index = ptt_exchange_history::mapping::poe2_index().expect("mapping");
+        let others: Vec<String> = index
+            .iter()
+            .filter(|(_, catalog_id)| {
+                !["divine-orb", "chaos-orb", "exalted-orb"].contains(&catalog_id.as_str())
+                    && crate::live::domain_asset_id(catalog_id).is_ok()
+            })
+            .map(|(path, _)| path.clone())
+            .take(2)
+            .collect();
+        let rows = [
+            hour_row(EXALTED_PATH, &others[0], 100, 200),
+            hour_row(EXALTED_PATH, &others[1], 100, 300),
+        ];
+        let model =
+            exchange_radar_model(&rows, "Test", &MarketTuning::default(), now()).expect("model");
+
+        assert_eq!(model.pairs_used, 2);
+        assert_eq!(
+            model.scan_unavailable(),
+            Some(RadarUnavailable::NoStartUnits {
+                anchor: Some(id("divine-orb")),
+            })
+        );
+    }
+
+    #[test]
+    fn no_hours_is_not_enough_market_and_no_settlement_is_no_core_currency() {
+        let model =
+            exchange_radar_model(&[], "Test", &MarketTuning::default(), now()).expect("model");
+        assert_eq!(
+            model.scan_unavailable(),
+            Some(RadarUnavailable::NotEnoughMarket)
+        );
+
+        let mut tuning = MarketTuning::default();
+        tuning.settlement_assets.clear();
+        let model = exchange_radar_model(&[], "Test", &tuning, now()).expect("model");
+        assert_eq!(
+            model.scan_unavailable(),
+            Some(RadarUnavailable::NoCoreCurrency)
+        );
+    }
+
+    #[test]
+    fn the_text_report_leads_with_the_data_hour_and_the_caveat() {
+        let model = exchange_radar_model(
+            &inconsistent_triangle(),
+            "Test",
+            &MarketTuning::default(),
+            now(),
+        )
+        .expect("model");
+        let lines = render_exchange_radar(&model, UiLanguage::English);
+
+        assert!(
+            lines[0].contains("Test") && lines[0].contains("3 assets"),
+            "{lines:?}"
+        );
+        assert!(lines[1].contains("not a promise"), "{lines:?}");
+        assert!(
+            lines.iter().any(|line| line.contains("20.00%")),
+            "{lines:?}"
+        );
+    }
+
+    impl ExchangeRadarModel {
+        fn scan_unavailable(&self) -> Option<RadarUnavailable> {
+            match &self.scan {
+                RadarScan::Unavailable(reason) => Some(reason.clone()),
+                RadarScan::Ran(_) => None,
+            }
+        }
     }
 }
