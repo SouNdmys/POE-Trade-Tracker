@@ -338,6 +338,8 @@ pub struct AppShell {
     pub(crate) exchange_trend_select: pages::convert::AssetSelect,
     /// 选单上次按 (数据天数, 选中值) 装配的签名，变了才重建选项。
     pub(crate) exchange_trend_synced: (u32, u64),
+    /// 交易所页"截至哪天看"的日期框（YYYY-MM-DD；空 = 现在）。
+    pub(crate) exchange_as_of_input: gpui::Entity<gpui_component::input::InputState>,
     /// The season boundary date box (YYYY-MM-DD; empty = right now). One box
     /// serves both "start on this date" and "ended on this date".
     pub(crate) season_date_input: gpui::Entity<gpui_component::input::InputState>,
@@ -593,6 +595,8 @@ impl AppShell {
         .detach();
         let season_date_input = cx
             .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
+        let exchange_as_of_input = cx
+            .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
         // A picked currency or a typed holding is a new question, so the page
         // is rebuilt; the read itself is backgrounded, so this stays cheap.
         for (select, is_have) in [(convert_have.clone(), true), (convert_need.clone(), false)] {
@@ -652,6 +656,7 @@ impl AppShell {
             exchange_retention_input,
             exchange_trend_select,
             exchange_trend_synced: (0, 0),
+            exchange_as_of_input,
             season_date_input,
             season_info: None,
             purge_armed: false,
@@ -1616,16 +1621,24 @@ fn load_exchange(
         .map_err(|error| format!("storage: {error}"))?;
     let game = request.profile.game.as_str();
     let now = chrono::Utc::now();
+    // 截至日期（历史视角）：日窗口的终点挪到那天，小时行一行不读——
+    // 它们是"现在"的账，模型也不会看。
+    let as_of =
+        chrono::NaiveDate::parse_from_str(request.tuning.exchange.as_of_day.trim(), "%Y-%m-%d")
+            .ok();
     // 小时窗口 48h:激增基准要 8+ 小时,最新价要最近的完整小时。
-    let hour_rows = store
-        .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
-        .map_err(|error| format!("hours: {error}"))?;
+    let hour_rows = if as_of.is_some() {
+        Vec::new()
+    } else {
+        store
+            .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
+            .map_err(|error| format!("hours: {error}"))?
+    };
     // 日窗口 60 天:日折行小而永久,窗口宽一点让"回补 30 天 + 30 天涨跌"
     // 都装得下;真正算多少天由涨跌选择器和数据长度决定。
-    let from_day = (now - chrono::Duration::days(60))
-        .format("%Y-%m-%d")
-        .to_string();
-    let to_day = now.format("%Y-%m-%d").to_string();
+    let window_end = as_of.unwrap_or_else(|| now.date_naive());
+    let from_day = (window_end - chrono::Duration::days(60)).to_string();
+    let to_day = window_end.to_string();
     let day_rows = store
         .load_exchange_days(game, &league, &from_day, &to_day)
         .map_err(|error| format!("days: {error}"))?;

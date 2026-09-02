@@ -3,8 +3,8 @@
 //! 这页读的是成交量证据域（官方 API 的账），和市场分析页（挂单簿证据域）
 //! 并排放着：同一个市场，两本账，各说各的事实，谁也不冒充谁。
 
-use gpui::{Context, ParentElement, Styled, div, px};
-use gpui_component::{Sizable, Size, StyledExt as _, select::Select};
+use gpui::{Context, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
+use gpui_component::{Sizable, Size, StyledExt as _, input::Input, select::Select};
 
 use super::convert::{AssetChoice, AssetList};
 use crate::shell::AppShell;
@@ -131,8 +131,54 @@ impl AppShell {
                         .w(px(96.))
                         .flex_none()
                         .child(Select::new(&self.exchange_trend_select).with_size(Size::Small)),
-                ),
+                )
+                // ---- 截至哪天看 ----
+                // 四测提出的"从赛季初看到 6-30"：终点钉在一天，涨跌与走势
+                // 从那天往回算；小时级的列诚实留空。
+                .child(
+                    mono(text.exchange_as_of_label.to_owned())
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META)),
+                )
+                .child(
+                    div()
+                        .w(px(110.))
+                        .flex_none()
+                        .child(Input::new(&self.exchange_as_of_input).with_size(Size::Small)),
+                )
+                .child(
+                    button(
+                        "exchange-as-of-apply",
+                        LedgerButton::Quiet,
+                        text.exchange_as_of_apply,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.apply_exchange_as_of(cx);
+                        cx.notify();
+                    })),
+                )
+                .when(model.historical, |line| {
+                    line.child(
+                        button(
+                            "exchange-as-of-now",
+                            LedgerButton::Secondary,
+                            text.exchange_as_of_now,
+                            cx,
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.set_exchange_as_of(String::new(), cx);
+                            cx.notify();
+                        })),
+                    )
+                }),
         );
+        if let Some(as_of) = model.as_of_day.as_deref().filter(|_| model.historical) {
+            head = head.child(div().h_flex().items_center().child(chip(
+                StatusKind::Warning,
+                &ptt_runtime::report_text::fill(text.exchange_historical_tag, &[as_of]),
+            )));
+        }
 
         // ---- 大雷达："新面孔"条 ----
         // 值得看 + 证据，一行一个；没有新面孔就整条不画，不占注意力。
@@ -345,7 +391,14 @@ impl AppShell {
                         .flex_none()
                         .child(spark_bars(&row.value_by_day, spark_days(&model))),
                 )
-                .child(data_cell(compact_amount(row.volume_per_hour_anchor), 90.))
+                .child(data_cell(
+                    if model.historical {
+                        "-".to_owned()
+                    } else {
+                        compact_amount(row.volume_per_hour_anchor)
+                    },
+                    90.,
+                ))
                 .child(data_cell(
                     row.depth_anchor
                         .map_or_else(|| "-".to_owned(), compact_amount),
@@ -386,6 +439,42 @@ impl AppShell {
                     .child(header)
                     .child(scrollable(rows, "exchange-rows")),
             )
+    }
+
+    /// 日期框里的那天成为"截至哪天看"。空 = 回到现在。格式不对只写日志，
+    /// 设置不动——写进去一个坏日期页面会静默回到实时视角，比报错更迷惑。
+    #[cfg(windows)]
+    pub(crate) fn apply_exchange_as_of(&mut self, cx: &mut Context<Self>) {
+        let raw = self.exchange_as_of_input.read(cx).value().trim().to_owned();
+        let value = if raw.is_empty() {
+            String::new()
+        } else {
+            match chrono::NaiveDate::parse_from_str(&raw, "%Y-%m-%d") {
+                Ok(day) => day.to_string(),
+                Err(_) => {
+                    self.push_log(format!(
+                        "exchange: as-of date must be YYYY-MM-DD, got {raw:?}"
+                    ));
+                    return;
+                }
+            }
+        };
+        self.set_exchange_as_of(value, cx);
+    }
+
+    /// 截至日期是设置的一部分（页面数据在后台按设置算），改了就保存并让
+    /// 页面重算。
+    #[cfg(windows)]
+    pub(crate) fn set_exchange_as_of(&mut self, value: String, _cx: &mut Context<Self>) {
+        let game = self.settings.active_profile.game;
+        if self.settings.market_tuning(game).exchange.as_of_day == value {
+            return;
+        }
+        self.settings.market_tuning_mut(game).exchange.as_of_day = value;
+        match self.settings_store.save(&self.settings) {
+            Ok(()) => self.report_stale = true,
+            Err(error) => self.push_log(format!("settings save failed: {error}")),
+        }
     }
 
     /// 把涨跌天数下拉的选项对齐到"手上真实有几天数据"。

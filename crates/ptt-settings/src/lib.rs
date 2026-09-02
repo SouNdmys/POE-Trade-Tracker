@@ -561,6 +561,12 @@ pub struct ExchangeTuning {
     /// 数据不足 N 天时计算自动退到最早那天——上限受已有数据限制。
     #[serde(default = "default_exchange_trend_days")]
     pub trend_days: u64,
+    /// 交易所页"截至哪天看"（YYYY-MM-DD；空 = 现在）。设了就是历史视角：
+    /// 涨跌与走势的终点钉在那天，小时级的列（最新价/成交/深度）留空。
+    /// 存成设置而不是页面临时状态：页面数据是后台按设置算的，
+    /// 临时状态带不过去。
+    #[serde(default)]
+    pub as_of_day: String,
 }
 
 fn default_exchange_backfill_days() -> u64 {
@@ -580,6 +586,7 @@ impl Default for ExchangeTuning {
             backfill_days: default_exchange_backfill_days(),
             hour_retention_days: default_exchange_hour_retention_days(),
             trend_days: default_exchange_trend_days(),
+            as_of_day: String::new(),
         }
     }
 }

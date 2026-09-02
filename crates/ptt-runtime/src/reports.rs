@@ -3482,6 +3482,9 @@ pub struct ExchangeModel {
     /// 查小时表，模型函数不碰 store。`None` = loader 没做这一步（探针的纯
     /// 模型路径）。
     pub reconcile: Option<ExchangeReconcile>,
+    /// 历史视角（设置里填了截至日期）。小时级的列在这个视角下全空，
+    /// 界面用它决定画 "-" 还是画数。
+    pub historical: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -3811,6 +3814,13 @@ pub fn exchange_model(
     let mut total_rows = 0u64;
     let mut mapped_rows = 0u64;
 
+    // 截至日期：解析不出来当没填（页面保存前已经校验过格式）。历史视角下
+    // 小时行整个不看——它们是"现在"的账，和截至那天无关。
+    let as_of =
+        chrono::NaiveDate::parse_from_str(tuning.exchange.as_of_day.trim(), "%Y-%m-%d").ok();
+    let hour_rows: &[ptt_storage::ExchangeHourMarketRow] =
+        if as_of.is_some() { &[] } else { hour_rows };
+
     let mut day_stats = Vec::with_capacity(day_rows.len());
     for row in day_rows {
         total_rows += 1;
@@ -3873,7 +3883,7 @@ pub fn exchange_model(
         &anchor,
         trend_days,
         &thresholds,
-        None,
+        as_of,
     );
 
     let tracked: std::collections::BTreeSet<MarketAssetId> = tuning
@@ -3971,6 +3981,7 @@ pub fn exchange_model(
             u32::try_from(days.len()).unwrap_or(u32::MAX)
         },
         reconcile: None,
+        historical: as_of.is_some(),
     })
 }
 
@@ -7366,6 +7377,27 @@ mod exchange_model_tests {
         ];
         let model = exchange_model(&days, &[], "Runes of Aldur", &tuning()).expect("model");
         assert_eq!(model.coverage_percent, 50);
+    }
+
+    #[test]
+    fn an_as_of_day_makes_the_view_historical_and_blanks_the_hour_side() {
+        // 九天日线 + 一个最新小时；截至 08-05 看：走势只到那天，最新价
+        // （小时侧）留空——旧数不冒充现在，现在也不冒充那天。
+        let days: Vec<_> = (1..=9)
+            .map(|day| day_row(&format!("2026-08-{day:02}"), 4000, 10))
+            .collect();
+        let hours = vec![hour_row(4150, 10)];
+        let mut tuning = tuning();
+        tuning.exchange.as_of_day = "2026-08-05".to_owned();
+        let model = exchange_model(&days, &hours, "Runes of Aldur", &tuning).expect("model");
+        assert!(model.historical);
+        assert_eq!(model.as_of_day.as_deref(), Some("2026-08-05"));
+        let divine = &model.rows[0];
+        assert_eq!(divine.value_in_anchor, None);
+        assert_eq!(divine.value_by_day.len(), 5);
+        assert_eq!(divine.volume_per_hour_anchor, 0);
+        // 日线天数仍按手上全部数据算：选择器上限不该因为视角变窄。
+        assert_eq!(model.data_days, 9);
     }
 }
 
