@@ -94,13 +94,22 @@ pub fn latest_market_hours(
     max_age_hours: i64,
 ) -> Vec<ExchangeMarketHour> {
     let oldest_allowed = now.timestamp() - max_age_hours.max(0) * HOUR_SECONDS;
+    let recent: Vec<ExchangeMarketHour> = hours
+        .iter()
+        .filter(|hour| hour.hour_ts >= oldest_allowed)
+        .cloned()
+        .collect();
+    newest_per_pair(&recent)
+}
+
+/// The newest usable hour of every unordered pair. Silent sides and
+/// self-pairs are dropped here too, so the synthetic book can never see two
+/// rows for one pair — the depth index keeps whichever came last in input
+/// order, which is not "newest", and two rows of one hour collide on ids.
+fn newest_per_pair(hours: &[ExchangeMarketHour]) -> Vec<ExchangeMarketHour> {
     let mut newest: BTreeMap<(MarketAssetId, MarketAssetId), ExchangeMarketHour> = BTreeMap::new();
     for hour in hours {
-        if hour.volume_a == 0
-            || hour.volume_b == 0
-            || hour.asset_a == hour.asset_b
-            || hour.hour_ts < oldest_allowed
-        {
+        if hour.volume_a == 0 || hour.volume_b == 0 || hour.asset_a == hour.asset_b {
             continue;
         }
         let key = if hour.asset_a <= hour.asset_b {
@@ -206,11 +215,11 @@ pub(crate) fn synthetic_book(
     if request.starts.is_empty() || request.context_key.trim().is_empty() {
         return Err(WorkflowError::InvalidRequest);
     }
+    // The dedup is enforced here, not trusted to the caller: a book with two
+    // rows for one pair is silently wrong (see `newest_per_pair`).
+    let hours = newest_per_pair(hours);
     let mut assets: BTreeSet<MarketAssetId> = BTreeSet::new();
-    for hour in hours {
-        if hour.volume_a == 0 || hour.volume_b == 0 || hour.asset_a == hour.asset_b {
-            return Err(WorkflowError::InvalidRequest);
-        }
+    for hour in &hours {
         assets.insert(hour.asset_a.clone());
         assets.insert(hour.asset_b.clone());
     }
@@ -475,5 +484,27 @@ mod exchange_radar_tests {
         let hours = [hour(at(10), "a", "b", 100, 200)];
         let error = run_exchange_radar(&hours, &request(&["divine"])).expect_err("no start");
         assert_eq!(error, WorkflowError::InvalidRequest);
+    }
+
+    #[test]
+    fn the_same_pair_in_two_hours_reaches_the_book_once_at_its_newest_hour() {
+        // 调用方忘了先去重也不能炸:同一对两个小时,只有最新那小时进书。
+        let hours = [
+            hour(at(9), "a", "b", 100, 900),
+            hour(at(10), "a", "b", 100, 200),
+            hour(at(10), "b", "c", 100, 300),
+        ];
+        let book = synthetic_book(&hours, &request(&["a"])).expect("book");
+
+        assert_eq!(book.selection.selections.len(), 4);
+        let a_to_b = book
+            .selection
+            .selections
+            .iter()
+            .find(|selected| selected.pair_key == "a->b")
+            .and_then(|selected| selected.selected_edge.as_ref())
+            .expect("a->b");
+        assert_eq!(a_to_b.observation.edge.stock, 200);
+        assert_eq!(a_to_b.observation.edge.captured_at, at(11));
     }
 }
