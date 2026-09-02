@@ -21,6 +21,9 @@ const ROW_LIMIT: usize = 200;
 /// 走势列宽。柱宽随天数自适应，7 天到 60 天都塞得进这一格。
 const SPARK_WIDTH: f32 = 100.;
 
+/// 面板核对最多列几对：越界率最高的几对就是要看的，长尾是噪音。
+const RECONCILE_LIMIT: usize = 6;
+
 /// 柱图画多少天：跟涨跌选择器同一个 N（二测反馈：两处不同步看着像坏了），
 /// 但至少 7 根——一两根柱子摆不出"走势"这个词。
 fn spark_days(model: &ptt_runtime::reports::ExchangeModel) -> usize {
@@ -171,6 +174,91 @@ impl AppShell {
                         self.display_name(item.asset_id.as_str())
                     ))
                     .text_size(fs(FS_10_5)),
+                );
+            }
+            head = head.child(band);
+        }
+
+        // ---- 面板核对：两本账碰头 ----
+        // 面板抓到的最优价对官方同小时实际成交区间。总览一行常驻（"你看到
+        // 的价是不是真价"要有地方看），越界的对才逐行列出，每行带故事：
+        // 更差 = 别吃单，更好 = 多半误读，几乎全越界 = 先查映射。
+        if let Some(reconcile) = &model.reconcile {
+            use ptt_runtime::report_text::fill;
+            use ptt_runtime::reports::ExchangeReconcileReading;
+            let days = reconcile.window_days.to_string();
+            let summary = if reconcile.samples == 0 && reconcile.unmatched == 0 {
+                fill(text.exchange_reconcile_none, &[&days])
+            } else {
+                let mut line = fill(
+                    text.exchange_reconcile_summary,
+                    &[
+                        &days,
+                        &reconcile.hits.to_string(),
+                        &reconcile.samples.to_string(),
+                    ],
+                );
+                if reconcile.unmatched > 0 {
+                    line.push(' ');
+                    line.push_str(&fill(
+                        text.exchange_reconcile_unmatched,
+                        &[&reconcile.unmatched.to_string()],
+                    ));
+                }
+                line
+            };
+            let suspect = reconcile
+                .pairs
+                .iter()
+                .any(|pair| pair.reading == ExchangeReconcileReading::SuspectMapping);
+            let weak = reconcile.samples > 0 && reconcile.hits * 100 < reconcile.samples * 80;
+            let kind = if suspect || weak {
+                StatusKind::Warning
+            } else {
+                StatusKind::Idle
+            };
+            let mut band = div().px_3().pb_1().flex().flex_col().gap_1();
+            band = band.child(
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(chip(kind, text.exchange_reconcile_tag))
+                    .child(
+                        mono(summary)
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META)),
+                    ),
+            );
+            for pair in reconcile.pairs.iter().take(RECONCILE_LIMIT) {
+                let deviation = signed_percent(pair.deviation_bps);
+                let reason = match pair.reading {
+                    ExchangeReconcileReading::SuspectMapping => {
+                        text.exchange_reconcile_mapping.to_owned()
+                    }
+                    ExchangeReconcileReading::PanelWorse => {
+                        fill(text.exchange_reconcile_worse, &[&deviation])
+                    }
+                    ExchangeReconcileReading::PanelBetter => {
+                        fill(text.exchange_reconcile_better, &[&deviation])
+                    }
+                    ExchangeReconcileReading::Sporadic => {
+                        fill(text.exchange_reconcile_sporadic, &[&deviation])
+                    }
+                };
+                let head_line = fill(
+                    text.exchange_reconcile_pair,
+                    &[
+                        &self.display_name(pair.from_asset_id.as_str()),
+                        &self.display_name(pair.to_asset_id.as_str()),
+                        &pair.misses.to_string(),
+                        &pair.samples.to_string(),
+                    ],
+                );
+                band = band.child(
+                    mono(format!("{head_line} · {reason}"))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_DATA)),
                 );
             }
             head = head.child(band);

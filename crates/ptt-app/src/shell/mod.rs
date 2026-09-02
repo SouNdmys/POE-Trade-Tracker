@@ -1638,6 +1638,48 @@ fn load_exchange(
     let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
     model.synced_through = watermark;
     model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+
+    // ---- 面板核对：按抓取时刻逐点查官方小时行 ----
+    // 窗口 = 小时明细保留天数（明细清掉后就没区间可比；0 = 不清理，取一年），
+    // 再被赛季起点钳住：上季的抓取对新联赛的小时行本来就对不上，
+    // 不该混进"没对上"里吓人。
+    let retention = request.tuning.exchange.hour_retention_days;
+    let window_days = u32::try_from(if retention == 0 {
+        365
+    } else {
+        retention.min(365)
+    })
+    .unwrap_or(14);
+    let context =
+        ptt_runtime::live::live_context(request.profile, ptt_runtime::pipeline::LIVE_LEAGUE)
+            .map_err(|error| format!("{error:?}"))?;
+    let season = store.active_season(game).ok().flatten();
+    let since = ptt_runtime::rollup::clamp_to_season(
+        now - chrono::Duration::days(i64::from(window_days)),
+        season.as_ref().map(|row| row.started_at),
+    );
+    let observations = store
+        .load_observations_between(
+            &context.stable_key(),
+            since,
+            now + chrono::Duration::hours(1),
+        )
+        .map_err(|error| format!("observations: {error}"))?;
+    let mut matched_rows = Vec::new();
+    for (hour_ts, asset_a, asset_b) in ptt_runtime::reports::exchange_reconcile_keys(&observations)?
+    {
+        if let Some(row) = store
+            .load_exchange_hour_market(game, &league, hour_ts, &asset_a, &asset_b)
+            .map_err(|error| format!("hour market: {error}"))?
+        {
+            matched_rows.push(row);
+        }
+    }
+    model.reconcile = Some(ptt_runtime::reports::exchange_reconcile(
+        &observations,
+        &matched_rows,
+        window_days,
+    )?);
     Ok(Some(model))
 }
 
