@@ -69,6 +69,9 @@ pub fn run() {
             cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    // 所有列宽预算都按这个尺寸定,上游表格是纯像素的不会回流:
+                    // 缩到预算以下,最后一列就静默走出面板。
+                    window_min_size: Some(size(px(width), px(height))),
                     titlebar: Some(TitlebarOptions {
                         title: Some("POE Trade Tracker".into()),
                         ..Default::default()
