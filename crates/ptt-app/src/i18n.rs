@@ -1880,7 +1880,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     use_preset: "套用预设 2560x1440",
     page_calibrate: "校准",
     page_settings: "设置",
-    pinned_label: "已排队",
+    pinned_label: "已钉住",
     pin_label: "排队",
     unpin_label: "移除",
     detail_header: "路线明细",
