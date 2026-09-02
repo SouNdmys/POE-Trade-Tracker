@@ -2230,6 +2230,11 @@
     "note": "Bowyer's Dream"
   },
   {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBrokenPromises",
+    "asset_id": "broken-promises",
+    "note": "Broken Promises"
+  },
+  {
     "path": "Metadata/Items/DivinationCards/DivinationCardBrokenTruce",
     "asset_id": "broken-truce",
     "note": "Broken Truce"
@@ -3270,6 +3275,11 @@
     "note": "The Eldritch Decay"
   },
   {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEmptiness",
+    "asset_id": "the-emptiness",
+    "note": "The Emptiness"
+  },
+  {
     "path": "Metadata/Items/DivinationCards/DivinationCardTheEncroachingDarkness",
     "asset_id": "the-encroaching-darkness",
     "note": "The Encroaching Darkness"
@@ -3318,6 +3328,11 @@
     "path": "Metadata/Items/DivinationCards/DivinationCardTheEverlasting",
     "asset_id": "the-everlasting",
     "note": "The Everlasting"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheExplorer",
+    "asset_id": "the-explorer",
+    "note": "The Explorer"
   },
   {
     "path": "Metadata/Items/DivinationCards/DivinationCardTheEyeOfTerror",
