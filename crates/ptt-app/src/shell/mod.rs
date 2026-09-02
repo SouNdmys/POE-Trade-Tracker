@@ -1201,14 +1201,8 @@ impl AppShell {
                         _ => None,
                     };
                     if let Some(ledger) = ledger {
-                        // 账本只在水位前进时真读一次库；那一次的耗时写进日志，
-                        // 用户不用开探针也看得见这本账多贵。
-                        if ledger.load_millis > 0 {
-                            this.push_log(format!(
-                                "exchange: ledger {} hours / {} rows in {} ms",
-                                ledger.hours_loaded, ledger.rows_loaded, ledger.load_millis
-                            ));
-                        }
+                        // 账本的耗时是探针的信息（`exchange_probe` 会打印），
+                        // 不进状态栏：那一行只留得住一句话，不该被计时顶掉同步错误。
                         this.exchange_ledger_cache = Some(ledger);
                     }
                     this.close_answered_probes(requested_at);
