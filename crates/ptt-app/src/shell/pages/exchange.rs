@@ -103,27 +103,28 @@ impl AppShell {
         // ---- 同步进度行 + 手动同步 ----
         // 首测教训：回补进行中页面空白又不报进度，看起来像卡死。
         // 水位、欠账、按钮放在一行，"到哪了"和"推一把"都有地方。
-        let sync_line = model.synced_through.map_or_else(
-            || text.exchange_no_data.to_owned(),
-            |mark| {
-                ptt_runtime::report_text::fill(
-                    text.exchange_synced_through,
-                    &[&local_hour(mark), &model.hours_behind.to_string()],
-                )
-            },
+        let (sync_line, sync_is_fault) = sync_status_line(
+            text,
+            model.synced_through,
+            model.hours_behind,
+            self.exchange_sync_error.as_deref(),
         );
         head = head.child(
             div()
                 .h_flex()
                 .items_center()
                 .gap_2()
-                .child(mono(sync_line).text_size(fs(FS_10_5)).text_color(
-                    if model.hours_behind > 1 {
-                        c(TEXT_DATA)
-                    } else {
-                        c(TEXT_META)
-                    },
-                ))
+                .child(
+                    mono(sync_line)
+                        .text_size(fs(FS_10_5))
+                        .text_color(if sync_is_fault {
+                            c(DANGER_TEXT)
+                        } else if model.hours_behind > 1 {
+                            c(TEXT_DATA)
+                        } else {
+                            c(TEXT_META)
+                        }),
+                )
                 .child(
                     button(
                         "exchange-sync-now",
@@ -1020,6 +1021,38 @@ fn data_cell(value: String, width: f32) -> gpui::Div {
 }
 
 /// 水位时间戳按本地时区显示——个人工具，读表的人在哪个时区一目了然。
+/// 同步进度行的文字与"这是不是故障"。失败原因优先于"几分钟内会自己补齐"——
+/// 联赛名拼错、限速、断网在页面上必须长得和"数据在路上"不一样；
+/// 水位还在时保留它，用户既知道停在哪也知道为什么。
+fn sync_status_line(
+    text: &crate::i18n::Text,
+    synced_through: Option<i64>,
+    hours_behind: i64,
+    sync_error: Option<&str>,
+) -> (String, bool) {
+    let progress = synced_through.map(|mark| {
+        ptt_runtime::report_text::fill(
+            text.exchange_synced_through,
+            &[&local_hour(mark), &hours_behind.to_string()],
+        )
+    });
+    match (sync_error, progress) {
+        (Some(error), Some(progress)) => (
+            format!(
+                "{progress} · {}",
+                ptt_runtime::report_text::fill(text.exchange_sync_failed, &[error])
+            ),
+            true,
+        ),
+        (Some(error), None) => (
+            ptt_runtime::report_text::fill(text.exchange_sync_failed, &[error]),
+            true,
+        ),
+        (None, Some(progress)) => (progress, false),
+        (None, None) => (text.exchange_no_data.to_owned(), false),
+    }
+}
+
 fn local_hour(hour_ts: i64) -> String {
     chrono::DateTime::from_timestamp(hour_ts, 0).map_or_else(
         || "?".to_owned(),
@@ -1127,6 +1160,27 @@ fn compact_amount(value: u64) -> String {
 #[cfg(test)]
 mod exchange_page_tests {
     use super::*;
+
+    #[test]
+    fn a_sync_failure_shows_on_the_progress_line_and_reads_as_a_fault() {
+        // 联赛拼错、429、断网以前都只在会被盖掉的日志行里闪一下，
+        // 页面永远说"几分钟内会自己补齐"。错误必须落在页面上。
+        let text = crate::i18n::text(ptt_settings::UiLanguage::English);
+        let (line, is_fault) = sync_status_line(text, Some(1_700_000_000), 2, Some("boom"));
+        assert!(line.contains("boom"), "{line}");
+        assert!(
+            line.contains("2 h behind"),
+            "the watermark must survive: {line}"
+        );
+        assert!(is_fault);
+        let (line, is_fault) = sync_status_line(text, None, 0, Some("boom"));
+        assert!(line.contains("boom"), "{line}");
+        assert!(!line.contains(text.exchange_no_data), "{line}");
+        assert!(is_fault);
+        let (line, is_fault) = sync_status_line(text, None, 0, None);
+        assert_eq!(line, text.exchange_no_data);
+        assert!(!is_fault);
+    }
 
     #[test]
     fn signed_percent_caps_runaway_values_to_one_cell() {

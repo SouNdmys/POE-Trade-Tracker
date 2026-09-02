@@ -97,6 +97,11 @@ impl AppShell {
                             // 新数据落库了，正开着的页面得知道账变了。
                             this.report_stale = true;
                         }
+                        // 页面级落点：联赛名可疑要一直挂在交易所页上，
+                        // 直到某一轮真的收到了这个联赛的行；其它成功轮清掉旧错。
+                        this.exchange_sync_error = round
+                            .league_name_suspect
+                            .then(|| round.log_line().trim_start_matches("exchange: ").to_owned());
                         if round.worth_a_log_line() {
                             this.push_log(round.log_line());
                         } else if manual {
@@ -110,6 +115,8 @@ impl AppShell {
                     }
                     Some(Err(error)) => {
                         // 断网只是"下一轮再试"，水位停在原地，补拉天然填洞。
+                        // 但原因要留在交易所页上：日志行下一条就被盖掉。
+                        this.exchange_sync_error = Some(error.to_string());
                         this.push_log(format!("exchange: {error}"));
                         cx.notify();
                     }

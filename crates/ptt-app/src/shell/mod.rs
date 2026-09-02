@@ -495,6 +495,9 @@ pub struct AppShell {
     /// 第二条并发链,同一段小时被抓两遍。
     #[cfg(windows)]
     exchange_sync_running: bool,
+    /// 最近一轮同步的失败原因（网络、解析、联赛名可疑），成功一轮即清。
+    /// 交易所页读它：日志行只留得住一句话，错误必须有自己的落点。
+    exchange_sync_error: Option<String>,
     /// 哪一次检查/安装的答案有资格写回来。
     ///
     /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
@@ -868,6 +871,7 @@ impl AppShell {
             exchange_sync_generation: 0,
             exchange_page_refreshed: None,
             exchange_sync_running: false,
+            exchange_sync_error: None,
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
