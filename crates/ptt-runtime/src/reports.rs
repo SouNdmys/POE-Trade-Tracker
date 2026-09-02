@@ -3478,6 +3478,296 @@ pub struct ExchangeModel {
     /// 手上真实握有的日线天数。涨跌选择器的上限由它定：
     /// 只回补了 14 天就别让人选 30，选了也是假的。
     pub data_days: u32,
+    /// 面板核对（阶段 4 的落地形态）。由 loader 填充：它要按抓取时刻逐点
+    /// 查小时表，模型函数不碰 store。`None` = loader 没做这一步（探针的纯
+    /// 模型路径）。
+    pub reconcile: Option<ExchangeReconcile>,
+}
+
+// ---------------------------------------------------------------------------
+// 面板核对（阶段 4 对账在程序里的形态）
+// ---------------------------------------------------------------------------
+//
+// 两本账在这里碰头：面板抓到的最优档价（你当时看到、能立刻吃的价）对官方
+// 同一小时实际成交过的区间。落在区间内 = 面板价是"真价"。落在区间外分两种
+// 故事：比任何成交都好——没人接这么好的单，多半是误读；比任何成交都差——
+// 挂着的价没人接，按面板价吃单吃亏。几乎全越界则不是市场，是映射或单位。
+// 只看最优档吃单边：阶梯深处没成交的档位落在区间外是结构性的，不算数据错。
+
+/// 一对市场越界样本讲的故事。枚举而不是现成话：界面按语言渲染。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExchangeReconcileReading {
+    /// 三次以上抓取、八成以上越界：先查映射/单位，再谈行情。
+    SuspectMapping,
+    /// 越界以"比任何成交都差"为主：面板价偏贵，别按它吃单。
+    PanelWorse,
+    /// 越界以"比任何成交都好"为主：多半是误读，也可能是稍纵即逝的单。
+    PanelBetter,
+    /// 偶发越界，两边都有。
+    Sporadic,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExchangeReconcilePair {
+    pub from_asset_id: MarketAssetId,
+    pub to_asset_id: MarketAssetId,
+    pub samples: u64,
+    pub misses: u64,
+    /// 面板价比当小时任何成交都好（吃单方占便宜）的次数。
+    pub better: u64,
+    /// 面板价比当小时任何成交都差的次数。
+    pub worse: u64,
+    /// 越界样本偏离最近区间边界的下中位（bps，带号：正=面板更好，负=更差）。
+    pub deviation_bps: i64,
+    pub reading: ExchangeReconcileReading,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExchangeReconcile {
+    pub window_days: u32,
+    /// 对上了官方同小时市场的最优档样本数。
+    pub samples: u64,
+    pub hits: u64,
+    /// 面板抓过但没对上：官方那小时没这对市场、小时还没同步到、或资产没映射。
+    pub unmatched: u64,
+    /// 只列有越界的对，越界率降序、样本数次之。
+    pub pairs: Vec<ExchangeReconcilePair>,
+}
+
+/// 面板核对的资料清单：这些 (小时, 对) 要去小时表逐点查。loader 拿它查
+/// store，再把查到的行交给 `exchange_reconcile`——模型函数自己不碰 store。
+/// 路径已按字典序规整（asset_a < asset_b），与存储主键同序。
+pub fn exchange_reconcile_keys(
+    observations: &[MarketEdgeObservation],
+) -> Result<Vec<(i64, String, String)>, String> {
+    let path_of_domain = exchange_path_of_domain()?;
+    let mut keys: std::collections::BTreeSet<(i64, String, String)> =
+        std::collections::BTreeSet::new();
+    for observation in observations.iter().filter(|o| reconcile_eligible(&o.edge)) {
+        let edge = &observation.edge;
+        let (Some(from_path), Some(to_path)) = (
+            path_of_domain.get(edge.from_asset_id.as_str()),
+            path_of_domain.get(edge.to_asset_id.as_str()),
+        ) else {
+            continue;
+        };
+        let (asset_a, asset_b) = sorted_pair(from_path, to_path);
+        keys.insert((hour_of(edge), asset_a.clone(), asset_b.clone()));
+    }
+    Ok(keys.into_iter().collect())
+}
+
+/// 面板最优档 vs 官方同小时成交区间。`hour_rows` 是 loader 按
+/// `exchange_reconcile_keys` 查回来的行（多给不碍事，少给算"没对上"）。
+pub fn exchange_reconcile(
+    observations: &[MarketEdgeObservation],
+    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+    window_days: u32,
+) -> Result<ExchangeReconcile, String> {
+    use ptt_trade_domain::Ratio;
+
+    let path_of_domain = exchange_path_of_domain()?;
+    let rows: BTreeMap<(i64, &str, &str), &ptt_storage::ExchangeHourMarketRow> = hour_rows
+        .iter()
+        .map(|row| {
+            (
+                (row.hour_ts, row.asset_a.as_str(), row.asset_b.as_str()),
+                row,
+            )
+        })
+        .collect();
+
+    struct Tally {
+        samples: u64,
+        better: u64,
+        worse: u64,
+        deviations: Vec<i64>,
+    }
+    let mut tallies: BTreeMap<(MarketAssetId, MarketAssetId), Tally> = BTreeMap::new();
+    let mut samples = 0u64;
+    let mut hits = 0u64;
+    let mut unmatched = 0u64;
+
+    for observation in observations.iter().filter(|o| reconcile_eligible(&o.edge)) {
+        let edge = &observation.edge;
+        let (Some(from_path), Some(to_path)) = (
+            path_of_domain.get(edge.from_asset_id.as_str()),
+            path_of_domain.get(edge.to_asset_id.as_str()),
+        ) else {
+            unmatched += 1;
+            continue;
+        };
+        let (asset_a, asset_b) = sorted_pair(from_path, to_path);
+        let Some(row) = rows.get(&(hour_of(edge), asset_a.as_str(), asset_b.as_str())) else {
+            unmatched += 1;
+            continue;
+        };
+        // 快照对 (a 数, b 数) → a 每单位 b。两个快照不保证大小序，自己排。
+        let parse = |a: &str, b: &str| Ratio::parse(&format!("{a}:{b}")).ok();
+        let (Some(first), Some(second)) = (
+            parse(&row.lowest_ratio_a, &row.lowest_ratio_b),
+            parse(&row.highest_ratio_a, &row.highest_ratio_b),
+        ) else {
+            unmatched += 1;
+            continue;
+        };
+        let (low_a_per_b, high_a_per_b) = if ratio_le(&first, &second) {
+            (first, second)
+        } else {
+            (second, first)
+        };
+        // 边的 rate 是"每单位 from 换到的 to"。from 是 a 时，区间要翻个面
+        // 才和它同向；翻面后大小也对调。
+        let (low, high) = if from_path == asset_a {
+            (high_a_per_b.inverse(), low_a_per_b.inverse())
+        } else {
+            (low_a_per_b, high_a_per_b)
+        };
+
+        samples += 1;
+        let tally = tallies
+            .entry((edge.from_asset_id.clone(), edge.to_asset_id.clone()))
+            .or_insert(Tally {
+                samples: 0,
+                better: 0,
+                worse: 0,
+                deviations: Vec::new(),
+            });
+        tally.samples += 1;
+        if ratio_le(&low, &edge.rate) && ratio_le(&edge.rate, &high) {
+            hits += 1;
+        } else if ratio_le(&high, &edge.rate) {
+            // 换到的 to 比任何成交都多：对吃单方更好。
+            tally.better += 1;
+            tally.deviations.push(deviation_bps(&edge.rate, &high));
+        } else {
+            tally.worse += 1;
+            tally.deviations.push(deviation_bps(&edge.rate, &low));
+        }
+    }
+
+    let mut pairs: Vec<ExchangeReconcilePair> = tallies
+        .into_iter()
+        .filter(|(_, tally)| tally.better + tally.worse > 0)
+        .map(|((from_asset_id, to_asset_id), mut tally)| {
+            let misses = tally.better + tally.worse;
+            tally.deviations.sort_unstable();
+            let deviation_bps = tally.deviations[(tally.deviations.len() - 1) / 2];
+            let reading = if misses >= 3 && misses * 100 >= tally.samples * 80 {
+                ExchangeReconcileReading::SuspectMapping
+            } else if tally.worse > tally.better {
+                ExchangeReconcileReading::PanelWorse
+            } else if tally.better > tally.worse {
+                ExchangeReconcileReading::PanelBetter
+            } else {
+                ExchangeReconcileReading::Sporadic
+            };
+            ExchangeReconcilePair {
+                from_asset_id,
+                to_asset_id,
+                samples: tally.samples,
+                misses,
+                better: tally.better,
+                worse: tally.worse,
+                deviation_bps,
+                reading,
+            }
+        })
+        .collect();
+    // 越界率降序（交叉相乘比分数，不走浮点），同率样本多的在前。
+    pairs.sort_by(|left, right| {
+        (right.misses * left.samples)
+            .cmp(&(left.misses * right.samples))
+            .then(right.samples.cmp(&left.samples))
+    });
+
+    Ok(ExchangeReconcile {
+        window_days,
+        samples,
+        hits,
+        unmatched,
+        pairs,
+    })
+}
+
+/// 文本版面板核对，探针与文本兜底共用。
+pub fn render_exchange_reconcile(
+    reconcile: &ExchangeReconcile,
+    language: UiLanguage,
+) -> Vec<String> {
+    let text = crate::report_text::report(language);
+    let days = reconcile.window_days.to_string();
+    if reconcile.samples == 0 && reconcile.unmatched == 0 {
+        return vec![crate::report_text::fill(
+            text.exchange_reconcile_none,
+            &[&days],
+        )];
+    }
+    let mut lines = vec![crate::report_text::fill(
+        text.exchange_reconcile,
+        &[
+            &days,
+            &reconcile.hits.to_string(),
+            &reconcile.samples.to_string(),
+            &reconcile.unmatched.to_string(),
+        ],
+    )];
+    for pair in &reconcile.pairs {
+        lines.push(crate::report_text::fill(
+            text.exchange_reconcile_pair,
+            &[
+                pair.from_asset_id.as_str(),
+                pair.to_asset_id.as_str(),
+                &pair.misses.to_string(),
+                &pair.samples.to_string(),
+                &pair.better.to_string(),
+                &pair.worse.to_string(),
+                &percent_from_bps(pair.deviation_bps),
+                &format!("{:?}", pair.reading),
+            ],
+        ));
+    }
+    lines
+}
+
+/// 只有最优档的吃单边进核对：那是"你当时能立刻吃的价"。
+fn reconcile_eligible(edge: &ptt_trade_domain::QuoteEdge) -> bool {
+    edge.role == ptt_trade_domain::QuoteEdgeRole::AvailableTaker && edge.original_row_index == 0
+}
+
+fn hour_of(edge: &ptt_trade_domain::QuoteEdge) -> i64 {
+    edge.captured_at.timestamp().div_euclid(3600) * 3600
+}
+
+fn sorted_pair<'a>(left: &'a String, right: &'a String) -> (&'a String, &'a String) {
+    if left <= right {
+        (left, right)
+    } else {
+        (right, left)
+    }
+}
+
+/// 域层 id（连字符）→ GGG 路径。映射表是 catalog id（下划线），反查做一次逆转换。
+fn exchange_path_of_domain() -> Result<BTreeMap<String, String>, String> {
+    let mapping =
+        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+    Ok(mapping
+        .iter()
+        .map(|(path, asset_id)| (asset_id.replace('_', "-"), path.clone()))
+        .collect())
+}
+
+/// `left <= right`，交叉相乘，不走浮点。
+fn ratio_le(left: &ptt_trade_domain::Ratio, right: &ptt_trade_domain::Ratio) -> bool {
+    u128::from(left.numerator) * u128::from(right.denominator)
+        <= u128::from(right.numerator) * u128::from(left.denominator)
+}
+
+/// `(rate / bound − 1) × 10000`，向零截断。
+fn deviation_bps(rate: &ptt_trade_domain::Ratio, bound: &ptt_trade_domain::Ratio) -> i64 {
+    let scaled = u128::from(rate.numerator) * u128::from(bound.denominator) * 10_000
+        / (u128::from(rate.denominator) * u128::from(bound.numerator)).max(1);
+    i64::try_from(i128::try_from(scaled).unwrap_or(i128::MAX) - 10_000).unwrap_or(i64::MAX)
 }
 
 /// 大雷达的一条证据。枚举而不是一句现成话：界面按语言渲染，证据保持结构化。
@@ -3674,6 +3964,7 @@ pub fn exchange_model(
             days.dedup();
             u32::try_from(days.len()).unwrap_or(u32::MAX)
         },
+        reconcile: None,
     })
 }
 
@@ -3778,6 +4069,9 @@ pub fn render_exchange(model: &ExchangeModel, language: UiLanguage) -> Vec<Strin
             text.exchange_drift,
             &[&percent_from_bps(drift)],
         ));
+    }
+    if let Some(reconcile) = &model.reconcile {
+        lines.extend(render_exchange_reconcile(reconcile, language));
     }
     if model.rows.is_empty() {
         lines.push(text.exchange_no_data.to_owned());
@@ -7066,5 +7360,219 @@ mod exchange_model_tests {
         ];
         let model = exchange_model(&days, &[], "Runes of Aldur", &tuning()).expect("model");
         assert_eq!(model.coverage_percent, 50);
+    }
+}
+
+#[cfg(test)]
+mod exchange_reconcile_tests {
+    use super::*;
+    use ptt_trade_domain::{
+        Comparator, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    const EXALTED: &str = "Metadata/Items/Currency/CurrencyAddModToRare";
+    const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
+    /// 2026-08-31 07:00 UTC，与存储测试同一个小时。
+    const HOUR: i64 = 1_788_159_600;
+
+    /// 那一小时官方成交过的崇高/神圣区间：373..434 崇高每神圣。
+    fn hour_row(hour_ts: i64) -> ptt_storage::ExchangeHourMarketRow {
+        ptt_storage::ExchangeHourMarketRow {
+            hour_ts,
+            asset_a: EXALTED.to_owned(),
+            asset_b: DIVINE.to_owned(),
+            volume_a: 1_004_431,
+            volume_b: 2_416,
+            lowest_stock_a: 1,
+            lowest_stock_b: 1,
+            highest_stock_a: 1,
+            highest_stock_b: 1,
+            lowest_ratio_a: "434".to_owned(),
+            lowest_ratio_b: "1".to_owned(),
+            highest_ratio_a: "373".to_owned(),
+            highest_ratio_b: "1".to_owned(),
+        }
+    }
+
+    fn asset(id: &str) -> MarketAssetId {
+        MarketAssetId::try_new(id).expect("asset id")
+    }
+
+    /// 一次抓取里的一条边：`from -> to`，rate 是每单位 from 换到的 to。
+    fn edge(
+        from: &str,
+        to: &str,
+        rate: (u64, u64),
+        row_index: u8,
+        role: QuoteEdgeRole,
+        captured_at: i64,
+    ) -> MarketEdgeObservation {
+        let captured = chrono::DateTime::from_timestamp(captured_at, 0).expect("timestamp");
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: format!("{from}->{to}@{captured_at}#{row_index}"),
+                snapshot_id: format!("snapshot-{captured_at}"),
+                quote_id: format!("quote-{from}-{to}-{row_index}"),
+                context_key: "reconcile-test".to_owned(),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                rate: Ratio::from_parts(rate.0, rate.1).expect("rate"),
+                source_side: QuoteSide::Available,
+                execution_type: role.execution_type(),
+                role,
+                stock: 100,
+                original_need_asset_id: asset(to),
+                original_have_asset_id: asset(from),
+                original_row_index: row_index,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(990_000),
+                captured_at: captured,
+                confirmed_at: captured,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    fn taker(from: &str, to: &str, rate: (u64, u64), captured_at: i64) -> MarketEdgeObservation {
+        edge(
+            from,
+            to,
+            rate,
+            0,
+            QuoteEdgeRole::AvailableTaker,
+            captured_at,
+        )
+    }
+
+    #[test]
+    fn both_directions_of_the_same_market_land_inside_the_traded_range() {
+        // 面板给 400 崇高每神圣，官方那小时成交在 373..434 之间：命中。
+        // 反过来（1/400 神圣每崇高）也是同一条区间翻个面，同样命中——
+        // 方向由边说了算，不靠"正反都试"蒙。
+        let observations = vec![
+            taker("divine-orb", "exalted-orb", (400, 1), HOUR + 600),
+            taker("exalted-orb", "divine-orb", (1, 400), HOUR + 600),
+        ];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        assert_eq!(reconcile.samples, 2);
+        assert_eq!(reconcile.hits, 2);
+        assert_eq!(reconcile.unmatched, 0);
+        assert!(reconcile.pairs.is_empty(), "no misses, nothing to list");
+    }
+
+    #[test]
+    fn better_than_any_trade_and_worse_than_any_trade_are_told_apart() {
+        // 450 崇高每神圣：比那小时任何成交都好，吃单方占便宜——多半是误读。
+        // 300：比任何成交都差——挂着的价没人接。两者都是越界，但故事相反。
+        let observations = vec![
+            taker("divine-orb", "exalted-orb", (450, 1), HOUR + 60),
+            taker("divine-orb", "exalted-orb", (300, 1), HOUR + 120),
+            taker("divine-orb", "exalted-orb", (400, 1), HOUR + 180),
+        ];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        assert_eq!((reconcile.samples, reconcile.hits), (3, 1));
+        assert_eq!(reconcile.pairs.len(), 1);
+        let pair = &reconcile.pairs[0];
+        assert_eq!(pair.from_asset_id.to_string(), "divine-orb");
+        assert_eq!((pair.samples, pair.misses), (3, 2));
+        assert_eq!((pair.better, pair.worse), (1, 1));
+        // 偏离取越界样本的下中位：两条里取小的那条 = 300 对 373 = -1958bps。
+        assert_eq!(pair.deviation_bps, -1958);
+        assert_eq!(pair.reading, ExchangeReconcileReading::Sporadic);
+    }
+
+    #[test]
+    fn the_worse_direction_flips_with_the_edge() {
+        // 从崇高换神圣，面板给 1/450 神圣每崇高 = 要 450 崇高才换到一颗——
+        // 对吃单方是更差的价（比 434 还贵），不是更好。
+        let observations = vec![taker("exalted-orb", "divine-orb", (1, 450), HOUR)];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        let pair = &reconcile.pairs[0];
+        assert_eq!((pair.better, pair.worse), (0, 1));
+        assert_eq!(pair.reading, ExchangeReconcileReading::PanelWorse);
+        // 1/450 对下界 1/434：(434/450 - 1) = -356bps。
+        assert_eq!(pair.deviation_bps, -356);
+    }
+
+    #[test]
+    fn only_top_of_book_taker_rows_are_compared() {
+        // 阶梯深处没成交的档位落在区间外是结构性的，不算数据错；
+        // 反向参考边根本不是能吃的价。两者都不进样本。
+        let observations = vec![
+            edge(
+                "divine-orb",
+                "exalted-orb",
+                (300, 1),
+                2,
+                QuoteEdgeRole::AvailableTaker,
+                HOUR,
+            ),
+            edge(
+                "exalted-orb",
+                "divine-orb",
+                (1, 300),
+                0,
+                QuoteEdgeRole::AvailableReverseMakerReference,
+                HOUR,
+            ),
+        ];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        assert_eq!(reconcile.samples, 0);
+        assert_eq!(reconcile.unmatched, 0);
+    }
+
+    #[test]
+    fn a_capture_with_no_official_row_that_hour_is_unmatched_not_a_miss() {
+        // 官方那小时没这对市场（或还没同步到）：不能算越界，也不能算命中。
+        let observations = vec![taker("divine-orb", "exalted-orb", (400, 1), HOUR + 7200)];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        assert_eq!(reconcile.samples, 0);
+        assert_eq!(reconcile.unmatched, 1);
+    }
+
+    #[test]
+    fn a_pair_that_almost_never_matches_points_at_the_mapping() {
+        // 三次抓取全越界：市场不会这样，映射或单位会。先查映射，再谈行情。
+        let observations = vec![
+            taker("divine-orb", "exalted-orb", (40, 1), HOUR + 60),
+            taker("divine-orb", "exalted-orb", (41, 1), HOUR + 120),
+            taker("divine-orb", "exalted-orb", (42, 1), HOUR + 180),
+        ];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        let pair = &reconcile.pairs[0];
+        assert_eq!((pair.samples, pair.misses), (3, 3));
+        assert_eq!(pair.reading, ExchangeReconcileReading::SuspectMapping);
+    }
+
+    #[test]
+    fn pairs_are_listed_worst_first() {
+        let observations = vec![
+            // divine->exalted: 1/2 越界。
+            taker("divine-orb", "exalted-orb", (400, 1), HOUR + 60),
+            taker("divine-orb", "exalted-orb", (300, 1), HOUR + 120),
+            // exalted->divine: 2/2 越界。
+            taker("exalted-orb", "divine-orb", (1, 300), HOUR + 60),
+            taker("exalted-orb", "divine-orb", (1, 300), HOUR + 120),
+        ];
+        let reconcile =
+            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+        assert_eq!(reconcile.pairs.len(), 2);
+        assert_eq!(reconcile.pairs[0].from_asset_id.to_string(), "exalted-orb");
+        assert_eq!(reconcile.pairs[1].from_asset_id.to_string(), "divine-orb");
+        let lines = render_exchange_reconcile(&reconcile, UiLanguage::Chinese);
+        assert!(
+            lines[0].contains("1/4"),
+            "summary carries hits/samples: {lines:?}"
+        );
     }
 }

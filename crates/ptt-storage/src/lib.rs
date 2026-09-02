@@ -1335,15 +1335,47 @@ impl MarketStore {
         from_ts: i64,
         to_ts: i64,
     ) -> Result<Vec<ExchangeHourMarketRow>, StorageError> {
-        let mut statement = self.connection.prepare_cached(
+        self.query_exchange_hour_markets(
             "SELECT hour_ts, asset_a, asset_b, volume_a, volume_b,
                  lowest_stock_a, lowest_stock_b, highest_stock_a, highest_stock_b,
                  lowest_ratio_a, lowest_ratio_b, highest_ratio_a, highest_ratio_b
              FROM exchange_hour_markets
              WHERE game = ?1 AND league = ?2 AND hour_ts >= ?3 AND hour_ts < ?4
              ORDER BY hour_ts, asset_a, asset_b",
+            params![game, league, from_ts, to_ts],
+        )
+    }
+
+    /// 一小时、一对的单条市场行——面板核对按抓取时刻逐点查用。主键正好是
+    /// (game, league, hour_ts, asset_a, asset_b)，一次点查，不搬整张小时表。
+    pub fn load_exchange_hour_market(
+        &self,
+        game: &str,
+        league: &str,
+        hour_ts: i64,
+        asset_a: &str,
+        asset_b: &str,
+    ) -> Result<Option<ExchangeHourMarketRow>, StorageError> {
+        let mut rows = self.query_exchange_hour_markets(
+            "SELECT hour_ts, asset_a, asset_b, volume_a, volume_b,
+                 lowest_stock_a, lowest_stock_b, highest_stock_a, highest_stock_b,
+                 lowest_ratio_a, lowest_ratio_b, highest_ratio_a, highest_ratio_b
+             FROM exchange_hour_markets
+             WHERE game = ?1 AND league = ?2 AND hour_ts = ?3
+               AND asset_a = ?4 AND asset_b = ?5",
+            params![game, league, hour_ts, asset_a, asset_b],
         )?;
-        let rows = statement.query_map(params![game, league, from_ts, to_ts], |row| {
+        Ok(rows.pop())
+    }
+
+    /// 两个读取口共用的行映射：SELECT 列序固定，改列先改这里的两处 SQL。
+    fn query_exchange_hour_markets(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<ExchangeHourMarketRow>, StorageError> {
+        let mut statement = self.connection.prepare_cached(sql)?;
+        let rows = statement.query_map(params, |row| {
             Ok((
                 row.get::<_, i64>(0)?,
                 row.get::<_, String>(1)?,

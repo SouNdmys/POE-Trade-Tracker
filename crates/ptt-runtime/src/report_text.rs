@@ -45,6 +45,9 @@ pub struct ReportText {
     /// Slot: market median drift in percent.
     pub exchange_drift: &'static str,
     pub exchange_no_data: &'static str,
+    pub exchange_reconcile: &'static str,
+    pub exchange_reconcile_none: &'static str,
+    pub exchange_reconcile_pair: &'static str,
     /// One leg of a route against the listings it would have to take right
     /// now. Slots: from, to, listed, taken, share.
     ///
@@ -165,6 +168,9 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     exchange_header: "official exchange, league {} (mapping coverage {}%)",
     exchange_drift: "market median drift {}",
     exchange_no_data: "no exchange data yet -- set the league in Settings, the sync fills in on its own",
+    exchange_reconcile: "panel check, last {} days: top-of-book {}/{} inside the official traded range ({} unmatched)",
+    exchange_reconcile_none: "panel check, last {} days: no panel captures to compare",
+    exchange_reconcile_pair: "  {} -> {}: {}/{} outside, better {} / worse {}, typical {}, {}",
     leg_take: "{} -> {}   {} listed, this trip takes {}{}",
     leg_share: " ({}%)",
     leg_covered: "listings cover it",
@@ -255,6 +261,9 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     exchange_header: "官方交易所，联赛 {}（映射覆盖 {}%）",
     exchange_drift: "市场中位漂移 {}",
     exchange_no_data: "还没有交易所数据——去设置页填联赛名，同步会自己补齐",
+    exchange_reconcile: "面板核对，近 {} 天：最优档 {}/{} 次落在官方成交区间内（{} 次没对上）",
+    exchange_reconcile_none: "面板核对，近 {} 天：没有面板抓取可比",
+    exchange_reconcile_pair: "  {} -> {}：{}/{} 越界，更好 {} / 更差 {}，典型偏离 {}，{:?}",
     leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
     leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",

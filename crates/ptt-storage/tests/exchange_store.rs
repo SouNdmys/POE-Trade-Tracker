@@ -97,6 +97,41 @@ fn confirmed_empty_hour_is_a_zero_mark() {
 }
 
 #[test]
+fn one_market_of_one_hour_is_a_point_lookup() {
+    // 面板核对要的是"这一小时、这一对"——按抓取时刻逐点查，
+    // 不把两周的小时表整个搬进内存。
+    let mut store = MarketStore::open_in_memory().expect("store");
+    store
+        .replace_exchange_hour("poe2", LEAGUE, HOUR, &[hour_row(HOUR)], now())
+        .expect("write hour");
+    assert_eq!(
+        store
+            .load_exchange_hour_market("poe2", LEAGUE, HOUR, EXALTED, DIVINE)
+            .expect("lookup"),
+        Some(hour_row(HOUR))
+    );
+    // 另一个小时、另一对、另一个联赛：都不是同一条账。
+    assert_eq!(
+        store
+            .load_exchange_hour_market("poe2", LEAGUE, HOUR + 3600, EXALTED, DIVINE)
+            .expect("lookup"),
+        None
+    );
+    assert_eq!(
+        store
+            .load_exchange_hour_market("poe2", LEAGUE, HOUR, DIVINE, EXALTED)
+            .expect("lookup"),
+        None
+    );
+    assert_eq!(
+        store
+            .load_exchange_hour_market("poe2", "Standard", HOUR, EXALTED, DIVINE)
+            .expect("lookup"),
+        None
+    );
+}
+
+#[test]
 fn replace_rejects_rows_from_another_hour() {
     let mut store = MarketStore::open_in_memory().expect("store");
     let result = store.replace_exchange_hour("poe2", LEAGUE, HOUR, &[hour_row(HOUR + 3600)], now());
