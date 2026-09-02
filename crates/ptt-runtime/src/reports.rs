@@ -1389,25 +1389,14 @@ pub fn convert_report(
 /// The sizes the page prices.
 ///
 /// A stated holding prices exactly that size — "I have 100 divine" is a
-/// question about 100, not about a ladder. Otherwise the configured ladder,
-/// with the shipped one behind an empty or zeroed setting.
-fn convert_sizes(holdings: Option<u64>, tuning: &MarketTuning) -> Vec<u64> {
+/// question about 100, not about a ladder. Otherwise the shipped ladder.
+/// (The ladder used to be a tuning knob; once the page took a holding it
+/// only ever applied to an empty box, and a knob that only works when you
+/// have not typed anything is a knob nobody understands.)
+fn convert_sizes(holdings: Option<u64>) -> Vec<u64> {
     match holdings {
         Some(count) => vec![count.max(1)],
-        None => {
-            let configured: Vec<u64> = tuning
-                .convert
-                .sizes
-                .iter()
-                .copied()
-                .filter(|size| *size > 0)
-                .collect();
-            if configured.is_empty() {
-                CONVERT_SIZES.to_vec()
-            } else {
-                configured
-            }
-        }
+        None => CONVERT_SIZES.to_vec(),
     }
 }
 
@@ -1458,7 +1447,7 @@ pub fn convert_model(
         });
     }
     let market = build_market(observations, context_key, tuning, language)?;
-    let sizes = convert_sizes(holdings, tuning);
+    let sizes = convert_sizes(holdings);
     let max_hops = u8::try_from(tuning.convert.max_hops.clamp(1, 4)).unwrap_or(3);
 
     let mut routes: Vec<SizeRoute> = Vec::new();

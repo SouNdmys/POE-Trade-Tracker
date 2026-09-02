@@ -339,18 +339,12 @@ impl Default for FreshnessTuning {
 /// Knobs for the Convert page ("I hold X and want Y").
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConvertTuning {
-    /// The sizes priced when the user has not typed a holding, in whole units.
-    #[serde(default = "default_convert_sizes")]
-    pub sizes: Vec<u64>,
     /// Route search depth. The engine accepts 1..=4; out-of-range values fail
     /// its own validation and the report says so.
     #[serde(default = "default_max_hops")]
     pub max_hops: u64,
 }
 
-fn default_convert_sizes() -> Vec<u64> {
-    vec![1, 10, 100]
-}
 fn default_max_hops() -> u64 {
     3
 }
@@ -358,7 +352,6 @@ fn default_max_hops() -> u64 {
 impl Default for ConvertTuning {
     fn default() -> Self {
         Self {
-            sizes: default_convert_sizes(),
             max_hops: default_max_hops(),
         }
     }
@@ -944,6 +937,25 @@ mod tests {
         assert_eq!(loaded.settings.hotkeys.toggle_watch, "Alt+F10");
     }
 
+    /// The convert ladder used to be a tuning knob; files that still carry
+    /// `convert.sizes` must load, the key is simply ignored.
+    #[test]
+    fn a_file_with_the_retired_convert_sizes_still_loads() {
+        let store = temp_store("retired-sizes");
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        fs::write(
+            store.path(),
+            br#"{"schema_version": 1, "market": {"poe2": {"convert": {"sizes": [1, 10, 100], "max_hops": 2}}}}"#,
+        )
+        .unwrap();
+        let loaded = store.load();
+        assert_eq!(loaded.status, LoadStatus::Loaded);
+        assert_eq!(
+            loaded.settings.market_tuning(Game::Poe2).convert.max_hops,
+            2
+        );
+    }
+
     #[test]
     fn a_profile_is_calibrated_only_when_all_three_regions_are_framed() {
         let region = Region {
@@ -1058,7 +1070,6 @@ mod tests {
         assert_eq!(tuning.settlement_assets, ["chaos-orb"]);
         assert_eq!(tuning.freshness.fresh_seconds, 3600);
         assert_eq!(tuning.freshness.usable_seconds, 21600);
-        assert_eq!(tuning.convert.sizes, [1, 10, 100]);
         assert_eq!(tuning.risk.thin_liquidity_stock, 100);
         // The other game is untouched by poe2's entry.
         assert_eq!(

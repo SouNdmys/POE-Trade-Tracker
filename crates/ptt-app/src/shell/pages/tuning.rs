@@ -27,7 +27,6 @@ pub struct TuningInputs {
     pub usable: Entity<InputState>,
     pub stale: Entity<InputState>,
     pub skew: Entity<InputState>,
-    pub sizes: Entity<InputState>,
     pub max_hops: Entity<InputState>,
     pub max_results: Entity<InputState>,
     pub min_basis_points: Entity<InputState>,
@@ -51,13 +50,12 @@ pub struct TuningInputs {
 
 impl TuningInputs {
     /// Every box, in the order the page draws them.
-    fn all(&self) -> [&Entity<InputState>; 24] {
+    fn all(&self) -> [&Entity<InputState>; 23] {
         [
             &self.fresh,
             &self.usable,
             &self.stale,
             &self.skew,
-            &self.sizes,
             &self.max_hops,
             &self.max_results,
             &self.min_basis_points,
@@ -86,18 +84,6 @@ fn number(input: &Entity<InputState>, cx: &gpui::App) -> Option<u64> {
     input.read(cx).value().trim().parse::<u64>().ok()
 }
 
-/// The convert ladder, which is a list rather than a number.
-fn sizes(input: &Entity<InputState>, cx: &gpui::App) -> Option<Vec<u64>> {
-    let text = input.read(cx).value();
-    let parsed: Option<Vec<u64>> = text
-        .split(',')
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .map(|part| part.parse::<u64>().ok().filter(|size| *size > 0))
-        .collect();
-    parsed.filter(|list| !list.is_empty())
-}
-
 impl AppShell {
     #[cfg(windows)]
     pub(crate) fn new_tuning_inputs(
@@ -112,15 +98,6 @@ impl AppShell {
             usable: make(tuning.freshness.usable_seconds.to_string()),
             stale: make(tuning.freshness.stale_seconds.to_string()),
             skew: make(tuning.freshness.capture_skew_seconds.to_string()),
-            sizes: make(
-                tuning
-                    .convert
-                    .sizes
-                    .iter()
-                    .map(u64::to_string)
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ),
             max_hops: make(tuning.convert.max_hops.to_string()),
             max_results: make(tuning.radar.max_results.to_string()),
             min_basis_points: make(tuning.radar.minimum_profit_basis_points.to_string()),
@@ -250,7 +227,6 @@ impl AppShell {
             return false;
         }
         let (
-            Some(sizes),
             Some(max_hops),
             Some(max_results),
             Some(min_basis_points),
@@ -259,7 +235,6 @@ impl AppShell {
             Some(outlier_factor),
             Some(window_hours),
         ) = (
-            sizes(&inputs.sizes, cx),
             number(&inputs.max_hops, cx),
             number(&inputs.max_results, cx),
             number(&inputs.min_basis_points, cx),
@@ -332,7 +307,6 @@ impl AppShell {
             tuning.freshness.usable_seconds = usable;
             tuning.freshness.stale_seconds = stale;
             tuning.freshness.capture_skew_seconds = skew;
-            tuning.convert.sizes = sizes;
             tuning.convert.max_hops = max_hops;
             tuning.radar.max_results = max_results;
             tuning.radar.minimum_profit_basis_points = min_basis_points;
@@ -382,7 +356,7 @@ impl AppShell {
         ) else {
             return false;
         };
-        0 < fresh && fresh < usable && usable < stale && sizes(&inputs.sizes, cx).is_some()
+        0 < fresh && fresh < usable && usable < stale
     }
 
     /// 顶部通栏(§10):结算通货与「允许路过关注目标」。它们不属于任何
@@ -562,19 +536,12 @@ impl AppShell {
     /// this, so this construction must stay a twin of
     /// [`AppShell::new_tuning_inputs`].
     #[cfg(windows)]
-    fn tuning_stored_values(tuning: &ptt_settings::MarketTuning) -> [String; 24] {
+    fn tuning_stored_values(tuning: &ptt_settings::MarketTuning) -> [String; 23] {
         [
             tuning.freshness.fresh_seconds.to_string(),
             tuning.freshness.usable_seconds.to_string(),
             tuning.freshness.stale_seconds.to_string(),
             tuning.freshness.capture_skew_seconds.to_string(),
-            tuning
-                .convert
-                .sizes
-                .iter()
-                .map(u64::to_string)
-                .collect::<Vec<_>>()
-                .join(", "),
             tuning.convert.max_hops.to_string(),
             tuning.radar.max_results.to_string(),
             tuning.radar.minimum_profit_basis_points.to_string(),
@@ -724,12 +691,6 @@ impl AppShell {
         let scan_card = card(
             text.group_scan,
             vec![
-                cell(
-                    text.tuning_sizes,
-                    &inputs.sizes,
-                    Unit::None,
-                    text.tuning_sizes_note,
-                ),
                 cell(
                     text.tuning_max_hops,
                     &inputs.max_hops,
