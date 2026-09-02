@@ -1114,7 +1114,7 @@ impl AppShell {
                         cx,
                     )
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        this.pin_probe(&from, &to, &reason);
+                        this.pin_probe(&from, &to, &reason, false);
                         cx.notify();
                     })),
                 )

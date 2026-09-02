@@ -2674,6 +2674,44 @@ pub fn probe_queue_model(
     })
 }
 
+/// 大雷达钉进队列的腿要活到被抓为止（三层闭环的最后一段）。
+///
+/// 待抓队列是派生的：`probe_queue_model` 每次重算，`retain_missing` 拿派生
+/// 候选清钉子。大雷达钉的腿不在派生候选里，下一次刷新就会被当成"已回答"
+/// 清掉。这里把"窗口里还没有新鲜可吃档"的钉子重新提成候选：一旦抓到新鲜
+/// 的，它不再被提出来，钉子随之自然消失——不用谁记得去取消。
+pub fn sticky_probe_candidates(
+    pins: &[(MarketAssetId, MarketAssetId, String)],
+    observations: &[MarketEdgeObservation],
+    fresh_seconds: u64,
+    now: chrono::DateTime<Utc>,
+) -> Vec<ptt_workflows::ProbeCandidate> {
+    let floor = now.timestamp() - i64::try_from(fresh_seconds).unwrap_or(i64::MAX / 2);
+    pins.iter()
+        .filter(|(from, to, _)| {
+            !observations.iter().any(|observation| {
+                let edge = &observation.edge;
+                edge.from_asset_id == *from
+                    && edge.to_asset_id == *to
+                    && edge.role == ptt_trade_domain::QuoteEdgeRole::AvailableTaker
+                    && edge.captured_at.timestamp() >= floor
+            })
+        })
+        .map(|(from, to, reason)| ptt_workflows::ProbeCandidate {
+            from_asset_id: from.clone(),
+            to_asset_id: to.clone(),
+            reason: ptt_workflows::ProbeReason::OpportunityConfirmation,
+            source: ptt_workflows::ProbeSource::ExchangeRadar,
+            priority: ptt_workflows::ProbePriority::High,
+            related_focus_group_id: None,
+            last_seen_at: None,
+            freshness_status: None,
+            expected_value_hint: None,
+            notes: Some(reason.clone()),
+        })
+        .collect()
+}
+
 /// The probe queue as display lines.
 fn render_probe_queue(model: &ProbeQueueModel, language: UiLanguage) -> Vec<String> {
     use crate::report_text::fill;
@@ -8107,5 +8145,115 @@ mod exchange_radar_model_tests {
                 RadarScan::Ran(_) => None,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod sticky_probe_tests {
+    use super::*;
+    use chrono::TimeZone;
+    use ptt_trade_domain::{
+        Comparator, ExecutionType, QuoteEdge, QuoteEdgeRole, QuoteSide, Ratio, SnapshotRecordStatus,
+    };
+
+    fn asset(value: &str) -> MarketAssetId {
+        MarketAssetId::try_new(value).expect("asset")
+    }
+
+    fn now() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 9, 2, 12, 0, 0)
+            .single()
+            .expect("time")
+    }
+
+    /// 一条 `role` 角色的抓取，`age_seconds` 秒前抓的。
+    fn capture(
+        from: &str,
+        to: &str,
+        role: QuoteEdgeRole,
+        age_seconds: i64,
+    ) -> MarketEdgeObservation {
+        let captured_at = now() - chrono::Duration::seconds(age_seconds);
+        MarketEdgeObservation {
+            edge: QuoteEdge {
+                edge_id: format!("edge-{from}-{to}-{age_seconds}"),
+                snapshot_id: "snapshot".to_owned(),
+                quote_id: "quote".to_owned(),
+                context_key: "context".to_owned(),
+                from_asset_id: asset(from),
+                to_asset_id: asset(to),
+                rate: Ratio::parse("2:1").expect("rate"),
+                source_side: QuoteSide::Available,
+                execution_type: ExecutionType::Taker,
+                role,
+                stock: 10,
+                original_need_asset_id: asset(to),
+                original_have_asset_id: asset(from),
+                original_row_index: 0,
+                comparator: Comparator::Exact,
+                user_edited: false,
+                machine_confidence_ppm: Some(1_000_000),
+                captured_at,
+                confirmed_at: captured_at,
+            },
+            snapshot_complete: true,
+            record_status: SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
+        }
+    }
+
+    fn pin(from: &str, to: &str) -> (MarketAssetId, MarketAssetId, String) {
+        (
+            asset(from),
+            asset(to),
+            "exchange radar · loop +9.36%".to_owned(),
+        )
+    }
+
+    #[test]
+    fn a_leg_never_captured_stays_on_the_queue_as_a_high_exchange_radar_probe() {
+        let candidates = sticky_probe_candidates(&[pin("divine", "lock")], &[], 600, now());
+
+        assert_eq!(candidates.len(), 1);
+        let candidate = &candidates[0];
+        assert_eq!(candidate.from_asset_id, asset("divine"));
+        assert_eq!(candidate.to_asset_id, asset("lock"));
+        assert_eq!(candidate.priority, ptt_workflows::ProbePriority::High);
+        assert_eq!(candidate.source, ptt_workflows::ProbeSource::ExchangeRadar);
+        assert_eq!(
+            candidate.reason,
+            ptt_workflows::ProbeReason::OpportunityConfirmation
+        );
+        assert_eq!(
+            candidate.notes.as_deref(),
+            Some("exchange radar · loop +9.36%")
+        );
+    }
+
+    #[test]
+    fn a_fresh_taker_capture_answers_the_leg_and_it_drops_off() {
+        let observations = [capture(
+            "divine",
+            "lock",
+            QuoteEdgeRole::AvailableTaker,
+            120,
+        )];
+        let candidates =
+            sticky_probe_candidates(&[pin("divine", "lock")], &observations, 600, now());
+
+        assert!(candidates.is_empty(), "{candidates:?}");
+    }
+
+    #[test]
+    fn a_stale_capture_or_the_wrong_side_does_not_count_as_an_answer() {
+        let observations = [
+            capture("divine", "lock", QuoteEdgeRole::AvailableTaker, 3_600),
+            capture("lock", "divine", QuoteEdgeRole::AvailableTaker, 60),
+        ];
+        let candidates =
+            sticky_probe_candidates(&[pin("divine", "lock")], &observations, 600, now());
+
+        assert_eq!(candidates.len(), 1);
     }
 }

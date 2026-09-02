@@ -849,7 +849,7 @@ impl AppShell {
                 if this.probe_queue.is_pinned(&click_from, &click_to) {
                     this.unpin_probe(&click_from, &click_to);
                 } else {
-                    this.pin_probe(&click_from, &click_to, &click_reason);
+                    this.pin_probe(&click_from, &click_to, &click_reason, false);
                 }
                 cx.notify();
             }));

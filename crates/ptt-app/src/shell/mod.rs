@@ -1099,6 +1099,19 @@ impl AppShell {
             profile,
             language: self.settings.ui_language,
             tuning: self.settings.market_tuning(profile.game),
+            sticky_probes: self
+                .probe_queue
+                .entries()
+                .iter()
+                .filter(|pin| pin.sticky)
+                .map(|pin| {
+                    (
+                        pin.from_asset_id.clone(),
+                        pin.to_asset_id.clone(),
+                        pin.reason.clone(),
+                    )
+                })
+                .collect(),
         })
     }
 
@@ -1129,11 +1142,12 @@ impl AppShell {
 
     /// Queues a pair for the user to go and flip.
     #[cfg(windows)]
-    pub(crate) fn pin_probe(&mut self, from: &str, to: &str, reason: &str) {
+    pub(crate) fn pin_probe(&mut self, from: &str, to: &str, reason: &str, sticky: bool) {
         self.probe_queue.pin(crate::state::PinnedProbe {
             from_asset_id: from.to_owned(),
             to_asset_id: to.to_owned(),
             reason: reason.to_owned(),
+            sticky,
         });
     }
 
@@ -1346,6 +1360,9 @@ struct PageRequest {
     profile: ptt_core::ProfileId,
     language: ptt_settings::UiLanguage,
     tuning: ptt_settings::MarketTuning,
+    /// 大雷达钉的腿 (from, to, 理由):待抓队列是派生的,这些要带过去
+    /// 才能在没抓到之前一直挂着。
+    sticky_probes: Vec<(String, String, String)>,
 }
 
 /// Reads the store and builds one page's answer.
@@ -1421,14 +1438,46 @@ fn load_probe_queue(
 
     let (context_key, observations) = load_window(request)?;
     let analytics = load_pulse(request);
-    ptt_runtime::reports::probe_queue_model(
+    let mut model = ptt_runtime::reports::probe_queue_model(
         &observations,
         &context_key,
         LIVE_LEAGUE,
         &request.tuning,
         request.language,
         analytics.as_ref().map(|model| &model.pulse),
-    )
+    )?;
+    // 大雷达钉的腿:派生候选里没有它们,没抓到新鲜档之前要一直挂在队首。
+    let pins: Vec<(
+        ptt_trade_domain::MarketAssetId,
+        ptt_trade_domain::MarketAssetId,
+        String,
+    )> = request
+        .sticky_probes
+        .iter()
+        .filter_map(|(from, to, reason)| {
+            Some((
+                ptt_runtime::live::domain_asset_id(from).ok()?,
+                ptt_runtime::live::domain_asset_id(to).ok()?,
+                reason.clone(),
+            ))
+        })
+        .collect();
+    let sticky = ptt_runtime::reports::sticky_probe_candidates(
+        &pins,
+        &observations,
+        request.tuning.freshness.fresh_seconds,
+        chrono::Utc::now(),
+    );
+    for candidate in sticky.into_iter().rev() {
+        let held = model.candidates.iter().any(|held| {
+            held.from_asset_id == candidate.from_asset_id
+                && held.to_asset_id == candidate.to_asset_id
+        });
+        if !held {
+            model.candidates.insert(0, candidate);
+        }
+    }
+    Ok(model)
 }
 
 /// The observation window the report pages read.

@@ -74,6 +74,9 @@ pub struct PinnedProbe {
     /// describes the moment it was pinned, and re-deriving it later would
     /// describe a different one.
     pub reason: String,
+    /// 大雷达钉的腿：派生候选里没有它，得靠 `sticky_probe_candidates` 一直
+    /// 把它提回队列，直到抓到新鲜的可吃档。手工或小雷达钉的不需要。
+    pub sticky: bool,
 }
 
 impl PinnedProbe {

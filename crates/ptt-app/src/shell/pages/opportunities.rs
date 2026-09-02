@@ -1352,7 +1352,7 @@ impl AppShell {
                     .on_click(cx.listener(move |this, _, _, cx| {
                         // 倒着钉:`pin` 每次插到队首,正着钉第一腿会被挤到最后。
                         for (from, to) in legs.iter().rev() {
-                            this.pin_probe(from, to, &reason);
+                            this.pin_probe(from, to, &reason, true);
                         }
                         cx.notify();
                     })),
@@ -1376,7 +1376,7 @@ impl AppShell {
             } else {
                 button("radar-pin", LedgerButton::Secondary, text.pin_label, cx).on_click(
                     cx.listener(move |this, _, _, cx| {
-                        this.pin_probe(&from, &to, &reason);
+                        this.pin_probe(&from, &to, &reason, false);
                         cx.notify();
                     }),
                 )
@@ -1470,7 +1470,7 @@ impl AppShell {
                     if this.probe_queue.is_pinned(&from, &to) {
                         this.unpin_probe(&from, &to);
                     } else {
-                        this.pin_probe(&from, &to, &reason);
+                        this.pin_probe(&from, &to, &reason, false);
                     }
                     cx.notify();
                 }));

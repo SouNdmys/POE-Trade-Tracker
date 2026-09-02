@@ -33,6 +33,9 @@ pub enum ProbeSource {
     Triangle,
     MakerStrategy,
     OpportunityRadar,
+    /// A leg the reader queued from the exchange radar, kept until a fresh
+    /// taker capture answers it.
+    ExchangeRadar,
     Manual,
 }
 
