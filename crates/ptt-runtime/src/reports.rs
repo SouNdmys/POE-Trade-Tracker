@@ -3867,8 +3867,14 @@ pub fn exchange_model(
     let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
     // 1..=60 的钳位：0 天没有意义，60 天之外日窗口本来也没加载。
     let trend_days = u32::try_from(tuning.exchange.trend_days.clamp(1, 60)).unwrap_or(7);
-    let pulse =
-        ptt_strategy::exchange_pulse(&day_stats, &hour_stats, &anchor, trend_days, &thresholds);
+    let pulse = ptt_strategy::exchange_pulse(
+        &day_stats,
+        &hour_stats,
+        &anchor,
+        trend_days,
+        &thresholds,
+        None,
+    );
 
     let tracked: std::collections::BTreeSet<MarketAssetId> = tuning
         .settlement_assets

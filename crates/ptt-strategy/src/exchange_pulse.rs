@@ -65,6 +65,10 @@ pub struct ExchangeAssetPulse {
     pub surge_percent: Option<u64>,
     /// 成交额最大的对手资产——"最流行交易对"列。
     pub top_partner: Option<MarketAssetId>,
+    /// 每日锚计价成交额（升序）：该日所有含此资产的市场里，此资产的成交
+    /// 单位数 × 当日锚价。日线永久保留，所以这条是赛季节奏与导出的原料；
+    /// 小时侧只有 0 时（历史视角）它还兼任排序键。
+    pub anchor_volume_by_day: Vec<(NaiveDate, u64)>,
 }
 
 #[derive(Clone, Debug)]
@@ -84,13 +88,24 @@ pub struct ExchangePulse {
 /// 桥接只走一步（直连锚的资产做桥），桥选当小时/当日成交量最大的那个——
 /// 多级桥每级都在放大噪声，一步是"能算"与"可信"的平衡点，与
 /// `market_analytics` 的一步合成规则一致。
+///
+/// `as_of`：截至哪一天看。给了就是历史视角——日线只算到那天，涨跌的终点
+/// 钉在那天；小时侧（最新价、成交/小时、深度、放量、对手）是"现在"的事，
+/// 历史视角下整个不算，留空而不是拿旧数冒充。
 pub fn exchange_pulse(
     day_stats: &[ExchangePairDay],
     hour_stats: &[ExchangePairHour],
     anchor: &MarketAssetId,
     trend_days: u32,
     thresholds: &AnalyticsThresholds,
+    as_of: Option<NaiveDate>,
 ) -> ExchangePulse {
+    let hour_stats: &[ExchangePairHour] = if as_of.is_some() { &[] } else { hour_stats };
+    let day_stats: Vec<&ExchangePairDay> = day_stats
+        .iter()
+        .filter(|stat| as_of.is_none_or(|as_of| stat.day <= as_of))
+        .collect();
+    let day_stats = day_stats.as_slice();
     // ---- 每日锚计价：先直连，后桥接 ----
     // day → (asset → (anchor_volume, own_volume))，直连锚市场的成交量合计。
     let mut direct_by_day: BTreeMap<NaiveDate, BTreeMap<&MarketAssetId, (u128, u128)>> =
@@ -266,11 +281,47 @@ pub fn exchange_pulse(
         }
     }
 
+    // 只有日线的资产也进表：历史视角下没有任何小时，表不能因此空掉。
+    for asset in value_by_day.keys() {
+        folds.entry(asset).or_insert_with(|| HourFold {
+            latest_value: None,
+            anchor_volume_by_hour: BTreeMap::new(),
+            depth_sum: 0,
+            depth_samples: 0,
+            partner_volume: BTreeMap::new(),
+        });
+    }
+
+    // ---- 日成交额（锚计价）----
+    // 该日所有含此资产的市场里，此资产的成交单位数 × 当日锚价（直连或桥接）。
+    // 没算出当日锚价的那天不计——"算不出"不冒充零。
+    let mut day_volume: BTreeMap<&MarketAssetId, BTreeMap<NaiveDate, u128>> = BTreeMap::new();
+    for stat in day_stats {
+        for (asset, own) in [
+            (&stat.asset_a, stat.volume_a),
+            (&stat.asset_b, stat.volume_b),
+        ] {
+            if asset == anchor || own == 0 {
+                continue;
+            }
+            let Some(value) = value_by_day.get(asset).and_then(|days| days.get(&stat.day)) else {
+                continue;
+            };
+            *day_volume
+                .entry(asset)
+                .or_default()
+                .entry(stat.day)
+                .or_insert(0) += anchor_value(u128::from(own), value);
+        }
+    }
+
     // ---- 趋势与汇总 ----
-    let as_of_day = value_by_day
-        .values()
-        .filter_map(|days| days.keys().next_back().copied())
-        .max();
+    let as_of_day = as_of.or_else(|| {
+        value_by_day
+            .values()
+            .filter_map(|days| days.keys().next_back().copied())
+            .max()
+    });
     let mut raw_trend: BTreeMap<&MarketAssetId, i64> = BTreeMap::new();
     for (asset, days) in &value_by_day {
         if let Some(bps) = endpoint_trend_bps(days, trend_days) {
@@ -345,14 +396,31 @@ pub fn exchange_pulse(
                 }),
                 surge_percent,
                 top_partner,
+                anchor_volume_by_day: day_volume
+                    .remove(&asset_id)
+                    .map(|days| {
+                        days.into_iter()
+                            .map(|(day, volume)| (day, u64::try_from(volume).unwrap_or(u64::MAX)))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
                 asset_id: asset_id.clone(),
             }
         })
         .collect();
+    // 小时成交在前；全是 0（历史视角）时日成交额接手排序。
+    let day_total = |pulse: &ExchangeAssetPulse| -> u128 {
+        pulse
+            .anchor_volume_by_day
+            .iter()
+            .map(|(_, volume)| u128::from(*volume))
+            .sum()
+    };
     assets.sort_by(|left, right| {
         right
             .volume_per_hour_anchor
             .cmp(&left.volume_per_hour_anchor)
+            .then_with(|| day_total(right).cmp(&day_total(left)))
             .then_with(|| left.asset_id.cmp(&right.asset_id))
     });
 
@@ -454,7 +522,7 @@ mod exchange_pulse_tests {
         days.push(day_stat(7, "divine-orb", 10, 1200));
         days.push(day_stat(8, "divine-orb", 10, 1200));
         let hours = vec![hour_stat(0, "exalted-orb", "divine-orb", 1200, 10)];
-        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds());
+        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds(), None);
         let divine = &pulse.assets[0];
         assert_eq!(divine.asset_id, asset("divine-orb"));
         assert_eq!(
@@ -487,7 +555,7 @@ mod exchange_pulse_tests {
             .iter()
             .map(|id| hour_stat(0, "exalted-orb", id, 1000, 10))
             .collect();
-        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds());
+        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds(), None);
         assert_eq!(pulse.market_median_move_bps, Some(2000));
         let mirror = pulse
             .assets
@@ -519,16 +587,25 @@ mod exchange_pulse_tests {
                 volume_b: 1,
             },
         ];
-        let pulse = exchange_pulse(&days, &[], &asset("exalted-orb"), 7, &thresholds());
-        // 断言走日序列：魔镜没有小时数据，不进 assets 主表，但日价必须合成出来。
-        // （runtime 层会同时喂小时和日；这里验证的是合成本身。）
-        assert!(pulse.assets.is_empty());
-        // 通过再跑一次带小时数据的来读 value_by_day。
+        let pulse = exchange_pulse(&days, &[], &asset("exalted-orb"), 7, &thresholds(), None);
+        // 只有日线也进表（历史视角就是这样看的）：日价必须合成出来，
+        // 最新价属于小时侧，没有就是 None。
+        let mirror = pulse
+            .assets
+            .iter()
+            .find(|entry| entry.asset_id == asset("mirror-of-kalandra"))
+            .expect("mirror priced via bridge from days alone");
+        assert_eq!(mirror.value_in_anchor, None);
+        assert_eq!(
+            mirror.value_by_day,
+            vec![(day(0), Ratio::from_parts(40_000, 1).expect("ratio"))]
+        );
+        // 带小时数据时最新价也合成出来。
         let hours = vec![
             hour_stat(0, "divine-orb", "exalted-orb", 10, 4000),
             hour_stat(0, "divine-orb", "mirror-of-kalandra", 100, 1),
         ];
-        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds());
+        let pulse = exchange_pulse(&days, &hours, &asset("exalted-orb"), 7, &thresholds(), None);
         let mirror = pulse
             .assets
             .iter()
@@ -548,7 +625,7 @@ mod exchange_pulse_tests {
             hour_stat(0, "exalted-orb", "chaos-orb", 500, 50),
             hour_stat(0, "chaos-orb", "divine-orb", 40, 1),
         ];
-        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), 7, &thresholds());
+        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), 7, &thresholds(), None);
         assert_eq!(pulse.assets[0].asset_id, asset("divine-orb"));
         assert_eq!(pulse.assets[0].top_partner, Some(asset("exalted-orb")));
         assert!(pulse.assets[0].volume_per_hour_anchor >= pulse.assets[1].volume_per_hour_anchor);
@@ -562,14 +639,62 @@ mod exchange_pulse_tests {
             hours.push(hour_stat(hour, "exalted-orb", "divine-orb", 1000, 10));
         }
         hours.push(hour_stat(8, "exalted-orb", "divine-orb", 5000, 50));
-        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), 7, &thresholds());
+        let pulse = exchange_pulse(&[], &hours, &asset("exalted-orb"), 7, &thresholds(), None);
         assert_eq!(pulse.assets[0].surge_percent, Some(500));
         // 只有两个小时的历史撑不起"异常"的说法。
         let short = vec![
             hour_stat(0, "exalted-orb", "divine-orb", 1000, 10),
             hour_stat(1, "exalted-orb", "divine-orb", 5000, 50),
         ];
-        let pulse = exchange_pulse(&[], &short, &asset("exalted-orb"), 7, &thresholds());
+        let pulse = exchange_pulse(&[], &short, &asset("exalted-orb"), 7, &thresholds(), None);
         assert_eq!(pulse.assets[0].surge_percent, None);
+    }
+
+    #[test]
+    fn as_of_freezes_the_trend_and_ignores_the_hours() {
+        // 9 天：前 7 天 100 锚，后 2 天 120 锚。截至第 6 天（offset 5）看：
+        // 涨跌只看那天及之前的日线，所以还是平的；小时侧（最新价/成交/
+        // 深度）是"现在"的东西，历史视角下一概不算——诚实的空，不是旧数。
+        let mut days = Vec::new();
+        for offset in 0..7 {
+            days.push(day_stat(offset, "divine-orb", 10, 1000));
+        }
+        days.push(day_stat(7, "divine-orb", 10, 1200));
+        days.push(day_stat(8, "divine-orb", 10, 1200));
+        let hours = vec![hour_stat(0, "exalted-orb", "divine-orb", 1200, 10)];
+        let pulse = exchange_pulse(
+            &days,
+            &hours,
+            &asset("exalted-orb"),
+            7,
+            &thresholds(),
+            Some(day(5)),
+        );
+        assert_eq!(pulse.as_of_day, Some(day(5)));
+        assert_eq!(pulse.hours_seen, 0);
+        let divine = &pulse.assets[0];
+        assert_eq!(divine.value_in_anchor, None);
+        assert_eq!(divine.volume_per_hour_anchor, 0);
+        assert_eq!(divine.depth_anchor, None);
+        assert_eq!(divine.value_by_day.len(), 6);
+        assert_eq!(divine.trend_bps_raw, Some(0));
+        // 日成交量按锚计价随日线走：每天 10 颗 × 100 锚 = 1000 锚。
+        assert_eq!(divine.anchor_volume_by_day.len(), 6);
+        assert_eq!(divine.anchor_volume_by_day[0], (day(0), 1000));
+    }
+
+    #[test]
+    fn a_day_only_asset_still_appears_ranked_by_its_day_volume() {
+        // 没有小时数据的资产（历史视角、或者刚清理过明细）也得进表，
+        // 小时成交都是 0 时按日成交量（锚计价）排。
+        let days = vec![
+            day_stat(0, "chaos-orb", 100, 200),
+            day_stat(0, "divine-orb", 10, 1000),
+        ];
+        let pulse = exchange_pulse(&days, &[], &asset("exalted-orb"), 7, &thresholds(), None);
+        assert_eq!(pulse.assets.len(), 2);
+        assert_eq!(pulse.assets[0].asset_id, asset("divine-orb"));
+        assert_eq!(pulse.assets[1].asset_id, asset("chaos-orb"));
+        assert_eq!(pulse.assets[1].anchor_volume_by_day, vec![(day(0), 200)]);
     }
 }
