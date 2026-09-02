@@ -1078,7 +1078,16 @@ fn tinted_cell(value: String, width: f32, color: Token) -> gpui::Div {
 }
 
 /// `+50.00%` / `-26.00%`：与监视页同款，正负一眼可辨。
+/// 超过 ±999% 只显示 `>+999%` / `<-999%`：开服头几天以稀缺锚计价的涨幅能到
+/// 几千万个百分点，数字没错但一格只放得下一行（28px 硬约束），方向比位数重要。
 fn signed_percent(basis_points: i64) -> String {
+    const CAP_BASIS_POINTS: i64 = 999 * 100;
+    if basis_points > CAP_BASIS_POINTS {
+        return ">+999%".to_owned();
+    }
+    if basis_points < -CAP_BASIS_POINTS {
+        return "<-999%".to_owned();
+    }
     let text = ptt_runtime::report_text::percent_from_basis_points(basis_points);
     if basis_points >= 0 && !text.starts_with('+') {
         format!("+{text}")
@@ -1112,5 +1121,22 @@ fn compact_amount(value: u64) -> String {
         format!("{:.0}k", value as f64 / 1_000.0)
     } else {
         value.to_string()
+    }
+}
+
+#[cfg(test)]
+mod exchange_page_tests {
+    use super::*;
+
+    #[test]
+    fn signed_percent_caps_runaway_values_to_one_cell() {
+        // 开服头几天的卡牌以神圣计价能涨几千万个百分点；数字本身没错，
+        // 但一格只放得下一行（28px 硬约束）。封顶显示，方向还在。
+        assert_eq!(signed_percent(782), "+7.82%");
+        assert_eq!(signed_percent(-369), "-3.69%");
+        assert_eq!(signed_percent(99_900), "+999.00%");
+        assert_eq!(signed_percent(99_901), ">+999%");
+        assert_eq!(signed_percent(4_844_094_326), ">+999%");
+        assert_eq!(signed_percent(-99_901), "<-999%");
     }
 }
