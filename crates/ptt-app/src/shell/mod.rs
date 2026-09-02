@@ -1054,6 +1054,18 @@ impl AppShell {
                     cx.notify();
                     return;
                 }
+                // 三个区域没框好就开监视，识别会静默回落到 2560×1440 的
+                // 工厂坐标：别的分辨率上每一帧都被跳过，用户只看到跳过计数，
+                // 不知道是没校准。README 承诺"没框好不读"，这里兑现它。
+                let calibrated = self
+                    .settings
+                    .profile(self.settings.active_profile)
+                    .is_some_and(ptt_settings::ProfileSettings::is_calibrated);
+                if !calibrated {
+                    self.fault = Some(self.text().watch_needs_calibration.to_owned());
+                    cx.notify();
+                    return;
+                }
                 self.fault = None;
                 self.backend = Some(Backend::start());
                 self.watching = true;

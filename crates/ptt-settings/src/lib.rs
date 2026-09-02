@@ -65,6 +65,17 @@ pub struct ProfileSettings {
     pub tables_region: Option<Region>,
 }
 
+impl ProfileSettings {
+    /// All three regions framed. Anything less and the recognition route
+    /// falls back to the built-in 2560×1440 coordinates, which on any other
+    /// desktop means every frame is skipped without saying why.
+    pub fn is_calibrated(&self) -> bool {
+        self.need_name_region.is_some()
+            && self.have_name_region.is_some()
+            && self.tables_region.is_some()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hotkeys {
     #[serde(default = "default_toggle_watch")]
@@ -920,6 +931,23 @@ mod tests {
         let loaded = store.load();
         assert_eq!(loaded.status, LoadStatus::Defaults);
         assert_eq!(loaded.settings, AppSettings::default());
+    }
+
+    #[test]
+    fn a_profile_is_calibrated_only_when_all_three_regions_are_framed() {
+        let region = Region {
+            x: 1,
+            y: 1,
+            width: 10,
+            height: 10,
+        };
+        let mut profile = ProfileSettings::default();
+        assert!(!profile.is_calibrated());
+        profile.need_name_region = Some(region);
+        profile.have_name_region = Some(region);
+        assert!(!profile.is_calibrated(), "two of three is still not framed");
+        profile.tables_region = Some(region);
+        assert!(profile.is_calibrated());
     }
 
     #[test]
