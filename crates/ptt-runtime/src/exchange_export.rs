@@ -5,6 +5,9 @@
 //! 为什么三个锚一起给：锚随赛季轮动（开荒崇高 → 神圣 → 混沌+神圣并行），
 //! 历史分析该用哪个锚由分析者定，程序把三份都算出来，不替人挑。
 //! 为什么带"开服第 N 天"：跨赛季对齐的时间轴是相对日，不是日历日。
+//! 为什么成交额只按一个锚：三个锚三列成交额是同一个数换三种单位，读者要的是
+//! "按我现在用的锚"；POE1 的锚是神圣/混沌，POE2 开荒是崇高——由设置决定，
+//! 锚是谁写在旁边那一列（`anchor`），别让读者猜。
 
 use std::collections::BTreeMap;
 
@@ -36,8 +39,10 @@ pub struct ExchangeExportRow {
     pub value_chaos: Option<String>,
     /// 该日所有含此资产的市场里，此资产成交的单位数合计。
     pub units_traded: u64,
-    /// 上一列按当日崇高计价（当日算不出崇高价则为空）。
-    pub volume_exalted: Option<u64>,
+    /// 成交额按哪个锚计价（域 id）。POE1 是神圣/混沌，POE2 开荒是崇高——由设置决定。
+    pub anchor: String,
+    /// `units_traded` 按当日 `anchor` 价折算；当日算不出锚价则为空。
+    pub volume_anchor: Option<u64>,
 }
 
 /// 赛季相位。边界是经验值，不是算出来的：开荒三天、首周、半月、首月、
@@ -58,14 +63,14 @@ pub fn season_phase(day_index: u32) -> &'static str {
 pub fn exchange_export_rows(
     day_rows: &[ptt_storage::ExchangeDayMarketRow],
     league: &str,
+    game: ptt_core::Game,
+    anchor: &MarketAssetId,
     season_start: Option<NaiveDate>,
 ) -> Result<Vec<ExchangeExportRow>, String> {
-    use ptt_exchange_history::mapping::{
-        CHAOS_PATH, DIVINE_PATH, EXALTED_PATH, poe2_categories, poe2_index,
-    };
+    use ptt_exchange_history::mapping::{CHAOS_PATH, DIVINE_PATH, EXALTED_PATH, categories, index};
 
-    let mapping = poe2_index().map_err(|error| format!("mapping: {error}"))?;
-    let categories = poe2_categories().map_err(|error| format!("categories: {error}"))?;
+    let mapping = index(game).map_err(|error| format!("mapping: {error}"))?;
+    let categories = categories(game).map_err(|error| format!("categories: {error}"))?;
     let mut resolved: BTreeMap<String, Option<(String, MarketAssetId)>> = BTreeMap::new();
     let mut resolve = |path: &str| -> Option<(String, MarketAssetId)> {
         if let Some(hit) = resolved.get(path) {
@@ -112,21 +117,31 @@ pub fn exchange_export_rows(
         .collect::<Result<_, _>>()?;
     let thresholds = ptt_strategy::AnalyticsThresholds::default();
     let mut values: Vec<BTreeMap<(MarketAssetId, NaiveDate), Ratio>> = Vec::new();
-    let mut exalted_volume: BTreeMap<(MarketAssetId, NaiveDate), u64> = BTreeMap::new();
-    for (index, anchor) in anchors.iter().enumerate() {
-        let pulse = ptt_strategy::exchange_pulse(&day_stats, &[], anchor, 1, &thresholds, None);
+    let mut anchor_volume: BTreeMap<(MarketAssetId, NaiveDate), u64> = BTreeMap::new();
+    for trio_anchor in &anchors {
+        let pulse =
+            ptt_strategy::exchange_pulse(&day_stats, &[], trio_anchor, 1, &thresholds, None);
         let mut table = BTreeMap::new();
         for asset in &pulse.assets {
             for (day, rate) in &asset.value_by_day {
                 table.insert((asset.asset_id.clone(), *day), rate.clone());
             }
-            if index == 0 {
+            if trio_anchor == anchor {
                 for (day, volume) in &asset.anchor_volume_by_day {
-                    exalted_volume.insert((asset.asset_id.clone(), *day), *volume);
+                    anchor_volume.insert((asset.asset_id.clone(), *day), *volume);
                 }
             }
         }
         values.push(table);
+    }
+    if !anchors.contains(anchor) {
+        // 用户的锚不在三件套里：多跑一遍脉搏，只为按它折算成交额。
+        let pulse = ptt_strategy::exchange_pulse(&day_stats, &[], anchor, 1, &thresholds, None);
+        for asset in &pulse.assets {
+            for (day, volume) in &asset.anchor_volume_by_day {
+                anchor_volume.insert((asset.asset_id.clone(), *day), *volume);
+            }
+        }
     }
     let one = Ratio::from_parts(1, 1).map_err(|error| format!("{error:?}"))?;
     let value_of = |index: usize, asset: &MarketAssetId, day: NaiveDate| -> Option<Ratio> {
@@ -165,11 +180,11 @@ pub fn exchange_export_rows(
                 .and_then(|asset| value_of(index, asset, day))
                 .map(|rate| ratio_decimal(&rate, 6))
         };
-        let volume_exalted = domain.and_then(|asset| {
-            if *asset == anchors[0] {
+        let volume_anchor = domain.and_then(|asset| {
+            if asset == anchor {
                 Some(units_traded)
             } else {
-                exalted_volume.get(&(asset.clone(), day)).copied()
+                anchor_volume.get(&(asset.clone(), day)).copied()
             }
         });
         rows.push(ExchangeExportRow {
@@ -190,7 +205,8 @@ pub fn exchange_export_rows(
             value_divine: value(1),
             value_chaos: value(2),
             units_traded,
-            volume_exalted,
+            anchor: anchor.to_string(),
+            volume_anchor,
         });
     }
     Ok(rows)
@@ -206,23 +222,24 @@ pub struct ExchangeExportOutcome {
 /// 读生产日线表 → 导出行 → 写 `exchange-<league>-<时间戳>.csv/.json` 到 `directory`。
 /// 页面按钮与探针 `--export` 走的是同一个函数：探针镜像生产路径的老规矩。
 pub fn write_exchange_export(
-    game: &str,
+    game: ptt_core::Game,
     league: &str,
+    anchor: &MarketAssetId,
     directory: &std::path::Path,
 ) -> Result<ExchangeExportOutcome, String> {
     let store = ptt_storage::MarketStore::open(crate::pipeline::default_database_path())
         .map_err(|error| format!("storage: {error}"))?;
     let days = store
-        .load_exchange_days(game, league, "2000-01-01", "2999-12-31")
+        .load_exchange_days(game.as_str(), league, "2000-01-01", "2999-12-31")
         .map_err(|error| format!("days: {error}"))?;
     // 赛季记录不分联赛（`SeasonRow` 没有 league 字段）：导出别的联赛时,
     // 相对日按当前赛季算——单人自用,一次只跟一个赛季,先这样。
     let season_start = store
-        .active_season(game)
+        .active_season(game.as_str())
         .ok()
         .flatten()
         .map(|season| season.started_at.date_naive());
-    let rows = exchange_export_rows(&days, league, season_start)?;
+    let rows = exchange_export_rows(&days, league, game, anchor, season_start)?;
     std::fs::create_dir_all(directory).map_err(|error| format!("mkdir: {error}"))?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let slug = league.trim().to_lowercase().replace(' ', "-");
@@ -242,7 +259,7 @@ pub fn write_exchange_export(
 #[must_use]
 pub fn export_csv(rows: &[ExchangeExportRow]) -> String {
     let mut out = String::from(
-        "league,day,day_index,phase,asset_id,catalog_id,category,path,value_exalted,value_divine,value_chaos,units_traded,volume_exalted\n",
+        "league,day,day_index,phase,asset_id,catalog_id,category,path,value_exalted,value_divine,value_chaos,units_traded,anchor,volume_anchor\n",
     );
     let opt = |value: &Option<String>| value.clone().unwrap_or_default();
     for row in rows {
@@ -261,7 +278,8 @@ pub fn export_csv(rows: &[ExchangeExportRow]) -> String {
             opt(&row.value_divine),
             opt(&row.value_chaos),
             row.units_traded.to_string(),
-            row.volume_exalted
+            csv_field(&row.anchor),
+            row.volume_anchor
                 .map(|volume| volume.to_string())
                 .unwrap_or_default(),
         ];
@@ -330,6 +348,10 @@ mod exchange_export_tests {
         }
     }
 
+    fn id(text: &str) -> MarketAssetId {
+        MarketAssetId::try_new(text).expect("asset id")
+    }
+
     fn day(text: &str) -> NaiveDate {
         NaiveDate::parse_from_str(text, "%Y-%m-%d").expect("day")
     }
@@ -349,8 +371,14 @@ mod exchange_export_tests {
             row("2026-09-05", EXALTED, CHAOS, 100, 1000),
             row("2026-09-06", EXALTED, DIVINE, 4200, 10),
         ];
-        let export =
-            exchange_export_rows(&rows, "Runes of Aldur", Some(day("2026-09-05"))).expect("rows");
+        let export = exchange_export_rows(
+            &rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &id("exalted-orb"),
+            Some(day("2026-09-05")),
+        )
+        .expect("rows");
         let divine = find(&export, "2026-09-05", "divine-orb");
         assert_eq!((divine.day_index, divine.phase), (Some(1), Some("launch")));
         assert_eq!(divine.category, "currency");
@@ -360,18 +388,46 @@ mod exchange_export_tests {
         // 神圣没有直连混沌市场：经崇高一步桥接，400 × 10 = 4000 混沌。
         assert_eq!(divine.value_chaos.as_deref(), Some("4000"));
         assert_eq!(divine.units_traded, 10);
-        assert_eq!(divine.volume_exalted, Some(4000));
+        assert_eq!(divine.anchor, "exalted-orb");
+        assert_eq!(divine.volume_anchor, Some(4000));
 
         let exalted = find(&export, "2026-09-05", "exalted-orb");
         assert_eq!(exalted.value_exalted.as_deref(), Some("1"));
         assert_eq!(exalted.value_divine.as_deref(), Some("0.0025"));
         assert_eq!(exalted.value_chaos.as_deref(), Some("10"));
         assert_eq!(exalted.units_traded, 4100);
-        assert_eq!(exalted.volume_exalted, Some(4100));
+        assert_eq!(exalted.volume_anchor, Some(4100));
 
         let next = find(&export, "2026-09-06", "divine-orb");
         assert_eq!(next.day_index, Some(2));
         assert_eq!(next.value_exalted.as_deref(), Some("420"));
+    }
+
+    #[test]
+    fn volume_is_priced_in_the_requested_anchor() {
+        // POE1 的锚是神圣：同一批行，成交额按神圣折算，锚那一列写明白。
+        let rows = vec![
+            row("2026-09-05", EXALTED, DIVINE, 4000, 10),
+            row("2026-09-05", EXALTED, CHAOS, 100, 1000),
+        ];
+        let export = exchange_export_rows(
+            &rows,
+            "Allflame",
+            ptt_core::Game::Poe1,
+            &id("divine-orb"),
+            None,
+        )
+        .expect("rows");
+        let divine = find(&export, "2026-09-05", "divine-orb");
+        assert_eq!(divine.anchor, "divine-orb");
+        assert_eq!(divine.volume_anchor, Some(10));
+        // 崇高 4100 单位 × 1/400 神圣 = 10 神圣（整数除法向下取整）。
+        let exalted = find(&export, "2026-09-05", "exalted-orb");
+        assert_eq!(exalted.value_divine.as_deref(), Some("0.0025"));
+        assert_eq!(exalted.volume_anchor, Some(10));
+        // 三列价格照旧都在：分析者仍可自己换锚。
+        assert_eq!(exalted.value_exalted.as_deref(), Some("1"));
+        assert_eq!(exalted.value_chaos.as_deref(), Some("10"));
     }
 
     #[test]
@@ -386,7 +442,14 @@ mod exchange_export_tests {
                 1,
             ),
         ];
-        let export = exchange_export_rows(&rows, "Runes of Aldur", None).expect("rows");
+        let export = exchange_export_rows(
+            &rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &id("exalted-orb"),
+            None,
+        )
+        .expect("rows");
         let gap = find(&export, "2026-09-05", "BrandNewThing");
         assert_eq!(gap.category, "unmapped");
         assert_eq!(gap.catalog_id, None);
@@ -401,12 +464,22 @@ mod exchange_export_tests {
     #[test]
     fn csv_and_json_carry_the_same_rows() {
         let rows = vec![row("2026-09-05", EXALTED, DIVINE, 4000, 10)];
-        let export =
-            exchange_export_rows(&rows, "Runes of Aldur", Some(day("2026-09-01"))).expect("rows");
+        let export = exchange_export_rows(
+            &rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &id("exalted-orb"),
+            Some(day("2026-09-01")),
+        )
+        .expect("rows");
         let csv = export_csv(&export);
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!(lines.len(), export.len() + 1);
-        assert!(lines[0].starts_with("league,day,day_index,phase,asset_id"));
+        // 表头改名是格式变更：成交额按当前锚折算，锚是谁写在旁边那一列。
+        assert_eq!(
+            lines[0],
+            "league,day,day_index,phase,asset_id,catalog_id,category,path,value_exalted,value_divine,value_chaos,units_traded,anchor,volume_anchor"
+        );
         assert!(lines.iter().skip(1).any(|line| {
             line.starts_with("Runes of Aldur,2026-09-05,5,week1,divine-orb,divine_orb,currency,")
         }));
@@ -443,7 +516,14 @@ mod exchange_export_tests {
         // 相位写 pre_season——和"没记赛季"的双空区分开,AI 读表才分得清。
         let rows = [row("2026-09-05", EXALTED, DIVINE, 4000, 10)];
         let start = chrono::NaiveDate::from_ymd_opt(2026, 9, 6).expect("date");
-        let export = exchange_export_rows(&rows, "Runes of Aldur", Some(start)).expect("rows");
+        let export = exchange_export_rows(
+            &rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &id("exalted-orb"),
+            Some(start),
+        )
+        .expect("rows");
         let before = find(&export, "2026-09-05", "divine-orb");
         assert_eq!((before.day_index, before.phase), (None, Some("pre_season")));
     }

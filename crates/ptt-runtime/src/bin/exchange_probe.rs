@@ -97,9 +97,13 @@ mod probe {
         );
         std::fs::create_dir_all(&cache_dir).map_err(|error| format!("cache dir: {error}"))?;
 
+        let anchor = ptt_runtime::reports::exchange_anchor(
+            &settings.market_tuning(settings.active_profile.game),
+        )?;
         let session = Session {
             realm,
             game: settings.active_profile.game,
+            anchor,
             league,
             cache_dir,
             fetcher: ExchangeFetcher::new(),
@@ -301,8 +305,9 @@ mod probe {
                     .join("exports")
             });
             let outcome = ptt_runtime::exchange_export::write_exchange_export(
-                &self.realm,
+                self.game,
                 &self.league,
+                &self.anchor,
                 &directory,
             )?;
             let (base, rows, season_start) = (outcome.base, outcome.rows, outcome.season_start);
@@ -324,13 +329,13 @@ mod probe {
             let mut sample: Vec<_> = rows.iter().filter(|row| row.day == last_day).collect();
             sample.sort_by(|left, right| {
                 right
-                    .volume_exalted
+                    .volume_anchor
                     .unwrap_or(0)
-                    .cmp(&left.volume_exalted.unwrap_or(0))
+                    .cmp(&left.volume_anchor.unwrap_or(0))
             });
             for row in sample.iter().take(12) {
                 println!(
-                    "  {} d{} {:<10} {:<28} ex={:<10} div={:<10} chaos={:<10} units={} vol_ex={}",
+                    "  {} d{} {:<10} {:<28} ex={:<10} div={:<10} chaos={:<10} units={} vol({})={}",
                     row.day,
                     row.day_index
                         .map_or("-".to_owned(), |index| index.to_string()),
@@ -340,7 +345,8 @@ mod probe {
                     row.value_divine.as_deref().unwrap_or("-"),
                     row.value_chaos.as_deref().unwrap_or("-"),
                     row.units_traded,
-                    row.volume_exalted
+                    row.anchor,
+                    row.volume_anchor
                         .map_or("-".to_owned(), |volume| volume.to_string()),
                 );
             }
@@ -353,6 +359,8 @@ mod probe {
         realm: String,
         /// 映射表、目录、锚都按它取——与 app 的 `request.profile.game` 同源。
         game: ptt_core::Game,
+        /// 成交额按它折算，与交易所页同一条选法（`exchange_anchor`）。
+        anchor: ptt_trade_domain::MarketAssetId,
         league: String,
         cache_dir: std::path::PathBuf,
         fetcher: ExchangeFetcher,

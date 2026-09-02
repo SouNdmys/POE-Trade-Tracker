@@ -714,6 +714,15 @@ impl AppShell {
             self.push_log("exchange: set the league in Settings before exporting".to_owned());
             return;
         }
+        // 成交额按当前锚折算：锚和交易所页同一条选法。
+        let anchor = match ptt_runtime::reports::exchange_anchor(&self.settings.market_tuning(game))
+        {
+            Ok(anchor) => anchor,
+            Err(error) => {
+                self.push_log(format!("exchange: export: {error}"));
+                return;
+            }
+        };
         // Windows 的对话框只能"只选文件"或"只选文件夹"二选一，这里要文件夹。
         let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
             files: false,
@@ -729,9 +738,7 @@ impl AppShell {
                         cx.background_executor()
                             .spawn(async move {
                                 ptt_runtime::exchange_export::write_exchange_export(
-                                    game.as_str(),
-                                    &league,
-                                    &directory,
+                                    game, &league, &anchor, &directory,
                                 )
                                 .map(|outcome| (outcome.base, outcome.rows.len()))
                             })
