@@ -965,11 +965,10 @@ pub(crate) fn bucket_points(
     max_slots: usize,
     combine: fn(&[f32]) -> f32,
 ) -> Vec<Option<f32>> {
-    let max_slots = max_slots.max(1);
-    if points.len() <= max_slots {
+    let per_slot = bucket_size(points.len(), max_slots);
+    if per_slot == 1 {
         return points.to_vec();
     }
-    let per_slot = points.len().div_ceil(max_slots);
     points
         .chunks(per_slot)
         .map(|chunk| {
@@ -981,6 +980,32 @@ pub(crate) fn bucket_points(
             }
         })
         .collect()
+}
+
+/// 一格并几个小时。页面拿它把鼠标落的格换算回小时区间——和 `bucket_points`
+/// 同一个数，不然读数报的时间和画的柱子对不上。
+pub(crate) fn bucket_size(len: usize, max_slots: usize) -> usize {
+    let max_slots = max_slots.max(1);
+    if len <= max_slots {
+        1
+    } else {
+        len.div_ceil(max_slots)
+    }
+}
+
+/// 鼠标横坐标落在第几格：宽度均分成 `slots` 格，与 `hour_bars`/`sparkline_sized`
+/// 同一把尺。图外 = `None`。
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+pub(crate) fn slot_at(x: f32, width: f32, slots: usize) -> Option<usize> {
+    if slots == 0 || width <= 0.0 || x < 0.0 || x >= width {
+        return None;
+    }
+    let slot = (x / width * slots as f32).floor() as usize;
+    Some(slot.min(slots - 1))
 }
 
 pub(crate) fn sum_points(values: &[f32]) -> f32 {
@@ -995,12 +1020,15 @@ pub(crate) fn mean_points(values: &[f32]) -> f32 {
 /// 任意尺寸的面积曲线，x 按格（小时）而不是按点序铺开。`None` 是缺口：
 /// 线在缺口处断开，每段连续的点各画一条线、一块填充；孤零零一个点画成
 /// 一小段横线，让"只有这一小时有成交"也看得见。
+/// 每个点画在格的正中，和下面 `hour_bars` 的柱子对齐——鼠标落在哪格，
+/// 线上的点和柱子指的是同一个小时。`highlight` 那格画一条竖细线和一个点。
 pub(crate) fn sparkline_sized(
     points: Vec<Option<f32>>,
     width: f32,
     height: f32,
     line_color: Token,
     fill_color: Token,
+    highlight: Option<usize>,
 ) -> impl IntoElement {
     gpui::canvas(
         |_, _, _| {},
@@ -1016,9 +1044,9 @@ pub(crate) fn sparkline_sized(
             let height = f32::from(bounds.size.height);
             let origin = bounds.origin;
             #[allow(clippy::cast_precision_loss)]
-            let step = width / (points.len().max(2) - 1) as f32;
+            let slot = width / points.len() as f32;
             #[allow(clippy::cast_precision_loss)]
-            let x_at = |index: usize| origin.x + px(step * index as f32);
+            let x_at = |index: usize| origin.x + px(slot * (index as f32 + 0.5));
             let y_at =
                 |value: f32| origin.y + px(1.0 + (height - 2.0) * (1.0 - (value - min) / span));
             let bottom = origin.y + px(height);
@@ -1056,6 +1084,25 @@ pub(crate) fn sparkline_sized(
                     window.paint_path(path, c(line_color));
                 }
             }
+
+            if let Some(index) = highlight.filter(|index| *index < points.len()) {
+                window.paint_quad(gpui::fill(
+                    gpui::Bounds {
+                        origin: gpui::point(x_at(index), origin.y),
+                        size: gpui::size(px(1.0), px(height)),
+                    },
+                    c(TEXT_GHOST),
+                ));
+                if let Some(value) = points[index] {
+                    window.paint_quad(gpui::fill(
+                        gpui::Bounds {
+                            origin: gpui::point(x_at(index) - px(2.0), y_at(value) - px(2.0)),
+                            size: gpui::size(px(4.0), px(4.0)),
+                        },
+                        c(line_color),
+                    ));
+                }
+            }
         },
     )
     .w(px(width))
@@ -1064,11 +1111,13 @@ pub(crate) fn sparkline_sized(
 
 /// 逐格成交柱：每格一个矩形，高度按窗口内最大值归一。0 和缺口都画 1px
 /// 底线——"少"和"没有"在柱子上分不出来，靠上面的曲线断口和缺口计数分。
+/// `highlight` = (格号, 颜色)：鼠标悬停的那根换色。
 pub(crate) fn hour_bars(
     points: Vec<Option<f32>>,
     width: f32,
     height: f32,
     color: Token,
+    highlight: Option<(usize, Token)>,
 ) -> impl IntoElement {
     gpui::canvas(
         |_, _, _| {},
@@ -1096,12 +1145,16 @@ pub(crate) fn hour_bars(
                 #[allow(clippy::cast_precision_loss)]
                 let x = origin.x + px(slot * index as f32);
                 let y = origin.y + px(height - bar_height);
+                let bar_color = match highlight {
+                    Some((slot, tone)) if slot == index => tone,
+                    _ => color,
+                };
                 window.paint_quad(gpui::fill(
                     gpui::Bounds {
                         origin: gpui::point(x, y),
                         size: gpui::size(px(bar_width), px(bar_height)),
                     },
-                    c(color),
+                    c(bar_color),
                 ));
             }
         },
@@ -1129,6 +1182,28 @@ mod chart_tests {
         assert_eq!(runs(&points), vec![(0, 2), (4, 5), (6, 8)]);
         assert_eq!(runs(&[None, None]), Vec::<(usize, usize)>::new());
         assert_eq!(runs(&[Some(1.0)]), vec![(0, 1)]);
+    }
+
+    #[test]
+    fn slot_at_maps_the_full_width_onto_the_slots() {
+        assert_eq!(slot_at(0.0, 270.0, 24), Some(0));
+        assert_eq!(slot_at(269.9, 270.0, 24), Some(23));
+        assert_eq!(slot_at(135.0, 270.0, 4), Some(2));
+        assert_eq!(slot_at(270.0, 270.0, 24), None);
+        assert_eq!(slot_at(-1.0, 270.0, 24), None);
+        assert_eq!(slot_at(10.0, 270.0, 0), None);
+    }
+
+    #[test]
+    fn bucket_size_is_the_ratio_bucket_points_uses() {
+        assert_eq!(bucket_size(24, 135), 1);
+        assert_eq!(bucket_size(168, 135), 2);
+        assert_eq!(bucket_size(720, 135), 6);
+        let points: Vec<Option<f32>> = (0..168).map(|i| Some(i as f32)).collect();
+        assert_eq!(
+            bucket_points(&points, 135, sum_points).len(),
+            168_usize.div_ceil(bucket_size(168, 135))
+        );
     }
 
     #[test]

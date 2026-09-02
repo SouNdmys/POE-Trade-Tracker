@@ -14,8 +14,9 @@ use crate::shell::{AppShell, ExchangeRange};
 use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
-    LedgerButton, StatusKind, bucket_points, button, chip, detail_panel, empty_state, hour_bars,
-    kv_headline, kv_row, mean_points, mono, panel, scrollable, sparkline_sized, sum_points,
+    LedgerButton, StatusKind, bucket_points, bucket_size, button, chip, detail_panel, empty_state,
+    hour_bars, kv_headline, kv_row, mean_points, mono, panel, scrollable, slot_at, sparkline_sized,
+    sum_points,
 };
 
 /// 滚动列表也设个上限：尾巴里是每小时几笔的冷门，画六百行 div 换不来信息。
@@ -608,15 +609,38 @@ impl AppShell {
         if let Some((start, end)) = ledger.window(hours) {
             // 本地时区只在这条绘制边界上出现；账本本身是 UTC 整点。
             let offset = chrono::Local::now().offset().local_minus_utc();
+            // 悬停的格号只在格数范围内才算数：切档位、切视图后旧格号可能越界。
+            let hover_of = |slots: usize| self.exchange_hover.filter(|slot| *slot < slots);
+            let mut chart = div().flex().flex_col();
+            let slot_count;
+            let mut peak_line = None;
             if self.exchange_hour_of_day {
                 let profile = ledger.hour_of_day_profile(asset, hours, offset);
                 #[allow(clippy::cast_precision_loss)]
                 let bars: Vec<Option<f32>> = profile.iter().map(|v| Some(*v as f32)).collect();
-                body = body
-                    .child(hour_bars(bars, CHART_WIDTH, CHART_BARS_HEIGHT, TEXT_GHOST))
-                    .child(axis_row("00:00", "23:00"));
+                slot_count = bars.len();
+                let hover = hover_of(slot_count);
+                chart = chart
+                    .child(hour_bars(
+                        bars,
+                        CHART_WIDTH,
+                        CHART_BARS_HEIGHT,
+                        TEXT_GHOST,
+                        hover.map(|slot| (slot, TEXT_META)),
+                    ))
+                    .child(match hover {
+                        Some(slot) => readout_row(ptt_runtime::report_text::fill(
+                            text.exchange_hover_hour_of_day,
+                            &[
+                                &format!("{slot:02}"),
+                                &format!("{:02}", (slot + 1) % 24),
+                                &compact_amount(profile[slot]),
+                            ],
+                        )),
+                        None => axis_row("00:00", "23:00"),
+                    });
                 if let Some((from, to)) = ptt_runtime::domain::peak_window(&profile) {
-                    body = body.child(
+                    peak_line = Some(
                         mono(ptt_runtime::report_text::fill(
                             text.exchange_detail_peak,
                             &[&format!("{from:02}"), &format!("{to:02}")],
@@ -644,23 +668,82 @@ impl AppShell {
                 }
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let max_slots = (CHART_WIDTH / 2.0) as usize;
+                let per_slot = bucket_size(slots, max_slots);
                 let values = bucket_points(&values, max_slots, mean_points);
                 let volumes = bucket_points(&volumes, max_slots, sum_points);
-                body = body
+                slot_count = volumes.len();
+                let hover = hover_of(slot_count);
+                let readout = hover.map(|slot| {
+                    hover_readout(
+                        text,
+                        start,
+                        end,
+                        per_slot,
+                        slot,
+                        values[slot],
+                        volumes[slot],
+                    )
+                });
+                chart = chart
                     .child(sparkline_sized(
                         values,
                         CHART_WIDTH,
                         CHART_LINE_HEIGHT,
                         line_color,
                         fill_color,
+                        hover,
                     ))
                     .child(hour_bars(
                         volumes,
                         CHART_WIDTH,
                         CHART_BARS_HEIGHT,
                         TEXT_DISABLED,
+                        hover.map(|slot| (slot, TEXT_META)),
                     ))
-                    .child(axis_row(&local_hour(start), &local_hour(end)));
+                    .child(match readout {
+                        Some(readout) => readout_row(readout),
+                        None => axis_row(&local_hour(start), &local_hour(end)),
+                    });
+            }
+            // 悬停读数而不是跟着鼠标走的浮框：细节走右栏、不做悬浮卡片（硬约束 #2），
+            // 固定一行也不会挡住图。看不见的画布只负责把图表的位置记下来，
+            // 鼠标事件拿它把横坐标换算成格号——和校准页的画布同一套写法。
+            let bounds_slot = self.exchange_chart_bounds.clone();
+            body = body.child(
+                chart
+                    .id("exchange-chart")
+                    .relative()
+                    .w(px(CHART_WIDTH))
+                    .child(
+                        gpui::canvas(
+                            move |bounds, _, _| bounds_slot.set(Some(bounds)),
+                            |_, (), _, _| {},
+                        )
+                        .absolute()
+                        .size_full(),
+                    )
+                    .on_mouse_move(
+                        cx.listener(move |this, event: &gpui::MouseMoveEvent, _, cx| {
+                            let Some(bounds) = this.exchange_chart_bounds.get() else {
+                                return;
+                            };
+                            let x = f32::from(event.position.x - bounds.origin.x);
+                            let slot = slot_at(x, f32::from(bounds.size.width), slot_count);
+                            if slot != this.exchange_hover {
+                                this.exchange_hover = slot;
+                                cx.notify();
+                            }
+                        }),
+                    )
+                    .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                        if !*hovered && this.exchange_hover.is_some() {
+                            this.exchange_hover = None;
+                            cx.notify();
+                        }
+                    })),
+            );
+            if let Some(line) = peak_line {
+                body = body.child(line);
             }
         }
 
@@ -882,6 +965,45 @@ fn axis_row(left: &str, right: &str) -> gpui::Div {
         )
 }
 
+/// 悬停时顶替两端时刻的那一行：同一行高、同一字号，图不会跳。
+fn readout_row(text: String) -> gpui::Div {
+    div()
+        .w(px(CHART_WIDTH))
+        .h_flex()
+        .child(mono(text).text_size(fs(FS_10)).text_color(c(TEXT_DATA)))
+}
+
+/// 悬停读数：一格一小时就报那一小时的数；像素不够并了格，就报区间与
+/// 合计成交、均价——并出来的数就说是并的，不冒充某一小时。
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn hover_readout(
+    text: &crate::i18n::Text,
+    start: i64,
+    end: i64,
+    per_slot: usize,
+    slot: usize,
+    value: Option<f32>,
+    volume: Option<f32>,
+) -> String {
+    let first = start + i64::try_from(slot * per_slot).unwrap_or(0) * 3600;
+    let (when, template) = if per_slot == 1 {
+        (local_hour(first), text.exchange_hover_point)
+    } else {
+        let last = (first + i64::try_from(per_slot - 1).unwrap_or(0) * 3600).min(end);
+        (
+            format!("{}–{}", local_hour(first), local_clock(last)),
+            text.exchange_hover_bucket,
+        )
+    };
+    match (value, volume) {
+        (Some(value), Some(volume)) => ptt_runtime::report_text::fill(
+            template,
+            &[&when, &compact_amount(volume as u64), &price_text(value)],
+        ),
+        _ => ptt_runtime::report_text::fill(text.exchange_hover_gap, &[&when]),
+    }
+}
+
 fn head_cell(label: &str, width: f32) -> gpui::Div {
     div().w(px(width)).flex_none().child(
         mono(label.to_owned())
@@ -906,6 +1028,14 @@ fn local_hour(hour_ts: i64) -> String {
                 .format("%m-%d %H:00")
                 .to_string()
         },
+    )
+}
+
+/// 只有钟点的本地时刻，给区间读数的右端用（左端已经带了日期）。
+fn local_clock(hour_ts: i64) -> String {
+    chrono::DateTime::from_timestamp(hour_ts, 0).map_or_else(
+        || "?".to_owned(),
+        |ts| ts.with_timezone(&chrono::Local).format("%H:00").to_string(),
     )
 }
 
@@ -959,7 +1089,12 @@ fn signed_percent(basis_points: i64) -> String {
 
 /// Ratio → 展示小数。f64 只在这条绘制边界上出现（既有裁定）。
 fn ratio_text(ratio: &ptt_trade_domain::Ratio) -> String {
-    let value = ratio.numerator as f64 / (ratio.denominator as f64).max(1.0);
+    price_text(ratio.numerator as f64 / (ratio.denominator as f64).max(1.0))
+}
+
+/// 价格的位数跟着数量级走：几百的整数、几块的两位、几分的三位。
+fn price_text(value: impl Into<f64>) -> String {
+    let value = value.into();
     if value >= 100.0 {
         format!("{value:.0}")
     } else if value >= 1.0 {

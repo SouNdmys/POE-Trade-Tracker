@@ -372,6 +372,11 @@ pub struct AppShell {
     pub(crate) exchange_range: ExchangeRange,
     /// 明细栏是按小时铺开还是按一天里的时段汇总。
     pub(crate) exchange_hour_of_day: bool,
+    /// 鼠标悬停在明细栏图表的第几格（柱子换色、图下那行换成读数）。
+    pub(crate) exchange_hover: Option<usize>,
+    /// 明细栏图表在窗口里的位置，绘制时记下来，鼠标事件拿它把横坐标换算成格号。
+    pub(crate) exchange_chart_bounds:
+        std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<gpui::Pixels>>>>,
     /// What the visible page is showing.
     report: crate::state::PageData,
     /// Which request the displayed answer came from.
@@ -807,6 +812,8 @@ impl AppShell {
             exchange_selected: None,
             exchange_range: ExchangeRange::Hours24,
             exchange_hour_of_day: false,
+            exchange_hover: None,
+            exchange_chart_bounds: std::rc::Rc::new(std::cell::Cell::new(None)),
             report: crate::state::PageData::Empty,
             report_generation: 0,
             probe_queue: crate::state::ProbeQueue::default(),
