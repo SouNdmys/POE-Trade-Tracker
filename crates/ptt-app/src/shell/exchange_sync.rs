@@ -145,6 +145,10 @@ struct SyncRound {
     days_pruned: usize,
     /// 小时发布了、这个联赛却一行都没有——最常见的原因是联赛名拼错。
     league_name_suspect: bool,
+    /// 数据里实际出现的联赛名（按市场数从多到少，最多几条）。联赛名错了的时候，
+    /// 光说"检查联赛名"没用——POE1 的 3.29 在 CDN 里叫 "Allflame"，
+    /// 不叫 "Curse of the Allflame"，用户猜不到，得把正确答案摆出来。
+    leagues_seen: Vec<String>,
     /// 这轮之后水位已到最新。false = 撞上单轮上限，还有历史欠着，
     /// 立刻续跑下一轮而不是睡到整点。
     caught_up: bool,
@@ -161,10 +165,17 @@ impl SyncRound {
     /// 手上共有几天数据，才是用户在等的那个数。
     fn log_line(&self) -> String {
         if self.league_name_suspect {
-            return format!(
+            let mut line = format!(
                 "exchange: {} hours stored but 0 league rows -- check the league name",
                 self.stored
             );
+            if !self.leagues_seen.is_empty() {
+                line.push_str(&format!(
+                    " (leagues in the data: {})",
+                    self.leagues_seen.join(", ")
+                ));
+            }
+            return line;
         }
         let mut line = format!("exchange: +{}h, data {}d", self.stored, self.total_days);
         if self.days_pruned > 0 {
@@ -243,6 +254,7 @@ fn run_sync_round(
     let mut stored = 0usize;
     let mut league_rows = 0usize;
     let mut published_hours = 0usize;
+    let mut league_counts = std::collections::BTreeMap::<String, usize>::new();
     let mut throttled = false;
     let mut fetch_one =
         |hour_ts: i64, store: &mut ptt_storage::MarketStore| -> Result<bool, String> {
@@ -270,6 +282,9 @@ fn run_sync_round(
                 }
             } else {
                 published_hours += 1;
+                for row in &hour.markets {
+                    *league_counts.entry(row.league.clone()).or_default() += 1;
+                }
                 let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
                     .rows_for_league(league)
                     .map(|row| to_storage_row(hour_ts, row))
@@ -316,6 +331,7 @@ fn run_sync_round(
         days_pruned: prune.days_deleted.len(),
         total_days,
         league_name_suspect: published_hours >= 3 && league_rows == 0,
+        leagues_seen: top_leagues(league_counts, 5),
         // 计划排满 48（正向或回补被预算截断）就必然还有欠账；
         // 计划不满时，即便最新小时"还没发布"（deferred），剩下的也只有
         // 等发布这一件事，照常睡到整点。恰好整 48 的边界多空转一轮，无害。
@@ -344,6 +360,18 @@ fn to_storage_row(
     }
 }
 
+/// 联赛名按市场数从多到少排，只留前几个：正式联赛和标准都在前面，
+/// 私人联赛（PL 编号）市场少，自然沉底不占提示。
+fn top_leagues(counts: std::collections::BTreeMap<String, usize>, limit: usize) -> Vec<String> {
+    let mut ranked: Vec<(String, usize)> = counts.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    ranked
+        .into_iter()
+        .take(limit)
+        .map(|(name, _)| name)
+        .collect()
+}
+
 /// 距下一个"整点过五分"的时长。最少也睡一分钟，防止边界上打转。
 fn until_next_five_past() -> Duration {
     let now = chrono::Utc::now().timestamp();
@@ -364,6 +392,7 @@ mod exchange_sync_tests {
             league_name_suspect: false,
             caught_up: true,
             total_days: 30,
+            leagues_seen: Vec::new(),
         };
         assert!(!quiet.worth_a_log_line());
     }
@@ -377,9 +406,41 @@ mod exchange_sync_tests {
             league_name_suspect: true,
             caught_up: true,
             total_days: 0,
+            leagues_seen: Vec::new(),
         };
         assert!(suspect.worth_a_log_line());
         assert!(suspect.log_line().contains("league name"));
+    }
+
+    /// 用户把 POE1 联赛填成 "Curse of the Allflame"，CDN 里其实叫 "Allflame"：
+    /// 提示必须把数据里看到的名字列出来，不然用户只能一个个瞎猜。
+    #[test]
+    fn a_suspect_league_name_lists_the_leagues_actually_seen() {
+        let suspect = SyncRound {
+            stored: 5,
+            days_folded: 0,
+            days_pruned: 0,
+            league_name_suspect: true,
+            caught_up: true,
+            total_days: 0,
+            leagues_seen: vec!["Allflame".to_owned(), "Standard".to_owned()],
+        };
+        let line = suspect.log_line();
+        assert!(line.contains("Allflame, Standard"), "{line}");
+    }
+
+    #[test]
+    fn top_leagues_rank_by_market_count_then_name() {
+        let counts = std::collections::BTreeMap::from([
+            ("Standard".to_owned(), 415),
+            ("Allflame".to_owned(), 1465),
+            ("Bored BroSF III (PL85538)".to_owned(), 1),
+            ("Hardcore Allflame".to_owned(), 323),
+        ]);
+        assert_eq!(
+            top_leagues(counts, 3),
+            vec!["Allflame", "Standard", "Hardcore Allflame"]
+        );
     }
 
     #[test]
