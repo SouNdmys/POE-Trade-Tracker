@@ -298,6 +298,17 @@ pub struct ExchangeHourMarketRow {
     pub highest_ratio_b: String,
 }
 
+/// 小时行只取算账本要的五列。整段保留期一次读 1.8M 行，库存四列和
+/// 汇率快照四个字符串是白搬——账本只认成交量比。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExchangeHourVolumeRow {
+    pub hour_ts: i64,
+    pub asset_a: String,
+    pub asset_b: String,
+    pub volume_a: u64,
+    pub volume_b: u64,
+}
+
 /// "这一小时抓过了"的水位记录。market_count=0 = 确认为空（赛季前）。
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExchangeHourMark {
@@ -1344,6 +1355,44 @@ impl MarketStore {
              ORDER BY hour_ts, asset_a, asset_b",
             params![game, league, from_ts, to_ts],
         )
+    }
+
+    /// `[from_ts, to_ts)` 区间的小时行，只带成交量五列——小时账本的读取口。
+    /// 走同一个主键前缀扫描，不加索引；省的是每行六个 String 的搬运。
+    pub fn load_exchange_hour_volumes(
+        &self,
+        game: &str,
+        league: &str,
+        from_ts: i64,
+        to_ts: i64,
+    ) -> Result<Vec<ExchangeHourVolumeRow>, StorageError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT hour_ts, asset_a, asset_b, volume_a, volume_b
+             FROM exchange_hour_markets
+             WHERE game = ?1 AND league = ?2 AND hour_ts >= ?3 AND hour_ts < ?4
+             ORDER BY hour_ts, asset_a, asset_b",
+        )?;
+        let rows = statement.query_map(params![game, league, from_ts, to_ts], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+            ))
+        })?;
+        let mut markets = Vec::new();
+        for row in rows {
+            let values = row?;
+            markets.push(ExchangeHourVolumeRow {
+                hour_ts: values.0,
+                asset_a: values.1,
+                asset_b: values.2,
+                volume_a: column_volume(values.3)?,
+                volume_b: column_volume(values.4)?,
+            });
+        }
+        Ok(markets)
     }
 
     /// 一小时、一对的单条市场行——面板核对按抓取时刻逐点查用。主键正好是

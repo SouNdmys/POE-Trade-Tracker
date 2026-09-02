@@ -3,7 +3,9 @@
 //! footprint report.
 
 use chrono::{TimeZone, Utc};
-use ptt_storage::{ExchangeDayMarketRow, ExchangeHourMarketRow, MarketStore, StorageError};
+use ptt_storage::{
+    ExchangeDayMarketRow, ExchangeHourMarketRow, ExchangeHourVolumeRow, MarketStore, StorageError,
+};
 
 const EXALTED: &str = "Metadata/Items/Currency/CurrencyAddModToRare";
 const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
@@ -70,6 +72,44 @@ fn hour_roundtrip_watermark_and_marks() {
     assert_eq!(marks.len(), 2);
     assert_eq!(marks[0].hour_ts, HOUR);
     assert_eq!(marks[0].market_count, 1);
+}
+
+/// 精简读只是全读的投影：同一段、同一序、同样的五列，少搬的只是字符串。
+#[test]
+fn hour_volumes_read_back_the_same_rows_as_the_full_read() {
+    let mut store = MarketStore::open_in_memory().expect("store");
+    store
+        .replace_exchange_hour("poe2", LEAGUE, HOUR, &[hour_row(HOUR)], now())
+        .expect("write hour");
+    store
+        .replace_exchange_hour("poe2", LEAGUE, HOUR + 3600, &[hour_row(HOUR + 3600)], now())
+        .expect("write next hour");
+
+    let lean = store
+        .load_exchange_hour_volumes("poe2", LEAGUE, HOUR, HOUR + 7200)
+        .expect("lean load");
+    let full: Vec<ExchangeHourVolumeRow> = store
+        .load_exchange_hours("poe2", LEAGUE, HOUR, HOUR + 7200)
+        .expect("full load")
+        .into_iter()
+        .map(|row| ExchangeHourVolumeRow {
+            hour_ts: row.hour_ts,
+            asset_a: row.asset_a,
+            asset_b: row.asset_b,
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+        })
+        .collect();
+    assert_eq!(lean.len(), 2);
+    assert_eq!(lean, full);
+    // 半开区间：终点那个小时不在里面。
+    assert_eq!(
+        store
+            .load_exchange_hour_volumes("poe2", LEAGUE, HOUR, HOUR + 3600)
+            .expect("lean load")
+            .len(),
+        1
+    );
 }
 
 #[test]
