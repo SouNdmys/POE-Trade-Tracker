@@ -2383,6 +2383,21 @@ mod tests {
     }
 
     #[test]
+    fn both_catalogues_have_the_same_slots() {
+        // 同一条模板两种语言要有同样多的 `{}`：少一个，那个值就丢在屏幕外；
+        // 多一个，屏幕上就印着一对花括号。report_text 早有这条自检，这里补上。
+        let english = text(UiLanguage::English);
+        let chinese = text(UiLanguage::Chinese);
+        for ((field, en), (_, zh)) in english.fields().into_iter().zip(chinese.fields()) {
+            assert_eq!(
+                en.matches("{}").count(),
+                zh.matches("{}").count(),
+                "{field}: {en:?} vs {zh:?}"
+            );
+        }
+    }
+
+    #[test]
     fn the_two_catalogues_actually_differ() {
         // Copy-pasting the English catalogue and forgetting to translate it
         // passes the emptiness check above and fails the user.
