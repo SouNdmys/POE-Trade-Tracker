@@ -93,6 +93,7 @@ impl AppShell {
                 }
                 match outcome {
                     Some(Ok(round)) => {
+                        this.exchange_sync_failures = 0;
                         if round.stored > 0 || round.days_folded > 0 {
                             // 新数据落库了，正开着的页面得知道账变了。
                             this.report_stale = true;
@@ -117,6 +118,7 @@ impl AppShell {
                         // 断网只是"下一轮再试"，水位停在原地，补拉天然填洞。
                         // 但原因要留在交易所页上：日志行下一条就被盖掉。
                         this.exchange_sync_error = Some(error.to_string());
+                        this.exchange_sync_failures = this.exchange_sync_failures.saturating_add(1);
                         this.push_log(format!("exchange: {error}"));
                         cx.notify();
                     }
@@ -126,13 +128,10 @@ impl AppShell {
             .ok();
             // 追平了才睡到下一个 HH:05（数据整点后才发布，错开 5 分钟）；
             // 睡过头（系统休眠）也没关系，醒来照样从水位续传。
-            let delay = if errored {
-                Duration::from_secs(30)
-            } else if caught_up {
-                until_next_five_past()
-            } else {
-                Duration::from_secs(1)
-            };
+            let failures = this
+                .update(cx, |this: &mut AppShell, _| this.exchange_sync_failures)
+                .unwrap_or(0);
+            let delay = retry_delay(errored, caught_up, failures);
             cx.background_executor().timer(delay).await;
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.exchange_sync_generation == generation {
@@ -379,6 +378,23 @@ fn top_leagues(counts: std::collections::BTreeMap<String, usize>, limit: usize) 
         .collect()
 }
 
+/// 出错半分钟后重试；连续三次都失败就退到下一个整点过五分。永久性错误
+/// （联赛不存在、某小时永远解析失败）每 30 秒敲一次 CDN 只是稳定地制造噪音，
+/// 而原因已经挂在交易所页上，不需要靠频繁重试来提醒。
+fn retry_delay(errored: bool, caught_up: bool, consecutive_failures: u32) -> Duration {
+    if errored {
+        if consecutive_failures >= 3 {
+            until_next_five_past()
+        } else {
+            Duration::from_secs(30)
+        }
+    } else if caught_up {
+        until_next_five_past()
+    } else {
+        Duration::from_secs(1)
+    }
+}
+
 /// 距下一个"整点过五分"的时长。最少也睡一分钟，防止边界上打转。
 fn until_next_five_past() -> Duration {
     let now = chrono::Utc::now().timestamp();
@@ -389,6 +405,17 @@ fn until_next_five_past() -> Duration {
 #[cfg(test)]
 mod exchange_sync_tests {
     use super::*;
+
+    #[test]
+    fn repeated_failures_back_off_to_the_hourly_slot() {
+        // 一次 CDN 抖动半分钟后重试是对的；联赛不存在这种永久性错误
+        // 每 30 秒敲一次只是稳定地制造噪音，三次之后退到整点过五分。
+        assert_eq!(retry_delay(true, false, 1), Duration::from_secs(30));
+        assert_eq!(retry_delay(true, false, 2), Duration::from_secs(30));
+        assert!(retry_delay(true, false, 3) >= Duration::from_secs(60));
+        assert_eq!(retry_delay(false, false, 9), Duration::from_secs(1));
+        assert!(retry_delay(false, true, 0) >= Duration::from_secs(60));
+    }
 
     #[test]
     fn quiet_rounds_stay_out_of_the_log() {

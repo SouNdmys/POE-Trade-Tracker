@@ -498,6 +498,8 @@ pub struct AppShell {
     /// 最近一轮同步的失败原因（网络、解析、联赛名可疑），成功一轮即清。
     /// 交易所页读它：日志行只留得住一句话，错误必须有自己的落点。
     exchange_sync_error: Option<String>,
+    /// 连续失败的轮数，成功一轮归零；决定下一轮是半分钟后还是整点后再试。
+    exchange_sync_failures: u32,
     /// 哪一次检查/安装的答案有资格写回来。
     ///
     /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
@@ -872,6 +874,7 @@ impl AppShell {
             exchange_page_refreshed: None,
             exchange_sync_running: false,
             exchange_sync_error: None,
+            exchange_sync_failures: 0,
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
