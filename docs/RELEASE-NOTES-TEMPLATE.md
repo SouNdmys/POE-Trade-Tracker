@@ -50,7 +50,7 @@ Verify with `Get-FileHash <file> -Algorithm SHA256`.
 ## Install
 
 Create a folder, extract the zip into it, run `ptt-app.exe`. The zip carries no folder of its
-own — nine files arrive as four loose ones plus `assets\` and `licenses\` — so extracting
+own — twelve files arrive as four loose ones plus `assets\` and `licenses\` — so extracting
 straight into Downloads scatters them.
 
 Do not extract into `C:\Program Files`. There is no installer and the program cannot elevate
