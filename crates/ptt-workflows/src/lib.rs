@@ -6,11 +6,16 @@
 //! [`ptt_strategy::candles`] replace them, and keeping two implementations of
 //! either would guarantee they eventually disagree.
 
+mod exchange_radar;
 mod focus;
 mod probe;
 mod radar;
 mod watch;
 
+pub use exchange_radar::{
+    EXCHANGE_RADAR_POLICY_ID, ExchangeMarketHour, ExchangeRadarRequest, latest_market_hours,
+    run_exchange_radar,
+};
 pub use focus::{
     DirectedFocusPair, FocusGroup, FocusGroupDraft, FocusGroupItem, FocusPairRelation, FocusRole,
     FocusRoleCounts, FocusScope, FocusScopePolicy, FocusScopeStatus, ProbePriority,
