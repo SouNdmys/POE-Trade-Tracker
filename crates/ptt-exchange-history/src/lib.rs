@@ -1,6 +1,7 @@
 //! GGG 官方通货交易所（浮士德）历史 API 的响应解析。
 //!
-//! 端点：`https://web.poecdn.com/api/currency-exchange/<realm>/<整点 unix 秒>`，
+//! 端点：`https://web.poecdn.com/api/currency-exchange/poe2/<整点 unix 秒>`（POE1 是原版，
+//! 路径里没有 realm 段：`.../currency-exchange/<整点 unix 秒>`），
 //! 公开无鉴权，只有历史——当前小时返回空 `markets`，上一个整点才有数据。
 //! 本模块只做纯解析与规整，不碰网络：release 档是 `panic = "abort"`，
 //! 所以网络输入必须全部落进 `Result`，而纯函数才测得动。

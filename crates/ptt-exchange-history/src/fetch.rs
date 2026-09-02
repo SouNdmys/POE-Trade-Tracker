@@ -37,9 +37,16 @@ pub enum FetchError {
 
 /// URL 拼装是纯函数，单独拎出来是为了测试能锁住路径形状——
 /// 这个字符串写错的话，其余一切都对也全白搭。
+///
+/// 参数是仓库里的游戏键（"poe1" / "poe2"），不是 CDN 的 realm：POE1 是原版，
+/// 路径里根本没有 realm 段，只有 POE2 才多一截 "/poe2"。两者的差别只让这一个
+/// 函数知道，存储、缓存文件名照旧用 "poe1" 当键。
 #[must_use]
-pub fn hour_url(realm: &str, hour_ts: u64) -> String {
-    format!("https://web.poecdn.com/api/currency-exchange/{realm}/{hour_ts}")
+pub fn hour_url(game: &str, hour_ts: u64) -> String {
+    match game {
+        "poe1" => format!("https://web.poecdn.com/api/currency-exchange/{hour_ts}"),
+        realm => format!("https://web.poecdn.com/api/currency-exchange/{realm}/{hour_ts}"),
+    }
 }
 
 /// 持有连接池的抓取器。回补一次要跑几百个请求，
@@ -67,10 +74,10 @@ impl ExchangeFetcher {
 
     /// 取一个整点小时的原始字节。不解析：原始字节要先落盘缓存
     /// （CDN 数据不可变，缓存永不过期），解析失败时人还能看到原文。
-    pub fn fetch_hour(&self, realm: &str, hour_ts: u64) -> Result<Vec<u8>, FetchError> {
+    pub fn fetch_hour(&self, game: &str, hour_ts: u64) -> Result<Vec<u8>, FetchError> {
         let mut response = self
             .agent
-            .get(hour_url(realm, hour_ts))
+            .get(hour_url(game, hour_ts))
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(classify_transport)?;
@@ -103,6 +110,16 @@ mod fetch_tests {
         assert_eq!(
             hour_url("poe2", 1_788_159_600),
             "https://web.poecdn.com/api/currency-exchange/poe2/1788159600"
+        );
+    }
+
+    /// POE1 是原版，CDN 路径里没有 realm 段——拼成 "/poe1/" 会得到 404，
+    /// 用户拉 3.29 赛季时就是这么撞上的。存储键照旧叫 "poe1"，只有 URL 不带它。
+    #[test]
+    fn poe1_url_has_no_realm_segment() {
+        assert_eq!(
+            hour_url("poe1", 1_787_054_400),
+            "https://web.poecdn.com/api/currency-exchange/1787054400"
         );
     }
 }

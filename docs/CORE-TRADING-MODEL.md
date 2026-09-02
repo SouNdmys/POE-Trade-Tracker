@@ -1278,7 +1278,7 @@ stock 降序），但那等于把结论押在上游排序永远不变上，读�
 
 ### 数据源与分工
 
-`GET https://web.poecdn.com/api/currency-exchange/poe2/<整点unix秒>`——官方公开端点，
+`GET https://web.poecdn.com/api/currency-exchange/poe2/<整点unix秒>`（POE1 没有 realm 段：`.../currency-exchange/<整点unix秒>`）——官方公开端点，
 每小时每联赛每交易对一条：两侧成交量、库存区间、汇率快照区间。只有历史（延迟 1–2
 小时），CDN 缓存一年，历史不可变。**API 是日线/小时线，OCR 是分时和挂单深度**：
 对账实测证明了这个分工不是口号——面板上的六行阶梯大部分落在 API 成交区间之外
