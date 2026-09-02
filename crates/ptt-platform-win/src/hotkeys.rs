@@ -122,14 +122,18 @@ impl HotKeyBinding {
 /// The three start-monitoring options shipped in .NET 1.0.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum StartMonitoringHotKey {
-    #[default]
     ControlShiftF10,
+    /// The shipped default — the same string `ptt_settings::Hotkeys` writes,
+    /// which a test in ptt-app keeps in step. The .NET default was
+    /// Ctrl+Shift+F10; carrying both meant a normalised setting could
+    /// advertise a key the README denied.
+    #[default]
     ControlAltF10,
     AltF10,
 }
 
 impl StartMonitoringHotKey {
-    pub const DEFAULT_SETTING_VALUE: &'static str = "Ctrl+Shift+F10";
+    pub const DEFAULT_SETTING_VALUE: &'static str = "Ctrl+Alt+F10";
     pub const OPTIONS: [Self; 3] = [Self::ControlShiftF10, Self::ControlAltF10, Self::AltF10];
 
     /// Parses settings case-insensitively and falls back to the stable default.
@@ -147,8 +151,8 @@ impl StartMonitoringHotKey {
     #[must_use]
     pub const fn setting_value(self) -> &'static str {
         match self {
-            Self::ControlShiftF10 => Self::DEFAULT_SETTING_VALUE,
-            Self::ControlAltF10 => "Ctrl+Alt+F10",
+            Self::ControlShiftF10 => "Ctrl+Shift+F10",
+            Self::ControlAltF10 => Self::DEFAULT_SETTING_VALUE,
             Self::AltF10 => "Alt+F10",
         }
     }
@@ -490,7 +494,7 @@ mod tests {
         );
         assert_eq!(
             StartMonitoringHotKey::parse_or_default(Some("F10")),
-            StartMonitoringHotKey::ControlShiftF10
+            StartMonitoringHotKey::ControlAltF10
         );
         assert_eq!(
             StartMonitoringHotKey::parse_or_default(None).setting_value(),

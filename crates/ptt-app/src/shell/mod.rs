@@ -2492,6 +2492,25 @@ fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     (total - standby, standby)
 }
 
+#[cfg(all(test, windows))]
+mod hotkey_default_tests {
+    /// The settings crate and the platform crate each carried a "default"
+    /// hotkey, and they disagreed: a hand-edited file normalised through one
+    /// would advertise a binding the README and the settings page denied.
+    #[test]
+    fn the_settings_default_and_the_platform_default_are_the_same_key() {
+        let hotkeys = ptt_settings::Hotkeys::default();
+        assert_eq!(
+            hotkeys.toggle_watch,
+            ptt_platform_win::StartMonitoringHotKey::DEFAULT_SETTING_VALUE
+        );
+        assert_eq!(
+            hotkeys.toggle_hud,
+            ptt_platform_win::HudToggleHotKey::DEFAULT_SETTING_VALUE
+        );
+    }
+}
+
 #[cfg(test)]
 mod failed_body_tests {
     use super::failed_body;
