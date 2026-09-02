@@ -1645,7 +1645,7 @@ fn load_opportunities(
     // 不拖垮抓取雷达——两层各自独立，坏一层另一层照常。
     match load_exchange_radar(request) {
         Ok(exchange) => model.exchange = exchange,
-        Err(error) => model.notes.push(format!("exchange radar: {error}")),
+        Err(error) => model.exchange_error = Some(error),
     }
     Ok(model)
 }

@@ -870,7 +870,12 @@ impl AppShell {
 
         // 没配联赛 / 算不出来:一句话说清为什么没有表,页签条留着好切回去。
         let Some(exchange) = &model.exchange else {
-            return radar_unavailable(title_row, text.exchange_no_league);
+            // 联赛配了但算不出来:说真话,别把人往设置页赶(审查抓的误导)。
+            let message = model.exchange_error.as_ref().map_or_else(
+                || text.exchange_no_league.to_owned(),
+                |error| format!("exchange radar: {error}"),
+            );
+            return radar_unavailable(title_row, &message);
         };
         let scan = match &exchange.scan {
             RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency) => {

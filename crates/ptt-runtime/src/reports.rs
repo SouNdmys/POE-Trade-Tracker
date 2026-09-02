@@ -552,6 +552,9 @@ pub struct CoverageModel {
 pub struct OpportunitiesModel {
     /// 交易所雷达（大雷达）：同一页的另一个页签。`None` = 没配联赛。
     pub exchange: Option<ExchangeRadarModel>,
+    /// 联赛配了但大雷达算不出来（读库/映射失败）的原因。有它时 `exchange`
+    /// 是 `None`——页面要说真话，别把人往设置页赶。
+    pub exchange_error: Option<String>,
     pub notes: Notes,
     pub scan: RadarScan,
 }
@@ -2263,6 +2266,7 @@ pub fn opportunities_model(
     if policy.core_liquidity.is_empty() {
         return Ok(OpportunitiesModel {
             exchange: None,
+            exchange_error: None,
             notes: Vec::new(),
             scan: RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency),
         });
@@ -2283,6 +2287,7 @@ pub fn opportunities_model(
     if seen.len() < 2 {
         return Ok(OpportunitiesModel {
             exchange: None,
+            exchange_error: None,
             notes: Vec::new(),
             scan: RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket),
         });
@@ -2324,6 +2329,7 @@ pub fn opportunities_model(
     if starts.is_empty() {
         return Ok(OpportunitiesModel {
             exchange: None,
+            exchange_error: None,
             notes: Vec::new(),
             scan: RadarScan::Unavailable(RadarUnavailable::NoStartUnits {
                 anchor: policy.core_liquidity.first().cloned(),
@@ -2426,6 +2432,7 @@ pub fn opportunities_model(
 
     Ok(OpportunitiesModel {
         exchange: None,
+        exchange_error: None,
         notes,
         scan: RadarScan::Ran(Box::new(RadarScanResult {
             starts: start_names,
