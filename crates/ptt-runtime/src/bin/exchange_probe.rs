@@ -9,7 +9,7 @@
 //!       从最新完整小时往回抓 N 小时，原始字节落盘缓存（CDN 数据不可变，
 //!       缓存永不过期），重复运行只补缺的。
 //!   `exchange_probe --paths --league "<联赛名>" [--cache DIR] [--top N]`
-//!       聚合缓存，按锚（崇高）计价成交量降序输出资产路径 = 映射工作清单。
+//!       聚合缓存，按当前锚计价成交量降序输出资产路径 = 映射工作清单。
 //!   `exchange_probe --trend --league "<联赛名>" [--cache DIR] [--top N]`
 //!       小时 VWAP → 日折 → 近 2 天 vs 基线的趋势 bps（原始 + 扣市场中位），
 //!       同时给出成交量口径与挂单库存口径的两份流动性读数，供证据分工裁定。
@@ -41,7 +41,6 @@ mod probe {
     use std::collections::{BTreeMap, BTreeSet};
 
     use ptt_exchange_history::fetch::ExchangeFetcher;
-    use ptt_exchange_history::mapping::{DIVINE_PATH, EXALTED_PATH, poe2_index};
     use ptt_exchange_history::{HourSnapshot, MarketRow, parse_hour};
 
     pub fn run() -> Result<(), String> {
@@ -97,13 +96,27 @@ mod probe {
         );
         std::fs::create_dir_all(&cache_dir).map_err(|error| format!("cache dir: {error}"))?;
 
-        let anchor = ptt_runtime::reports::exchange_anchor(
-            &settings.market_tuning(settings.active_profile.game),
-        )?;
+        let game = settings.active_profile.game;
+        let tuning = settings.market_tuning(game);
+        let anchor = ptt_runtime::reports::exchange_anchor(&tuning)?;
+        let anchor_path = ptt_runtime::reports::exchange_path_of(game, &anchor)?
+            .ok_or_else(|| format!("anchor {anchor} has no GGG path in the {game:?} mapping"))?;
+        let bridge_path = tuning
+            .settlement_assets
+            .iter()
+            .filter_map(|slug| ptt_runtime::live::domain_asset_id(slug).ok())
+            .find(|asset| *asset != anchor)
+            .and_then(|bridge| {
+                ptt_runtime::reports::exchange_path_of(game, &bridge)
+                    .ok()
+                    .flatten()
+            });
         let session = Session {
             realm,
-            game: settings.active_profile.game,
+            game,
             anchor,
+            anchor_path,
+            bridge_path,
             league,
             cache_dir,
             fetcher: ExchangeFetcher::new(),
@@ -361,6 +374,11 @@ mod probe {
         game: ptt_core::Game,
         /// 成交额按它折算，与交易所页同一条选法（`exchange_anchor`）。
         anchor: ptt_trade_domain::MarketAssetId,
+        /// 锚在 CDN 行里的样子（GGG 路径）——`--paths`/`--trend` 直接对原始行比，不过域层。
+        anchor_path: String,
+        /// 结算资产里锚之外的第一个（POE2 默认神圣、POE1 默认混沌），只和它成对的资产
+        /// 经它折算一步。设置里没有第二个结算资产就不桥接。
+        bridge_path: Option<String>,
         league: String,
         cache_dir: std::path::PathBuf,
         fetcher: ExchangeFetcher,
@@ -474,9 +492,9 @@ mod probe {
                         stat.own_volume += own;
                         stat.appearances += 1;
                     };
-                    if row.asset_a == EXALTED_PATH {
+                    if row.asset_a == self.anchor_path {
                         credit(&row.asset_b, row.volume_b, row.volume_a);
-                    } else if row.asset_b == EXALTED_PATH {
+                    } else if row.asset_b == self.anchor_path {
                         credit(&row.asset_a, row.volume_a, row.volume_b);
                     } else {
                         credit(&row.asset_a, row.volume_a, 0);
@@ -512,11 +530,18 @@ mod probe {
         }
 
         fn trend(&self, top: usize) -> Result<(), String> {
-            let mapping = poe2_index().map_err(|error| format!("mapping: {error}"))?;
-            let catalog = ptt_catalog::poe2();
+            let mapping = ptt_exchange_history::mapping::index(self.game)
+                .map_err(|error| format!("mapping: {error}"))?;
+            let catalog = match self.game {
+                ptt_core::Game::Poe1 => ptt_catalog::poe1(),
+                ptt_core::Game::Poe2 => ptt_catalog::poe2(),
+            };
             let hours = self.cached_hours()?;
+            // 没配第二个结算资产就没有桥：空串永远对不上任何路径。
+            let bridge_path = self.bridge_path.as_deref().unwrap_or("");
+            let anchor_id = mapping.get(&self.anchor_path).cloned().unwrap_or_default();
 
-            // 每资产每天累计：崇高计价成交额 + 自身单位数 + 库存深度样本。
+            // 每资产每天累计：锚计价成交额 + 自身单位数 + 库存深度样本。
             struct DayFold {
                 exalted_value: f64,
                 own_units: f64,
@@ -537,15 +562,15 @@ mod probe {
                 }
                 hours_used += 1;
                 let day = format_day(*hour_ts);
-                // 该小时的神圣→崇高换算率，给"只和神圣成对"的资产折算用。
+                // 该小时的桥→锚换算率，给"只和桥成对"的资产折算用。
                 let exalted_per_divine = rows.iter().find_map(|row| {
-                    (row.asset_a == EXALTED_PATH && row.asset_b == DIVINE_PATH)
+                    (row.asset_a == self.anchor_path && row.asset_b == bridge_path)
                         .then(|| row.volume_a as f64 / row.volume_b.max(1) as f64)
                 });
                 for row in &rows {
-                    // (资产, 崇高) 或 (资产, 神圣) 两类市场参与估值；其余跳过。
+                    // (资产, 锚) 或 (资产, 桥) 两类市场参与估值；其余跳过。
                     let (asset_path, own_volume, own_stock, quote_volume, to_exalted) =
-                        if row.asset_a == EXALTED_PATH {
+                        if row.asset_a == self.anchor_path {
                             (
                                 &row.asset_b,
                                 row.volume_b,
@@ -553,7 +578,7 @@ mod probe {
                                 row.volume_a,
                                 1.0,
                             )
-                        } else if row.asset_b == EXALTED_PATH {
+                        } else if row.asset_b == self.anchor_path {
                             (
                                 &row.asset_a,
                                 row.volume_a,
@@ -561,7 +586,7 @@ mod probe {
                                 row.volume_b,
                                 1.0,
                             )
-                        } else if row.asset_a == DIVINE_PATH {
+                        } else if row.asset_a == bridge_path {
                             let Some(rate) = exalted_per_divine else {
                                 continue;
                             };
@@ -572,7 +597,7 @@ mod probe {
                                 row.volume_a,
                                 rate,
                             )
-                        } else if row.asset_b == DIVINE_PATH {
+                        } else if row.asset_b == bridge_path {
                             let Some(rate) = exalted_per_divine else {
                                 continue;
                             };
@@ -623,7 +648,7 @@ mod probe {
             }
             let mut rows: Vec<TrendRow> = Vec::new();
             for (asset_id, fold) in &folds {
-                if *asset_id == "exalted_orb" {
+                if **asset_id == anchor_id {
                     continue;
                 }
                 let values: Vec<f64> = fold
@@ -670,7 +695,8 @@ mod probe {
             };
 
             println!(
-                "trend: hours={hours_used} assets-with-5-days={} market-median-drift={market_median_bps:+.0}bps",
+                "trend: anchor={} hours={hours_used} assets-with-5-days={} market-median-drift={market_median_bps:+.0}bps",
+                self.anchor,
                 rows.len(),
             );
             println!(
@@ -696,7 +722,7 @@ mod probe {
                 };
                 let name = catalog
                     .by_id(&row.asset_id)
-                    .map_or_else(|| row.asset_id.clone(), |asset| asset.name_zh_tw.clone());
+                    .map_or_else(|| row.asset_id.clone(), |asset| asset.name_en.clone());
                 println!(
                     "{:<4} {:<18} {:>12.3} {:>+9.0} {:>+9.0}  {:<4} {:>14.0} {:>14.0} {:>5}",
                     rank + 1,
@@ -843,7 +869,8 @@ mod probe {
 
             // 映射覆盖:与交易所页表头同一口径——60 天窗口的日折行里两侧都映射
             // 得上的占比。以前按近 24 小时的小时行算,和页面对不上却不是漂移。
-            let mapping = poe2_index().map_err(|error| format!("mapping: {error}"))?;
+            let mapping = ptt_exchange_history::mapping::index(self.game)
+                .map_err(|error| format!("mapping: {error}"))?;
             let today = chrono::Utc::now().date_naive();
             let from_day = (today - chrono::Duration::days(60)).to_string();
             let rows = store

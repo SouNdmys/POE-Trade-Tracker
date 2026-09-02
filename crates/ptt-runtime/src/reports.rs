@@ -3982,6 +3982,15 @@ fn exchange_path_of_domain(game: ptt_core::Game) -> Result<BTreeMap<String, Stri
         .collect())
 }
 
+/// 一个域层资产的 GGG 路径（探针按锚排路径清单用）。`None` = 这个游戏的映射表
+/// 里没有它。
+pub fn exchange_path_of(
+    game: ptt_core::Game,
+    asset: &MarketAssetId,
+) -> Result<Option<String>, String> {
+    Ok(exchange_path_of_domain(game)?.remove(asset.as_str()))
+}
+
 /// `left <= right`，交叉相乘，不走浮点。
 fn ratio_le(left: &ptt_trade_domain::Ratio, right: &ptt_trade_domain::Ratio) -> bool {
     u128::from(left.numerator) * u128::from(right.denominator)
