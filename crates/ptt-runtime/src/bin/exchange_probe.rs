@@ -673,11 +673,16 @@ mod probe {
                 .exchange_watermark(&self.realm, &self.league)
                 .map_err(|error| format!("watermark: {error}"))?;
             match watermark {
-                Some(mark) => println!(
-                    "watermark: {mark} ({}) age {} min",
-                    format_hour(mark.max(0) as u64),
-                    (now_ts - mark) / 60,
-                ),
+                Some(mark) => {
+                    // 页面说的是"落后几个完整小时",和"几分钟前"是两个数,都印。
+                    let newest_complete = now_ts.div_euclid(3600) * 3600 - 3600;
+                    println!(
+                        "watermark: {mark} ({}) age {} min -- page reads this as {} h behind",
+                        format_hour(mark.max(0) as u64),
+                        (now_ts - mark) / 60,
+                        ((newest_complete - mark) / 3600).max(0),
+                    );
+                }
                 None => println!("watermark: none -- this (game, league) has never synced"),
             }
             let marks = store
@@ -704,11 +709,14 @@ mod probe {
                 day_marks.last().map_or("-", |mark| &mark.utc_day),
             );
 
-            // 映射覆盖：近 24 小时存进来的行里，两侧路径都映射得上的占比。
+            // 映射覆盖:与交易所页表头同一口径——60 天窗口的日折行里两侧都映射
+            // 得上的占比。以前按近 24 小时的小时行算,和页面对不上却不是漂移。
             let mapping = poe2_index().map_err(|error| format!("mapping: {error}"))?;
+            let today = chrono::Utc::now().date_naive();
+            let from_day = (today - chrono::Duration::days(60)).to_string();
             let rows = store
-                .load_exchange_hours(&self.realm, &self.league, now_ts - 24 * 3600, now_ts)
-                .map_err(|error| format!("hours: {error}"))?;
+                .load_exchange_days(&self.realm, &self.league, &from_day, &today.to_string())
+                .map_err(|error| format!("days: {error}"))?;
             let mapped = rows
                 .iter()
                 .filter(|row| {
@@ -716,10 +724,10 @@ mod probe {
                 })
                 .count();
             if rows.is_empty() {
-                println!("mapping: no stored rows in the last 24h to measure");
+                println!("mapping: no day rows in the last 60 days to measure");
             } else {
                 println!(
-                    "mapping: {mapped}/{} stored rows fully mapped ({}%)",
+                    "mapping: {mapped}/{} day rows fully mapped ({}%) -- same base as the page header",
                     rows.len(),
                     mapped * 100 / rows.len(),
                 );
