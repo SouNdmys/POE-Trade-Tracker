@@ -374,6 +374,12 @@ pub struct AppShell {
     /// Cached season/storage lines for the settings page; `None` means load
     /// on the next draw (cleared after every season action).
     pub(crate) season_info: Option<Vec<String>>,
+    /// True while the background count is running: a second draw must not
+    /// start a second count.
+    pub(crate) season_info_loading: bool,
+    /// Bumped by every invalidation; a count that started before the bump
+    /// is thrown away when it lands.
+    pub(crate) season_info_generation: u64,
     /// Two-click confirmation state for the destructive purge button.
     pub(crate) purge_armed: bool,
     /// The convert page's currency pickers and holdings box.
@@ -687,6 +693,8 @@ impl AppShell {
             exchange_as_of_input,
             season_date_input,
             season_info: None,
+            season_info_loading: false,
+            season_info_generation: 0,
             purge_armed: false,
             radar_table,
             convert_have,

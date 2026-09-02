@@ -19,9 +19,13 @@ impl AppShell {
     /// Season banner + storage report + the three actions.
     #[cfg(windows)]
     pub(crate) fn season_panel(&mut self, cx: &mut Context<Self>) -> gpui::Div {
-        self.ensure_season_info();
+        self.ensure_season_info(cx);
         let text = self.text();
-        let info = self.season_info.clone().unwrap_or_default();
+        // 还没数完就先画一行省略号:空白看着像坏了。
+        let info = self
+            .season_info
+            .clone()
+            .unwrap_or_else(|| vec!["…".to_owned()]);
 
         let mut body = div().p_3().flex().flex_col().gap_2();
         for line in info {
@@ -189,47 +193,45 @@ impl AppShell {
         panel().child(panel_header(text.season_header)).child(body)
     }
 
-    /// Loads the season line and the storage footprint once per cache miss;
-    /// every season action clears the cache so the page redraws the truth.
+    /// Kicks off the season line and the storage footprint on a cache miss,
+    /// off the UI thread; every season action clears the cache so the page
+    /// redraws the truth.
+    ///
+    /// 八测反馈：切到这一段会卡一下。原因是逐表 `COUNT(*)`——小时表几十万行，
+    /// 全在 UI 线程上数。现在后台数，数完再落回来；数的期间画一行「…」。
+    /// 代次号挡住过期结果：数到一半用户点了清理，旧数字回来也不上屏。
     #[cfg(windows)]
-    fn ensure_season_info(&mut self) {
-        if self.season_info.is_some() {
+    fn ensure_season_info(&mut self, cx: &mut Context<Self>) {
+        if self.season_info.is_some() || self.season_info_loading {
             return;
         }
+        self.season_info_loading = true;
+        let generation = self.season_info_generation;
         let text = self.text();
-        let game = self.settings.active_profile.game.as_str();
-        let mut lines = Vec::new();
-        match ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path()) {
-            Ok(store) => {
-                let season_line = match store.active_season(game) {
-                    Ok(Some(season)) => format!(
-                        "{}: {} · {} ~ {}",
-                        text.season_current,
-                        season.label,
-                        season.started_at.format("%Y-%m-%d"),
-                        season
-                            .ended_at
-                            .map_or_else(String::new, |end| end.format("%Y-%m-%d").to_string()),
-                    ),
-                    Ok(None) => format!("{}: {}", text.season_current, text.season_none),
-                    Err(error) => format!("{}: {error}", text.season_current),
-                };
-                lines.push(season_line);
-                if let Ok(footprint) = store.database_footprint() {
-                    lines.push(format!(
-                        "{}: {} MiB ({} MiB free)",
-                        text.season_db,
-                        footprint.total_bytes / (1024 * 1024),
-                        footprint.free_bytes / (1024 * 1024),
-                    ));
-                    for (table, rows) in footprint.table_rows {
-                        lines.push(format!("  {table:<20} {rows}"));
-                    }
+        let game = self.settings.active_profile.game.as_str().to_owned();
+        cx.spawn(async move |this, cx| {
+            let lines = cx
+                .background_executor()
+                .spawn(async move { season_info_lines(&game, text) })
+                .await;
+            this.update(cx, |this: &mut AppShell, cx| {
+                this.season_info_loading = false;
+                if this.season_info_generation == generation {
+                    this.season_info = Some(lines);
+                    cx.notify();
                 }
-            }
-            Err(error) => lines.push(format!("storage: {error}")),
-        }
-        self.season_info = Some(lines);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Forgets the cached season/storage lines and retires any count still
+    /// in flight, so the next draw shows what the action just did.
+    #[cfg(windows)]
+    pub(crate) fn invalidate_season_info(&mut self) {
+        self.season_info = None;
+        self.season_info_generation = self.season_info_generation.wrapping_add(1);
     }
 
     /// The boundary box as a moment: empty means right now, a date means
@@ -355,7 +357,7 @@ impl AppShell {
             },
             Err(error) => self.push_log(format!("storage: {error}")),
         }
-        self.season_info = None;
+        self.invalidate_season_info();
         self.purge_armed = false;
     }
 
@@ -386,7 +388,7 @@ impl AppShell {
             },
             Err(error) => self.push_log(format!("storage: {error}")),
         }
-        self.season_info = None;
+        self.invalidate_season_info();
         self.purge_armed = false;
     }
 
@@ -412,7 +414,7 @@ impl AppShell {
             },
             Err(error) => self.push_log(format!("storage: {error}")),
         }
-        self.season_info = None;
+        self.invalidate_season_info();
         self.purge_armed = false;
     }
 
@@ -444,7 +446,7 @@ impl AppShell {
             }
             Err(error) => self.push_log(format!("storage: {error}")),
         }
-        self.season_info = None;
+        self.invalidate_season_info();
     }
 
     /// VACUUM, only while not watching: it blocks the capture writer for its
@@ -463,7 +465,7 @@ impl AppShell {
             },
             Err(error) => self.push_log(format!("storage: {error}")),
         }
-        self.season_info = None;
+        self.invalidate_season_info();
     }
 }
 
@@ -472,4 +474,42 @@ impl AppShell {
     pub(crate) fn season_panel(&mut self, _cx: &mut Context<Self>) -> gpui::Div {
         div()
     }
+}
+
+/// The season line plus the storage footprint, as display lines. Pure and
+/// thread-free so the shell can run it on the background executor.
+#[cfg(windows)]
+fn season_info_lines(game: &str, text: &'static crate::i18n::Text) -> Vec<String> {
+    let mut lines = Vec::new();
+    match ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path()) {
+        Ok(store) => {
+            let season_line = match store.active_season(game) {
+                Ok(Some(season)) => format!(
+                    "{}: {} · {} ~ {}",
+                    text.season_current,
+                    season.label,
+                    season.started_at.format("%Y-%m-%d"),
+                    season
+                        .ended_at
+                        .map_or_else(String::new, |end| end.format("%Y-%m-%d").to_string()),
+                ),
+                Ok(None) => format!("{}: {}", text.season_current, text.season_none),
+                Err(error) => format!("{}: {error}", text.season_current),
+            };
+            lines.push(season_line);
+            if let Ok(footprint) = store.database_footprint() {
+                lines.push(format!(
+                    "{}: {} MiB ({} MiB free)",
+                    text.season_db,
+                    footprint.total_bytes / (1024 * 1024),
+                    footprint.free_bytes / (1024 * 1024),
+                ));
+                for (table, rows) in footprint.table_rows {
+                    lines.push(format!("  {table:<20} {rows}"));
+                }
+            }
+        }
+        Err(error) => lines.push(format!("storage: {error}")),
+    }
+    lines
 }

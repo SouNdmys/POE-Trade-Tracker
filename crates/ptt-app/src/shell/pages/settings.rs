@@ -875,7 +875,7 @@ impl AppShell {
         // 换了游戏,报表和赛季面板显示的就都是上一个游戏的了——立刻作废,
         // 不然要等到下一次 stale 触发之前一直张冠李戴。
         self.report_stale = true;
-        self.season_info = None;
+        self.invalidate_season_info();
         if let Err(error) = self.settings_store.save(&self.settings) {
             self.push_log(format!("could not save profile: {error}"));
             return;
