@@ -4407,6 +4407,7 @@ name = "ptt-exchange-history"
 version = "1.0.6"
 dependencies = [
  "ptt-catalog",
+ "ptt-core",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

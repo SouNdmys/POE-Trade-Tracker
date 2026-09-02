@@ -1,0 +1,4190 @@
+[
+  {
+    "id": "allflame-ember-of-kulemak",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-resplendence",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-propagation",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-flesh",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-the-wildwood",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-the-ethereal",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-the-gilded",
+    "category": "allflame"
+  },
+  {
+    "id": "allflame-ember-of-toads",
+    "category": "allflame"
+  },
+  {
+    "id": "dead-man-s-sulphur",
+    "category": "allflame"
+  },
+  {
+    "id": "message-in-a-bottle",
+    "category": "allflame"
+  },
+  {
+    "id": "merrick-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "cyaxan-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "the-genteel-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "kishara-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "telesia-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "tzamoto-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "the-changeling-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "rotmother-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "brinehook-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "katakohi-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "ukatoa-s-ducat",
+    "category": "allflame"
+  },
+  {
+    "id": "intrinsic-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "turbulent-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "imbued-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "abrasive-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "noxious-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "tempering-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "fertile-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "prismatic-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "accelerating-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "unstable-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "tainted-catalyst",
+    "category": "catalysts"
+  },
+  {
+    "id": "rogue-s-marker",
+    "category": "currency"
+  },
+  {
+    "id": "scroll-of-wisdom",
+    "category": "currency"
+  },
+  {
+    "id": "portal-scroll",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-transmutation",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-augmentation",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-chance",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-alteration",
+    "category": "currency"
+  },
+  {
+    "id": "chromatic-orb",
+    "category": "currency"
+  },
+  {
+    "id": "jeweller-s-orb",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-fusing",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-alchemy",
+    "category": "currency"
+  },
+  {
+    "id": "chaos-orb",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-scouring",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-regret",
+    "category": "currency"
+  },
+  {
+    "id": "vaal-orb",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-binding",
+    "category": "currency"
+  },
+  {
+    "id": "instilling-orb",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-unmaking",
+    "category": "currency"
+  },
+  {
+    "id": "blessed-orb",
+    "category": "currency"
+  },
+  {
+    "id": "enkindling-orb",
+    "category": "currency"
+  },
+  {
+    "id": "regal-orb",
+    "category": "currency"
+  },
+  {
+    "id": "divine-vessel",
+    "category": "currency"
+  },
+  {
+    "id": "exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "ancient-orb",
+    "category": "currency"
+  },
+  {
+    "id": "stacked-deck",
+    "category": "currency"
+  },
+  {
+    "id": "valdo-s-puzzle-box",
+    "category": "currency"
+  },
+  {
+    "id": "divine-orb",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-annulment",
+    "category": "currency"
+  },
+  {
+    "id": "voidborn-reliquary-key",
+    "category": "currency"
+  },
+  {
+    "id": "reflecting-mist",
+    "category": "currency"
+  },
+  {
+    "id": "tempering-orb",
+    "category": "currency"
+  },
+  {
+    "id": "tailoring-orb",
+    "category": "currency"
+  },
+  {
+    "id": "fracturing-orb",
+    "category": "currency"
+  },
+  {
+    "id": "veiled-chaos-orb",
+    "category": "currency"
+  },
+  {
+    "id": "veiled-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "sacred-orb",
+    "category": "currency"
+  },
+  {
+    "id": "hinekora-s-lock",
+    "category": "currency"
+  },
+  {
+    "id": "mirror-of-kalandra",
+    "category": "currency"
+  },
+  {
+    "id": "eldritch-chaos-orb",
+    "category": "currency"
+  },
+  {
+    "id": "eldritch-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "eldritch-orb-of-annulment",
+    "category": "currency"
+  },
+  {
+    "id": "lesser-eldritch-ember",
+    "category": "currency"
+  },
+  {
+    "id": "lesser-eldritch-ichor",
+    "category": "currency"
+  },
+  {
+    "id": "greater-eldritch-ember",
+    "category": "currency"
+  },
+  {
+    "id": "greater-eldritch-ichor",
+    "category": "currency"
+  },
+  {
+    "id": "grand-eldritch-ember",
+    "category": "currency"
+  },
+  {
+    "id": "grand-eldritch-ichor",
+    "category": "currency"
+  },
+  {
+    "id": "exceptional-eldritch-ember",
+    "category": "currency"
+  },
+  {
+    "id": "exceptional-eldritch-ichor",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-conflict",
+    "category": "currency"
+  },
+  {
+    "id": "transmutation-shard",
+    "category": "currency"
+  },
+  {
+    "id": "alteration-shard",
+    "category": "currency"
+  },
+  {
+    "id": "alchemy-shard",
+    "category": "currency"
+  },
+  {
+    "id": "chaos-shard",
+    "category": "currency"
+  },
+  {
+    "id": "regal-shard",
+    "category": "currency"
+  },
+  {
+    "id": "exalted-shard",
+    "category": "currency"
+  },
+  {
+    "id": "annulment-shard",
+    "category": "currency"
+  },
+  {
+    "id": "fracturing-shard",
+    "category": "currency"
+  },
+  {
+    "id": "mirror-shard",
+    "category": "currency"
+  },
+  {
+    "id": "armourer-s-scrap",
+    "category": "currency"
+  },
+  {
+    "id": "blacksmith-s-whetstone",
+    "category": "currency"
+  },
+  {
+    "id": "glassblower-s-bauble",
+    "category": "currency"
+  },
+  {
+    "id": "gemcutter-s-prism",
+    "category": "currency"
+  },
+  {
+    "id": "maven-s-chisel-of-procurement",
+    "category": "currency"
+  },
+  {
+    "id": "maven-s-chisel-of-proliferation",
+    "category": "currency"
+  },
+  {
+    "id": "maven-s-chisel-of-avarice",
+    "category": "currency"
+  },
+  {
+    "id": "maven-s-chisel-of-divination",
+    "category": "currency"
+  },
+  {
+    "id": "maven-s-chisel-of-scarabs",
+    "category": "currency"
+  },
+  {
+    "id": "shaper-s-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "elder-s-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "crusader-s-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "redeemer-s-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "hunter-s-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "warlord-s-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "awakener-s-orb",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-dominance",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-remembrance",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-unravelling",
+    "category": "currency"
+  },
+  {
+    "id": "orb-of-intention",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-chromatic-orb",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-jeweller-s-orb",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-armourer-s-scrap",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-blacksmith-s-whetstone",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-orb-of-fusing",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-mythic-orb",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-chaos-orb",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "tainted-divine-teardrop",
+    "category": "currency"
+  },
+  {
+    "id": "volatile-vaal-orb",
+    "category": "currency"
+  },
+  {
+    "id": "templar-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "fruiting-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "lightless-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "grasping-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "nameless-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "fungal-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "chaotic-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "deceptive-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "timeless-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "runic-astrolabe",
+    "category": "currency"
+  },
+  {
+    "id": "memory-of-trauma",
+    "category": "currency"
+  },
+  {
+    "id": "memory-of-reverence",
+    "category": "currency"
+  },
+  {
+    "id": "memory-of-loneliness",
+    "category": "currency"
+  },
+  {
+    "id": "foulborn-orb-of-augmentation",
+    "category": "currency"
+  },
+  {
+    "id": "foulborn-regal-orb",
+    "category": "currency"
+  },
+  {
+    "id": "foulborn-exalted-orb",
+    "category": "currency"
+  },
+  {
+    "id": "flesh-of-xesht",
+    "category": "currency"
+  },
+  {
+    "id": "delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "blacksmith-s-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "armoursmith-s-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "jeweller-s-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "fine-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "diviner-s-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "cartographer-s-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "whispering-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "singular-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "thaumaturge-s-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "obscured-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "fragmented-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "blighted-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "skittering-delirium-orb",
+    "category": "delirium"
+  },
+  {
+    "id": "simulacrum",
+    "category": "delirium"
+  },
+  {
+    "id": "simulacrum-splinter",
+    "category": "delirium"
+  },
+  {
+    "id": "primitive-chaotic-resonator",
+    "category": "delve"
+  },
+  {
+    "id": "potent-chaotic-resonator",
+    "category": "delve"
+  },
+  {
+    "id": "powerful-chaotic-resonator",
+    "category": "delve"
+  },
+  {
+    "id": "prime-chaotic-resonator",
+    "category": "delve"
+  },
+  {
+    "id": "scorched-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "frigid-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "metallic-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "jagged-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "aberrant-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "pristine-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "dense-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "corroded-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "prismatic-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "aetheric-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "serrated-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "bound-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "opulent-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "deft-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "lucent-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "shuddering-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "fundamental-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "sanctified-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "gilded-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "faceted-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "bloodstained-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "hollow-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "fractured-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "glyphic-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "tangled-fossil",
+    "category": "delve"
+  },
+  {
+    "id": "a-dab-of-ink",
+    "category": "divination-cards"
+  },
+  {
+    "id": "akil-s-prophecy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "alivia-s-grace",
+    "category": "divination-cards"
+  },
+  {
+    "id": "anarchy-s-price",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-note-in-the-wind",
+    "category": "divination-cards"
+  },
+  {
+    "id": "assassin-s-favour",
+    "category": "divination-cards"
+  },
+  {
+    "id": "assassin-s-gift",
+    "category": "divination-cards"
+  },
+  {
+    "id": "astral-protection",
+    "category": "divination-cards"
+  },
+  {
+    "id": "atziri-s-arsenal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "audacity",
+    "category": "divination-cards"
+  },
+  {
+    "id": "beauty-through-death",
+    "category": "divination-cards"
+  },
+  {
+    "id": "bowyer-s-dream",
+    "category": "divination-cards"
+  },
+  {
+    "id": "broken-truce",
+    "category": "divination-cards"
+  },
+  {
+    "id": "cursed-words",
+    "category": "divination-cards"
+  },
+  {
+    "id": "dark-dreams",
+    "category": "divination-cards"
+  },
+  {
+    "id": "dark-temptation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "death",
+    "category": "divination-cards"
+  },
+  {
+    "id": "desperate-crusade",
+    "category": "divination-cards"
+  },
+  {
+    "id": "destined-to-crumble",
+    "category": "divination-cards"
+  },
+  {
+    "id": "draped-in-dreams",
+    "category": "divination-cards"
+  },
+  {
+    "id": "duality",
+    "category": "divination-cards"
+  },
+  {
+    "id": "emperor-of-purity",
+    "category": "divination-cards"
+  },
+  {
+    "id": "endless-night",
+    "category": "divination-cards"
+  },
+  {
+    "id": "energy-sword",
+    "category": "divination-cards"
+  },
+  {
+    "id": "etched-in-blood",
+    "category": "divination-cards"
+  },
+  {
+    "id": "forbidden-power",
+    "category": "divination-cards"
+  },
+  {
+    "id": "from-bone-to-ashes",
+    "category": "divination-cards"
+  },
+  {
+    "id": "further-invention",
+    "category": "divination-cards"
+  },
+  {
+    "id": "gift-of-asenath",
+    "category": "divination-cards"
+  },
+  {
+    "id": "humility",
+    "category": "divination-cards"
+  },
+  {
+    "id": "hunter-s-resolve",
+    "category": "divination-cards"
+  },
+  {
+    "id": "immortal-resolve",
+    "category": "divination-cards"
+  },
+  {
+    "id": "imperial-legacy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "judging-voices",
+    "category": "divination-cards"
+  },
+  {
+    "id": "keeper-s-corruption",
+    "category": "divination-cards"
+  },
+  {
+    "id": "last-stand",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lethean-temptation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "light-and-truth",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lucky-bastion",
+    "category": "divination-cards"
+  },
+  {
+    "id": "merciless-armament",
+    "category": "divination-cards"
+  },
+  {
+    "id": "might-is-right",
+    "category": "divination-cards"
+  },
+  {
+    "id": "misery-in-darkness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "mitts",
+    "category": "divination-cards"
+  },
+  {
+    "id": "nook-s-crown",
+    "category": "divination-cards"
+  },
+  {
+    "id": "poisoned-faith",
+    "category": "divination-cards"
+  },
+  {
+    "id": "pride-before-the-fall",
+    "category": "divination-cards"
+  },
+  {
+    "id": "pride-of-the-first-ones",
+    "category": "divination-cards"
+  },
+  {
+    "id": "prometheus",
+    "category": "divination-cards"
+  },
+  {
+    "id": "rats",
+    "category": "divination-cards"
+  },
+  {
+    "id": "rebirth",
+    "category": "divination-cards"
+  },
+  {
+    "id": "reckless-ambition",
+    "category": "divination-cards"
+  },
+  {
+    "id": "sambodhi-s-wisdom",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-adventuring-spirit",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-archmage-s-right-hand",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-army-of-blood",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-astromancer",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-avenger",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-battle-born",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-bear-woman",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-beast",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-betrayal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-blazing-fire",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-body",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-brawny-battle-mage",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-carrion-crow",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-catch",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-celestial-justicar",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-chains-that-bind",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-chosen",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-coming-storm",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-conduit",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dapper-prodigy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-darkest-dream",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dark-mage",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-deep-ones",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-demoness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-endless-darkness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-enforcer",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-enthusiasts",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-escape",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-ethereal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fathomless-depths",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fletcher",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-flora-s-gift",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-formless-sea",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fox-in-the-brambles",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-gentleman",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-gladiator",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-golden-era",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-greatest-intentions",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-harvester",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-hermit",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-hive-of-knowledge",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-incantation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-inoculated",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-insane-cat",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-insatiable",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-jester",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-jeweller-s-boon",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-journalist",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-king-s-blade",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-king-s-heart",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-last-one-standing",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-last-supper",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lich",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-long-watch",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lord-of-celebration",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lunaris-priestess",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-mercenary",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-oath",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-offering",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-old-man",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-pack-leader",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-pact",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-poet",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-porcupine",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-price-of-loyalty",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-queen",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-rabid-rhoa",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-road-to-power",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-sacrifice",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-scarred-meadow",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-scavenger",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-shepherd-s-sandals",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-shieldbearer",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-siren",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-soul",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-spoiled-prince",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-stormcaller",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-sun",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-throne",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-tower",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-traitor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-twins",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-tyrant",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-undisputed",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-vast",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-visionary",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-warlord",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-watcher",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-web",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wedding-gift",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-white-knight",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-whiteout",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wind",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wolf-s-shadow",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wolven-king-s-bite",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wolverine",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-world-eater",
+    "category": "divination-cards"
+  },
+  {
+    "id": "thunderous-skies",
+    "category": "divination-cards"
+  },
+  {
+    "id": "toxic-tidings",
+    "category": "divination-cards"
+  },
+  {
+    "id": "tranquillity",
+    "category": "divination-cards"
+  },
+  {
+    "id": "unchained",
+    "category": "divination-cards"
+  },
+  {
+    "id": "vanity",
+    "category": "divination-cards"
+  },
+  {
+    "id": "vile-power",
+    "category": "divination-cards"
+  },
+  {
+    "id": "who-asked",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-familiar-call",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-modest-request",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-mother-s-parting-gift",
+    "category": "divination-cards"
+  },
+  {
+    "id": "apocalypse",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-stone-perfected",
+    "category": "divination-cards"
+  },
+  {
+    "id": "azyran-s-reward",
+    "category": "divination-cards"
+  },
+  {
+    "id": "bijoux",
+    "category": "divination-cards"
+  },
+  {
+    "id": "blind-venture",
+    "category": "divination-cards"
+  },
+  {
+    "id": "broken-promises",
+    "category": "divination-cards"
+  },
+  {
+    "id": "brotherhood-in-exile",
+    "category": "divination-cards"
+  },
+  {
+    "id": "burning-blood",
+    "category": "divination-cards"
+  },
+  {
+    "id": "call-to-the-first-ones",
+    "category": "divination-cards"
+  },
+  {
+    "id": "choking-guilt",
+    "category": "divination-cards"
+  },
+  {
+    "id": "deadly-joy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "divine-justice",
+    "category": "divination-cards"
+  },
+  {
+    "id": "dying-light",
+    "category": "divination-cards"
+  },
+  {
+    "id": "father-s-love",
+    "category": "divination-cards"
+  },
+  {
+    "id": "fire-of-unknown-origin",
+    "category": "divination-cards"
+  },
+  {
+    "id": "friendship",
+    "category": "divination-cards"
+  },
+  {
+    "id": "glimmer-of-hope",
+    "category": "divination-cards"
+  },
+  {
+    "id": "heterochromia",
+    "category": "divination-cards"
+  },
+  {
+    "id": "hope",
+    "category": "divination-cards"
+  },
+  {
+    "id": "hubris",
+    "category": "divination-cards"
+  },
+  {
+    "id": "hunter-s-reward",
+    "category": "divination-cards"
+  },
+  {
+    "id": "imperfect-memories",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lachrymal-necrosis",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lantador-s-lost-love",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lonely-warrior",
+    "category": "divination-cards"
+  },
+  {
+    "id": "love-through-ice",
+    "category": "divination-cards"
+  },
+  {
+    "id": "luminous-trove",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lysah-s-respite",
+    "category": "divination-cards"
+  },
+  {
+    "id": "matryoshka",
+    "category": "divination-cards"
+  },
+  {
+    "id": "mawr-blaidd",
+    "category": "divination-cards"
+  },
+  {
+    "id": "one-last-score",
+    "category": "divination-cards"
+  },
+  {
+    "id": "peaceful-moments",
+    "category": "divination-cards"
+  },
+  {
+    "id": "perfection",
+    "category": "divination-cards"
+  },
+  {
+    "id": "prosperity",
+    "category": "divination-cards"
+  },
+  {
+    "id": "reflection-of-the-heart",
+    "category": "divination-cards"
+  },
+  {
+    "id": "remembrance",
+    "category": "divination-cards"
+  },
+  {
+    "id": "shard-of-fate",
+    "category": "divination-cards"
+  },
+  {
+    "id": "silence-and-frost",
+    "category": "divination-cards"
+  },
+  {
+    "id": "squandered-prosperity",
+    "category": "divination-cards"
+  },
+  {
+    "id": "struck-by-lightning",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-academic",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-apothecary",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-awakened",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-brittle-emperor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-cache",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-celestial-stone",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-craving",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-cursed-king",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-deceiver",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-demon",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-destination",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-doctor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dungeon-master",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-endurance",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-eternal-war",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-eye-of-the-dragon",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-feast",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fiend",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-forgotten-treasure",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-forsaken",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-garish-power",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-gulf",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-last-laugh",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-life-thief",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lord-in-black",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lover",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-mayor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-metalsmith-s-gift",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-mind-s-eyes",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-mountain",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-offspring",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-one-that-got-away",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-one-with-all",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-opulent",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-penitent",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-polymath",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-price-of-devotion",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-primordial",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-prince-of-darkness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-return-of-the-rat",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-risk",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-ruthless-ceinture",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-samurai-s-eye",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-sigil",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-spark-and-the-flame",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-standoff",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-strategist",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-sword-king-s-salute",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-thaumaturgist",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-tumbleweed",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-unexpected-prize",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-warden",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wretched",
+    "category": "divination-cards"
+  },
+  {
+    "id": "thirst-for-knowledge",
+    "category": "divination-cards"
+  },
+  {
+    "id": "turn-the-other-cheek",
+    "category": "divination-cards"
+  },
+  {
+    "id": "void-of-the-elements",
+    "category": "divination-cards"
+  },
+  {
+    "id": "when-currents-blaze",
+    "category": "divination-cards"
+  },
+  {
+    "id": "winter-s-embrace",
+    "category": "divination-cards"
+  },
+  {
+    "id": "abandoned-wealth",
+    "category": "divination-cards"
+  },
+  {
+    "id": "acclimatisation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "alluring-bounty",
+    "category": "divination-cards"
+  },
+  {
+    "id": "ambitious-obsession",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-sea-of-blue",
+    "category": "divination-cards"
+  },
+  {
+    "id": "brother-s-gift",
+    "category": "divination-cards"
+  },
+  {
+    "id": "brother-s-stash",
+    "category": "divination-cards"
+  },
+  {
+    "id": "cartographer-s-delight",
+    "category": "divination-cards"
+  },
+  {
+    "id": "chaotic-disposition",
+    "category": "divination-cards"
+  },
+  {
+    "id": "checkmate",
+    "category": "divination-cards"
+  },
+  {
+    "id": "coveted-possession",
+    "category": "divination-cards"
+  },
+  {
+    "id": "darker-half",
+    "category": "divination-cards"
+  },
+  {
+    "id": "dementophobia",
+    "category": "divination-cards"
+  },
+  {
+    "id": "demigod-s-wager",
+    "category": "divination-cards"
+  },
+  {
+    "id": "disdain",
+    "category": "divination-cards"
+  },
+  {
+    "id": "divine-beauty",
+    "category": "divination-cards"
+  },
+  {
+    "id": "echoes-of-love",
+    "category": "divination-cards"
+  },
+  {
+    "id": "emperor-s-luck",
+    "category": "divination-cards"
+  },
+  {
+    "id": "ever-changing",
+    "category": "divination-cards"
+  },
+  {
+    "id": "harmony-of-souls",
+    "category": "divination-cards"
+  },
+  {
+    "id": "history",
+    "category": "divination-cards"
+  },
+  {
+    "id": "house-of-mirrors",
+    "category": "divination-cards"
+  },
+  {
+    "id": "i-see-brothers",
+    "category": "divination-cards"
+  },
+  {
+    "id": "loyalty",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lucky-connections",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lucky-deck",
+    "category": "divination-cards"
+  },
+  {
+    "id": "monochrome",
+    "category": "divination-cards"
+  },
+  {
+    "id": "no-traces",
+    "category": "divination-cards"
+  },
+  {
+    "id": "outfoxed",
+    "category": "divination-cards"
+  },
+  {
+    "id": "parasitic-passengers",
+    "category": "divination-cards"
+  },
+  {
+    "id": "rain-of-chaos",
+    "category": "divination-cards"
+  },
+  {
+    "id": "runic-luck",
+    "category": "divination-cards"
+  },
+  {
+    "id": "seven-years-bad-luck",
+    "category": "divination-cards"
+  },
+  {
+    "id": "society-s-remorse",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-cacophony",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-catalyst",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-finishing-touch",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fishmonger",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fool",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fortunate",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-gemcutter",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-heroic-shot",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-hoarder",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-innocent",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-inventor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-rusted-bard",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-journey",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lake",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-long-con",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-master-artisan",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-rabbit-s-foot",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-saint-s-treasure",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-scholar",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-scout",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-seeker",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-sephirot",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-side-quest",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-slumbering-beast",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-survivalist",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-tinkerer-s-table",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-tireless-extractor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-transformation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-union",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wrath",
+    "category": "divination-cards"
+  },
+  {
+    "id": "three-faces-in-the-dark",
+    "category": "divination-cards"
+  },
+  {
+    "id": "three-voices",
+    "category": "divination-cards"
+  },
+  {
+    "id": "underground-forest",
+    "category": "divination-cards"
+  },
+  {
+    "id": "unrequited-love",
+    "category": "divination-cards"
+  },
+  {
+    "id": "vinia-s-token",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-chilling-wind",
+    "category": "divination-cards"
+  },
+  {
+    "id": "bound-by-flame",
+    "category": "divination-cards"
+  },
+  {
+    "id": "deathly-designs",
+    "category": "divination-cards"
+  },
+  {
+    "id": "desecrated-virtue",
+    "category": "divination-cards"
+  },
+  {
+    "id": "dialla-s-subjugation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "doryani-s-epiphany",
+    "category": "divination-cards"
+  },
+  {
+    "id": "dying-anguish",
+    "category": "divination-cards"
+  },
+  {
+    "id": "gemcutter-s-mercy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "gemcutter-s-promise",
+    "category": "divination-cards"
+  },
+  {
+    "id": "gift-of-the-gemling-queen",
+    "category": "divination-cards"
+  },
+  {
+    "id": "grave-knowledge",
+    "category": "divination-cards"
+  },
+  {
+    "id": "home",
+    "category": "divination-cards"
+  },
+  {
+    "id": "terrible-secret-of-space",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-artist",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-bitter-blossom",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-blessing-of-moosh",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-bones",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-cataclysm",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-doppelganger",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dragon-s-heart",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-emptiness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-enlightened",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-fox",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-hook",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-magma-crab",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-miracle",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-realm",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-rite-of-elements",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-skeleton",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-summoner",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wilted-rose",
+    "category": "divination-cards"
+  },
+  {
+    "id": "volatile-power",
+    "category": "divination-cards"
+  },
+  {
+    "id": "wealth-and-power",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-fate-worse-than-death",
+    "category": "divination-cards"
+  },
+  {
+    "id": "altered-perception",
+    "category": "divination-cards"
+  },
+  {
+    "id": "avian-pursuit",
+    "category": "divination-cards"
+  },
+  {
+    "id": "azure-rage",
+    "category": "divination-cards"
+  },
+  {
+    "id": "boon-of-justice",
+    "category": "divination-cards"
+  },
+  {
+    "id": "boundless-realms",
+    "category": "divination-cards"
+  },
+  {
+    "id": "buried-treasure",
+    "category": "divination-cards"
+  },
+  {
+    "id": "cameria-s-cut",
+    "category": "divination-cards"
+  },
+  {
+    "id": "divine-shard",
+    "category": "divination-cards"
+  },
+  {
+    "id": "eternal-bonds",
+    "category": "divination-cards"
+  },
+  {
+    "id": "guardian-s-challenge",
+    "category": "divination-cards"
+  },
+  {
+    "id": "her-mask",
+    "category": "divination-cards"
+  },
+  {
+    "id": "justified-ambition",
+    "category": "divination-cards"
+  },
+  {
+    "id": "last-hope",
+    "category": "divination-cards"
+  },
+  {
+    "id": "left-to-fate",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lingering-remnants",
+    "category": "divination-cards"
+  },
+  {
+    "id": "lost-worlds",
+    "category": "divination-cards"
+  },
+  {
+    "id": "man-with-bear",
+    "category": "divination-cards"
+  },
+  {
+    "id": "more-is-never-enough",
+    "category": "divination-cards"
+  },
+  {
+    "id": "rain-tempter",
+    "category": "divination-cards"
+  },
+  {
+    "id": "rebirth-and-renewal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "sambodhi-s-vow",
+    "category": "divination-cards"
+  },
+  {
+    "id": "scholar-of-the-seas",
+    "category": "divination-cards"
+  },
+  {
+    "id": "something-dark",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-arena-champion",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-card-sharp",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-deal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dreamland",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-easy-stroll",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-eldritch-decay",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-encroaching-darkness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-explorer",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-eye-of-terror",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-forbidden-fruit",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-price-of-prescience",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-price-of-protection",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-professor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-silly-boy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-surveyor",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-trial",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-twilight-moon",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wolf-s-legacy",
+    "category": "divination-cards"
+  },
+  {
+    "id": "treasure-hunter",
+    "category": "divination-cards"
+  },
+  {
+    "id": "triskaidekaphobia",
+    "category": "divination-cards"
+  },
+  {
+    "id": "earth-drinker",
+    "category": "divination-cards"
+  },
+  {
+    "id": "pearls-before-swine",
+    "category": "divination-cards"
+  },
+  {
+    "id": "succor-of-the-sinless",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-damned",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dragon",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-drunken-aristocrat",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-hunger",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-progeny-of-lunaris",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-shortcut",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-surgeon",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-witch",
+    "category": "divination-cards"
+  },
+  {
+    "id": "a-dusty-memory",
+    "category": "divination-cards"
+  },
+  {
+    "id": "alone-in-the-darkness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "arrogance-of-the-vaal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "auspicious-ambitions",
+    "category": "divination-cards"
+  },
+  {
+    "id": "baited-expectations",
+    "category": "divination-cards"
+  },
+  {
+    "id": "boon-of-the-first-ones",
+    "category": "divination-cards"
+  },
+  {
+    "id": "brush-paint-and-palette",
+    "category": "divination-cards"
+  },
+  {
+    "id": "chasing-risk",
+    "category": "divination-cards"
+  },
+  {
+    "id": "costly-curio",
+    "category": "divination-cards"
+  },
+  {
+    "id": "council-of-cats",
+    "category": "divination-cards"
+  },
+  {
+    "id": "damnation",
+    "category": "divination-cards"
+  },
+  {
+    "id": "doedre-s-madness",
+    "category": "divination-cards"
+  },
+  {
+    "id": "eldritch-perfection",
+    "category": "divination-cards"
+  },
+  {
+    "id": "fateful-meeting",
+    "category": "divination-cards"
+  },
+  {
+    "id": "haunting-shadows",
+    "category": "divination-cards"
+  },
+  {
+    "id": "jack-in-the-box",
+    "category": "divination-cards"
+  },
+  {
+    "id": "magnum-opus",
+    "category": "divination-cards"
+  },
+  {
+    "id": "prejudice",
+    "category": "divination-cards"
+  },
+  {
+    "id": "temperance",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-admirer",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-aesthete",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-aspirant",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-breach",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-calling",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-dreamer",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-everlasting",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-forward-gaze",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-gambler",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-hale-heart",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-immortal",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-leviathan",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-lion",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-mad-king",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-messenger",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-nurse",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-patient",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-undaunted",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-valkyrie",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-void",
+    "category": "divination-cards"
+  },
+  {
+    "id": "the-wolf",
+    "category": "divination-cards"
+  },
+  {
+    "id": "time-lost-relic",
+    "category": "divination-cards"
+  },
+  {
+    "id": "whispering-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-hatred",
+    "category": "essences"
+  },
+  {
+    "id": "whispering-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-woe",
+    "category": "essences"
+  },
+  {
+    "id": "whispering-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-greed",
+    "category": "essences"
+  },
+  {
+    "id": "whispering-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-contempt",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-sorrow",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-sorrow",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-sorrow",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-sorrow",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-sorrow",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-sorrow",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-anger",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-anger",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-anger",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-anger",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-anger",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-anger",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-torment",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-torment",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-torment",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-torment",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-torment",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-torment",
+    "category": "essences"
+  },
+  {
+    "id": "muttering-essence-of-fear",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-fear",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-fear",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-fear",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-fear",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-fear",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-suffering",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-suffering",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-suffering",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-suffering",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-suffering",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-rage",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-rage",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-rage",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-rage",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-rage",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-wrath",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-wrath",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-wrath",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-wrath",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-wrath",
+    "category": "essences"
+  },
+  {
+    "id": "weeping-essence-of-doubt",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-doubt",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-doubt",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-doubt",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-doubt",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-anguish",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-anguish",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-anguish",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-anguish",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-loathing",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-loathing",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-loathing",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-loathing",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-spite",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-spite",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-spite",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-spite",
+    "category": "essences"
+  },
+  {
+    "id": "wailing-essence-of-zeal",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-zeal",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-zeal",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-zeal",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-misery",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-misery",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-misery",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-dread",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-dread",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-dread",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-scorn",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-scorn",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-scorn",
+    "category": "essences"
+  },
+  {
+    "id": "screaming-essence-of-envy",
+    "category": "essences"
+  },
+  {
+    "id": "shrieking-essence-of-envy",
+    "category": "essences"
+  },
+  {
+    "id": "deafening-essence-of-envy",
+    "category": "essences"
+  },
+  {
+    "id": "essence-of-hysteria",
+    "category": "essences"
+  },
+  {
+    "id": "essence-of-insanity",
+    "category": "essences"
+  },
+  {
+    "id": "essence-of-horror",
+    "category": "essences"
+  },
+  {
+    "id": "essence-of-delirium",
+    "category": "essences"
+  },
+  {
+    "id": "exotic-coinage",
+    "category": "expedition"
+  },
+  {
+    "id": "scrap-metal",
+    "category": "expedition"
+  },
+  {
+    "id": "astragali",
+    "category": "expedition"
+  },
+  {
+    "id": "burial-medallion",
+    "category": "expedition"
+  },
+  {
+    "id": "sacrifice-at-dusk",
+    "category": "fragments"
+  },
+  {
+    "id": "sacrifice-at-noon",
+    "category": "fragments"
+  },
+  {
+    "id": "sacrifice-at-midnight",
+    "category": "fragments"
+  },
+  {
+    "id": "sacrifice-at-dawn",
+    "category": "fragments"
+  },
+  {
+    "id": "mortal-grief",
+    "category": "fragments"
+  },
+  {
+    "id": "mortal-ignorance",
+    "category": "fragments"
+  },
+  {
+    "id": "mortal-rage",
+    "category": "fragments"
+  },
+  {
+    "id": "mortal-hope",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-the-phoenix",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-the-minotaur",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-the-chimera",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-the-hydra",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-enslavement",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-eradication",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-constriction",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-purification",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-terror",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-emptiness",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-shape",
+    "category": "fragments"
+  },
+  {
+    "id": "fragment-of-knowledge",
+    "category": "fragments"
+  },
+  {
+    "id": "al-hezmin-s-crest",
+    "category": "fragments"
+  },
+  {
+    "id": "baran-s-crest",
+    "category": "fragments"
+  },
+  {
+    "id": "drox-s-crest",
+    "category": "fragments"
+  },
+  {
+    "id": "veritania-s-crest",
+    "category": "fragments"
+  },
+  {
+    "id": "offering-to-the-goddess",
+    "category": "fragments"
+  },
+  {
+    "id": "tribute-to-the-goddess",
+    "category": "fragments"
+  },
+  {
+    "id": "gift-to-the-goddess",
+    "category": "fragments"
+  },
+  {
+    "id": "dedication-to-the-goddess",
+    "category": "fragments"
+  },
+  {
+    "id": "the-maven-s-writ",
+    "category": "fragments"
+  },
+  {
+    "id": "crescent-splinter",
+    "category": "fragments"
+  },
+  {
+    "id": "cosmic-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "decaying-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "awakening-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "synthesising-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "reality-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "devouring-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "blazing-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "traumatic-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "reverent-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "lonely-fragment",
+    "category": "fragments"
+  },
+  {
+    "id": "ritual-splinter",
+    "category": "fragments"
+  },
+  {
+    "id": "ritual-vessel",
+    "category": "fragments"
+  },
+  {
+    "id": "an-audience-with-the-king",
+    "category": "fragments"
+  },
+  {
+    "id": "syndicate-medallion",
+    "category": "fragments"
+  },
+  {
+    "id": "sacred-blossom",
+    "category": "fragments"
+  },
+  {
+    "id": "echo-of-loneliness",
+    "category": "fragments"
+  },
+  {
+    "id": "echo-of-trauma",
+    "category": "fragments"
+  },
+  {
+    "id": "echo-of-reverence",
+    "category": "fragments"
+  },
+  {
+    "id": "hivebrain-gland",
+    "category": "fragments"
+  },
+  {
+    "id": "zorath-s-eye-of-malevolence",
+    "category": "fragments"
+  },
+  {
+    "id": "zorath-s-eye-of-authority",
+    "category": "fragments"
+  },
+  {
+    "id": "zorath-s-eye-of-the-inevitable",
+    "category": "fragments"
+  },
+  {
+    "id": "zorath-s-eye-of-the-endless",
+    "category": "fragments"
+  },
+  {
+    "id": "wild-crystallised-lifeforce",
+    "category": "harvest"
+  },
+  {
+    "id": "vivid-crystallised-lifeforce",
+    "category": "harvest"
+  },
+  {
+    "id": "primal-crystallised-lifeforce",
+    "category": "harvest"
+  },
+  {
+    "id": "sacred-crystallised-lifeforce",
+    "category": "harvest"
+  },
+  {
+    "id": "crystallised-rancour",
+    "category": "harvest"
+  },
+  {
+    "id": "timeless-karui-emblem",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-karui-splinter",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-maraketh-emblem",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-maraketh-splinter",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-eternal-emblem",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-eternal-empire-splinter",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-templar-emblem",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-templar-splinter",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-vaal-emblem",
+    "category": "legion"
+  },
+  {
+    "id": "timeless-vaal-splinter",
+    "category": "legion"
+  },
+  {
+    "id": "karui-enshrouding-crystal",
+    "category": "legion"
+  },
+  {
+    "id": "imperial-enshrouding-crystal",
+    "category": "legion"
+  },
+  {
+    "id": "vaal-enshrouding-crystal",
+    "category": "legion"
+  },
+  {
+    "id": "templar-enshrouding-crystal",
+    "category": "legion"
+  },
+  {
+    "id": "maraketh-enshrouding-crystal",
+    "category": "legion"
+  },
+  {
+    "id": "clear-oil",
+    "category": "oils"
+  },
+  {
+    "id": "sepia-oil",
+    "category": "oils"
+  },
+  {
+    "id": "amber-oil",
+    "category": "oils"
+  },
+  {
+    "id": "verdant-oil",
+    "category": "oils"
+  },
+  {
+    "id": "teal-oil",
+    "category": "oils"
+  },
+  {
+    "id": "azure-oil",
+    "category": "oils"
+  },
+  {
+    "id": "indigo-oil",
+    "category": "oils"
+  },
+  {
+    "id": "violet-oil",
+    "category": "oils"
+  },
+  {
+    "id": "crimson-oil",
+    "category": "oils"
+  },
+  {
+    "id": "black-oil",
+    "category": "oils"
+  },
+  {
+    "id": "opalescent-oil",
+    "category": "oils"
+  },
+  {
+    "id": "silver-oil",
+    "category": "oils"
+  },
+  {
+    "id": "golden-oil",
+    "category": "oils"
+  },
+  {
+    "id": "tainted-oil",
+    "category": "oils"
+  },
+  {
+    "id": "reflective-oil",
+    "category": "oils"
+  },
+  {
+    "id": "prismatic-oil",
+    "category": "oils"
+  },
+  {
+    "id": "omen-of-return",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-death-dancing",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-refreshment",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-the-soul-devourer",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-adrenaline",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-death-s-door",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-brilliance",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-amelioration",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-the-jeweller",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-trichromatism",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-connections",
+    "category": "omens"
+  },
+  {
+    "id": "omen-of-fortune",
+    "category": "omens"
+  },
+  {
+    "id": "runegraft-of-the-river",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-fortress",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-combatant",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-sinistral",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-bound",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-warp",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-soulwick",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-bellows",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-gemcraft",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-blasphemy",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-time",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-treachery",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-quaffing",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-restitching",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-loyalty",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-witchmark",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-novamark",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-refraction",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-jeweller",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-stability",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-angler",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-consecration",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-fury",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-rallying",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-rotblood",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-imbued",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-agile",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-suffering",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-the-spellbound",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-resurgence",
+    "category": "runegrafts"
+  },
+  {
+    "id": "runegraft-of-connection",
+    "category": "runegrafts"
+  },
+  {
+    "id": "breach-scarab-of-the-hive",
+    "category": "scarabs"
+  },
+  {
+    "id": "breach-scarab-of-instability",
+    "category": "scarabs"
+  },
+  {
+    "id": "breach-scarab-of-the-marshal",
+    "category": "scarabs"
+  },
+  {
+    "id": "breach-scarab-of-the-incensed-swarm",
+    "category": "scarabs"
+  },
+  {
+    "id": "breach-scarab-of-resonant-cascade",
+    "category": "scarabs"
+  },
+  {
+    "id": "kalguuran-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "kalguuran-scarab-of-guarded-riches",
+    "category": "scarabs"
+  },
+  {
+    "id": "kalguuran-scarab-of-refinement",
+    "category": "scarabs"
+  },
+  {
+    "id": "kalguuran-scarab-of-enriching",
+    "category": "scarabs"
+  },
+  {
+    "id": "trarthan-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "trarthan-scarab-of-infamy",
+    "category": "scarabs"
+  },
+  {
+    "id": "trarthan-scarab-of-renown",
+    "category": "scarabs"
+  },
+  {
+    "id": "trarthan-scarab-of-surprising-alliances",
+    "category": "scarabs"
+  },
+  {
+    "id": "cartography-scarab-of-escalation",
+    "category": "scarabs"
+  },
+  {
+    "id": "cartography-scarab-of-risk",
+    "category": "scarabs"
+  },
+  {
+    "id": "cartography-scarab-of-the-multitude",
+    "category": "scarabs"
+  },
+  {
+    "id": "cartography-scarab-of-corruption",
+    "category": "scarabs"
+  },
+  {
+    "id": "titanic-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "titanic-scarab-of-treasures",
+    "category": "scarabs"
+  },
+  {
+    "id": "titanic-scarab-of-legend",
+    "category": "scarabs"
+  },
+  {
+    "id": "bestiary-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "bestiary-scarab-of-duplicating",
+    "category": "scarabs"
+  },
+  {
+    "id": "bestiary-scarab-of-the-herd",
+    "category": "scarabs"
+  },
+  {
+    "id": "influencing-scarab-of-the-shaper",
+    "category": "scarabs"
+  },
+  {
+    "id": "influencing-scarab-of-the-elder",
+    "category": "scarabs"
+  },
+  {
+    "id": "influencing-scarab-of-interference",
+    "category": "scarabs"
+  },
+  {
+    "id": "influencing-scarab-of-hordes",
+    "category": "scarabs"
+  },
+  {
+    "id": "sulphite-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "sulphite-scarab-of-fumes",
+    "category": "scarabs"
+  },
+  {
+    "id": "divination-scarab-of-the-cloister",
+    "category": "scarabs"
+  },
+  {
+    "id": "divination-scarab-of-pilfering",
+    "category": "scarabs"
+  },
+  {
+    "id": "divination-scarab-of-plenty",
+    "category": "scarabs"
+  },
+  {
+    "id": "torment-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "torment-scarab-of-peculiarity",
+    "category": "scarabs"
+  },
+  {
+    "id": "torment-scarab-of-possession",
+    "category": "scarabs"
+  },
+  {
+    "id": "ambush-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "ambush-scarab-of-hidden-compartments",
+    "category": "scarabs"
+  },
+  {
+    "id": "ambush-scarab-of-potency",
+    "category": "scarabs"
+  },
+  {
+    "id": "ambush-scarab-of-containment",
+    "category": "scarabs"
+  },
+  {
+    "id": "ambush-scarab-of-discernment",
+    "category": "scarabs"
+  },
+  {
+    "id": "expedition-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "expedition-scarab-of-runefinding",
+    "category": "scarabs"
+  },
+  {
+    "id": "expedition-scarab-of-verisium-powder",
+    "category": "scarabs"
+  },
+  {
+    "id": "expedition-scarab-of-archaeology",
+    "category": "scarabs"
+  },
+  {
+    "id": "expedition-scarab-of-infusion",
+    "category": "scarabs"
+  },
+  {
+    "id": "legion-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "legion-scarab-of-officers",
+    "category": "scarabs"
+  },
+  {
+    "id": "legion-scarab-of-treasures",
+    "category": "scarabs"
+  },
+  {
+    "id": "legion-scarab-of-eternal-conflict",
+    "category": "scarabs"
+  },
+  {
+    "id": "abyss-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "abyss-scarab-of-multitudes",
+    "category": "scarabs"
+  },
+  {
+    "id": "abyss-scarab-of-crystals",
+    "category": "scarabs"
+  },
+  {
+    "id": "abyss-scarab-of-descending",
+    "category": "scarabs"
+  },
+  {
+    "id": "abyss-scarab-of-the-consort",
+    "category": "scarabs"
+  },
+  {
+    "id": "anarchy-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "anarchy-scarab-of-gigantification",
+    "category": "scarabs"
+  },
+  {
+    "id": "anarchy-scarab-of-partnership",
+    "category": "scarabs"
+  },
+  {
+    "id": "anarchy-scarab-of-the-exceptional",
+    "category": "scarabs"
+  },
+  {
+    "id": "essence-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "essence-scarab-of-ascent",
+    "category": "scarabs"
+  },
+  {
+    "id": "essence-scarab-of-calcification",
+    "category": "scarabs"
+  },
+  {
+    "id": "essence-scarab-of-stability",
+    "category": "scarabs"
+  },
+  {
+    "id": "essence-scarab-of-adaptation",
+    "category": "scarabs"
+  },
+  {
+    "id": "domination-scarab-of-apparitions",
+    "category": "scarabs"
+  },
+  {
+    "id": "domination-scarab-of-evolution",
+    "category": "scarabs"
+  },
+  {
+    "id": "domination-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "domination-scarab-of-terrors",
+    "category": "scarabs"
+  },
+  {
+    "id": "ritual-scarab-of-selectiveness",
+    "category": "scarabs"
+  },
+  {
+    "id": "ritual-scarab-of-wisps",
+    "category": "scarabs"
+  },
+  {
+    "id": "ritual-scarab-of-abundance",
+    "category": "scarabs"
+  },
+  {
+    "id": "ritual-scarab-of-corpses",
+    "category": "scarabs"
+  },
+  {
+    "id": "harvest-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "harvest-scarab-of-cornucopia",
+    "category": "scarabs"
+  },
+  {
+    "id": "harvest-scarab-of-doubling",
+    "category": "scarabs"
+  },
+  {
+    "id": "incursion-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "incursion-scarab-of-invasion",
+    "category": "scarabs"
+  },
+  {
+    "id": "incursion-scarab-of-timelines",
+    "category": "scarabs"
+  },
+  {
+    "id": "incursion-scarab-of-champions",
+    "category": "scarabs"
+  },
+  {
+    "id": "betrayal-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "betrayal-scarab-of-the-allflame",
+    "category": "scarabs"
+  },
+  {
+    "id": "betrayal-scarab-of-unbreaking",
+    "category": "scarabs"
+  },
+  {
+    "id": "betrayal-scarab-of-reinforcements",
+    "category": "scarabs"
+  },
+  {
+    "id": "beyond-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "beyond-scarab-of-haemophilia",
+    "category": "scarabs"
+  },
+  {
+    "id": "beyond-scarab-of-the-invasion",
+    "category": "scarabs"
+  },
+  {
+    "id": "beyond-scarab-of-resurgence",
+    "category": "scarabs"
+  },
+  {
+    "id": "ultimatum-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "ultimatum-scarab-of-bribing",
+    "category": "scarabs"
+  },
+  {
+    "id": "ultimatum-scarab-of-dueling",
+    "category": "scarabs"
+  },
+  {
+    "id": "ultimatum-scarab-of-catalysing",
+    "category": "scarabs"
+  },
+  {
+    "id": "ultimatum-scarab-of-inscription",
+    "category": "scarabs"
+  },
+  {
+    "id": "delirium-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "delirium-scarab-of-mania",
+    "category": "scarabs"
+  },
+  {
+    "id": "delirium-scarab-of-paranoia",
+    "category": "scarabs"
+  },
+  {
+    "id": "delirium-scarab-of-neuroses",
+    "category": "scarabs"
+  },
+  {
+    "id": "delirium-scarab-of-delusions",
+    "category": "scarabs"
+  },
+  {
+    "id": "blight-scarab",
+    "category": "scarabs"
+  },
+  {
+    "id": "blight-scarab-of-the-blightheart",
+    "category": "scarabs"
+  },
+  {
+    "id": "blight-scarab-of-blooming",
+    "category": "scarabs"
+  },
+  {
+    "id": "blight-scarab-of-invigoration",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-monstrous-lineage",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-adversaries",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-divinity",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-hunted-traitors",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-stability",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-wisps",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-the-sinistral",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-the-dextral",
+    "category": "scarabs"
+  },
+  {
+    "id": "scarab-of-radiant-storms",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-bloodlines",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-nemeses",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-preservation",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-awakening",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-tradition",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-glittering",
+    "category": "scarabs"
+  },
+  {
+    "id": "horned-scarab-of-pandemonium",
+    "category": "scarabs"
+  },
+  {
+    "id": "tattoo-of-the-arohongui-moonwarden",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-arohongui-scout",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-arohongui-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ramako-scout",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ramako-archer",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ramako-sniper",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ramako-fleetfoot",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ramako-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-naturalist",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-scout",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-herbalist",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tasalio-tideshifter",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tasalio-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tasalio-scout",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-arohongui-warmonger",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-arohongui-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-hinekora-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-hinekora-deathwarden",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-hinekora-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-hinekora-storyteller",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-hinekora-warmonger",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tawhoa-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-turtle",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tasalio-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-kitava-heart-eater",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-valako-stormrider",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-valako-scout",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-valako-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-valako-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-firewalker",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-warmonger",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-ngamahu-woodcarver",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-brute",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-goliath",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-rongokurai-guard",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tasalio-bladedancer",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-kitava-blood-drinker",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-kitava-rebel",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-kitava-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-kitava-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tukohama-shaman",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tukohama-warrior",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tukohama-brawler",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tukohama-warmonger",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-tukohama-warcaller",
+    "category": "tattoos"
+  },
+  {
+    "id": "tattoo-of-the-valako-shieldbearer",
+    "category": "tattoos"
+  },
+  {
+    "id": "journey-tattoo-of-the-body",
+    "category": "tattoos"
+  },
+  {
+    "id": "journey-tattoo-of-the-mind",
+    "category": "tattoos"
+  },
+  {
+    "id": "journey-tattoo-of-the-soul",
+    "category": "tattoos"
+  }
+]

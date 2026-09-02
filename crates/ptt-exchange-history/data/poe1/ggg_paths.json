@@ -1,0 +1,5217 @@
+[
+  {
+    "path": "Metadata/Items/AtlasExiles/AddModToRareCrusader",
+    "asset_id": "crusader-s-exalted-orb",
+    "note": "Crusader's Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/AtlasExiles/AddModToRareHunter",
+    "asset_id": "hunter-s-exalted-orb",
+    "note": "Hunter's Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/AtlasExiles/AddModToRareRedeemer",
+    "asset_id": "redeemer-s-exalted-orb",
+    "note": "Redeemer's Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/AtlasExiles/AddModToRareWarlord",
+    "asset_id": "warlord-s-exalted-orb",
+    "note": "Warlord's Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/AtlasExiles/ApplyInfluence",
+    "asset_id": "awakener-s-orb",
+    "note": "Awakener's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnChanceMakeUnique",
+    "asset_id": "omen-of-fortune",
+    "note": "Omen of Fortune"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnChromaticAddWhiteSockets",
+    "asset_id": "omen-of-trichromatism",
+    "note": "Omen of Trichromatism"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnCriticalLifeAvoidDamage",
+    "asset_id": "omen-of-death-dancing",
+    "note": "Omen of Death-dancing"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnCriticalLifeGainAdrenaline",
+    "asset_id": "omen-of-adrenaline",
+    "note": "Omen of Adrenaline"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnCriticalLifeGainShadeForm",
+    "asset_id": "omen-of-death-s-door",
+    "note": "Omen of Death's Door"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnCriticalLifeRecoverFlaskCharges",
+    "asset_id": "omen-of-refreshment",
+    "note": "Omen of Refreshment"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnDeathCreatePortal",
+    "asset_id": "omen-of-return",
+    "note": "Omen of Return"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnDeathPreventExpLoss",
+    "asset_id": "omen-of-amelioration",
+    "note": "Omen of Amelioration"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnFusingMakeFullLinks",
+    "asset_id": "omen-of-connections",
+    "note": "Omen of Connections"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnJewellersMakeFullSockets",
+    "asset_id": "omen-of-the-jeweller",
+    "note": "Omen of the Jeweller"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnLevelingUpGainExperienceBuff",
+    "asset_id": "omen-of-brilliance",
+    "note": "Omen of Brilliance"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralOmenOnLevelingUpGainSoulEater",
+    "asset_id": "omen-of-the-soul-devourer",
+    "note": "Omen of the Soul Devourer"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooArohongui1",
+    "asset_id": "tattoo-of-the-arohongui-moonwarden",
+    "note": "Tattoo of the Arohongui Moonwarden"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooArohongui2",
+    "asset_id": "tattoo-of-the-arohongui-scout",
+    "note": "Tattoo of the Arohongui Scout"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooArohongui3",
+    "asset_id": "tattoo-of-the-arohongui-warrior",
+    "note": "Tattoo of the Arohongui Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooArohongui4",
+    "asset_id": "tattoo-of-the-arohongui-warmonger",
+    "note": "Tattoo of the Arohongui Warmonger"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooArohongui5",
+    "asset_id": "tattoo-of-the-arohongui-shaman",
+    "note": "Tattoo of the Arohongui Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooHinekora1",
+    "asset_id": "tattoo-of-the-hinekora-warrior",
+    "note": "Tattoo of the Hinekora Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooHinekora2",
+    "asset_id": "tattoo-of-the-hinekora-deathwarden",
+    "note": "Tattoo of the Hinekora Deathwarden"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooHinekora3",
+    "asset_id": "tattoo-of-the-hinekora-shaman",
+    "note": "Tattoo of the Hinekora Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooHinekora4",
+    "asset_id": "tattoo-of-the-hinekora-storyteller",
+    "note": "Tattoo of the Hinekora Storyteller"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooHinekora5",
+    "asset_id": "tattoo-of-the-hinekora-warmonger",
+    "note": "Tattoo of the Hinekora Warmonger"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooKitava1",
+    "asset_id": "tattoo-of-the-kitava-blood-drinker",
+    "note": "Tattoo of the Kitava Blood Drinker"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooKitava2",
+    "asset_id": "tattoo-of-the-kitava-rebel",
+    "note": "Tattoo of the Kitava Rebel"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooKitava3",
+    "asset_id": "tattoo-of-the-kitava-warrior",
+    "note": "Tattoo of the Kitava Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooKitava4",
+    "asset_id": "tattoo-of-the-kitava-heart-eater",
+    "note": "Tattoo of the Kitava Heart Eater"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooKitava5",
+    "asset_id": "tattoo-of-the-kitava-shaman",
+    "note": "Tattoo of the Kitava Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooNgamahu1",
+    "asset_id": "tattoo-of-the-ngamahu-firewalker",
+    "note": "Tattoo of the Ngamahu Firewalker"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooNgamahu2",
+    "asset_id": "tattoo-of-the-ngamahu-shaman",
+    "note": "Tattoo of the Ngamahu Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooNgamahu3",
+    "asset_id": "tattoo-of-the-ngamahu-warrior",
+    "note": "Tattoo of the Ngamahu Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooNgamahu4",
+    "asset_id": "tattoo-of-the-ngamahu-warmonger",
+    "note": "Tattoo of the Ngamahu Warmonger"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooNgamahu5",
+    "asset_id": "tattoo-of-the-ngamahu-woodcarver",
+    "note": "Tattoo of the Ngamahu Woodcarver"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRamako1",
+    "asset_id": "tattoo-of-the-ramako-scout",
+    "note": "Tattoo of the Ramako Scout"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRamako2",
+    "asset_id": "tattoo-of-the-ramako-archer",
+    "note": "Tattoo of the Ramako Archer"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRamako3",
+    "asset_id": "tattoo-of-the-ramako-sniper",
+    "note": "Tattoo of the Ramako Sniper"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRamako4",
+    "asset_id": "tattoo-of-the-ramako-fleetfoot",
+    "note": "Tattoo of the Ramako Fleetfoot"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRamako5",
+    "asset_id": "tattoo-of-the-ramako-shaman",
+    "note": "Tattoo of the Ramako Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRongokurai1",
+    "asset_id": "tattoo-of-the-rongokurai-warrior",
+    "note": "Tattoo of the Rongokurai Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRongokurai2",
+    "asset_id": "tattoo-of-the-rongokurai-brute",
+    "note": "Tattoo of the Rongokurai Brute"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRongokurai3",
+    "asset_id": "tattoo-of-the-rongokurai-goliath",
+    "note": "Tattoo of the Rongokurai Goliath"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRongokurai4",
+    "asset_id": "tattoo-of-the-rongokurai-turtle",
+    "note": "Tattoo of the Rongokurai Turtle"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooRongokurai5",
+    "asset_id": "tattoo-of-the-rongokurai-guard",
+    "note": "Tattoo of the Rongokurai Guard"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooSpecialUnique3",
+    "asset_id": "journey-tattoo-of-the-body",
+    "note": "Journey Tattoo of the Body"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooSpecialUnique4",
+    "asset_id": "journey-tattoo-of-the-mind",
+    "note": "Journey Tattoo of the Mind"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooSpecialUnique5",
+    "asset_id": "journey-tattoo-of-the-soul",
+    "note": "Journey Tattoo of the Soul"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTasalio1",
+    "asset_id": "tattoo-of-the-tasalio-bladedancer",
+    "note": "Tattoo of the Tasalio Bladedancer"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTasalio2",
+    "asset_id": "tattoo-of-the-tasalio-tideshifter",
+    "note": "Tattoo of the Tasalio Tideshifter"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTasalio3",
+    "asset_id": "tattoo-of-the-tasalio-shaman",
+    "note": "Tattoo of the Tasalio Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTasalio4",
+    "asset_id": "tattoo-of-the-tasalio-warrior",
+    "note": "Tattoo of the Tasalio Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTasalio5",
+    "asset_id": "tattoo-of-the-tasalio-scout",
+    "note": "Tattoo of the Tasalio Scout"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTawhoa1",
+    "asset_id": "tattoo-of-the-tawhoa-naturalist",
+    "note": "Tattoo of the Tawhoa Naturalist"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTawhoa2",
+    "asset_id": "tattoo-of-the-tawhoa-scout",
+    "note": "Tattoo of the Tawhoa Scout"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTawhoa3",
+    "asset_id": "tattoo-of-the-tawhoa-warrior",
+    "note": "Tattoo of the Tawhoa Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTawhoa4",
+    "asset_id": "tattoo-of-the-tawhoa-herbalist",
+    "note": "Tattoo of the Tawhoa Herbalist"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTawhoa5",
+    "asset_id": "tattoo-of-the-tawhoa-shaman",
+    "note": "Tattoo of the Tawhoa Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTukohama1",
+    "asset_id": "tattoo-of-the-tukohama-shaman",
+    "note": "Tattoo of the Tukohama Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTukohama2",
+    "asset_id": "tattoo-of-the-tukohama-warrior",
+    "note": "Tattoo of the Tukohama Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTukohama3",
+    "asset_id": "tattoo-of-the-tukohama-brawler",
+    "note": "Tattoo of the Tukohama Brawler"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTukohama4",
+    "asset_id": "tattoo-of-the-tukohama-warmonger",
+    "note": "Tattoo of the Tukohama Warmonger"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooTukohama5",
+    "asset_id": "tattoo-of-the-tukohama-warcaller",
+    "note": "Tattoo of the Tukohama Warcaller"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooValako1",
+    "asset_id": "tattoo-of-the-valako-stormrider",
+    "note": "Tattoo of the Valako Stormrider"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooValako2",
+    "asset_id": "tattoo-of-the-valako-scout",
+    "note": "Tattoo of the Valako Scout"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooValako3",
+    "asset_id": "tattoo-of-the-valako-warrior",
+    "note": "Tattoo of the Valako Warrior"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooValako4",
+    "asset_id": "tattoo-of-the-valako-shieldbearer",
+    "note": "Tattoo of the Valako Shieldbearer"
+  },
+  {
+    "path": "Metadata/Items/Currency/AncestralTattooValako5",
+    "asset_id": "tattoo-of-the-valako-shaman",
+    "note": "Tattoo of the Valako Shaman"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeAbyss",
+    "asset_id": "lightless-astrolabe",
+    "note": "Lightless Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeBlight",
+    "asset_id": "fungal-astrolabe",
+    "note": "Fungal Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeBreach",
+    "asset_id": "grasping-astrolabe",
+    "note": "Grasping Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeDelirium",
+    "asset_id": "deceptive-astrolabe",
+    "note": "Deceptive Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeExpedition",
+    "asset_id": "runic-astrolabe",
+    "note": "Runic Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeGeneric",
+    "asset_id": "templar-astrolabe",
+    "note": "Templar Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeHarvest",
+    "asset_id": "fruiting-astrolabe",
+    "note": "Fruiting Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeLegion",
+    "asset_id": "timeless-astrolabe",
+    "note": "Timeless Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeRitual",
+    "asset_id": "nameless-astrolabe",
+    "note": "Nameless Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/AstrolabeUltimatum",
+    "asset_id": "chaotic-astrolabe",
+    "note": "Chaotic Astrolabe"
+  },
+  {
+    "path": "Metadata/Items/Currency/BenevolenceMemoryThread",
+    "asset_id": "memory-of-reverence",
+    "note": "Memory of Reverence"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToMagic",
+    "asset_id": "orb-of-augmentation",
+    "note": "Orb of Augmentation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRare",
+    "asset_id": "exalted-orb",
+    "note": "Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRareElder",
+    "asset_id": "elder-s-exalted-orb",
+    "note": "Elder's Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRareShaper",
+    "asset_id": "shaper-s-exalted-orb",
+    "note": "Shaper's Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddModToRareShard",
+    "asset_id": "exalted-shard",
+    "note": "Exalted Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAddZanaInfluence",
+    "asset_id": "orb-of-remembrance",
+    "note": "Orb of Remembrance"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbArmour",
+    "asset_id": "armoursmith-s-delirium-orb",
+    "note": "Armoursmith's Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbBlight",
+    "asset_id": "blighted-delirium-orb",
+    "note": "Blighted Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbBreach",
+    "asset_id": "obscured-delirium-orb",
+    "note": "Obscured Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbCurrency",
+    "asset_id": "fine-delirium-orb",
+    "note": "Fine Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbDivinationCards",
+    "asset_id": "diviner-s-delirium-orb",
+    "note": "Diviner's Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbEssences",
+    "asset_id": "whispering-delirium-orb",
+    "note": "Whispering Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbFragments",
+    "asset_id": "fragmented-delirium-orb",
+    "note": "Fragmented Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbGems",
+    "asset_id": "thaumaturge-s-delirium-orb",
+    "note": "Thaumaturge's Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbGeneric",
+    "asset_id": "delirium-orb",
+    "note": "Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbMaps",
+    "asset_id": "cartographer-s-delirium-orb",
+    "note": "Cartographer's Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbScarabs",
+    "asset_id": "skittering-delirium-orb",
+    "note": "Skittering Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbTrinkets",
+    "asset_id": "jeweller-s-delirium-orb",
+    "note": "Jeweller's Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbUniques",
+    "asset_id": "singular-delirium-orb",
+    "note": "Singular Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionOrbWeapons",
+    "asset_id": "blacksmith-s-delirium-orb",
+    "note": "Blacksmith's Delirium Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAfflictionShard",
+    "asset_id": "simulacrum-splinter",
+    "note": "Simulacrum Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyArmourQuality",
+    "asset_id": "armourer-s-scrap",
+    "note": "Armourer's Scrap"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyAtlasPassiveRefund",
+    "asset_id": "orb-of-unmaking",
+    "note": "Orb of Unmaking"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral",
+    "asset_id": "flesh-of-xesht",
+    "note": "Flesh of Xesht"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyConflictOrb",
+    "asset_id": "orb-of-conflict",
+    "note": "Orb of Conflict"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyConvertToNormal",
+    "asset_id": "orb-of-scouring",
+    "note": "Orb of Scouring"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyCorrupt",
+    "asset_id": "vaal-orb",
+    "note": "Vaal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDeepwater",
+    "asset_id": "dead-man-s-sulphur",
+    "note": "Dead Man's Sulphur"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingAbyss",
+    "asset_id": "hollow-fossil",
+    "note": "Hollow Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingAttackMods",
+    "asset_id": "serrated-fossil",
+    "note": "Serrated Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingBleedPoison",
+    "asset_id": "corroded-fossil",
+    "note": "Corroded Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingCasterMods",
+    "asset_id": "aetheric-fossil",
+    "note": "Aetheric Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingChaos",
+    "asset_id": "aberrant-fossil",
+    "note": "Aberrant Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingCold",
+    "asset_id": "frigid-fossil",
+    "note": "Frigid Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingCorruptEssence",
+    "asset_id": "glyphic-fossil",
+    "note": "Glyphic Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingDefences",
+    "asset_id": "dense-fossil",
+    "note": "Dense Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingElemental",
+    "asset_id": "prismatic-fossil",
+    "note": "Prismatic Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingEnchant",
+    "asset_id": "deft-fossil",
+    "note": "Deft Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingFire",
+    "asset_id": "scorched-fossil",
+    "note": "Scorched Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingGemLevel",
+    "asset_id": "faceted-fossil",
+    "note": "Faceted Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingLife",
+    "asset_id": "pristine-fossil",
+    "note": "Pristine Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingLightning",
+    "asset_id": "metallic-fossil",
+    "note": "Metallic Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingLuckyModRolls",
+    "asset_id": "sanctified-fossil",
+    "note": "Sanctified Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingMana",
+    "asset_id": "lucent-fossil",
+    "note": "Lucent Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingMinionsAuras",
+    "asset_id": "bound-fossil",
+    "note": "Bound Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingMirror",
+    "asset_id": "fractured-fossil",
+    "note": "Fractured Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingPhysical",
+    "asset_id": "jagged-fossil",
+    "note": "Jagged Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingQuality",
+    "asset_id": "opulent-fossil",
+    "note": "Opulent Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingRandom",
+    "asset_id": "tangled-fossil",
+    "note": "Tangled Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingSellPrice",
+    "asset_id": "gilded-fossil",
+    "note": "Gilded Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingSockets",
+    "asset_id": "fundamental-fossil",
+    "note": "Fundamental Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingSpeed",
+    "asset_id": "shuddering-fossil",
+    "note": "Shuddering Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDelveCraftingVaal",
+    "asset_id": "bloodstained-fossil",
+    "note": "Bloodstained Fossil"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDuplicate",
+    "asset_id": "mirror-of-kalandra",
+    "note": "Mirror of Kalandra"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyDuplicateShard",
+    "asset_id": "mirror-shard",
+    "note": "Mirror Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchAddModToRare",
+    "asset_id": "eldritch-exalted-orb",
+    "note": "Eldritch Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchEmber1",
+    "asset_id": "lesser-eldritch-ember",
+    "note": "Lesser Eldritch Ember"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchEmber2",
+    "asset_id": "greater-eldritch-ember",
+    "note": "Greater Eldritch Ember"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchEmber3",
+    "asset_id": "grand-eldritch-ember",
+    "note": "Grand Eldritch Ember"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchEmber4",
+    "asset_id": "exceptional-eldritch-ember",
+    "note": "Exceptional Eldritch Ember"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchIchor1",
+    "asset_id": "lesser-eldritch-ichor",
+    "note": "Lesser Eldritch Ichor"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchIchor2",
+    "asset_id": "greater-eldritch-ichor",
+    "note": "Greater Eldritch Ichor"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchIchor3",
+    "asset_id": "grand-eldritch-ichor",
+    "note": "Grand Eldritch Ichor"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchIchor4",
+    "asset_id": "exceptional-eldritch-ichor",
+    "note": "Exceptional Eldritch Ichor"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchRemoveMod",
+    "asset_id": "eldritch-orb-of-annulment",
+    "note": "Eldritch Orb of Annulment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEldritchRerollRare",
+    "asset_id": "eldritch-chaos-orb",
+    "note": "Eldritch Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEnkindlingOrb",
+    "asset_id": "enkindling-orb",
+    "note": "Enkindling Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnger1",
+    "asset_id": "muttering-essence-of-anger",
+    "note": "Muttering Essence of Anger"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnger2",
+    "asset_id": "weeping-essence-of-anger",
+    "note": "Weeping Essence of Anger"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnger3",
+    "asset_id": "wailing-essence-of-anger",
+    "note": "Wailing Essence of Anger"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnger4",
+    "asset_id": "screaming-essence-of-anger",
+    "note": "Screaming Essence of Anger"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnger5",
+    "asset_id": "shrieking-essence-of-anger",
+    "note": "Shrieking Essence of Anger"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnger6",
+    "asset_id": "deafening-essence-of-anger",
+    "note": "Deafening Essence of Anger"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnguish1",
+    "asset_id": "wailing-essence-of-anguish",
+    "note": "Wailing Essence of Anguish"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnguish2",
+    "asset_id": "screaming-essence-of-anguish",
+    "note": "Screaming Essence of Anguish"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnguish3",
+    "asset_id": "shrieking-essence-of-anguish",
+    "note": "Shrieking Essence of Anguish"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceAnguish4",
+    "asset_id": "deafening-essence-of-anguish",
+    "note": "Deafening Essence of Anguish"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt1",
+    "asset_id": "whispering-essence-of-contempt",
+    "note": "Whispering Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt2",
+    "asset_id": "muttering-essence-of-contempt",
+    "note": "Muttering Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt3",
+    "asset_id": "weeping-essence-of-contempt",
+    "note": "Weeping Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt4",
+    "asset_id": "wailing-essence-of-contempt",
+    "note": "Wailing Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt5",
+    "asset_id": "screaming-essence-of-contempt",
+    "note": "Screaming Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt6",
+    "asset_id": "shrieking-essence-of-contempt",
+    "note": "Shrieking Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceContempt7",
+    "asset_id": "deafening-essence-of-contempt",
+    "note": "Deafening Essence of Contempt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDelirium1",
+    "asset_id": "essence-of-delirium",
+    "note": "Essence of Delirium"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDoubt1",
+    "asset_id": "weeping-essence-of-doubt",
+    "note": "Weeping Essence of Doubt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDoubt2",
+    "asset_id": "wailing-essence-of-doubt",
+    "note": "Wailing Essence of Doubt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDoubt3",
+    "asset_id": "screaming-essence-of-doubt",
+    "note": "Screaming Essence of Doubt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDoubt4",
+    "asset_id": "shrieking-essence-of-doubt",
+    "note": "Shrieking Essence of Doubt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDoubt5",
+    "asset_id": "deafening-essence-of-doubt",
+    "note": "Deafening Essence of Doubt"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDread1",
+    "asset_id": "screaming-essence-of-dread",
+    "note": "Screaming Essence of Dread"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDread2",
+    "asset_id": "shrieking-essence-of-dread",
+    "note": "Shrieking Essence of Dread"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceDread3",
+    "asset_id": "deafening-essence-of-dread",
+    "note": "Deafening Essence of Dread"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceEnvy1",
+    "asset_id": "screaming-essence-of-envy",
+    "note": "Screaming Essence of Envy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceEnvy2",
+    "asset_id": "shrieking-essence-of-envy",
+    "note": "Shrieking Essence of Envy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceEnvy3",
+    "asset_id": "deafening-essence-of-envy",
+    "note": "Deafening Essence of Envy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFear1",
+    "asset_id": "muttering-essence-of-fear",
+    "note": "Muttering Essence of Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFear2",
+    "asset_id": "weeping-essence-of-fear",
+    "note": "Weeping Essence of Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFear3",
+    "asset_id": "wailing-essence-of-fear",
+    "note": "Wailing Essence of Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFear4",
+    "asset_id": "screaming-essence-of-fear",
+    "note": "Screaming Essence of Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFear5",
+    "asset_id": "shrieking-essence-of-fear",
+    "note": "Shrieking Essence of Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceFear6",
+    "asset_id": "deafening-essence-of-fear",
+    "note": "Deafening Essence of Fear"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed1",
+    "asset_id": "whispering-essence-of-greed",
+    "note": "Whispering Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed2",
+    "asset_id": "muttering-essence-of-greed",
+    "note": "Muttering Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed3",
+    "asset_id": "weeping-essence-of-greed",
+    "note": "Weeping Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed4",
+    "asset_id": "wailing-essence-of-greed",
+    "note": "Wailing Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed5",
+    "asset_id": "screaming-essence-of-greed",
+    "note": "Screaming Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed6",
+    "asset_id": "shrieking-essence-of-greed",
+    "note": "Shrieking Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceGreed7",
+    "asset_id": "deafening-essence-of-greed",
+    "note": "Deafening Essence of Greed"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred1",
+    "asset_id": "whispering-essence-of-hatred",
+    "note": "Whispering Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred2",
+    "asset_id": "muttering-essence-of-hatred",
+    "note": "Muttering Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred3",
+    "asset_id": "weeping-essence-of-hatred",
+    "note": "Weeping Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred4",
+    "asset_id": "wailing-essence-of-hatred",
+    "note": "Wailing Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred5",
+    "asset_id": "screaming-essence-of-hatred",
+    "note": "Screaming Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred6",
+    "asset_id": "shrieking-essence-of-hatred",
+    "note": "Shrieking Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHatred7",
+    "asset_id": "deafening-essence-of-hatred",
+    "note": "Deafening Essence of Hatred"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHorror1",
+    "asset_id": "essence-of-horror",
+    "note": "Essence of Horror"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceHysteria1",
+    "asset_id": "essence-of-hysteria",
+    "note": "Essence of Hysteria"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceInsanity1",
+    "asset_id": "essence-of-insanity",
+    "note": "Essence of Insanity"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLoathing1",
+    "asset_id": "wailing-essence-of-loathing",
+    "note": "Wailing Essence of Loathing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLoathing2",
+    "asset_id": "screaming-essence-of-loathing",
+    "note": "Screaming Essence of Loathing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLoathing3",
+    "asset_id": "shrieking-essence-of-loathing",
+    "note": "Shrieking Essence of Loathing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceLoathing4",
+    "asset_id": "deafening-essence-of-loathing",
+    "note": "Deafening Essence of Loathing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceMisery1",
+    "asset_id": "screaming-essence-of-misery",
+    "note": "Screaming Essence of Misery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceMisery2",
+    "asset_id": "shrieking-essence-of-misery",
+    "note": "Shrieking Essence of Misery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceMisery3",
+    "asset_id": "deafening-essence-of-misery",
+    "note": "Deafening Essence of Misery"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceRage1",
+    "asset_id": "weeping-essence-of-rage",
+    "note": "Weeping Essence of Rage"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceRage2",
+    "asset_id": "wailing-essence-of-rage",
+    "note": "Wailing Essence of Rage"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceRage3",
+    "asset_id": "screaming-essence-of-rage",
+    "note": "Screaming Essence of Rage"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceRage4",
+    "asset_id": "shrieking-essence-of-rage",
+    "note": "Shrieking Essence of Rage"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceRage5",
+    "asset_id": "deafening-essence-of-rage",
+    "note": "Deafening Essence of Rage"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceScorn1",
+    "asset_id": "screaming-essence-of-scorn",
+    "note": "Screaming Essence of Scorn"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceScorn2",
+    "asset_id": "shrieking-essence-of-scorn",
+    "note": "Shrieking Essence of Scorn"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceScorn3",
+    "asset_id": "deafening-essence-of-scorn",
+    "note": "Deafening Essence of Scorn"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSorrow1",
+    "asset_id": "muttering-essence-of-sorrow",
+    "note": "Muttering Essence of Sorrow"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSorrow2",
+    "asset_id": "weeping-essence-of-sorrow",
+    "note": "Weeping Essence of Sorrow"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSorrow3",
+    "asset_id": "wailing-essence-of-sorrow",
+    "note": "Wailing Essence of Sorrow"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSorrow4",
+    "asset_id": "screaming-essence-of-sorrow",
+    "note": "Screaming Essence of Sorrow"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSorrow5",
+    "asset_id": "shrieking-essence-of-sorrow",
+    "note": "Shrieking Essence of Sorrow"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSorrow6",
+    "asset_id": "deafening-essence-of-sorrow",
+    "note": "Deafening Essence of Sorrow"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSpite1",
+    "asset_id": "wailing-essence-of-spite",
+    "note": "Wailing Essence of Spite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSpite2",
+    "asset_id": "screaming-essence-of-spite",
+    "note": "Screaming Essence of Spite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSpite3",
+    "asset_id": "shrieking-essence-of-spite",
+    "note": "Shrieking Essence of Spite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSpite4",
+    "asset_id": "deafening-essence-of-spite",
+    "note": "Deafening Essence of Spite"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSuffering1",
+    "asset_id": "weeping-essence-of-suffering",
+    "note": "Weeping Essence of Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSuffering2",
+    "asset_id": "wailing-essence-of-suffering",
+    "note": "Wailing Essence of Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSuffering3",
+    "asset_id": "screaming-essence-of-suffering",
+    "note": "Screaming Essence of Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSuffering4",
+    "asset_id": "shrieking-essence-of-suffering",
+    "note": "Shrieking Essence of Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceSuffering5",
+    "asset_id": "deafening-essence-of-suffering",
+    "note": "Deafening Essence of Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceTorment1",
+    "asset_id": "muttering-essence-of-torment",
+    "note": "Muttering Essence of Torment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceTorment2",
+    "asset_id": "weeping-essence-of-torment",
+    "note": "Weeping Essence of Torment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceTorment3",
+    "asset_id": "wailing-essence-of-torment",
+    "note": "Wailing Essence of Torment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceTorment4",
+    "asset_id": "screaming-essence-of-torment",
+    "note": "Screaming Essence of Torment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceTorment5",
+    "asset_id": "shrieking-essence-of-torment",
+    "note": "Shrieking Essence of Torment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceTorment6",
+    "asset_id": "deafening-essence-of-torment",
+    "note": "Deafening Essence of Torment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe1",
+    "asset_id": "whispering-essence-of-woe",
+    "note": "Whispering Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe2",
+    "asset_id": "muttering-essence-of-woe",
+    "note": "Muttering Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe3",
+    "asset_id": "weeping-essence-of-woe",
+    "note": "Weeping Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe4",
+    "asset_id": "wailing-essence-of-woe",
+    "note": "Wailing Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe5",
+    "asset_id": "screaming-essence-of-woe",
+    "note": "Screaming Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe6",
+    "asset_id": "shrieking-essence-of-woe",
+    "note": "Shrieking Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWoe7",
+    "asset_id": "deafening-essence-of-woe",
+    "note": "Deafening Essence of Woe"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWrath1",
+    "asset_id": "weeping-essence-of-wrath",
+    "note": "Weeping Essence of Wrath"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWrath2",
+    "asset_id": "wailing-essence-of-wrath",
+    "note": "Wailing Essence of Wrath"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWrath3",
+    "asset_id": "screaming-essence-of-wrath",
+    "note": "Screaming Essence of Wrath"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWrath4",
+    "asset_id": "shrieking-essence-of-wrath",
+    "note": "Shrieking Essence of Wrath"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceWrath5",
+    "asset_id": "deafening-essence-of-wrath",
+    "note": "Deafening Essence of Wrath"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceZeal1",
+    "asset_id": "wailing-essence-of-zeal",
+    "note": "Wailing Essence of Zeal"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceZeal2",
+    "asset_id": "screaming-essence-of-zeal",
+    "note": "Screaming Essence of Zeal"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceZeal3",
+    "asset_id": "shrieking-essence-of-zeal",
+    "note": "Shrieking Essence of Zeal"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyEssenceZeal4",
+    "asset_id": "deafening-essence-of-zeal",
+    "note": "Deafening Essence of Zeal"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyFlaskQuality",
+    "asset_id": "glassblower-s-bauble",
+    "note": "Glassblower's Bauble"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyFractureRare",
+    "asset_id": "fracturing-orb",
+    "note": "Fracturing Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyFractureRareShard",
+    "asset_id": "fracturing-shard",
+    "note": "Fracturing Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyGemQuality",
+    "asset_id": "gemcutter-s-prism",
+    "note": "Gemcutter's Prism"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHeistArmourEnchant",
+    "asset_id": "tailoring-orb",
+    "note": "Tailoring Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHeistWeaponEnchant",
+    "asset_id": "tempering-orb",
+    "note": "Tempering Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeAddModToRare",
+    "asset_id": "tainted-exalted-orb",
+    "note": "Tainted Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeArmourQuality",
+    "asset_id": "tainted-armourer-s-scrap",
+    "note": "Tainted Armourer's Scrap"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeModValues",
+    "asset_id": "volatile-vaal-orb",
+    "note": "Volatile Vaal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeRerollRare",
+    "asset_id": "tainted-chaos-orb",
+    "note": "Tainted Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeRerollSocketColours",
+    "asset_id": "tainted-chromatic-orb",
+    "note": "Tainted Chromatic Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeRerollSocketLinks",
+    "asset_id": "tainted-orb-of-fusing",
+    "note": "Tainted Orb of Fusing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeRerollSocketNumbers",
+    "asset_id": "tainted-jeweller-s-orb",
+    "note": "Tainted Jeweller's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeUpgradeModTier",
+    "asset_id": "tainted-divine-teardrop",
+    "note": "Tainted Divine Teardrop"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeUpgradeToUnique",
+    "asset_id": "tainted-mythic-orb",
+    "note": "Tainted Mythic Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHellscapeWeaponQuality",
+    "asset_id": "tainted-blacksmith-s-whetstone",
+    "note": "Tainted Blacksmith's Whetstone"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyHinekorasLock",
+    "asset_id": "hinekora-s-lock",
+    "note": "Hinekora's Lock"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIdentification",
+    "asset_id": "scroll-of-wisdom",
+    "note": "Scroll of Wisdom"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyInstillingOrb",
+    "asset_id": "instilling-orb",
+    "note": "Instilling Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttack",
+    "asset_id": "abrasive-catalyst",
+    "note": "Abrasive Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttribute",
+    "asset_id": "intrinsic-catalyst",
+    "note": "Intrinsic Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCaster",
+    "asset_id": "imbued-catalyst",
+    "note": "Imbued Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCritical",
+    "asset_id": "unstable-catalyst",
+    "note": "Unstable Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityDefense",
+    "asset_id": "tempering-catalyst",
+    "note": "Tempering Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityElemental",
+    "asset_id": "turbulent-catalyst",
+    "note": "Turbulent Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityPhysicalChaos",
+    "asset_id": "noxious-catalyst",
+    "note": "Noxious Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityResistance",
+    "asset_id": "prismatic-catalyst",
+    "note": "Prismatic Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityResource",
+    "asset_id": "fertile-catalyst",
+    "note": "Fertile Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualitySpeed",
+    "asset_id": "accelerating-catalyst",
+    "note": "Accelerating Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityVaal",
+    "asset_id": "tainted-catalyst",
+    "note": "Tainted Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLegionEternalEmpireShard",
+    "asset_id": "timeless-eternal-empire-splinter",
+    "note": "Timeless Eternal Empire Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLegionKaruiShard",
+    "asset_id": "timeless-karui-splinter",
+    "note": "Timeless Karui Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLegionMarakethShard",
+    "asset_id": "timeless-maraketh-splinter",
+    "note": "Timeless Maraketh Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLegionTemplarShard",
+    "asset_id": "timeless-templar-splinter",
+    "note": "Timeless Templar Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyLegionVaalShard",
+    "asset_id": "timeless-vaal-splinter",
+    "note": "Timeless Vaal Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMapQualityCurrency",
+    "asset_id": "maven-s-chisel-of-avarice",
+    "note": "Maven's Chisel of Avarice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMapQualityDivinationCards",
+    "asset_id": "maven-s-chisel-of-divination",
+    "note": "Maven's Chisel of Divination"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMapQualityPackSize",
+    "asset_id": "maven-s-chisel-of-proliferation",
+    "note": "Maven's Chisel of Proliferation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMapQualityRarity",
+    "asset_id": "maven-s-chisel-of-procurement",
+    "note": "Maven's Chisel of Procurement"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMapQualityScarabs",
+    "asset_id": "maven-s-chisel-of-scarabs",
+    "note": "Maven's Chisel of Scarabs"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyModValues",
+    "asset_id": "divine-orb",
+    "note": "Divine Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMoreZanaInfluencedItems",
+    "asset_id": "orb-of-intention",
+    "note": "Orb of Intention"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMutatedAddModToMagic",
+    "asset_id": "foulborn-orb-of-augmentation",
+    "note": "Foulborn Orb of Augmentation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMutatedAddModToRare",
+    "asset_id": "foulborn-exalted-orb",
+    "note": "Foulborn Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyMutatedUpgradeMagicToRare",
+    "asset_id": "foulborn-regal-orb",
+    "note": "Foulborn Regal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPassiveRefund",
+    "asset_id": "orb-of-regret",
+    "note": "Orb of Regret"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyPortal",
+    "asset_id": "portal-scroll",
+    "note": "Portal Scroll"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRefreshBarter",
+    "asset_id": "exotic-coinage",
+    "note": "Exotic Coinage"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRefreshDealer",
+    "asset_id": "scrap-metal",
+    "note": "Scrap Metal"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRefreshGambler",
+    "asset_id": "astragali",
+    "note": "Astragali"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRefreshSaga",
+    "asset_id": "burial-medallion",
+    "note": "Burial Medallion"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRemoveMod",
+    "asset_id": "orb-of-annulment",
+    "note": "Orb of Annulment"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRemoveModShard",
+    "asset_id": "annulment-shard",
+    "note": "Annulment Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRemoveZanaInfluence",
+    "asset_id": "orb-of-unravelling",
+    "note": "Orb of Unravelling"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollDefences",
+    "asset_id": "sacred-orb",
+    "note": "Sacred Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollImplicit",
+    "asset_id": "blessed-orb",
+    "note": "Blessed Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollMagic",
+    "asset_id": "orb-of-alteration",
+    "note": "Orb of Alteration"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollMagicShard",
+    "asset_id": "alteration-shard",
+    "note": "Alteration Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRare",
+    "asset_id": "chaos-orb",
+    "note": "Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRareShard",
+    "asset_id": "chaos-shard",
+    "note": "Chaos Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRareVeiled",
+    "asset_id": "veiled-exalted-orb",
+    "note": "Veiled Exalted Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRareVeiledChaos",
+    "asset_id": "veiled-chaos-orb",
+    "note": "Veiled Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollSocketColours",
+    "asset_id": "chromatic-orb",
+    "note": "Chromatic Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollSocketLinks",
+    "asset_id": "orb-of-fusing",
+    "note": "Orb of Fusing"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollSocketNumbers",
+    "asset_id": "jeweller-s-orb",
+    "note": "Jeweller's Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollUnique",
+    "asset_id": "ancient-orb",
+    "note": "Ancient Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRitualSplinter",
+    "asset_id": "ritual-splinter",
+    "note": "Ritual Splinter"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRitualStone",
+    "asset_id": "ritual-vessel",
+    "note": "Ritual Vessel"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeInfluenceMod",
+    "asset_id": "orb-of-dominance",
+    "note": "Orb of Dominance"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeMagicToRare",
+    "asset_id": "regal-orb",
+    "note": "Regal Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeMagicToRareShard",
+    "asset_id": "regal-shard",
+    "note": "Regal Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeRandomly",
+    "asset_id": "orb-of-chance",
+    "note": "Orb of Chance"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToMagic",
+    "asset_id": "orb-of-transmutation",
+    "note": "Orb of Transmutation"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToMagicShard",
+    "asset_id": "transmutation-shard",
+    "note": "Transmutation Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToRare",
+    "asset_id": "orb-of-alchemy",
+    "note": "Orb of Alchemy"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToRareAndSetSockets",
+    "asset_id": "orb-of-binding",
+    "note": "Orb of Binding"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyUpgradeToRareShard",
+    "asset_id": "alchemy-shard",
+    "note": "Alchemy Shard"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyValdoPuzzleBox",
+    "asset_id": "valdo-s-puzzle-box",
+    "note": "Valdo's Puzzle Box"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyWeaponQuality",
+    "asset_id": "blacksmith-s-whetstone",
+    "note": "Blacksmith's Whetstone"
+  },
+  {
+    "path": "Metadata/Items/Currency/FearMemoryThread",
+    "asset_id": "memory-of-trauma",
+    "note": "Memory of Trauma"
+  },
+  {
+    "path": "Metadata/Items/Currency/HarvestSeedBlue",
+    "asset_id": "primal-crystallised-lifeforce",
+    "note": "Primal Crystallised Lifeforce"
+  },
+  {
+    "path": "Metadata/Items/Currency/HarvestSeedBoss",
+    "asset_id": "sacred-crystallised-lifeforce",
+    "note": "Sacred Crystallised Lifeforce"
+  },
+  {
+    "path": "Metadata/Items/Currency/HarvestSeedFaridun",
+    "asset_id": "crystallised-rancour",
+    "note": "Crystallised Rancour"
+  },
+  {
+    "path": "Metadata/Items/Currency/HarvestSeedGreen",
+    "asset_id": "vivid-crystallised-lifeforce",
+    "note": "Vivid Crystallised Lifeforce"
+  },
+  {
+    "path": "Metadata/Items/Currency/HarvestSeedRed",
+    "asset_id": "wild-crystallised-lifeforce",
+    "note": "Wild Crystallised Lifeforce"
+  },
+  {
+    "path": "Metadata/Items/Currency/IgnoranceMemoryThread",
+    "asset_id": "memory-of-loneliness",
+    "note": "Memory of Loneliness"
+  },
+  {
+    "path": "Metadata/Items/Currency/LegionCocoonBodyArmour",
+    "asset_id": "maraketh-enshrouding-crystal",
+    "note": "Maraketh Enshrouding Crystal"
+  },
+  {
+    "path": "Metadata/Items/Currency/LegionCocoonBoots",
+    "asset_id": "imperial-enshrouding-crystal",
+    "note": "Imperial Enshrouding Crystal"
+  },
+  {
+    "path": "Metadata/Items/Currency/LegionCocoonGloves",
+    "asset_id": "karui-enshrouding-crystal",
+    "note": "Karui Enshrouding Crystal"
+  },
+  {
+    "path": "Metadata/Items/Currency/LegionCocoonHelmet",
+    "asset_id": "vaal-enshrouding-crystal",
+    "note": "Vaal Enshrouding Crystal"
+  },
+  {
+    "path": "Metadata/Items/Currency/LegionCocoonShield",
+    "asset_id": "templar-enshrouding-crystal",
+    "note": "Templar Enshrouding Crystal"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune1",
+    "asset_id": "clear-oil",
+    "note": "Clear Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune10",
+    "asset_id": "opalescent-oil",
+    "note": "Opalescent Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune11",
+    "asset_id": "silver-oil",
+    "note": "Silver Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune12",
+    "asset_id": "golden-oil",
+    "note": "Golden Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune2",
+    "asset_id": "sepia-oil",
+    "note": "Sepia Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune3",
+    "asset_id": "amber-oil",
+    "note": "Amber Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune4",
+    "asset_id": "verdant-oil",
+    "note": "Verdant Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune5",
+    "asset_id": "teal-oil",
+    "note": "Teal Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune6",
+    "asset_id": "azure-oil",
+    "note": "Azure Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune6b",
+    "asset_id": "indigo-oil",
+    "note": "Indigo Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune7",
+    "asset_id": "violet-oil",
+    "note": "Violet Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune8",
+    "asset_id": "crimson-oil",
+    "note": "Crimson Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/Mushrune9",
+    "asset_id": "black-oil",
+    "note": "Black Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/MushruneCorrupt",
+    "asset_id": "tainted-oil",
+    "note": "Tainted Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/MushruneMirror",
+    "asset_id": "reflective-oil",
+    "note": "Reflective Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/MushruneUber",
+    "asset_id": "prismatic-oil",
+    "note": "Prismatic Oil"
+  },
+  {
+    "path": "Metadata/Items/Currency/ReflectiveMist",
+    "asset_id": "reflecting-mist",
+    "note": "Reflecting Mist"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftAilmentRedirect",
+    "asset_id": "runegraft-of-loyalty",
+    "note": "Runegraft of Loyalty"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftAttributeGlobalDefences",
+    "asset_id": "runegraft-of-the-fortress",
+    "note": "Runegraft of the Fortress"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftBootsGloves",
+    "asset_id": "runegraft-of-the-bound",
+    "note": "Runegraft of the Bound"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftBuffScaling",
+    "asset_id": "runegraft-of-the-warp",
+    "note": "Runegraft of the Warp"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftChainMana",
+    "asset_id": "runegraft-of-refraction",
+    "note": "Runegraft of Refraction"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftConnection",
+    "asset_id": "runegraft-of-connection",
+    "note": "Runegraft of Connection"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftConsecratedGround",
+    "asset_id": "runegraft-of-consecration",
+    "note": "Runegraft of Consecration"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftCooldownRefresh",
+    "asset_id": "runegraft-of-time",
+    "note": "Runegraft of Time"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftCritRecoup",
+    "asset_id": "runegraft-of-restitching",
+    "note": "Runegraft of Restitching"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftDamagePerSocket",
+    "asset_id": "runegraft-of-the-jeweller",
+    "note": "Runegraft of the Jeweller"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftElusive",
+    "asset_id": "runegraft-of-the-agile",
+    "note": "Runegraft of the Agile"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftFishing",
+    "asset_id": "runegraft-of-the-angler",
+    "note": "Runegraft of the Angler"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftFlatOffhandAttackTime",
+    "asset_id": "runegraft-of-the-sinistral",
+    "note": "Runegraft of the Sinistral"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftFortificationBanner",
+    "asset_id": "runegraft-of-rallying",
+    "note": "Runegraft of Rallying"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftLifeFlaskRage",
+    "asset_id": "runegraft-of-fury",
+    "note": "Runegraft of Fury"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftLifeFromManaFlasks",
+    "asset_id": "runegraft-of-quaffing",
+    "note": "Runegraft of Quaffing"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftLowLifeRestore",
+    "asset_id": "runegraft-of-the-river",
+    "note": "Runegraft of the River"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftMatchedAttackDamage",
+    "asset_id": "runegraft-of-the-combatant",
+    "note": "Runegraft of the Combatant"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftNovaMarkedTarget",
+    "asset_id": "runegraft-of-the-novamark",
+    "note": "Runegraft of the Novamark"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftPoisonConversion",
+    "asset_id": "runegraft-of-rotblood",
+    "note": "Runegraft of Rotblood"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftRandomCurse",
+    "asset_id": "runegraft-of-blasphemy",
+    "note": "Runegraft of Blasphemy"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftResurgence",
+    "asset_id": "runegraft-of-resurgence",
+    "note": "Runegraft of Resurgence"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftSouls",
+    "asset_id": "runegraft-of-the-soulwick",
+    "note": "Runegraft of the Soulwick"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftSpellLifeCost",
+    "asset_id": "runegraft-of-the-witchmark",
+    "note": "Runegraft of the Witchmark"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftSpellbound",
+    "asset_id": "runegraft-of-the-spellbound",
+    "note": "Runegraft of the Spellbound"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftSuffering",
+    "asset_id": "runegraft-of-suffering",
+    "note": "Runegraft of Suffering"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftSupportLevels",
+    "asset_id": "runegraft-of-gemcraft",
+    "note": "Runegraft of Gemcraft"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftTinctures",
+    "asset_id": "runegraft-of-the-imbued",
+    "note": "Runegraft of the Imbued"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftTreacherousAuras",
+    "asset_id": "runegraft-of-treachery",
+    "note": "Runegraft of Treachery"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftUnexciting",
+    "asset_id": "runegraft-of-stability",
+    "note": "Runegraft of Stability"
+  },
+  {
+    "path": "Metadata/Items/Currency/RunegraftWarcrySpeed",
+    "asset_id": "runegraft-of-bellows",
+    "note": "Runegraft of Bellows"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterAbyssCurrency",
+    "asset_id": "merrick-s-ducat",
+    "note": "Merrick's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterAttributeSwap",
+    "asset_id": "the-genteel-s-ducat",
+    "note": "The Genteel's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterBlankCurrency",
+    "asset_id": "the-changeling-s-ducat",
+    "note": "The Changeling's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterBottledItem",
+    "asset_id": "message-in-a-bottle",
+    "note": "Message in a Bottle"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterChartReroll",
+    "asset_id": "telesia-s-ducat",
+    "note": "Telesia's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterEldritch",
+    "asset_id": "ukatoa-s-ducat",
+    "note": "Ukatoa's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterGhostbuster",
+    "asset_id": "tzamoto-s-ducat",
+    "note": "Tzamoto's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterItemSplit",
+    "asset_id": "kishara-s-ducat",
+    "note": "Kishara's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterMercenaryCurrency",
+    "asset_id": "cyaxan-s-ducat",
+    "note": "Cyaxan's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterPantheon",
+    "asset_id": "brinehook-s-ducat",
+    "note": "Brinehook's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterSaboteur",
+    "asset_id": "rotmother-s-ducat",
+    "note": "Rotmother's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Deepwater/DeepwaterTatttoo",
+    "asset_id": "katakohi-s-ducat",
+    "note": "Katakohi's Ducat"
+  },
+  {
+    "path": "Metadata/Items/Delve/DelveStackableSocketableCurrencyReroll1",
+    "asset_id": "primitive-chaotic-resonator",
+    "note": "Primitive Chaotic Resonator"
+  },
+  {
+    "path": "Metadata/Items/Delve/DelveStackableSocketableCurrencyReroll2",
+    "asset_id": "potent-chaotic-resonator",
+    "note": "Potent Chaotic Resonator"
+  },
+  {
+    "path": "Metadata/Items/Delve/DelveStackableSocketableCurrencyReroll3",
+    "asset_id": "powerful-chaotic-resonator",
+    "note": "Powerful Chaotic Resonator"
+  },
+  {
+    "path": "Metadata/Items/Delve/DelveStackableSocketableCurrencyReroll4",
+    "asset_id": "prime-chaotic-resonator",
+    "note": "Prime Chaotic Resonator"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAChillingWind",
+    "asset_id": "a-chilling-wind",
+    "note": "A Chilling Wind"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardADabOfInk",
+    "asset_id": "a-dab-of-ink",
+    "note": "A Dab of Ink"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardADustyMemory",
+    "asset_id": "a-dusty-memory",
+    "note": "A Dusty Memory"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAFamiliarCall",
+    "asset_id": "a-familiar-call",
+    "note": "A Familiar Call"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAFateWorseThanDeath",
+    "asset_id": "a-fate-worse-than-death",
+    "note": "A Fate Worse Than Death"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAModestRequest",
+    "asset_id": "a-modest-request",
+    "note": "A Modest Request"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAMothersPartingGift",
+    "asset_id": "a-mother-s-parting-gift",
+    "note": "A Mother's Parting Gift"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardANoteInTheWind",
+    "asset_id": "a-note-in-the-wind",
+    "note": "A Note in the Wind"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardASeaOfBlue",
+    "asset_id": "a-sea-of-blue",
+    "note": "A Sea of Blue"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAStonePerfected",
+    "asset_id": "a-stone-perfected",
+    "note": "A Stone Perfected"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAbandonedWealth",
+    "asset_id": "abandoned-wealth",
+    "note": "Abandoned Wealth"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAcclimatisation",
+    "asset_id": "acclimatisation",
+    "note": "Acclimatisation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAkilsProphecy",
+    "asset_id": "akil-s-prophecy",
+    "note": "Akil's Prophecy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAliviasGrace",
+    "asset_id": "alivia-s-grace",
+    "note": "Alivia's Grace"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAlluringBounty",
+    "asset_id": "alluring-bounty",
+    "note": "Alluring Bounty"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAloneInTheDarkness",
+    "asset_id": "alone-in-the-darkness",
+    "note": "Alone in the Darkness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAlteredPerception",
+    "asset_id": "altered-perception",
+    "note": "Altered Perception"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAmbitiousObsession",
+    "asset_id": "ambitious-obsession",
+    "note": "Ambitious Obsession"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAnarchysPrice",
+    "asset_id": "anarchy-s-price",
+    "note": "Anarchy's Price"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardApocalypse",
+    "asset_id": "apocalypse",
+    "note": "Apocalypse"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardArroganceOfTheVaal",
+    "asset_id": "arrogance-of-the-vaal",
+    "note": "Arrogance of the Vaal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAssassinsFavour",
+    "asset_id": "assassin-s-favour",
+    "note": "Assassin's Favour"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAssassinsGift",
+    "asset_id": "assassin-s-gift",
+    "note": "Assassin's Gift"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAstralProtection",
+    "asset_id": "astral-protection",
+    "note": "Astral Protection"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAtzirisArsenal",
+    "asset_id": "atziri-s-arsenal",
+    "note": "Atziri's Arsenal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAudacity",
+    "asset_id": "audacity",
+    "note": "Audacity"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAuspiciousAmbitions",
+    "asset_id": "auspicious-ambitions",
+    "note": "Auspicious Ambitions"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAvianPursuit",
+    "asset_id": "avian-pursuit",
+    "note": "Avian Pursuit"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAzureRage",
+    "asset_id": "azure-rage",
+    "note": "Azure Rage"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardAzyransReward",
+    "asset_id": "azyran-s-reward",
+    "note": "Azyran's Reward"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBaitedExpectations",
+    "asset_id": "baited-expectations",
+    "note": "Baited Expectations"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBeautyThroughDeath",
+    "asset_id": "beauty-through-death",
+    "note": "Beauty Through Death"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBijoux",
+    "asset_id": "bijoux",
+    "note": "Bijoux"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBlindVenture",
+    "asset_id": "blind-venture",
+    "note": "Blind Venture"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBoonOfJustice",
+    "asset_id": "boon-of-justice",
+    "note": "Boon of Justice"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBoonOfTheFirstOnes",
+    "asset_id": "boon-of-the-first-ones",
+    "note": "Boon of the First Ones"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBoundByFlame",
+    "asset_id": "bound-by-flame",
+    "note": "Bound by Flame"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBoundlessRealms",
+    "asset_id": "boundless-realms",
+    "note": "Boundless Realms"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBowyersDream",
+    "asset_id": "bowyer-s-dream",
+    "note": "Bowyer's Dream"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBrokenTruce",
+    "asset_id": "broken-truce",
+    "note": "Broken Truce"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBrotherhoodInExile",
+    "asset_id": "brotherhood-in-exile",
+    "note": "Brotherhood in Exile"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBrothersGift",
+    "asset_id": "brother-s-gift",
+    "note": "Brother's Gift"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBrothersStash",
+    "asset_id": "brother-s-stash",
+    "note": "Brother's Stash"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBrushPaintAndPalette",
+    "asset_id": "brush-paint-and-palette",
+    "note": "Brush, Paint and Palette"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBuriedTreasure",
+    "asset_id": "buried-treasure",
+    "note": "Buried Treasure"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardBurningBlood",
+    "asset_id": "burning-blood",
+    "note": "Burning Blood"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCallToTheFirstOnes",
+    "asset_id": "call-to-the-first-ones",
+    "note": "Call to the First Ones"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCameriasCut",
+    "asset_id": "cameria-s-cut",
+    "note": "Cameria's Cut"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCartographersDelight",
+    "asset_id": "cartographer-s-delight",
+    "note": "Cartographer's Delight"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardChaoticDisposition",
+    "asset_id": "chaotic-disposition",
+    "note": "Chaotic Disposition"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardChasingRisk",
+    "asset_id": "chasing-risk",
+    "note": "Chasing Risk"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCheckmate",
+    "asset_id": "checkmate",
+    "note": "Checkmate"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardChokingGuilt",
+    "asset_id": "choking-guilt",
+    "note": "Choking Guilt"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCostlyCurio",
+    "asset_id": "costly-curio",
+    "note": "Costly Curio"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCouncilOfCats",
+    "asset_id": "council-of-cats",
+    "note": "Council of Cats"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCovetedPossession",
+    "asset_id": "coveted-possession",
+    "note": "Coveted Possession"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardCursedWords",
+    "asset_id": "cursed-words",
+    "note": "Cursed Words"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDamnation",
+    "asset_id": "damnation",
+    "note": "Damnation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDarkDreams",
+    "asset_id": "dark-dreams",
+    "note": "Dark Dreams"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDarkTemptation",
+    "asset_id": "dark-temptation",
+    "note": "Dark Temptation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDarkerHalf",
+    "asset_id": "darker-half",
+    "note": "Darker Half"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDeadlyJoy",
+    "asset_id": "deadly-joy",
+    "note": "Deadly Joy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDeath",
+    "asset_id": "death",
+    "note": "Death"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDeathlyDesigns",
+    "asset_id": "deathly-designs",
+    "note": "Deathly Designs"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDeck",
+    "asset_id": "stacked-deck",
+    "note": "Stacked Deck"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDementophobia",
+    "asset_id": "dementophobia",
+    "note": "Dementophobia"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDemigodsWager",
+    "asset_id": "demigod-s-wager",
+    "note": "Demigod's Wager"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDesecratedVirtue",
+    "asset_id": "desecrated-virtue",
+    "note": "Desecrated Virtue"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDesperateCrusade",
+    "asset_id": "desperate-crusade",
+    "note": "Desperate Crusade"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDestinedToCrumble",
+    "asset_id": "destined-to-crumble",
+    "note": "Destined to Crumble"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDiallasSubjugation",
+    "asset_id": "dialla-s-subjugation",
+    "note": "Dialla's Subjugation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDisdain",
+    "asset_id": "disdain",
+    "note": "Disdain"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDivineBeauty",
+    "asset_id": "divine-beauty",
+    "note": "Divine Beauty"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDivineJustice",
+    "asset_id": "divine-justice",
+    "note": "Divine Justice"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDivineShard",
+    "asset_id": "divine-shard",
+    "note": "Divine Shard"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDoedresMadness",
+    "asset_id": "doedre-s-madness",
+    "note": "Doedre's Madness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDoryanisEpiphany",
+    "asset_id": "doryani-s-epiphany",
+    "note": "Doryani's Epiphany"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDrapedInDreams",
+    "asset_id": "draped-in-dreams",
+    "note": "Draped in Dreams"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDuality",
+    "asset_id": "duality",
+    "note": "Duality"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDyingAnguish",
+    "asset_id": "dying-anguish",
+    "note": "Dying Anguish"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardDyingLight",
+    "asset_id": "dying-light",
+    "note": "Dying Light"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEarthDrinker",
+    "asset_id": "earth-drinker",
+    "note": "Earth Drinker"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEchoesOfLove",
+    "asset_id": "echoes-of-love",
+    "note": "Echoes of Love"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEldritchPerfection",
+    "asset_id": "eldritch-perfection",
+    "note": "Eldritch Perfection"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEmperorOfPurity",
+    "asset_id": "emperor-of-purity",
+    "note": "Emperor of Purity"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEmperorsLuck",
+    "asset_id": "emperor-s-luck",
+    "note": "Emperor's Luck"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEndlessNight",
+    "asset_id": "endless-night",
+    "note": "Endless Night"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEnergySword",
+    "asset_id": "energy-sword",
+    "note": "Energy Sword"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEtchedInBlood",
+    "asset_id": "etched-in-blood",
+    "note": "Etched in Blood"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEternalBonds",
+    "asset_id": "eternal-bonds",
+    "note": "Eternal Bonds"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardEverChanging",
+    "asset_id": "ever-changing",
+    "note": "Ever-Changing"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardFatefulMeeting",
+    "asset_id": "fateful-meeting",
+    "note": "Fateful Meeting"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardFathersLove",
+    "asset_id": "father-s-love",
+    "note": "Father's Love"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardFireOfUnknownOrigin",
+    "asset_id": "fire-of-unknown-origin",
+    "note": "Fire Of Unknown Origin"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardForbiddenPower",
+    "asset_id": "forbidden-power",
+    "note": "Forbidden Power"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardFriendship",
+    "asset_id": "friendship",
+    "note": "Friendship"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardFromBoneToAshes",
+    "asset_id": "from-bone-to-ashes",
+    "note": "From Bone to Ashes"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardFurtherInvention",
+    "asset_id": "further-invention",
+    "note": "Further Invention"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGemcuttersMercy",
+    "asset_id": "gemcutter-s-mercy",
+    "note": "Gemcutter's Mercy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGemcuttersPromise",
+    "asset_id": "gemcutter-s-promise",
+    "note": "Gemcutter's Promise"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGiftOfAsenath",
+    "asset_id": "gift-of-asenath",
+    "note": "Gift of Asenath"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGiftOfTheGemlingQueen",
+    "asset_id": "gift-of-the-gemling-queen",
+    "note": "Gift of the Gemling Queen"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGlimmerOfHope",
+    "asset_id": "glimmer-of-hope",
+    "note": "Glimmer of Hope"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGraveKnowledge",
+    "asset_id": "grave-knowledge",
+    "note": "Grave Knowledge"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardGuardiansChallenge",
+    "asset_id": "guardian-s-challenge",
+    "note": "Guardian's Challenge"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHarmonyOfSouls",
+    "asset_id": "harmony-of-souls",
+    "note": "Harmony of Souls"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHauntingShadows",
+    "asset_id": "haunting-shadows",
+    "note": "Haunting Shadows"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHerMask",
+    "asset_id": "her-mask",
+    "note": "Her Mask"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHeterochromia",
+    "asset_id": "heterochromia",
+    "note": "Heterochromia"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHistory",
+    "asset_id": "history",
+    "note": "History"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHome",
+    "asset_id": "home",
+    "note": "Home"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHope",
+    "asset_id": "hope",
+    "note": "Hope"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHouseOfMirrors",
+    "asset_id": "house-of-mirrors",
+    "note": "House of Mirrors"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHubris",
+    "asset_id": "hubris",
+    "note": "Hubris"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHumility",
+    "asset_id": "humility",
+    "note": "Humility"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHuntersResolve",
+    "asset_id": "hunter-s-resolve",
+    "note": "Hunter's Resolve"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardHuntersReward",
+    "asset_id": "hunter-s-reward",
+    "note": "Hunter's Reward"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardISeeBrothers",
+    "asset_id": "i-see-brothers",
+    "note": "I See Brothers"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardImmortalResolve",
+    "asset_id": "immortal-resolve",
+    "note": "Immortal Resolve"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardImperfectMemories",
+    "asset_id": "imperfect-memories",
+    "note": "Imperfect Memories"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardImperialLegacy",
+    "asset_id": "imperial-legacy",
+    "note": "Imperial Legacy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardJackInTheBox",
+    "asset_id": "jack-in-the-box",
+    "note": "Jack in the Box"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardJudgingVoices",
+    "asset_id": "judging-voices",
+    "note": "Judging Voices"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardJustifiedAmbition",
+    "asset_id": "justified-ambition",
+    "note": "Justified Ambition"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardKeepersCorruption",
+    "asset_id": "keeper-s-corruption",
+    "note": "Keeper's Corruption"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLachrymalNecrosis",
+    "asset_id": "lachrymal-necrosis",
+    "note": "Lachrymal Necrosis"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLantadorsLostLove",
+    "asset_id": "lantador-s-lost-love",
+    "note": "Lantador's Lost Love"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLastHope",
+    "asset_id": "last-hope",
+    "note": "Last Hope"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLastStand",
+    "asset_id": "last-stand",
+    "note": "Last Stand"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLeftToFate",
+    "asset_id": "left-to-fate",
+    "note": "Left to Fate"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLetheanTemptation",
+    "asset_id": "lethean-temptation",
+    "note": "Lethean Temptation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLightAndTruth",
+    "asset_id": "light-and-truth",
+    "note": "Light and Truth"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLingeringRemnants",
+    "asset_id": "lingering-remnants",
+    "note": "Lingering Remnants"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLonelyWarrior",
+    "asset_id": "lonely-warrior",
+    "note": "Lonely Warrior"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLostWorlds",
+    "asset_id": "lost-worlds",
+    "note": "Lost Worlds"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLoveThroughIce",
+    "asset_id": "love-through-ice",
+    "note": "Love Through Ice"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLoyalty",
+    "asset_id": "loyalty",
+    "note": "Loyalty"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLuckyBastion",
+    "asset_id": "lucky-bastion",
+    "note": "Lucky Bastion"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLuckyConnections",
+    "asset_id": "lucky-connections",
+    "note": "Lucky Connections"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLuckyDeck",
+    "asset_id": "lucky-deck",
+    "note": "Lucky Deck"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLuminousTrove",
+    "asset_id": "luminous-trove",
+    "note": "Luminous Trove"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardLysahsRespite",
+    "asset_id": "lysah-s-respite",
+    "note": "Lysah's Respite"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardManWithBear",
+    "asset_id": "man-with-bear",
+    "note": "Man With Bear"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMatryoshka",
+    "asset_id": "matryoshka",
+    "note": "Matryoshka"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMawrBlaidd",
+    "asset_id": "mawr-blaidd",
+    "note": "Mawr Blaidd"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMercilessArmament",
+    "asset_id": "merciless-armament",
+    "note": "Merciless Armament"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMightIsRight",
+    "asset_id": "might-is-right",
+    "note": "Might is Right"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMiseryInDarkness",
+    "asset_id": "misery-in-darkness",
+    "note": "Misery in Darkness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMitts",
+    "asset_id": "mitts",
+    "note": "Mitts"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMonochrome",
+    "asset_id": "monochrome",
+    "note": "Monochrome"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardMoreIsNeverEnough",
+    "asset_id": "more-is-never-enough",
+    "note": "More is Never Enough"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardNoTraces",
+    "asset_id": "no-traces",
+    "note": "No Traces"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardNooksCrown",
+    "asset_id": "nook-s-crown",
+    "note": "Nook's Crown"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardOneLastScore",
+    "asset_id": "one-last-score",
+    "note": "One Last Score"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardOutfoxed",
+    "asset_id": "outfoxed",
+    "note": "Outfoxed"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardParasiticPassengers",
+    "asset_id": "parasitic-passengers",
+    "note": "Parasitic Passengers"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPeacefulMoments",
+    "asset_id": "peaceful-moments",
+    "note": "Peaceful Moments"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPearlsBeforeSwine",
+    "asset_id": "pearls-before-swine",
+    "note": "Pearls Before Swine"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPerfection",
+    "asset_id": "perfection",
+    "note": "Perfection"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPoisonedFaith",
+    "asset_id": "poisoned-faith",
+    "note": "Poisoned Faith"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPrejudice",
+    "asset_id": "prejudice",
+    "note": "Prejudice"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPrideBeforeTheFall",
+    "asset_id": "pride-before-the-fall",
+    "note": "Pride Before the Fall"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPrideOfTheFirstOnes",
+    "asset_id": "pride-of-the-first-ones",
+    "note": "Pride of the First Ones"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardPrometheusArmoury",
+    "asset_id": "prometheus",
+    "note": "Prometheus' Armoury"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardProsperity",
+    "asset_id": "prosperity",
+    "note": "Prosperity"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRainOfChaos",
+    "asset_id": "rain-of-chaos",
+    "note": "Rain of Chaos"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRainTempter",
+    "asset_id": "rain-tempter",
+    "note": "Rain Tempter"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRats",
+    "asset_id": "rats",
+    "note": "Rats"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRebirth",
+    "asset_id": "rebirth",
+    "note": "Rebirth"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRebirthAndRenewal",
+    "asset_id": "rebirth-and-renewal",
+    "note": "Rebirth and Renewal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRecklessAmbition",
+    "asset_id": "reckless-ambition",
+    "note": "Reckless Ambition"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRemembrance",
+    "asset_id": "remembrance",
+    "note": "Remembrance"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardRunicLuck",
+    "asset_id": "runic-luck",
+    "note": "Runic Luck"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSambodhisVow",
+    "asset_id": "sambodhi-s-vow",
+    "note": "Sambodhi's Vow"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSambodhisWisdom",
+    "asset_id": "sambodhi-s-wisdom",
+    "note": "Sambodhi's Wisdom"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardScholarOfTheSeas",
+    "asset_id": "scholar-of-the-seas",
+    "note": "Scholar of the Seas"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSevenYearsBadLuck",
+    "asset_id": "seven-years-bad-luck",
+    "note": "Seven Years Bad Luck"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardShardOfFate",
+    "asset_id": "shard-of-fate",
+    "note": "Shard of Fate"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSilenceAndFrost",
+    "asset_id": "silence-and-frost",
+    "note": "Silence and Frost"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSocietysRemorse",
+    "asset_id": "society-s-remorse",
+    "note": "Society's Remorse"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSomethingDark",
+    "asset_id": "something-dark",
+    "note": "Something Dark"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSquanderedProsperity",
+    "asset_id": "squandered-prosperity",
+    "note": "Squandered Prosperity"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardStruckByLightning",
+    "asset_id": "struck-by-lightning",
+    "note": "Struck by Lightning"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardSuccorOfTheSinless",
+    "asset_id": "succor-of-the-sinless",
+    "note": "Succor of the Sinless"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTemperance",
+    "asset_id": "temperance",
+    "note": "Temperance"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTerribleSecretOfSpace",
+    "asset_id": "terrible-secret-of-space",
+    "note": "Terrible Secret of Space"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAcademic",
+    "asset_id": "the-academic",
+    "note": "The Academic"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAdmirer",
+    "asset_id": "the-admirer",
+    "note": "The Admirer"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAdventuringSpirit",
+    "asset_id": "the-adventuring-spirit",
+    "note": "The Adventuring Spirit"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAesthete",
+    "asset_id": "the-aesthete",
+    "note": "The Aesthete"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheApothecary",
+    "asset_id": "the-apothecary",
+    "note": "The Apothecary"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheArchmagesRightHand",
+    "asset_id": "the-archmage-s-right-hand",
+    "note": "The Archmage's Right Hand"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheArenaChampion",
+    "asset_id": "the-arena-champion",
+    "note": "The Arena Champion"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheArmyOfBlood",
+    "asset_id": "the-army-of-blood",
+    "note": "The Army of Blood"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheArtist",
+    "asset_id": "the-artist",
+    "note": "The Artist"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAspirant",
+    "asset_id": "the-aspirant",
+    "note": "The Aspirant"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAstromancer",
+    "asset_id": "the-astromancer",
+    "note": "The Astromancer"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAvenger",
+    "asset_id": "the-avenger",
+    "note": "The Avenger"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheAwakened",
+    "asset_id": "the-awakened",
+    "note": "The Awakened"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBattleBorn",
+    "asset_id": "the-battle-born",
+    "note": "The Battle Born"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBearWoman",
+    "asset_id": "the-bear-woman",
+    "note": "The Bear Woman"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBeast",
+    "asset_id": "the-beast",
+    "note": "The Beast"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBetrayal",
+    "asset_id": "the-betrayal",
+    "note": "The Betrayal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBitterBlossom",
+    "asset_id": "the-bitter-blossom",
+    "note": "The Bitter Blossom"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBlazingFire",
+    "asset_id": "the-blazing-fire",
+    "note": "The Blazing Fire"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBlessingOfMoosh",
+    "asset_id": "the-blessing-of-moosh",
+    "note": "The Blessing of Moosh"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBody",
+    "asset_id": "the-body",
+    "note": "The Body"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBones",
+    "asset_id": "the-bones",
+    "note": "The Bones"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBrawnyBattleMage",
+    "asset_id": "the-brawny-battle-mage",
+    "note": "The Brawny Battle Mage"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBreach",
+    "asset_id": "the-breach",
+    "note": "The Breach"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheBrittleEmperor",
+    "asset_id": "the-brittle-emperor",
+    "note": "The Brittle Emperor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCache",
+    "asset_id": "the-cache",
+    "note": "The Cache"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCacophony",
+    "asset_id": "the-cacophony",
+    "note": "The Cacophony"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCalling",
+    "asset_id": "the-calling",
+    "note": "The Calling"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCardSharp",
+    "asset_id": "the-card-sharp",
+    "note": "The Card Sharp"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCarrionCrow",
+    "asset_id": "the-carrion-crow",
+    "note": "The Carrion Crow"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCataclysm",
+    "asset_id": "the-cataclysm",
+    "note": "The Cataclysm"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCatalyst",
+    "asset_id": "the-catalyst",
+    "note": "The Catalyst"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCatch",
+    "asset_id": "the-catch",
+    "note": "The Catch"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCelestialJusticar",
+    "asset_id": "the-celestial-justicar",
+    "note": "The Celestial Justicar"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCelestialStone",
+    "asset_id": "the-celestial-stone",
+    "note": "The Celestial Stone"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheChainsThatBind",
+    "asset_id": "the-chains-that-bind",
+    "note": "The Chains that Bind"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheChosen",
+    "asset_id": "the-chosen",
+    "note": "The Chosen"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheComingStorm",
+    "asset_id": "the-coming-storm",
+    "note": "The Coming Storm"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheConduit",
+    "asset_id": "the-conduit",
+    "note": "The Conduit"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCraving",
+    "asset_id": "the-craving",
+    "note": "The Craving"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheCursedKing",
+    "asset_id": "the-cursed-king",
+    "note": "The Cursed King"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDamned",
+    "asset_id": "the-damned",
+    "note": "The Damned"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDapperProdigy",
+    "asset_id": "the-dapper-prodigy",
+    "note": "The Dapper Prodigy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDarkMage",
+    "asset_id": "the-dark-mage",
+    "note": "The Dark Mage"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDarkestDream",
+    "asset_id": "the-darkest-dream",
+    "note": "The Darkest Dream"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDeal",
+    "asset_id": "the-deal",
+    "note": "The Deal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDeceiver",
+    "asset_id": "the-deceiver",
+    "note": "The Deceiver"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDeepOnes",
+    "asset_id": "the-deep-ones",
+    "note": "The Deep Ones"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDemon",
+    "asset_id": "the-demon",
+    "note": "The Demon"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDemoness",
+    "asset_id": "the-demoness",
+    "note": "The Demoness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDestination",
+    "asset_id": "the-destination",
+    "note": "The Destination"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDoctor",
+    "asset_id": "the-doctor",
+    "note": "The Doctor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDoppelganger",
+    "asset_id": "the-doppelganger",
+    "note": "The Doppelganger"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDragon",
+    "asset_id": "the-dragon",
+    "note": "The Dragon"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDragonsHeart",
+    "asset_id": "the-dragon-s-heart",
+    "note": "The Dragon's Heart"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDreamer",
+    "asset_id": "the-dreamer",
+    "note": "The Dreamer"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDreamland",
+    "asset_id": "the-dreamland",
+    "note": "The Dreamland"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDrunkenAristocrat",
+    "asset_id": "the-drunken-aristocrat",
+    "note": "The Drunken Aristocrat"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheDungeonMaster",
+    "asset_id": "the-dungeon-master",
+    "note": "The Dungeon Master"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEasyStroll",
+    "asset_id": "the-easy-stroll",
+    "note": "The Easy Stroll"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEldritchDecay",
+    "asset_id": "the-eldritch-decay",
+    "note": "The Eldritch Decay"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEncroachingDarkness",
+    "asset_id": "the-encroaching-darkness",
+    "note": "The Encroaching Darkness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEndlessDarkness",
+    "asset_id": "the-endless-darkness",
+    "note": "The Endless Darkness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEndurance",
+    "asset_id": "the-endurance",
+    "note": "The Endurance"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEnforcer",
+    "asset_id": "the-enforcer",
+    "note": "The Enforcer"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEnlightened",
+    "asset_id": "the-enlightened",
+    "note": "The Enlightened"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEnthusiasts",
+    "asset_id": "the-enthusiasts",
+    "note": "The Enthusiasts"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEscape",
+    "asset_id": "the-escape",
+    "note": "The Escape"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEternalWar",
+    "asset_id": "the-eternal-war",
+    "note": "The Eternal War"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEthereal",
+    "asset_id": "the-ethereal",
+    "note": "The Ethereal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEverlasting",
+    "asset_id": "the-everlasting",
+    "note": "The Everlasting"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEyeOfTerror",
+    "asset_id": "the-eye-of-terror",
+    "note": "The Eye of Terror"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheEyeOfTheDragon",
+    "asset_id": "the-eye-of-the-dragon",
+    "note": "The Eye of the Dragon"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFathomlessDepths",
+    "asset_id": "the-fathomless-depths",
+    "note": "The Fathomless Depths"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFeast",
+    "asset_id": "the-feast",
+    "note": "The Feast"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFiend",
+    "asset_id": "the-fiend",
+    "note": "The Fiend"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFinishingTouch",
+    "asset_id": "the-finishing-touch",
+    "note": "The Finishing Touch"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFishmonger",
+    "asset_id": "the-fishmonger",
+    "note": "The Fishmonger"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFletcher",
+    "asset_id": "the-fletcher",
+    "note": "The Fletcher"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFlorasGift",
+    "asset_id": "the-flora-s-gift",
+    "note": "The Flora's Gift"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFool",
+    "asset_id": "the-fool",
+    "note": "The Fool"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheForbiddenFruit",
+    "asset_id": "the-forbidden-fruit",
+    "note": "The Forbidden Fruit"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheForgottenTreasure",
+    "asset_id": "the-forgotten-treasure",
+    "note": "The Forgotten Treasure"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFormlessSea",
+    "asset_id": "the-formless-sea",
+    "note": "The Formless Sea"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheForsaken",
+    "asset_id": "the-forsaken",
+    "note": "The Forsaken"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFortunate",
+    "asset_id": "the-fortunate",
+    "note": "The Fortunate"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheForwardGaze",
+    "asset_id": "the-forward-gaze",
+    "note": "The Forward Gaze"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFox",
+    "asset_id": "the-fox",
+    "note": "The Fox"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheFoxInTheBrambles",
+    "asset_id": "the-fox-in-the-brambles",
+    "note": "The Fox in the Brambles"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGambler",
+    "asset_id": "the-gambler",
+    "note": "The Gambler"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGarishPower",
+    "asset_id": "the-garish-power",
+    "note": "The Garish Power"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGemcutter",
+    "asset_id": "the-gemcutter",
+    "note": "The Gemcutter"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGentleman",
+    "asset_id": "the-gentleman",
+    "note": "The Gentleman"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGladiator",
+    "asset_id": "the-gladiator",
+    "note": "The Gladiator"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGoldenEra",
+    "asset_id": "the-golden-era",
+    "note": "The Golden Era"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGreatestIntentions",
+    "asset_id": "the-greatest-intentions",
+    "note": "The Greatest Intentions"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheGulf",
+    "asset_id": "the-gulf",
+    "note": "The Gulf"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHaleHeart",
+    "asset_id": "the-hale-heart",
+    "note": "The Hale Heart"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHarvester",
+    "asset_id": "the-harvester",
+    "note": "The Harvester"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHermit",
+    "asset_id": "the-hermit",
+    "note": "The Hermit"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHeroicShot",
+    "asset_id": "the-heroic-shot",
+    "note": "The Heroic Shot"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHiveOfKnowledge",
+    "asset_id": "the-hive-of-knowledge",
+    "note": "The Hive of Knowledge"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHoarder",
+    "asset_id": "the-hoarder",
+    "note": "The Hoarder"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHook",
+    "asset_id": "the-hook",
+    "note": "The Hook"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheHunger",
+    "asset_id": "the-hunger",
+    "note": "The Hunger"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheImmortal",
+    "asset_id": "the-immortal",
+    "note": "The Immortal"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheIncantation",
+    "asset_id": "the-incantation",
+    "note": "The Incantation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheInnocent",
+    "asset_id": "the-innocent",
+    "note": "The Innocent"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheInoculated",
+    "asset_id": "the-inoculated",
+    "note": "The Inoculated"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheInsaneCat",
+    "asset_id": "the-insane-cat",
+    "note": "The Insane Cat"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheInsatiable",
+    "asset_id": "the-insatiable",
+    "note": "The Insatiable"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheInventor",
+    "asset_id": "the-inventor",
+    "note": "The Inventor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheIronBard",
+    "asset_id": "the-rusted-bard",
+    "note": "The Rusted Bard"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheJester",
+    "asset_id": "the-jester",
+    "note": "The Jester"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheJewellersBoon",
+    "asset_id": "the-jeweller-s-boon",
+    "note": "The Jeweller's Boon"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheJournalist",
+    "asset_id": "the-journalist",
+    "note": "The Journalist"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheJourney",
+    "asset_id": "the-journey",
+    "note": "The Journey"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheKingsBlade",
+    "asset_id": "the-king-s-blade",
+    "note": "The King's Blade"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheKingsHeart",
+    "asset_id": "the-king-s-heart",
+    "note": "The King's Heart"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLake",
+    "asset_id": "the-lake",
+    "note": "The Lake"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLastLaugh",
+    "asset_id": "the-last-laugh",
+    "note": "The Last Laugh"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLastOneStanding",
+    "asset_id": "the-last-one-standing",
+    "note": "The Last One Standing"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLastSupper",
+    "asset_id": "the-last-supper",
+    "note": "The Last Supper"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLeviathan",
+    "asset_id": "the-leviathan",
+    "note": "The Leviathan"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLich",
+    "asset_id": "the-lich",
+    "note": "The Lich"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLifeThief",
+    "asset_id": "the-life-thief",
+    "note": "The Life Thief"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLion",
+    "asset_id": "the-lion",
+    "note": "The Lion"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLongCon",
+    "asset_id": "the-long-con",
+    "note": "The Long Con"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLongWatch",
+    "asset_id": "the-long-watch",
+    "note": "The Long Watch"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLordInBlack",
+    "asset_id": "the-lord-in-black",
+    "note": "The Lord in Black"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLordOfCelebration",
+    "asset_id": "the-lord-of-celebration",
+    "note": "The Lord of Celebration"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLover",
+    "asset_id": "the-lover",
+    "note": "The Lover"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheLunarisPriestess",
+    "asset_id": "the-lunaris-priestess",
+    "note": "The Lunaris Priestess"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMadKing",
+    "asset_id": "the-mad-king",
+    "note": "The Mad King"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMagmaCrab",
+    "asset_id": "the-magma-crab",
+    "note": "The Magma Crab"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMasterArtisan",
+    "asset_id": "the-master-artisan",
+    "note": "The Master Artisan"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMayor",
+    "asset_id": "the-mayor",
+    "note": "The Mayor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMercenary",
+    "asset_id": "the-mercenary",
+    "note": "The Mercenary"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMessenger",
+    "asset_id": "the-messenger",
+    "note": "The Messenger"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMetalsmithsGift",
+    "asset_id": "the-metalsmith-s-gift",
+    "note": "The Metalsmith's Gift"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMindsEyes",
+    "asset_id": "the-mind-s-eyes",
+    "note": "The Mind's Eyes"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMiracle",
+    "asset_id": "the-miracle",
+    "note": "The Miracle"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheMountain",
+    "asset_id": "the-mountain",
+    "note": "The Mountain"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheNurse",
+    "asset_id": "the-nurse",
+    "note": "The Nurse"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOath",
+    "asset_id": "the-oath",
+    "note": "The Oath"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOffering",
+    "asset_id": "the-offering",
+    "note": "The Offering"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOffspring",
+    "asset_id": "the-offspring",
+    "note": "The Offspring"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOldMan",
+    "asset_id": "the-old-man",
+    "note": "The Old Man"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOneThatGotAway",
+    "asset_id": "the-one-that-got-away",
+    "note": "The One That Got Away"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOneWithAll",
+    "asset_id": "the-one-with-all",
+    "note": "The One With All"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheOpulecent",
+    "asset_id": "the-opulent",
+    "note": "The Opulent"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePackLeader",
+    "asset_id": "the-pack-leader",
+    "note": "The Pack Leader"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePact",
+    "asset_id": "the-pact",
+    "note": "The Pact"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePatient",
+    "asset_id": "the-patient",
+    "note": "The Patient"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePenitent",
+    "asset_id": "the-penitent",
+    "note": "The Penitent"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePoet",
+    "asset_id": "the-poet",
+    "note": "The Poet"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePolymath",
+    "asset_id": "the-polymath",
+    "note": "The Polymath"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePorcupine",
+    "asset_id": "the-porcupine",
+    "note": "The Porcupine"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePriceOfDevotion",
+    "asset_id": "the-price-of-devotion",
+    "note": "The Price of Devotion"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePriceOfLoyalty",
+    "asset_id": "the-price-of-loyalty",
+    "note": "The Price of Loyalty"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePriceOfPrescience",
+    "asset_id": "the-price-of-prescience",
+    "note": "The Price of Prescience"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePriceOfProtection",
+    "asset_id": "the-price-of-protection",
+    "note": "The Price of Protection"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePrimordial",
+    "asset_id": "the-primordial",
+    "note": "The Primordial"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThePrinceOfDarkness",
+    "asset_id": "the-prince-of-darkness",
+    "note": "The Prince of Darkness"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheProfessor",
+    "asset_id": "the-professor",
+    "note": "The Professor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheProgenyOfLunaris",
+    "asset_id": "the-progeny-of-lunaris",
+    "note": "The Progeny of Lunaris"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheQueen",
+    "asset_id": "the-queen",
+    "note": "The Queen"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRabbitsFoot",
+    "asset_id": "the-rabbit-s-foot",
+    "note": "The Rabbit's Foot"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRabidRhoa",
+    "asset_id": "the-rabid-rhoa",
+    "note": "The Rabid Rhoa"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRealm",
+    "asset_id": "the-realm",
+    "note": "The Realm"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheReflectionoftheHeart",
+    "asset_id": "reflection-of-the-heart",
+    "note": "Reflection of the Heart"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheReturnOfTheRat",
+    "asset_id": "the-return-of-the-rat",
+    "note": "The Return of the Rat"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRisk",
+    "asset_id": "the-risk",
+    "note": "The Risk"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRiteOfElements",
+    "asset_id": "the-rite-of-elements",
+    "note": "The Rite of Elements"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRoadToPower",
+    "asset_id": "the-road-to-power",
+    "note": "The Road to Power"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheRuthlessCeinture",
+    "asset_id": "the-ruthless-ceinture",
+    "note": "The Ruthless Ceinture"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSacrifice",
+    "asset_id": "the-sacrifice",
+    "note": "The Sacrifice"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSaintsTreasure",
+    "asset_id": "the-saint-s-treasure",
+    "note": "The Saint's Treasure"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSamuraisEye",
+    "asset_id": "the-samurai-s-eye",
+    "note": "The Samurai's Eye"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheScarredMeadow",
+    "asset_id": "the-scarred-meadow",
+    "note": "The Scarred Meadow"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheScavenger",
+    "asset_id": "the-scavenger",
+    "note": "The Scavenger"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheScholar",
+    "asset_id": "the-scholar",
+    "note": "The Scholar"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheScout",
+    "asset_id": "the-scout",
+    "note": "The Scout"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSeeker",
+    "asset_id": "the-seeker",
+    "note": "The Seeker"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSephirot",
+    "asset_id": "the-sephirot",
+    "note": "The Sephirot"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheShepherdsSandals",
+    "asset_id": "the-shepherd-s-sandals",
+    "note": "The Shepherd's Sandals"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheShieldbearer",
+    "asset_id": "the-shieldbearer",
+    "note": "The Shieldbearer"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheShortcut",
+    "asset_id": "the-shortcut",
+    "note": "The Shortcut"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSideQuest",
+    "asset_id": "the-side-quest",
+    "note": "The Side Quest"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSigil",
+    "asset_id": "the-sigil",
+    "note": "The Sigil"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSillyBoy",
+    "asset_id": "the-silly-boy",
+    "note": "The Silly Boy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSiren",
+    "asset_id": "the-siren",
+    "note": "The Siren"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSkeleton",
+    "asset_id": "the-skeleton",
+    "note": "The Skeleton"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSlumberingBeast",
+    "asset_id": "the-slumbering-beast",
+    "note": "The Slumbering Beast"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSoul",
+    "asset_id": "the-soul",
+    "note": "The Soul"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSparkAndTheFlame",
+    "asset_id": "the-spark-and-the-flame",
+    "note": "The Spark and the Flame"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSpoiledPrince",
+    "asset_id": "the-spoiled-prince",
+    "note": "The Spoiled Prince"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheStandoff",
+    "asset_id": "the-standoff",
+    "note": "The Standoff"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheStormcaller",
+    "asset_id": "the-stormcaller",
+    "note": "The Stormcaller"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheStrategist",
+    "asset_id": "the-strategist",
+    "note": "The Strategist"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSummoner",
+    "asset_id": "the-summoner",
+    "note": "The Summoner"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSun",
+    "asset_id": "the-sun",
+    "note": "The Sun"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSurgeon",
+    "asset_id": "the-surgeon",
+    "note": "The Surgeon"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSurveyor",
+    "asset_id": "the-surveyor",
+    "note": "The Surveyor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSurvivalist",
+    "asset_id": "the-survivalist",
+    "note": "The Survivalist"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheSwordKingsSalute",
+    "asset_id": "the-sword-king-s-salute",
+    "note": "The Sword King's Salute"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheThaumaturgist",
+    "asset_id": "the-thaumaturgist",
+    "note": "The Thaumaturgist"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheThrone",
+    "asset_id": "the-throne",
+    "note": "The Throne"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTinkerersTable",
+    "asset_id": "the-tinkerer-s-table",
+    "note": "The Tinkerer's Table"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTirelessExtractor",
+    "asset_id": "the-tireless-extractor",
+    "note": "The Tireless Extractor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTower",
+    "asset_id": "the-tower",
+    "note": "The Tower"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTraitor",
+    "asset_id": "the-traitor",
+    "note": "The Traitor"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTransformation",
+    "asset_id": "the-transformation",
+    "note": "The Transformation"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTrial",
+    "asset_id": "the-trial",
+    "note": "The Trial"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTumbleweed",
+    "asset_id": "the-tumbleweed",
+    "note": "The Tumbleweed"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTwilightMoon",
+    "asset_id": "the-twilight-moon",
+    "note": "The Twilight Moon"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTwins",
+    "asset_id": "the-twins",
+    "note": "The Twins"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheTyrant",
+    "asset_id": "the-tyrant",
+    "note": "The Tyrant"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheUndaunted",
+    "asset_id": "the-undaunted",
+    "note": "The Undaunted"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheUndisputed",
+    "asset_id": "the-undisputed",
+    "note": "The Undisputed"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheUnexpectedPrize",
+    "asset_id": "the-unexpected-prize",
+    "note": "The Unexpected Prize"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheUnion",
+    "asset_id": "the-union",
+    "note": "The Union"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheValkyrie",
+    "asset_id": "the-valkyrie",
+    "note": "The Valkyrie"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheVast",
+    "asset_id": "the-vast",
+    "note": "The Vast"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheVisionary",
+    "asset_id": "the-visionary",
+    "note": "The Visionary"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheVoid",
+    "asset_id": "the-void",
+    "note": "The Void"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWarden",
+    "asset_id": "the-warden",
+    "note": "The Warden"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWarlord",
+    "asset_id": "the-warlord",
+    "note": "The Warlord"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWatcher",
+    "asset_id": "the-watcher",
+    "note": "The Watcher"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWeb",
+    "asset_id": "the-web",
+    "note": "The Web"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWeddingGift",
+    "asset_id": "the-wedding-gift",
+    "note": "The Wedding Gift"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWhiteKnight",
+    "asset_id": "the-white-knight",
+    "note": "The White Knight"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWhiteout",
+    "asset_id": "the-whiteout",
+    "note": "The Whiteout"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWiltedRose",
+    "asset_id": "the-wilted-rose",
+    "note": "The Wilted Rose"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWind",
+    "asset_id": "the-wind",
+    "note": "The Wind"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWitch",
+    "asset_id": "the-witch",
+    "note": "The Witch"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWolf",
+    "asset_id": "the-wolf",
+    "note": "The Wolf"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWolfsLegacy",
+    "asset_id": "the-wolf-s-legacy",
+    "note": "The Wolf's Legacy"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWolfsShadow",
+    "asset_id": "the-wolf-s-shadow",
+    "note": "The Wolf's Shadow"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWolvenKingsBite",
+    "asset_id": "the-wolven-king-s-bite",
+    "note": "The Wolven King's Bite"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWolverine",
+    "asset_id": "the-wolverine",
+    "note": "The Wolverine"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWorldEater",
+    "asset_id": "the-world-eater",
+    "note": "The World Eater"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWrath",
+    "asset_id": "the-wrath",
+    "note": "The Wrath"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTheWretched",
+    "asset_id": "the-wretched",
+    "note": "The Wretched"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThirstForKnowledge",
+    "asset_id": "thirst-for-knowledge",
+    "note": "Thirst for Knowledge"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThreeFacesInTheDark",
+    "asset_id": "three-faces-in-the-dark",
+    "note": "Three Faces in the Dark"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThreeVoices",
+    "asset_id": "three-voices",
+    "note": "Three Voices"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardThunderousSkies",
+    "asset_id": "thunderous-skies",
+    "note": "Thunderous Skies"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTimeLostRelic",
+    "asset_id": "time-lost-relic",
+    "note": "Time-Lost Relic"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardToxicTidings",
+    "asset_id": "toxic-tidings",
+    "note": "Toxic Tidings"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTranquillity",
+    "asset_id": "tranquillity",
+    "note": "Tranquillity"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTreasureHunter",
+    "asset_id": "treasure-hunter",
+    "note": "Treasure Hunter"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTriskaidekaphobia",
+    "asset_id": "triskaidekaphobia",
+    "note": "Triskaidekaphobia"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardTurnTheOtherCheek",
+    "asset_id": "turn-the-other-cheek",
+    "note": "Turn the Other Cheek"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardUnchained",
+    "asset_id": "unchained",
+    "note": "Unchained"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardUndergroundForest",
+    "asset_id": "underground-forest",
+    "note": "Underground Forest"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardUnrequitedLove",
+    "asset_id": "unrequited-love",
+    "note": "Unrequited Love"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardVanity",
+    "asset_id": "vanity",
+    "note": "Vanity"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardVilePower",
+    "asset_id": "vile-power",
+    "note": "Vile Power"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardViniasToken",
+    "asset_id": "vinia-s-token",
+    "note": "Vinia's Token"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardVoidOfTheElements",
+    "asset_id": "void-of-the-elements",
+    "note": "Void of the Elements"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardVolatilePower",
+    "asset_id": "volatile-power",
+    "note": "Volatile Power"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardWealthAndPower",
+    "asset_id": "wealth-and-power",
+    "note": "Wealth and Power"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardWhenCurrentsBlaze",
+    "asset_id": "when-currents-blaze",
+    "note": "When Currents Blaze"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardWhoAsked",
+    "asset_id": "who-asked",
+    "note": "Who Asked"
+  },
+  {
+    "path": "Metadata/Items/DivinationCards/DivinationCardWintersEmbrace",
+    "asset_id": "winter-s-embrace",
+    "note": "Winter's Embrace"
+  },
+  {
+    "path": "Metadata/Items/Heist/HeistCoin",
+    "asset_id": "rogue-s-marker",
+    "note": "Rogue's Marker"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AbyssPinnacleKeyGhastly",
+    "asset_id": "zorath-s-eye-of-the-endless",
+    "note": "Zorath's Eye of the Endless"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AbyssPinnacleKeyHypnotic",
+    "asset_id": "zorath-s-eye-of-the-inevitable",
+    "note": "Zorath's Eye of the Inevitable"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AbyssPinnacleKeyMurderous",
+    "asset_id": "zorath-s-eye-of-malevolence",
+    "note": "Zorath's Eye of Malevolence"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AbyssPinnacleKeySearching",
+    "asset_id": "zorath-s-eye-of-authority",
+    "note": "Zorath's Eye of Authority"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AtlasMemory/CurrencyBenevolenceKey",
+    "asset_id": "echo-of-reverence",
+    "note": "Echo of Reverence"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AtlasMemory/CurrencyFearKey",
+    "asset_id": "echo-of-trauma",
+    "note": "Echo of Trauma"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/AtlasMemory/CurrencyIgnoranceKey",
+    "asset_id": "echo-of-loneliness",
+    "note": "Echo of Loneliness"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/BetrayalAllflamePack",
+    "asset_id": "allflame-ember-of-kulemak",
+    "note": "Allflame Ember of Kulemak"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CleansedAllflamePack",
+    "asset_id": "allflame-ember-of-the-ethereal",
+    "note": "Allflame Ember of the Ethereal"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyAfflictionFragment",
+    "asset_id": "simulacrum",
+    "note": "Simulacrum"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyBrequelBossKey",
+    "asset_id": "hivebrain-gland",
+    "note": "Hivebrain Gland"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyElderFragment1",
+    "asset_id": "fragment-of-enslavement",
+    "note": "Fragment of Enslavement"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyElderFragment2",
+    "asset_id": "fragment-of-eradication",
+    "note": "Fragment of Eradication"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyElderFragment3",
+    "asset_id": "fragment-of-constriction",
+    "note": "Fragment of Constriction"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyElderFragment4",
+    "asset_id": "fragment-of-purification",
+    "note": "Fragment of Purification"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyFragmentPantheonFlask",
+    "asset_id": "divine-vessel",
+    "note": "Divine Vessel"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyHarvestBossKey",
+    "asset_id": "sacred-blossom",
+    "note": "Sacred Blossom"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyLegionFragmentEternal",
+    "asset_id": "timeless-eternal-emblem",
+    "note": "Timeless Eternal Emblem"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyLegionFragmentKarui",
+    "asset_id": "timeless-karui-emblem",
+    "note": "Timeless Karui Emblem"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyLegionFragmentMaraketh",
+    "asset_id": "timeless-maraketh-emblem",
+    "note": "Timeless Maraketh Emblem"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyLegionFragmentTemplar",
+    "asset_id": "timeless-templar-emblem",
+    "note": "Timeless Templar Emblem"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyLegionFragmentVaal",
+    "asset_id": "timeless-vaal-emblem",
+    "note": "Timeless Vaal Emblem"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyMastermindsLair",
+    "asset_id": "syndicate-medallion",
+    "note": "Syndicate Medallion"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyMavenKey",
+    "asset_id": "the-maven-s-writ",
+    "note": "The Maven's Writ"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyMavenKeyFragment",
+    "asset_id": "crescent-splinter",
+    "note": "Crescent Splinter"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess",
+    "asset_id": "offering-to-the-goddess",
+    "note": "Offering to the Goddess"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddessDedication",
+    "asset_id": "dedication-to-the-goddess",
+    "note": "Dedication to the Goddess"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddessGift",
+    "asset_id": "gift-to-the-goddess",
+    "note": "Gift to the Goddess"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddessTribute",
+    "asset_id": "tribute-to-the-goddess",
+    "note": "Tribute to the Goddess"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyShaperFragment1",
+    "asset_id": "fragment-of-the-phoenix",
+    "note": "Fragment of the Phoenix"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyShaperFragment2",
+    "asset_id": "fragment-of-the-minotaur",
+    "note": "Fragment of the Minotaur"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyShaperFragment3",
+    "asset_id": "fragment-of-the-chimera",
+    "note": "Fragment of the Chimera"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyShaperFragment4",
+    "asset_id": "fragment-of-the-hydra",
+    "note": "Fragment of the Hydra"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencySirusFragment1",
+    "asset_id": "al-hezmin-s-crest",
+    "note": "Al-Hezmin's Crest"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencySirusFragment2",
+    "asset_id": "baran-s-crest",
+    "note": "Baran's Crest"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencySirusFragment3",
+    "asset_id": "drox-s-crest",
+    "note": "Drox's Crest"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencySirusFragment4",
+    "asset_id": "veritania-s-crest",
+    "note": "Veritania's Crest"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyAnger",
+    "asset_id": "traumatic-fragment",
+    "note": "Traumatic Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyBenevolence",
+    "asset_id": "reverent-fragment",
+    "note": "Reverent Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyCortex",
+    "asset_id": "synthesising-fragment",
+    "note": "Synthesising Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyEater",
+    "asset_id": "devouring-fragment",
+    "note": "Devouring Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyExarch",
+    "asset_id": "blazing-fragment",
+    "note": "Blazing Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyIgnorance",
+    "asset_id": "lonely-fragment",
+    "note": "Lonely Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyMaven",
+    "asset_id": "reality-fragment",
+    "note": "Reality Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyShaper",
+    "asset_id": "cosmic-fragment",
+    "note": "Cosmic Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeySirus",
+    "asset_id": "awakening-fragment",
+    "note": "Awakening Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberBossKeyUberElder",
+    "asset_id": "decaying-fragment",
+    "note": "Decaying Fragment"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberElderFragment1",
+    "asset_id": "fragment-of-terror",
+    "note": "Fragment of Terror"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberElderFragment2",
+    "asset_id": "fragment-of-emptiness",
+    "note": "Fragment of Emptiness"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberElderFragment3",
+    "asset_id": "fragment-of-shape",
+    "note": "Fragment of Shape"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyUberElderFragment4",
+    "asset_id": "fragment-of-knowledge",
+    "note": "Fragment of Knowledge"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment1_1",
+    "asset_id": "sacrifice-at-midnight",
+    "note": "Sacrifice at Midnight"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment1_2",
+    "asset_id": "sacrifice-at-dawn",
+    "note": "Sacrifice at Dawn"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment1_3",
+    "asset_id": "sacrifice-at-noon",
+    "note": "Sacrifice at Noon"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment1_4",
+    "asset_id": "sacrifice-at-dusk",
+    "note": "Sacrifice at Dusk"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment2_1",
+    "asset_id": "mortal-rage",
+    "note": "Mortal Rage"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment2_2",
+    "asset_id": "mortal-hope",
+    "note": "Mortal Hope"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment2_3",
+    "asset_id": "mortal-ignorance",
+    "note": "Mortal Ignorance"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyVaalFragment2_4",
+    "asset_id": "mortal-grief",
+    "note": "Mortal Grief"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/GoldAllflamePack",
+    "asset_id": "allflame-ember-of-the-gilded",
+    "note": "Allflame Ember of the Gilded"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/MeatSackAllflamePack",
+    "asset_id": "allflame-ember-of-flesh",
+    "note": "Allflame Ember of Flesh"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/PropagationAllflamePack",
+    "asset_id": "allflame-ember-of-propagation",
+    "note": "Allflame Ember of Propagation"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/ResplendenceAllflamePack",
+    "asset_id": "allflame-ember-of-resplendence",
+    "note": "Allflame Ember of Resplendence"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/RitualBossFragment",
+    "asset_id": "an-audience-with-the-king",
+    "note": "An Audience With The King"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/ToadAllflamePack",
+    "asset_id": "allflame-ember-of-toads",
+    "note": "Allflame Ember of Toads"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/VoidbornVaultKey",
+    "asset_id": "voidborn-reliquary-key",
+    "note": "Voidborn Reliquary Key"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/WildwoodAllflamePack",
+    "asset_id": "allflame-ember-of-the-wildwood",
+    "note": "Allflame Ember of the Wildwood"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAbyssNew1",
+    "asset_id": "abyss-scarab",
+    "note": "Abyss Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAbyssNew2",
+    "asset_id": "abyss-scarab-of-multitudes",
+    "note": "Abyss Scarab of Multitudes"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAbyssNew3",
+    "asset_id": "abyss-scarab-of-descending",
+    "note": "Abyss Scarab of Descending"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAbyssNew4",
+    "asset_id": "abyss-scarab-of-crystals",
+    "note": "Abyss Scarab of Crystals"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAbyssNew5",
+    "asset_id": "abyss-scarab-of-the-consort",
+    "note": "Abyss Scarab of the Consort"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAnarchy1",
+    "asset_id": "anarchy-scarab",
+    "note": "Anarchy Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAnarchy2",
+    "asset_id": "anarchy-scarab-of-gigantification",
+    "note": "Anarchy Scarab of Gigantification"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAnarchy3",
+    "asset_id": "anarchy-scarab-of-partnership",
+    "note": "Anarchy Scarab of Partnership"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabAnarchy4",
+    "asset_id": "anarchy-scarab-of-the-exceptional",
+    "note": "Anarchy Scarab of the Exceptional"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeastsNew1",
+    "asset_id": "bestiary-scarab",
+    "note": "Bestiary Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeastsNew2",
+    "asset_id": "bestiary-scarab-of-the-herd",
+    "note": "Bestiary Scarab of the Herd"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeastsNew3",
+    "asset_id": "bestiary-scarab-of-duplicating",
+    "note": "Bestiary Scarab of Duplicating"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBetrayal1",
+    "asset_id": "betrayal-scarab",
+    "note": "Betrayal Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBetrayal2",
+    "asset_id": "betrayal-scarab-of-the-allflame",
+    "note": "Betrayal Scarab of the Allflame"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBetrayal3",
+    "asset_id": "betrayal-scarab-of-reinforcements",
+    "note": "Betrayal Scarab of Reinforcements"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBetrayal4",
+    "asset_id": "betrayal-scarab-of-unbreaking",
+    "note": "Betrayal Scarab of Unbreaking"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeyond1",
+    "asset_id": "beyond-scarab",
+    "note": "Beyond Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeyond3",
+    "asset_id": "beyond-scarab-of-haemophilia",
+    "note": "Beyond Scarab of Haemophilia"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeyond4",
+    "asset_id": "beyond-scarab-of-resurgence",
+    "note": "Beyond Scarab of Resurgence"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBeyond5",
+    "asset_id": "beyond-scarab-of-the-invasion",
+    "note": "Beyond Scarab of the Invasion"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBlightNew1",
+    "asset_id": "blight-scarab",
+    "note": "Blight Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBlightNew3",
+    "asset_id": "blight-scarab-of-the-blightheart",
+    "note": "Blight Scarab of the Blightheart"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBlightNew4",
+    "asset_id": "blight-scarab-of-blooming",
+    "note": "Blight Scarab of Blooming"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBlightNew5",
+    "asset_id": "blight-scarab-of-invigoration",
+    "note": "Blight Scarab of Invigoration"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBreachNew1",
+    "asset_id": "breach-scarab-of-the-hive",
+    "note": "Breach Scarab of the Hive"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBreachNew3",
+    "asset_id": "breach-scarab-of-instability",
+    "note": "Breach Scarab of Instability"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBreachNew4",
+    "asset_id": "breach-scarab-of-the-marshal",
+    "note": "Breach Scarab of the Marshal"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBreachNew5",
+    "asset_id": "breach-scarab-of-the-incensed-swarm",
+    "note": "Breach Scarab of the Incensed Swarm"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabBreachNew6",
+    "asset_id": "breach-scarab-of-resonant-cascade",
+    "note": "Breach Scarab of Resonant Cascade"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDelirium1",
+    "asset_id": "delirium-scarab",
+    "note": "Delirium Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDelirium2",
+    "asset_id": "delirium-scarab-of-mania",
+    "note": "Delirium Scarab of Mania"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDelirium3",
+    "asset_id": "delirium-scarab-of-paranoia",
+    "note": "Delirium Scarab of Paranoia"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDelirium4",
+    "asset_id": "delirium-scarab-of-neuroses",
+    "note": "Delirium Scarab of Neuroses"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDelirium5",
+    "asset_id": "delirium-scarab-of-delusions",
+    "note": "Delirium Scarab of Delusions"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDivinationCardsNew1",
+    "asset_id": "divination-scarab-of-the-cloister",
+    "note": "Divination Scarab of The Cloister"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDivinationCardsNew2",
+    "asset_id": "divination-scarab-of-plenty",
+    "note": "Divination Scarab of Plenty"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDivinationCardsNew3",
+    "asset_id": "divination-scarab-of-pilfering",
+    "note": "Divination Scarab of Pilfering"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDomination1",
+    "asset_id": "domination-scarab",
+    "note": "Domination Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDomination2",
+    "asset_id": "domination-scarab-of-apparitions",
+    "note": "Domination Scarab of Apparitions"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDomination3",
+    "asset_id": "domination-scarab-of-evolution",
+    "note": "Domination Scarab of Evolution"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabDomination4",
+    "asset_id": "domination-scarab-of-terrors",
+    "note": "Domination Scarab of Terrors"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabEssence1",
+    "asset_id": "essence-scarab",
+    "note": "Essence Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabEssence2",
+    "asset_id": "essence-scarab-of-ascent",
+    "note": "Essence Scarab of Ascent"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabEssence3",
+    "asset_id": "essence-scarab-of-stability",
+    "note": "Essence Scarab of Stability"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabEssence4",
+    "asset_id": "essence-scarab-of-calcification",
+    "note": "Essence Scarab of Calcification"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabEssence5",
+    "asset_id": "essence-scarab-of-adaptation",
+    "note": "Essence Scarab of Adaptation"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabExpedition1",
+    "asset_id": "expedition-scarab",
+    "note": "Expedition Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabExpedition2",
+    "asset_id": "expedition-scarab-of-runefinding",
+    "note": "Expedition Scarab of Runefinding"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabExpedition3",
+    "asset_id": "expedition-scarab-of-verisium-powder",
+    "note": "Expedition Scarab of Verisium Powder"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabExpedition4",
+    "asset_id": "expedition-scarab-of-infusion",
+    "note": "Expedition Scarab of Infusion"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabExpedition5",
+    "asset_id": "expedition-scarab-of-archaeology",
+    "note": "Expedition Scarab of Archaeology"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabHarvest1",
+    "asset_id": "harvest-scarab",
+    "note": "Harvest Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabHarvest2",
+    "asset_id": "harvest-scarab-of-doubling",
+    "note": "Harvest Scarab of Doubling"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabHarvest3",
+    "asset_id": "harvest-scarab-of-cornucopia",
+    "note": "Harvest Scarab of Cornucopia"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabIncursion1",
+    "asset_id": "incursion-scarab",
+    "note": "Incursion Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabIncursion2",
+    "asset_id": "incursion-scarab-of-invasion",
+    "note": "Incursion Scarab of Invasion"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabIncursion3",
+    "asset_id": "incursion-scarab-of-champions",
+    "note": "Incursion Scarab of Champions"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabIncursion4",
+    "asset_id": "incursion-scarab-of-timelines",
+    "note": "Incursion Scarab of Timelines"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabInfluenceNew1",
+    "asset_id": "influencing-scarab-of-the-shaper",
+    "note": "Influencing Scarab of the Shaper"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabInfluenceNew2",
+    "asset_id": "influencing-scarab-of-the-elder",
+    "note": "Influencing Scarab of the Elder"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabInfluenceNew3",
+    "asset_id": "influencing-scarab-of-hordes",
+    "note": "Influencing Scarab of Hordes"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabInfluenceNew4",
+    "asset_id": "influencing-scarab-of-interference",
+    "note": "Influencing Scarab of Interference"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabLegionNew1",
+    "asset_id": "legion-scarab",
+    "note": "Legion Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabLegionNew2",
+    "asset_id": "legion-scarab-of-officers",
+    "note": "Legion Scarab of Officers"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabLegionNew3",
+    "asset_id": "legion-scarab-of-treasures",
+    "note": "Legion Scarab of Treasures"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabLegionNew5",
+    "asset_id": "legion-scarab-of-eternal-conflict",
+    "note": "Legion Scarab of Eternal Conflict"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMapsNew1",
+    "asset_id": "cartography-scarab-of-escalation",
+    "note": "Cartography Scarab of Escalation"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMapsNew2",
+    "asset_id": "cartography-scarab-of-risk",
+    "note": "Cartography Scarab of Risk"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMapsNew4",
+    "asset_id": "cartography-scarab-of-corruption",
+    "note": "Cartography Scarab of Corruption"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMapsNew5",
+    "asset_id": "cartography-scarab-of-the-multitude",
+    "note": "Cartography Scarab of the Multitude"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMercenaries1",
+    "asset_id": "trarthan-scarab",
+    "note": "Trarthan Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMercenaries2",
+    "asset_id": "trarthan-scarab-of-infamy",
+    "note": "Trarthan Scarab of Infamy"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMercenaries3",
+    "asset_id": "trarthan-scarab-of-renown",
+    "note": "Trarthan Scarab of Renown"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMercenaries4",
+    "asset_id": "trarthan-scarab-of-surprising-alliances",
+    "note": "Trarthan Scarab of Surprising Alliances"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc1",
+    "asset_id": "scarab-of-monstrous-lineage",
+    "note": "Scarab of Monstrous Lineage"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc10",
+    "asset_id": "scarab-of-the-dextral",
+    "note": "Scarab of the Dextral"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc11",
+    "asset_id": "scarab-of-radiant-storms",
+    "note": "Scarab of Radiant Storms"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc2",
+    "asset_id": "scarab-of-adversaries",
+    "note": "Scarab of Adversaries"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc3",
+    "asset_id": "scarab-of-divinity",
+    "note": "Scarab of Divinity"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc4",
+    "asset_id": "scarab-of-hunted-traitors",
+    "note": "Scarab of Hunted Traitors"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc5",
+    "asset_id": "scarab-of-stability",
+    "note": "Scarab of Stability"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc8",
+    "asset_id": "scarab-of-wisps",
+    "note": "Scarab of Wisps"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabMisc9",
+    "asset_id": "scarab-of-the-sinistral",
+    "note": "Scarab of the Sinistral"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabRitual1",
+    "asset_id": "ritual-scarab-of-selectiveness",
+    "note": "Ritual Scarab of Selectiveness"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabRitual2",
+    "asset_id": "ritual-scarab-of-wisps",
+    "note": "Ritual Scarab of Wisps"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabRitual3",
+    "asset_id": "ritual-scarab-of-abundance",
+    "note": "Ritual Scarab of Abundance"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabRitual4",
+    "asset_id": "ritual-scarab-of-corpses",
+    "note": "Ritual Scarab of Corpses"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabSettlers1",
+    "asset_id": "kalguuran-scarab",
+    "note": "Kalguuran Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabSettlers2",
+    "asset_id": "kalguuran-scarab-of-guarded-riches",
+    "note": "Kalguuran Scarab of Guarded Riches"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabSettlers3",
+    "asset_id": "kalguuran-scarab-of-refinement",
+    "note": "Kalguuran Scarab of Refinement"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabSettlers4",
+    "asset_id": "kalguuran-scarab-of-enriching",
+    "note": "Kalguuran Scarab of Enriching"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabStrongboxNew1",
+    "asset_id": "ambush-scarab",
+    "note": "Ambush Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabStrongboxNew2",
+    "asset_id": "ambush-scarab-of-hidden-compartments",
+    "note": "Ambush Scarab of Hidden Compartments"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabStrongboxNew3",
+    "asset_id": "ambush-scarab-of-potency",
+    "note": "Ambush Scarab of Potency"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabStrongboxNew4",
+    "asset_id": "ambush-scarab-of-containment",
+    "note": "Ambush Scarab of Containment"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabStrongboxNew5",
+    "asset_id": "ambush-scarab-of-discernment",
+    "note": "Ambush Scarab of Discernment"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabSulphiteNew1",
+    "asset_id": "sulphite-scarab",
+    "note": "Sulphite Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabSulphiteNew3",
+    "asset_id": "sulphite-scarab-of-fumes",
+    "note": "Sulphite Scarab of Fumes"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabTormentNew1",
+    "asset_id": "torment-scarab",
+    "note": "Torment Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabTormentNew2",
+    "asset_id": "torment-scarab-of-peculiarity",
+    "note": "Torment Scarab of Peculiarity"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabTormentNew4",
+    "asset_id": "torment-scarab-of-possession",
+    "note": "Torment Scarab of Possession"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber1",
+    "asset_id": "horned-scarab-of-bloodlines",
+    "note": "Horned Scarab of Bloodlines"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber2",
+    "asset_id": "horned-scarab-of-nemeses",
+    "note": "Horned Scarab of Nemeses"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber3",
+    "asset_id": "horned-scarab-of-preservation",
+    "note": "Horned Scarab of Preservation"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber4",
+    "asset_id": "horned-scarab-of-awakening",
+    "note": "Horned Scarab of Awakening"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber5",
+    "asset_id": "horned-scarab-of-tradition",
+    "note": "Horned Scarab of Tradition"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber6",
+    "asset_id": "horned-scarab-of-glittering",
+    "note": "Horned Scarab of Glittering"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUber7",
+    "asset_id": "horned-scarab-of-pandemonium",
+    "note": "Horned Scarab of Pandemonium"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUltimatum1",
+    "asset_id": "ultimatum-scarab",
+    "note": "Ultimatum Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUltimatum2",
+    "asset_id": "ultimatum-scarab-of-bribing",
+    "note": "Ultimatum Scarab of Bribing"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUltimatum3",
+    "asset_id": "ultimatum-scarab-of-dueling",
+    "note": "Ultimatum Scarab of Dueling"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUltimatum4",
+    "asset_id": "ultimatum-scarab-of-catalysing",
+    "note": "Ultimatum Scarab of Catalysing"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUltimatum5",
+    "asset_id": "ultimatum-scarab-of-inscription",
+    "note": "Ultimatum Scarab of Inscription"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUniquesNew1",
+    "asset_id": "titanic-scarab",
+    "note": "Titanic Scarab"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUniquesNew2",
+    "asset_id": "titanic-scarab-of-treasures",
+    "note": "Titanic Scarab of Treasures"
+  },
+  {
+    "path": "Metadata/Items/Scarabs/ScarabUniquesNew3",
+    "asset_id": "titanic-scarab-of-legend",
+    "note": "Titanic Scarab of Legend"
+  }
+]

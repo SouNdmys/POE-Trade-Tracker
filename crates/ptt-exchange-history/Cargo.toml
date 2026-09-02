@@ -8,6 +8,8 @@ publish = false
 description = "GGG currency-exchange hourly history: parse, fetch, and plan for POE Trade Tracker"
 
 [dependencies]
+# 映射表按游戏取，键就是 `Game`；ptt-core 不依赖仓内任何 crate，不成环。
+ptt-core = { path = "../ptt-core" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
