@@ -28,8 +28,12 @@
 //!   `exchange_probe --radar`
 //!       镜像雷达页「交易所雷达」段：读近 48 小时的小时行，按官方成交均价跑
 //!       与抓取雷达同一套环路搜索，打印耗时、数据小时与每条环。
+//!   `exchange_probe --series --asset <目录 id> [--range 24h|3d|7d|all]`
+//!       镜像交易所页的明细栏与时段档位：按水位读整段保留期的精简小时行，建小时
+//!       账本（打印读库/建账耗时），打印该资产逐小时的价与成交额、峰值时段，
+//!       再按同一档位重排表格打印前 15 行——页面上点一行/切一档看到的就是这些。
 //!
-//! `--reconcile`/`--status`/`--audit`/`--export`/`--radar` 的联赛默认取设置里的 `exchange.league`，
+//! `--reconcile`/`--status`/`--audit`/`--export`/`--radar`/`--series` 的联赛默认取设置里的 `exchange.league`，
 //! `--league` 可覆盖；其余子命令仍要求显式 `--league`。
 
 #[cfg(windows)]
@@ -57,7 +61,8 @@ mod probe {
             || has("--status")
             || has("--audit")
             || has("--export")
-            || has("--radar");
+            || has("--radar")
+            || has("--series");
         if !any_command {
             return Err("nothing to do: see the file header for subcommands".to_owned());
         }
@@ -123,6 +128,9 @@ mod probe {
         if has("--radar") {
             session.radar()?;
         }
+        if has("--series") {
+            session.series(option("--asset"), option("--range"))?;
+        }
         Ok(())
     }
 
@@ -167,6 +175,103 @@ mod probe {
             }
             if let ptt_runtime::reports::RadarScan::Ran(scan) = &model.scan {
                 println!("diagnostics: {:?}", scan.diagnostics);
+            }
+            Ok(())
+        }
+
+        /// 与 app 的 `load_exchange_ledger` 同一条路径：水位 → 窗口小时数 → 精简行 →
+        /// `exchange_ledger_model`。返回 (模型, 读库毫秒, 建账毫秒)。
+        fn ledger(
+            &self,
+            store: &ptt_storage::MarketStore,
+            tuning: &ptt_settings::MarketTuning,
+        ) -> Result<Option<(ptt_runtime::reports::ExchangeLedgerModel, u64, u64)>, String> {
+            let Some(watermark) = store
+                .exchange_watermark(&self.realm, &self.league)
+                .map_err(|error| format!("watermark: {error}"))?
+            else {
+                return Ok(None);
+            };
+            let window_hours = ptt_runtime::reports::exchange_ledger_window_hours(tuning);
+            let from_ts = watermark - i64::from(window_hours) * 3600;
+            let started = std::time::Instant::now();
+            let rows = store
+                .load_exchange_hour_volumes(&self.realm, &self.league, from_ts, watermark + 3600)
+                .map_err(|error| format!("hour volumes: {error}"))?;
+            let load_millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+            let started = std::time::Instant::now();
+            let mut model =
+                ptt_runtime::reports::exchange_ledger_model(&rows, &self.league, tuning)?;
+            let build_millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+            model.synced_through = Some(watermark);
+            model.load_millis = load_millis;
+            Ok(Some((model, load_millis, build_millis)))
+        }
+
+        /// 镜像交易所页的明细栏（小时账本）与表格的时段档位。
+        fn series(&self, asset: Option<String>, range: Option<String>) -> Result<(), String> {
+            let asset = asset.ok_or("--asset <catalog id> is required")?;
+            let asset = ptt_runtime::live::domain_asset_id(&asset)
+                .map_err(|error| format!("--asset: {error:?}"))?;
+            let hours = match range.as_deref().unwrap_or("24h") {
+                "24h" => Some(24),
+                "3d" => Some(72),
+                "7d" => Some(168),
+                "all" => None,
+                other => return Err(format!("--range {other}: expected 24h, 3d, 7d or all")),
+            };
+            let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+            let settings = ptt_settings::SettingsStore::release_default_from(&local)
+                .load()
+                .settings;
+            let tuning = settings.market_tuning(settings.active_profile.game);
+            let store =
+                ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+                    .map_err(|error| format!("storage: {error}"))?;
+            let Some((ledger, load_millis, build_millis)) = self.ledger(&store, &tuning)? else {
+                println!("ledger: no watermark -- this (game, league) has never synced");
+                return Ok(());
+            };
+            println!(
+                "ledger: {} hours / {} rows / {} assets · loaded in {load_millis} ms, built in {build_millis} ms",
+                ledger.hours_loaded,
+                ledger.rows_loaded,
+                ledger.ledger.series.len(),
+            );
+            let offset = chrono::Local::now().offset().local_minus_utc();
+            for line in ptt_runtime::reports::render_exchange_series(
+                &ledger,
+                &asset,
+                hours,
+                offset,
+                settings.ui_language,
+            ) {
+                println!("{line}");
+            }
+
+            // 表格按同一档位重排：和页面一样先算 48 小时的默认口径，再套窗口。
+            let now = chrono::Utc::now();
+            let hour_rows = store
+                .load_exchange_hours(
+                    &self.realm,
+                    &self.league,
+                    now.timestamp() - 48 * 3600,
+                    now.timestamp(),
+                )
+                .map_err(|error| format!("hours: {error}"))?;
+            let mut model =
+                ptt_runtime::reports::exchange_model(&[], &hour_rows, &self.league, &tuning)?;
+            ptt_runtime::reports::apply_exchange_window(&mut model, &ledger.ledger, hours);
+            println!(
+                "table by window {}: top 15 of {} rows",
+                range.as_deref().unwrap_or("24h"),
+                model.rows.len()
+            );
+            for row in model.rows.iter().take(15) {
+                println!(
+                    "  {:<40} vol/h {}",
+                    row.asset_id, row.volume_per_hour_anchor
+                );
             }
             Ok(())
         }
@@ -731,6 +836,21 @@ mod probe {
                     rows.len(),
                     mapped * 100 / rows.len(),
                 );
+            }
+            // 小时账本的账单：这个数决定按水位缓存够不够（>3 s 再考虑按天分块）。
+            let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+            let settings = ptt_settings::SettingsStore::release_default_from(&local)
+                .load()
+                .settings;
+            let tuning = settings.market_tuning(settings.active_profile.game);
+            match self.ledger(&store, &tuning)? {
+                Some((ledger, load_millis, build_millis)) => println!(
+                    "ledger: {} hours, {} rows, {} assets, load {load_millis} ms + build {build_millis} ms",
+                    ledger.hours_loaded,
+                    ledger.rows_loaded,
+                    ledger.ledger.series.len(),
+                ),
+                None => println!("ledger: no watermark"),
             }
             Ok(())
         }
