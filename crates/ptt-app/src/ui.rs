@@ -660,6 +660,22 @@ pub fn freshness_kind(status: ptt_runtime::domain::FreshnessStatus) -> StatusKin
     }
 }
 
+/// The freshness tier, at column width: 新鲜 / 偏旧 / 过期 / 归档.
+/// 和 [`freshness_kind`] 住在一起:雷达、关注列表、兑换页共用一套字。
+#[must_use]
+pub fn freshness_short(
+    chrome: &'static crate::i18n::Text,
+    status: ptt_runtime::domain::FreshnessStatus,
+) -> &'static str {
+    use ptt_runtime::domain::FreshnessStatus;
+    match status {
+        FreshnessStatus::Fresh => chrome.freshness_fresh,
+        FreshnessStatus::Usable => chrome.freshness_usable,
+        FreshnessStatus::Stale => chrome.freshness_stale,
+        FreshnessStatus::Archived => chrome.freshness_archived,
+    }
+}
+
 /// 新鲜度单元格:6px 色点 + 11px 灰字(新鲜 / 偏旧 / 过期)。
 ///
 /// 表格第一列的标准形态。文字永远是次级灰——色弱、以及缩到迷你浮窗时,

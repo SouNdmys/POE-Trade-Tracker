@@ -61,20 +61,6 @@ pub fn verdict_short(chrome: &'static crate::i18n::Text, category: Actionability
     }
 }
 
-/// The freshness tier, at column width: 新鲜 / 偏旧 / 过期 / 归档.
-#[must_use]
-pub fn freshness_short(
-    chrome: &'static crate::i18n::Text,
-    status: FreshnessStatus,
-) -> &'static str {
-    match status {
-        FreshnessStatus::Fresh => chrome.freshness_fresh,
-        FreshnessStatus::Usable => chrome.freshness_usable,
-        FreshnessStatus::Stale => chrome.freshness_stale,
-        FreshnessStatus::Archived => chrome.freshness_archived,
-    }
-}
-
 /// The route as one row of names with ghost-gray arrows, truncating.
 ///
 /// 12px 界面字体而不是等宽:路径是名字不是数字,等宽会把 348px 的预算吃掉
@@ -334,7 +320,7 @@ impl RadarTable {
                 Some(status) => cell(div())
                     .child(crate::ui::freshness_cell(
                         freshness_kind(status),
-                        freshness_short(chrome, status),
+                        crate::ui::freshness_short(chrome, status),
                     ))
                     .into_any_element(),
                 None => cell(div().text_size(fs(FS_11)).text_color(c(TEXT_GHOST)))

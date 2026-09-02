@@ -322,6 +322,7 @@ impl AppShell {
             .px_3()
             .border_b_1()
             .border_color(c(HAIRLINE_SOFT))
+            .child(heading(text.watch_col_light).w(px(64.)).flex_none())
             .child(heading(text.watch_col_asset).w(px(220.)).flex_none())
             .child(
                 heading(text.watch_col_per_unit)
@@ -452,69 +453,83 @@ impl AppShell {
                 line = line.bg(c(ZEBRA));
             }
             zebra = !zebra;
+            // 新鲜度是第一列(和雷达同形):覆盖度说看到了几面,这盏灯说多久前。
+            let light_cell = div().w(px(64.)).flex_none().child(match entry.light {
+                Some(status) => crate::ui::freshness_cell(
+                    crate::ui::freshness_kind(status),
+                    crate::ui::freshness_short(text, status),
+                )
+                .into_any_element(),
+                None => div()
+                    .text_size(fs(FS_11))
+                    .text_color(c(TEXT_GHOST))
+                    .child("—")
+                    .into_any_element(),
+            });
             body = body.child(
-                line.child(
-                    div()
-                        .w(px(220.))
-                        .flex_none()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .text_color(c(if settlement {
-                            ACCENT_TEXT
-                        } else if unpriced {
-                            TEXT_META
-                        } else {
-                            TEXT_PRIMARY
-                        }))
-                        .child(gpui::SharedString::from(self.display_name(&asset))),
-                )
-                .child(
-                    mono(per_unit)
-                        .w(px(116.))
-                        .flex_none()
-                        .text_right()
-                        .pr_2()
-                        .text_color(c(if unpriced {
-                            TEXT_DISABLED
-                        } else {
-                            TEXT_PRIMARY
-                        })),
-                )
-                .child(
-                    div()
-                        .w(px(76.))
-                        .flex_none()
-                        .text_size(fs(FS_11))
-                        .text_color(c(if unpriced { TEXT_GHOST } else { TEXT_META }))
-                        .child(gpui::SharedString::from(anchor)),
-                )
-                .child(
-                    div()
-                        .w(px(60.))
-                        .flex_none()
-                        .text_size(fs(FS_10_5))
-                        .text_color(c(TEXT_META))
-                        .child(basis),
-                )
-                .child(div().w(px(92.)).flex_none().child(role_cell))
-                .child(
-                    div()
-                        .flex_1()
-                        .h_flex()
-                        .items_center()
-                        .justify_end()
-                        .gap_2()
-                        .children(hideable.then(|| {
-                            button(("row-hide", row), LedgerButton::Quiet, text.hide_label, cx)
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    #[cfg(windows)]
-                                    this.hide_asset(&hide_target);
-                                    #[cfg(not(windows))]
-                                    let _ = &hide_target;
-                                    cx.notify();
-                                }))
-                        })),
-                ),
+                line.child(light_cell)
+                    .child(
+                        div()
+                            .w(px(220.))
+                            .flex_none()
+                            .overflow_hidden()
+                            .whitespace_nowrap()
+                            .text_color(c(if settlement {
+                                ACCENT_TEXT
+                            } else if unpriced {
+                                TEXT_META
+                            } else {
+                                TEXT_PRIMARY
+                            }))
+                            .child(gpui::SharedString::from(self.display_name(&asset))),
+                    )
+                    .child(
+                        mono(per_unit)
+                            .w(px(116.))
+                            .flex_none()
+                            .text_right()
+                            .pr_2()
+                            .text_color(c(if unpriced {
+                                TEXT_DISABLED
+                            } else {
+                                TEXT_PRIMARY
+                            })),
+                    )
+                    .child(
+                        div()
+                            .w(px(76.))
+                            .flex_none()
+                            .text_size(fs(FS_11))
+                            .text_color(c(if unpriced { TEXT_GHOST } else { TEXT_META }))
+                            .child(gpui::SharedString::from(anchor)),
+                    )
+                    .child(
+                        div()
+                            .w(px(60.))
+                            .flex_none()
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META))
+                            .child(basis),
+                    )
+                    .child(div().w(px(92.)).flex_none().child(role_cell))
+                    .child(
+                        div()
+                            .flex_1()
+                            .h_flex()
+                            .items_center()
+                            .justify_end()
+                            .gap_2()
+                            .children(hideable.then(|| {
+                                button(("row-hide", row), LedgerButton::Quiet, text.hide_label, cx)
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        #[cfg(windows)]
+                                        this.hide_asset(&hide_target);
+                                        #[cfg(not(windows))]
+                                        let _ = &hide_target;
+                                        cx.notify();
+                                    }))
+                            })),
+                    ),
             );
         }
         if hidden_count > 0 {

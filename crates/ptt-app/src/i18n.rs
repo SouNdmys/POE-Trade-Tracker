@@ -503,6 +503,7 @@ pub struct Text {
     pub ignored_probes_restore: &'static str,
 
     // -- watchlist table (§5 定稿列头与分段) --
+    pub watch_col_light: &'static str,
     pub watch_col_asset: &'static str,
     pub watch_col_per_unit: &'static str,
     pub watch_col_anchor: &'static str,
@@ -1131,6 +1132,7 @@ impl Text {
             ("ignored_probes_count", self.ignored_probes_count),
             ("ignored_probes_review", self.ignored_probes_review),
             ("ignored_probes_restore", self.ignored_probes_restore),
+            ("watch_col_light", self.watch_col_light),
             ("watch_col_asset", self.watch_col_asset),
             ("watch_col_per_unit", self.watch_col_per_unit),
             ("watch_col_anchor", self.watch_col_anchor),
@@ -1653,6 +1655,7 @@ pub static ENGLISH: Text = Text {
     ignored_probes_review: "review and restore",
     ignored_probes_restore: "restore",
 
+    watch_col_light: "data",
     watch_col_asset: "currency",
     watch_col_per_unit: "each ≈",
     watch_col_anchor: "priced in",
@@ -2211,6 +2214,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     ignored_probes_review: "查看并恢复",
     ignored_probes_restore: "恢复",
 
+    watch_col_light: "数据",
     watch_col_asset: "通货",
     watch_col_per_unit: "每个约",
     watch_col_anchor: "计价",

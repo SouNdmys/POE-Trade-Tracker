@@ -508,6 +508,28 @@ pub struct WatchlistModel {
 pub struct AssetValuation {
     pub asset_id: MarketAssetId,
     pub valuation: ptt_strategy::Valuation,
+    /// The light of the newest book the valuation leans on (asset ↔ anchor,
+    /// either direction). Coverage says how many sides were seen; this says
+    /// how long ago. `None` when no such book is in the window.
+    pub light: Option<FreshnessStatus>,
+}
+
+/// 估值来自 asset↔anchor 的边，灯就读这些边里最新的那本：一本三天前的
+/// 书和一本一分钟前的书给出同一个 46.37，行上必须能看出差别。
+fn asset_light(
+    selected: &[EvaluatedQuoteEdge],
+    asset: &MarketAssetId,
+    anchor: &MarketAssetId,
+) -> Option<FreshnessStatus> {
+    selected
+        .iter()
+        .filter(|edge| {
+            let edge = &edge.observation.edge;
+            (&edge.from_asset_id == asset && &edge.to_asset_id == anchor)
+                || (&edge.from_asset_id == anchor && &edge.to_asset_id == asset)
+        })
+        .max_by_key(|edge| edge.observation.edge.captured_at)
+        .map(|edge| edge.freshness.status)
 }
 
 /// A currency with real buy pressure that is not in the focus list.
@@ -2121,6 +2143,7 @@ pub fn watchlist_model(
                 edges: &market.selected,
                 include_historical: false,
             }),
+            light: asset_light(&market.selected, asset, &anchor),
         })
         .collect();
 
@@ -5230,6 +5253,33 @@ mod settlement_tests {
             joined.contains("capture more before trusting"),
             "a blocked item carries the ladder's verdict: {joined}"
         );
+    }
+
+    /// A three-day-old 46.37 and a one-minute-old 46.37 used to be the same
+    /// row: coverage (two-sided / one-sided) said nothing about age. The row
+    /// now carries the light of the newest book its valuation leans on.
+    #[test]
+    fn a_watchlist_row_carries_the_light_of_its_newest_book() {
+        let observations = vec![taker("divine-orb", "chaos-orb", (100, 1), 1_000)];
+        let tuning = MarketTuning {
+            settlement_assets: vec!["chaos-orb".to_owned()],
+            ..Default::default()
+        };
+        let model = watchlist_model(
+            &observations,
+            CONTEXT,
+            "test-league",
+            &tuning,
+            UiLanguage::English,
+            None,
+        )
+        .expect("model");
+        let row = model
+            .valuations
+            .iter()
+            .find(|row| row.asset_id.as_str() == "divine-orb")
+            .expect("divine row");
+        assert_eq!(row.light, Some(FreshnessStatus::Fresh), "{row:?}");
     }
 
     /// The configured settlement list drives the core-liquidity set; a
