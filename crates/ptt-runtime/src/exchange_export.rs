@@ -19,7 +19,8 @@ pub struct ExchangeExportRow {
     pub league: String,
     /// UTC 日历日（YYYY-MM-DD）。
     pub day: String,
-    /// 开服第 N 天（1 = 开服当天）。赛季起点没记录时为空。
+    /// 开服第 N 天（1 = 开服当天）。赛季起点没记录、或这天在开服之前时为空；
+    /// 两种情况靠 `phase` 区分（前者也空，后者是 "pre_season"）。
     pub day_index: Option<u32>,
     /// 相位标签（`season_phase`）。
     pub phase: Option<&'static str>,
@@ -175,7 +176,12 @@ pub fn exchange_export_rows(
             league: league.to_owned(),
             day: day.to_string(),
             day_index,
-            phase: day_index.map(season_phase),
+            // 赛季记了但这天在开服前 = "pre_season";没记赛季才是双空。
+            phase: match (season_start, day_index) {
+                (None, _) => None,
+                (Some(_), None) => Some("pre_season"),
+                (Some(_), Some(index)) => Some(season_phase(index)),
+            },
             asset_id,
             catalog_id,
             category,
@@ -209,6 +215,8 @@ pub fn write_exchange_export(
     let days = store
         .load_exchange_days(game, league, "2000-01-01", "2999-12-31")
         .map_err(|error| format!("days: {error}"))?;
+    // 赛季记录不分联赛（`SeasonRow` 没有 league 字段）：导出别的联赛时,
+    // 相对日按当前赛季算——单人自用,一次只跟一个赛季,先这样。
     let season_start = store
         .active_season(game)
         .ok()
@@ -427,5 +435,16 @@ mod exchange_export_tests {
             "0.0025"
         );
         assert_eq!(csv_field("a,b"), "\"a,b\"");
+    }
+
+    #[test]
+    fn a_day_before_the_season_is_labelled_pre_season_not_left_blank() {
+        // 赛季起点记了,但这天在开服之前(回补的上季尾巴):相对日留空,
+        // 相位写 pre_season——和"没记赛季"的双空区分开,AI 读表才分得清。
+        let rows = [row("2026-09-05", EXALTED, DIVINE, 4000, 10)];
+        let start = chrono::NaiveDate::from_ymd_opt(2026, 9, 6).expect("date");
+        let export = exchange_export_rows(&rows, "Runes of Aldur", Some(start)).expect("rows");
+        let before = find(&export, "2026-09-05", "divine-orb");
+        assert_eq!((before.day_index, before.phase), (None, Some("pre_season")));
     }
 }
