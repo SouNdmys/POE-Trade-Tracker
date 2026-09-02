@@ -572,6 +572,17 @@ impl AppShell {
                     )),
             );
         }
+        // 结论带也说数据多新:最好那条路线最旧的一段有多旧。
+        if let Some(status) = best_quote.and_then(|quote| quote.light) {
+            band = band
+                .child(divider())
+                .child(div().h_flex().items_center().px(px(SP_16)).child(
+                    crate::ui::freshness_cell(
+                        crate::ui::freshness_kind(status),
+                        crate::ui::freshness_short(text, status),
+                    ),
+                ));
+        }
         band
     }
 
@@ -870,7 +881,17 @@ impl AppShell {
             line = line.hover(|style| style.bg(c(HOVER)));
         }
 
-        // 路线铺全路径,幽灵箭头,截断优于换行。
+        // 路线铺全路径,幽灵箭头,截断优于换行。行首一颗新鲜度点:
+        // 过期路线和新鲜路线以前在表里同款同色,而这是下手前看的最后一页。
+        let light_dot = div()
+            .flex_none()
+            .size(px(6.))
+            .rounded_full()
+            .mr(px(2.))
+            .bg(c(match quote.light {
+                Some(status) => crate::ui::freshness_kind(status).dot(),
+                None => TEXT_GHOST,
+            }));
         let mut path = div()
             .flex_1()
             .min_w(px(0.))
@@ -878,7 +899,8 @@ impl AppShell {
             .items_center()
             .gap(px(4.))
             .overflow_hidden()
-            .text_color(c(TEXT_PRIMARY));
+            .text_color(c(TEXT_PRIMARY))
+            .child(light_dot);
         for (index, asset) in quote.route_asset_ids.iter().enumerate() {
             if index > 0 {
                 path = path.child(

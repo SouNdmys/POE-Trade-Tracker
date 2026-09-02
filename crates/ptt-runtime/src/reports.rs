@@ -195,6 +195,10 @@ pub struct RouteQuote {
     pub fillable_input: Option<u64>,
     /// This route's legs against the listings each would have to take.
     pub legs: Vec<LegTakeCoverage>,
+    /// Read from the oldest leg, the radar's rule: a route is only as current
+    /// as the capture it leans on hardest. `None` when the engine recorded no
+    /// capture-time evidence for the path.
+    pub light: Option<FreshnessStatus>,
 }
 
 /// How far the listings on one leg go towards filling that leg *right now*.
@@ -1234,6 +1238,8 @@ fn route_quotes<'a>(
     let baseline = direct.and_then(|path| route_front_quote(path, &market.index));
     let baseline_rate = baseline.map(|(rate, _)| rate);
     let baseline_output = direct.and_then(|path| project_at_front_rates(path, &market.index, size));
+    let freshness = market.instant_selection.policy.freshness;
+    let now = Utc::now();
 
     let mut quotes = Vec::new();
     for path in candidates {
@@ -1270,6 +1276,11 @@ fn route_quotes<'a>(
                 },
                 fillable_input: front.map(|(_, fillable)| fillable),
                 legs: route_leg_coverage(market, path, size),
+                light: path.capture_time_evidence.as_ref().map(|evidence| {
+                    freshness
+                        .classify(evidence.earliest_captured_at, now)
+                        .status
+                }),
             },
         ));
     }
@@ -6186,6 +6197,33 @@ mod convert_tests {
 
     /// "I hold 100" prices one size — the holding — and the ladder stays
     /// home. The maker section follows the same size.
+    /// The last page a person reads before trading had no data time on its
+    /// rows: a stale route and a fresh one sat in the same font. Each quote
+    /// now carries the light of its oldest leg, the radar's rule.
+    #[test]
+    fn every_quote_carries_the_light_of_its_oldest_leg() {
+        let observations = vec![
+            taker("take-700", 0, (700, 1), 100_000),
+            competing("front", 1, (784, 1), 40),
+        ];
+        let model = convert_model(
+            &observations,
+            CONTEXT,
+            &asset("divine-orb"),
+            &asset("chaos-orb"),
+            Some(100),
+            &MarketTuning::default(),
+            UiLanguage::English,
+            None,
+        )
+        .expect("model");
+        let quotes: Vec<_> = model.sizes.iter().flat_map(|size| &size.quotes).collect();
+        assert!(!quotes.is_empty(), "{model:?}");
+        for quote in quotes {
+            assert_eq!(quote.light, Some(FreshnessStatus::Fresh), "{quote:?}");
+        }
+    }
+
     #[test]
     fn a_stated_holding_prices_exactly_that_size() {
         let observations = vec![
