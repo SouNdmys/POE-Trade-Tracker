@@ -1,6 +1,7 @@
 # POE Trade Tracker
 
-单人自用的 POE2 交易追踪工具（Rust + GPUI 桌面应用，Windows 专用）。
+单人自用的 POE1/POE2 交易追踪工具（Rust + GPUI 桌面应用，Windows 专用）：屏幕 OCR 读盘口，
+外加官方交易所小时线（`web.poecdn.com`）做第二本账。
 不是给别人用的库：**公共 API 稳定性不需要考虑**，改 `pub fn` 签名不用顾虑下游，
 仓内改干净即可。
 
@@ -23,7 +24,8 @@
 - `ptt-recognition` — 按 profile 的订单书字段识别路由
 - `ptt-platform-win` — 隔离的 Win32 平台服务
 - `ptt-monitoring` — 自动监视循环：指纹门控、稳定性、双读确认、去重
-- `ptt-runtime` — 页面模型与报表（`reports.rs`）、采集管道、日 rollup，以及 `src/bin/*_probe.rs` 验证探针
+- `ptt-exchange-history` — 官方交易所历史：从 `web.poecdn.com` 拉小时文件、解析、把物品路径映射到目录
+- `ptt-runtime` — 页面模型与报表（`reports.rs`）、采集管道、日 rollup、交易所小时账本，以及 `src/bin/*_probe.rs` 验证探针
 - `ptt-app` — GPUI 桌面应用；`shell/mod.rs` 是页面数据的装配层
 
 ## 常用命令
@@ -52,8 +54,9 @@ cargo test -p ptt-runtime --lib <测试名>
 - 测试放在同文件底部的 `#[cfg(test)] mod xxx_tests`，每个 mod 自带局部 helper
   （`asset()`、`pulse_asset()`、`book_edge()`），不跨 mod 复用
 - Windows 专属代码一律 `#[cfg(windows)]` 门控
-- 界面文本全部走 `report_text::` 的 `pick(language, 英文, 中文)`，不要在业务代码里
-  内联中文字符串
+- 界面文本不内联：`ptt-runtime` 的报表文案走 `report_text::pick(language, 英文, 中文)`，
+  `ptt-app` 的界面文案走 `src/i18n.rs` 里的双语 `Text` 目录（加字段要同时补 `entries()`，
+  少一种语言编不过）。不要在业务代码里内联中文字符串
 - `src/bin/*_probe.rs` 是可运行的验证探针，镜像生产路径。**它们会和生产代码漂移**
   （P10 的今日折叠 bug 就是这么来的），改生产路径时顺手对照一下
 - 文档注释写"为什么"，不写"这行做了什么"，通常带一句能记住的理由
