@@ -20,8 +20,7 @@ use crate::shell::AppShell;
 use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
-    StatusKind, chip, chip_table, empty_state, kv_row, mono, panel, panel_header, scrollable,
-    warning_band,
+    StatusKind, chip, chip_table, kv_row, mono, panel, panel_header, scrollable, warning_band,
 };
 
 /// Liquidity class → chip colour: scarce is the interesting gold state,
@@ -93,7 +92,7 @@ impl AppShell {
                     .flex_1()
                     .flex()
                     .flex_col()
-                    .child(empty_state(&self.report_body().join("  "))),
+                    .child(self.report_fallback()),
             );
         };
         let model: AnalyticsModel = (**model).clone();

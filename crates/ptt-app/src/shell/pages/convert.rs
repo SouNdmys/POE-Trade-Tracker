@@ -347,7 +347,7 @@ impl AppShell {
                             .flex_1()
                             .flex()
                             .flex_col()
-                            .child(empty_state(&self.report_body().join("  "))),
+                            .child(self.report_fallback()),
                     ),
                 );
         };

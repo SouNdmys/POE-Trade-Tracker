@@ -1434,11 +1434,21 @@ impl AppShell {
             | PageData::Exchange(_) => vec![text.nothing_yet.to_owned()],
             PageData::WaitingForPair => vec![text.waiting_for_book.to_owned()],
             PageData::Loading => vec![crate::state::loading_label(self.language()).to_owned()],
-            PageData::Failed(reason) => vec![format!("{}: {reason}", text.fault_prefix)],
+            PageData::Failed(reason) => vec![failed_body(text, reason)],
         }
     }
 
-    /// The reader's language.
+    /// What a data page draws when it has no model to draw: an empty page and
+    /// a failed read are two different things and must not share one grey.
+    pub(crate) fn report_fallback(&self) -> gpui::Div {
+        let body = self.report_body().join("  ");
+        if matches!(self.report, crate::state::PageData::Failed(_)) {
+            crate::ui::failed_state(&body)
+        } else {
+            crate::ui::empty_state(&body)
+        }
+    }
+
     /// 顶栏的"游戏 · 联赛"。联赛名是交易所同步的总开关，空着就写破折号。
     fn profile_chip(&self) -> String {
         #[cfg(windows)]
@@ -1452,6 +1462,7 @@ impl AppShell {
         }
     }
 
+    /// The reader's language.
     fn language(&self) -> ptt_settings::UiLanguage {
         #[cfg(windows)]
         {
@@ -1813,6 +1824,17 @@ fn load_pulse(request: &PageRequest) -> Result<ptt_runtime::reports::AnalyticsMo
         &request.tuning,
         request.language,
     ))
+}
+
+/// 读失败那一行。原因原文保留（报告用），最常见的一类——数据库被占用或损坏——
+/// 多给一句人话，因为 `storage: database is locked` 对不写代码的人不是话。
+fn failed_body(text: &crate::i18n::Text, reason: &str) -> String {
+    let mut body = format!("{}: {reason}", text.fault_prefix);
+    if reason.starts_with("storage:") {
+        body.push_str(" — ");
+        body.push_str(text.fault_storage_hint);
+    }
+    body
 }
 
 /// "POE1 · Allflame"。游戏名大写是为了和目录里的小写 slug 区分开：这行是给人看的。
@@ -2468,6 +2490,26 @@ fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     let standby = skips.get("not-book-view").copied().unwrap_or(0);
     let total: u64 = skips.values().sum();
     (total - standby, standby)
+}
+
+#[cfg(test)]
+mod failed_body_tests {
+    use super::failed_body;
+    use ptt_settings::UiLanguage;
+
+    /// A locked or broken database used to render as "fault: storage: ..."
+    /// in the same grey as an empty page. The most common failure gets a
+    /// sentence a person can act on, and the raw reason stays for reporting.
+    #[test]
+    fn a_storage_failure_gets_a_human_hint_and_keeps_the_reason() {
+        let text = crate::i18n::text(UiLanguage::Chinese);
+        let body = failed_body(text, "storage: database is locked");
+        assert!(body.contains("database is locked"), "{body}");
+        assert!(body.contains(text.fault_storage_hint), "{body}");
+        let body = failed_body(text, "analytics unavailable");
+        assert!(!body.contains(text.fault_storage_hint), "{body}");
+        assert!(body.starts_with(text.fault_prefix), "{body}");
+    }
 }
 
 #[cfg(test)]

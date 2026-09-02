@@ -863,6 +863,20 @@ pub fn empty_state(text: &str) -> Div {
         .child(SharedString::from(text.to_string()))
 }
 
+/// Same slot as [`empty_state`], but in the danger colour: a read that
+/// failed is not "nothing yet", and the two must not share one grey.
+pub fn failed_state(text: &str) -> Div {
+    div()
+        .flex_1()
+        .flex()
+        .items_center()
+        .justify_center()
+        .p_4()
+        .text_size(fs(FS_12))
+        .text_color(c(DANGER_TEXT))
+        .child(SharedString::from(text.to_string()))
+}
+
 /// The 110×22 area sparkline: the curve *is* the trend column.
 ///
 /// 每条曲线用自身窗口的最高/最低撑满 22px,只看形状不看绝对值——否则
