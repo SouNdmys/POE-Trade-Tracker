@@ -2678,26 +2678,24 @@ pub fn probe_queue_model(
 ///
 /// 待抓队列是派生的：`probe_queue_model` 每次重算，`retain_missing` 拿派生
 /// 候选清钉子。大雷达钉的腿不在派生候选里，下一次刷新就会被当成"已回答"
-/// 清掉。这里把"窗口里还没有新鲜可吃档"的钉子重新提成候选：一旦抓到新鲜
-/// 的，它不再被提出来，钉子随之自然消失——不用谁记得去取消。
+/// 清掉。这里把还没被回答的钉子重新提成候选："回答"= 钉下之后抓到过这对的
+/// 可吃档，**不看新不新鲜**——审查发现按新鲜度判，抓完两小时后腿又会冒回来，
+/// 浮窗把人往已经翻过的面板赶。回答过一次就算数，之后新鲜度归监视页管。
 pub fn sticky_probe_candidates(
-    pins: &[(MarketAssetId, MarketAssetId, String)],
+    pins: &[(MarketAssetId, MarketAssetId, String, chrono::DateTime<Utc>)],
     observations: &[MarketEdgeObservation],
-    fresh_seconds: u64,
-    now: chrono::DateTime<Utc>,
 ) -> Vec<ptt_workflows::ProbeCandidate> {
-    let floor = now.timestamp() - i64::try_from(fresh_seconds).unwrap_or(i64::MAX / 2);
     pins.iter()
-        .filter(|(from, to, _)| {
+        .filter(|(from, to, _, pinned_at)| {
             !observations.iter().any(|observation| {
                 let edge = &observation.edge;
                 edge.from_asset_id == *from
                     && edge.to_asset_id == *to
                     && edge.role == ptt_trade_domain::QuoteEdgeRole::AvailableTaker
-                    && edge.captured_at.timestamp() >= floor
+                    && edge.captured_at >= *pinned_at
             })
         })
-        .map(|(from, to, reason)| ptt_workflows::ProbeCandidate {
+        .map(|(from, to, reason, _)| ptt_workflows::ProbeCandidate {
             from_asset_id: from.clone(),
             to_asset_id: to.clone(),
             reason: ptt_workflows::ProbeReason::OpportunityConfirmation,
@@ -8203,17 +8201,22 @@ mod sticky_probe_tests {
         }
     }
 
-    fn pin(from: &str, to: &str) -> (MarketAssetId, MarketAssetId, String) {
+    fn pin(
+        from: &str,
+        to: &str,
+        pinned_ago_seconds: i64,
+    ) -> (MarketAssetId, MarketAssetId, String, chrono::DateTime<Utc>) {
         (
             asset(from),
             asset(to),
             "exchange radar · loop +9.36%".to_owned(),
+            now() - chrono::Duration::seconds(pinned_ago_seconds),
         )
     }
 
     #[test]
     fn a_leg_never_captured_stays_on_the_queue_as_a_high_exchange_radar_probe() {
-        let candidates = sticky_probe_candidates(&[pin("divine", "lock")], &[], 600, now());
+        let candidates = sticky_probe_candidates(&[pin("divine", "lock", 600)], &[]);
 
         assert_eq!(candidates.len(), 1);
         let candidate = &candidates[0];
@@ -8232,27 +8235,40 @@ mod sticky_probe_tests {
     }
 
     #[test]
-    fn a_fresh_taker_capture_answers_the_leg_and_it_drops_off() {
+    fn a_taker_capture_after_the_pin_answers_the_leg_and_it_drops_off() {
         let observations = [capture(
             "divine",
             "lock",
             QuoteEdgeRole::AvailableTaker,
             120,
         )];
-        let candidates =
-            sticky_probe_candidates(&[pin("divine", "lock")], &observations, 600, now());
+        let candidates = sticky_probe_candidates(&[pin("divine", "lock", 600)], &observations);
 
         assert!(candidates.is_empty(), "{candidates:?}");
     }
 
     #[test]
-    fn a_stale_capture_or_the_wrong_side_does_not_count_as_an_answer() {
+    fn an_answer_stays_an_answer_after_the_capture_stops_being_fresh() {
+        // 钉了四小时、三小时前抓过:抓过就是回答过,不因为过了新鲜期又冒回来。
+        let observations = [capture(
+            "divine",
+            "lock",
+            QuoteEdgeRole::AvailableTaker,
+            3 * 3_600,
+        )];
+        let candidates =
+            sticky_probe_candidates(&[pin("divine", "lock", 4 * 3_600)], &observations);
+
+        assert!(candidates.is_empty(), "{candidates:?}");
+    }
+
+    #[test]
+    fn a_capture_from_before_the_pin_or_the_wrong_side_does_not_count_as_an_answer() {
         let observations = [
             capture("divine", "lock", QuoteEdgeRole::AvailableTaker, 3_600),
             capture("lock", "divine", QuoteEdgeRole::AvailableTaker, 60),
         ];
-        let candidates =
-            sticky_probe_candidates(&[pin("divine", "lock")], &observations, 600, now());
+        let candidates = sticky_probe_candidates(&[pin("divine", "lock", 600)], &observations);
 
         assert_eq!(candidates.len(), 1);
     }

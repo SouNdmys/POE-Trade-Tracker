@@ -77,6 +77,9 @@ pub struct PinnedProbe {
     /// 大雷达钉的腿：派生候选里没有它，得靠 `sticky_probe_candidates` 一直
     /// 把它提回队列，直到抓到新鲜的可吃档。手工或小雷达钉的不需要。
     pub sticky: bool,
+    /// 钉下的时刻："回答"= 这之后抓到过这对（sticky 的判定），也是落地的
+    /// 派生候选清钉子时的护栏——比请求晚钉的钉子，那份答案没见过它。
+    pub pinned_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl PinnedProbe {
@@ -121,11 +124,21 @@ impl ProbeQueue {
     /// disappear on its own — a queue that only grows is a queue nobody
     /// reads. `still_missing` is the set the coverage pass says is still
     /// incomplete, so anything absent from it has been answered.
-    pub fn retain_missing(&mut self, still_missing: &[(String, String)]) {
+    ///
+    /// `asked_at` is when that coverage pass was requested: a pin placed
+    /// after it was never seen by that pass, so its absence there says
+    /// nothing, and it stays. Without this a pin placed while a read is in
+    /// flight vanishes the moment the read lands.
+    pub fn retain_missing(
+        &mut self,
+        still_missing: &[(String, String)],
+        asked_at: chrono::DateTime<chrono::Utc>,
+    ) {
         self.pinned.retain(|entry| {
-            still_missing
-                .iter()
-                .any(|(from, to)| entry.matches(from, to))
+            entry.pinned_at >= asked_at
+                || still_missing
+                    .iter()
+                    .any(|(from, to)| entry.matches(from, to))
         });
     }
 }

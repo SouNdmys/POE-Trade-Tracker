@@ -1045,6 +1045,7 @@ impl AppShell {
         if !self.report.is_content() {
             self.report = PageData::Loading;
         }
+        let requested_at = request.requested_at;
         cx.spawn(async move |this, cx| {
             let data = cx
                 .background_executor()
@@ -1059,7 +1060,7 @@ impl AppShell {
                         this.hud_probes = Some(model.clone());
                     }
                     this.sync_radar_table(cx);
-                    this.close_answered_probes();
+                    this.close_answered_probes(requested_at);
                     cx.notify();
                 }
             })
@@ -1077,6 +1078,7 @@ impl AppShell {
         let Some(request) = self.page_request(cx) else {
             return;
         };
+        let requested_at = request.requested_at;
         cx.spawn(async move |this, cx| {
             let model = cx
                 .background_executor()
@@ -1084,6 +1086,19 @@ impl AppShell {
                 .await;
             this.update(cx, |this: &mut AppShell, _cx| {
                 if let Ok(model) = model {
+                    // 浮窗这条管线也关闭已回答的钉子:只靠监视页落地,钉子会活到
+                    // 下次打开监视页——大雷达钉的腿抓完了还挂在浮窗上赶人。
+                    let missing: Vec<(String, String)> = model
+                        .candidates
+                        .iter()
+                        .map(|candidate| {
+                            (
+                                candidate.from_asset_id.as_str().to_owned(),
+                                candidate.to_asset_id.as_str().to_owned(),
+                            )
+                        })
+                        .collect();
+                    this.probe_queue.retain_missing(&missing, requested_at);
                     this.hud_probes = Some(Box::new(model));
                     this.refresh_hud();
                 }
@@ -1117,9 +1132,11 @@ impl AppShell {
                         pin.from_asset_id.clone(),
                         pin.to_asset_id.clone(),
                         pin.reason.clone(),
+                        pin.pinned_at,
                     )
                 })
                 .collect(),
+            requested_at: chrono::Utc::now(),
         })
     }
 
@@ -1129,7 +1146,7 @@ impl AppShell {
     /// incomplete, so this runs where their answers arrive rather than on a
     /// timer.
     #[cfg(windows)]
-    fn close_answered_probes(&mut self) {
+    fn close_answered_probes(&mut self, asked_at: chrono::DateTime<chrono::Utc>) {
         // Only the coverage pass knows which pairs are still incomplete, so
         // this runs where its answer arrives rather than on a timer.
         let crate::state::PageData::Probes(model) = &self.report else {
@@ -1145,7 +1162,7 @@ impl AppShell {
                 )
             })
             .collect();
-        self.probe_queue.retain_missing(&missing);
+        self.probe_queue.retain_missing(&missing, asked_at);
     }
 
     /// Queues a pair for the user to go and flip.
@@ -1156,6 +1173,7 @@ impl AppShell {
             to_asset_id: to.to_owned(),
             reason: reason.to_owned(),
             sticky,
+            pinned_at: chrono::Utc::now(),
         });
     }
 
@@ -1370,7 +1388,10 @@ struct PageRequest {
     tuning: ptt_settings::MarketTuning,
     /// 大雷达钉的腿 (from, to, 理由):待抓队列是派生的,这些要带过去
     /// 才能在没抓到之前一直挂着。
-    sticky_probes: Vec<(String, String, String)>,
+    sticky_probes: Vec<(String, String, String, chrono::DateTime<chrono::Utc>)>,
+    /// When this snapshot was taken. A pin placed after it was never seen by
+    /// the answer it produces, so that answer must not close it.
+    requested_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// Reads the store and builds one page's answer.
@@ -1459,23 +1480,20 @@ fn load_probe_queue(
         ptt_trade_domain::MarketAssetId,
         ptt_trade_domain::MarketAssetId,
         String,
+        chrono::DateTime<chrono::Utc>,
     )> = request
         .sticky_probes
         .iter()
-        .filter_map(|(from, to, reason)| {
+        .filter_map(|(from, to, reason, pinned_at)| {
             Some((
                 ptt_runtime::live::domain_asset_id(from).ok()?,
                 ptt_runtime::live::domain_asset_id(to).ok()?,
                 reason.clone(),
+                *pinned_at,
             ))
         })
         .collect();
-    let sticky = ptt_runtime::reports::sticky_probe_candidates(
-        &pins,
-        &observations,
-        request.tuning.freshness.fresh_seconds,
-        chrono::Utc::now(),
-    );
+    let sticky = ptt_runtime::reports::sticky_probe_candidates(&pins, &observations);
     for candidate in sticky.into_iter().rev() {
         let held = model.candidates.iter().any(|held| {
             held.from_asset_id == candidate.from_asset_id
