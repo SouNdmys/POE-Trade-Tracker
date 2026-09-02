@@ -707,11 +707,15 @@ impl AppShell {
                     self.profile_row(
                         text.client_language_label,
                         [
-                            ("client-en", ptt_core::ContentLanguage::English, "EN"),
+                            (
+                                "client-en",
+                                ptt_core::ContentLanguage::English,
+                                text.client_lang_en,
+                            ),
                             (
                                 "client-zh",
                                 ptt_core::ContentLanguage::TraditionalChinese,
-                                "繁中",
+                                text.client_lang_zh_tw,
                             ),
                         ]
                         .map(|(id, language, label)| {

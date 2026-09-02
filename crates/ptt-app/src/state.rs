@@ -143,11 +143,9 @@ impl ProbeQueue {
     }
 }
 
-/// The word for a page that is still loading.
+/// The word for a page that is still loading. Read from the catalogue so the
+/// compile-time "both languages or it does not build" rule covers it too.
 #[must_use]
 pub const fn loading_label(language: UiLanguage) -> &'static str {
-    match language {
-        UiLanguage::English => "reading the book…",
-        UiLanguage::Chinese => "正在读取盘口…",
-    }
+    crate::i18n::text(language).loading_label
 }
