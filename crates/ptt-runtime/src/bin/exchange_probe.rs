@@ -8,6 +8,9 @@
 //!   `exchange_probe --fetch --hours N --league "<联赛名>" [--cache DIR]`
 //!       从最新完整小时往回抓 N 小时，原始字节落盘缓存（CDN 数据不可变，
 //!       缓存永不过期），重复运行只补缺的。
+//!   `exchange_probe --ingest --league "<联赛名>" [--cache DIR]`
+//!       把缓存里这个联赛的小时写进生产表并折出日线：app 同步的写路径镜像，
+//!       让一个联赛不开 GUI 也能从零跑到能看页面（换个 LOCALAPPDATA 就是干净沙盒）。
 //!   `exchange_probe --paths --league "<联赛名>" [--cache DIR] [--top N]`
 //!       聚合缓存，按当前锚计价成交量降序输出资产路径 = 映射工作清单。
 //!   `exchange_probe --trend --league "<联赛名>" [--cache DIR] [--top N]`
@@ -54,6 +57,7 @@ mod probe {
                 .cloned()
         };
         let any_command = has("--fetch")
+            || has("--ingest")
             || has("--paths")
             || has("--trend")
             || has("--reconcile")
@@ -124,6 +128,9 @@ mod probe {
 
         if has("--fetch") {
             session.fetch(hours)?;
+        }
+        if has("--ingest") {
+            session.ingest()?;
         }
         if has("--paths") {
             session.paths(top)?;
@@ -468,6 +475,47 @@ mod probe {
             );
             for hour_ts in &chain_breaks {
                 println!("  CHAIN BREAK at {hour_ts} ({})", format_hour(*hour_ts));
+            }
+            Ok(())
+        }
+
+        /// 缓存 → 生产表 → 日线，与 `exchange_sync` 同一条写路径（`storage_row` +
+        /// `replace_exchange_hour` + `ensure_exchange_day_rollups`）。CDN 不可变，
+        /// 所以重复 ingest 只是幂等覆写；不做清理——沙盒里想留多久留多久。
+        fn ingest(&self) -> Result<(), String> {
+            let mut store =
+                ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
+                    .map_err(|error| format!("storage: {error}"))?;
+            let hours = self.cached_hours()?;
+            let now = chrono::Utc::now();
+            let mut league_rows = 0usize;
+            for (hour_ts, hour) in &hours {
+                let hour_ts = *hour_ts as i64;
+                let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
+                    .rows_for_league(&self.league)
+                    .map(|row| storage_row(hour_ts, row))
+                    .collect();
+                league_rows += rows.len();
+                store
+                    .replace_exchange_hour(&self.realm, &self.league, hour_ts, &rows, now)
+                    .map_err(|error| format!("store {hour_ts}: {error}"))?;
+            }
+            let fold = ptt_runtime::exchange_rollup::ensure_exchange_day_rollups(
+                &mut store,
+                &self.realm,
+                &self.league,
+                now,
+                32,
+            )?;
+            println!(
+                "ingest: hours={} league-rows={league_rows} days-folded={} skipped={} already-done={}",
+                hours.len(),
+                fold.days_processed.len(),
+                fold.days_skipped.len(),
+                fold.days_already_done,
+            );
+            for (day, reason) in &fold.days_skipped {
+                println!("  skipped {day}: {reason}");
             }
             Ok(())
         }
