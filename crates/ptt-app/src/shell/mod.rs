@@ -211,6 +211,32 @@ impl SettingsSegment {
     }
 }
 
+/// 雷达页的两个页签：交易所雷达（官方成交均价，给线索）/ 抓取雷达（真实
+/// 盘口，做裁决）。两段共用一张表和一个明细栏，切段只换行。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RadarSegment {
+    Exchange,
+    Capture,
+}
+
+impl RadarSegment {
+    pub(crate) const ALL: [Self; 2] = [Self::Exchange, Self::Capture];
+
+    pub(crate) fn label(self, text: &'static crate::i18n::Text) -> &'static str {
+        match self {
+            Self::Exchange => text.radar_segment_exchange,
+            Self::Capture => text.radar_segment_capture,
+        }
+    }
+
+    pub(crate) const fn element_id(self) -> &'static str {
+        match self {
+            Self::Exchange => "radar-seg-exchange",
+            Self::Capture => "radar-seg-capture",
+        }
+    }
+}
+
 /// Everything one accepted book said, kept as a single value.
 ///
 /// These fields are only meaningful together, and keeping them apart cost a
@@ -324,6 +350,8 @@ pub struct AppShell {
     pub(crate) convert_selected_route: Option<Vec<String>>,
     /// 设置页当前打开的分段。
     pub(crate) settings_segment: SettingsSegment,
+    /// 雷达页当前页签。默认抓取雷达:那是裁决层,也是老用户熟悉的那页。
+    pub(crate) radar_segment: RadarSegment,
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
@@ -711,6 +739,7 @@ impl AppShell {
             convert_sort_by_depth: false,
             convert_selected_route: None,
             settings_segment: SettingsSegment::Basic,
+            radar_segment: RadarSegment::Capture,
             report_stale: true,
             #[cfg(windows)]
             update_state: updater::UpdateState::default(),

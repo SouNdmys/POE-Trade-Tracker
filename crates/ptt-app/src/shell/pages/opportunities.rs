@@ -27,7 +27,7 @@ use ptt_settings::UiLanguage;
 use ptt_trade_domain::MarketAssetId;
 
 use crate::i18n;
-use crate::shell::AppShell;
+use crate::shell::{AppShell, RadarSegment};
 use crate::state::PageData;
 use crate::theme::*;
 use crate::ui::{
@@ -411,6 +411,71 @@ impl RadarTable {
     }
 }
 
+/// 页标题行(26px):标题 + 页签条 + 发丝线拉满 + 右侧计数(有表才有)。
+fn radar_title_row(
+    title: &'static str,
+    segment_row: gpui::Div,
+    count: Option<String>,
+) -> gpui::Div {
+    let mut row = div()
+        .h(px(H_INPUT))
+        .flex_none()
+        .h_flex()
+        .items_center()
+        .gap(px(SP_10))
+        .child(div().text_size(fs(FS_13)).child(crate::ui::spaced(title)))
+        .child(segment_row)
+        .child(div().flex_1().h(px(1.)).bg(c(HAIRLINE_SOFT)));
+    if let Some(count) = count {
+        row = row.child(mono(count).text_size(fs(FS_11)).text_color(c(TEXT_META)));
+    }
+    row
+}
+
+/// 雷达页的外框:标题行在最上面,其余由调用方往下摞。
+fn radar_page(title_row: gpui::Div) -> gpui::Div {
+    div()
+        .flex_grow()
+        .min_w(px(0.))
+        .flex()
+        .flex_col()
+        .gap(px(SP_8))
+        .p(px(SP_10))
+        .child(title_row)
+}
+
+/// 没有表可画时的一页:标题行(页签条还在,好切回去)+ 一句原因。
+fn radar_unavailable(title_row: gpui::Div, message: &str) -> gpui::Div {
+    radar_page(title_row).child(
+        panel()
+            .flex_1()
+            .flex()
+            .flex_col()
+            .child(empty_state(message)),
+    )
+}
+
+/// 事实带里的一格:小灰标签 + 等宽数值。交易所雷达段用;抓取段的同款
+/// 闭包留在原处没动。
+fn band_stat(label: &'static str, value: String, color: Token) -> gpui::Div {
+    div()
+        .h_flex()
+        .items_baseline()
+        .gap(px(6.))
+        .px(px(SP_12))
+        .child(
+            div()
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META))
+                .child(label),
+        )
+        .child(mono(value).text_size(fs(FS_12)).text_color(c(color)))
+}
+
+fn band_divider() -> gpui::Div {
+    div().w(px(1.)).h(px(20.)).flex_none().bg(c(HAIRLINE_SOFT))
+}
+
 /// What makes a row *this route* and not whatever ends up at its index next
 /// time.
 ///
@@ -463,9 +528,14 @@ impl AppShell {
         let PageData::Opportunities(model) = &self.report else {
             return;
         };
-        let rows = match &model.scan {
-            RadarScan::Ran(scan) => scan.items.clone(),
-            RadarScan::Unavailable(_) => Vec::new(),
+        // 两个页签共用一张表:行按当前页签取,切页签就是换行。
+        let scan = match self.radar_segment {
+            RadarSegment::Capture => Some(&model.scan),
+            RadarSegment::Exchange => model.exchange.as_ref().map(|exchange| &exchange.scan),
+        };
+        let rows = match scan {
+            Some(RadarScan::Ran(scan)) => scan.items.clone(),
+            _ => Vec::new(),
         };
         let language = self.language();
         let catalog = self.catalog();
@@ -513,6 +583,10 @@ impl AppShell {
             );
         };
         let model: &OpportunitiesModel = model;
+        let segment_row = self.radar_segment_row(cx);
+        if self.radar_segment == RadarSegment::Exchange {
+            return self.render_exchange_radar(model, segment_row, cx);
+        }
 
         // A scan that could not run says why, once, instead of drawing an
         // empty table that looks like an answer.
@@ -524,13 +598,8 @@ impl AppShell {
                 }
                 RadarUnavailable::NoStartUnits { .. } => report.no_pair_yet,
             };
-            return div().flex_grow().flex().p_3().child(
-                panel()
-                    .flex_1()
-                    .flex()
-                    .flex_col()
-                    .child(empty_state(message)),
-            );
+            let title_row = radar_title_row(text.page_opportunities, segment_row, None);
+            return radar_unavailable(title_row, message);
         }
         let RadarScan::Ran(scan) = &model.scan else {
             unreachable!("the unavailable case returned above");
@@ -560,6 +629,7 @@ impl AppShell {
                     .text_size(fs(FS_13))
                     .child(crate::ui::spaced(text.page_opportunities)),
             )
+            .child(segment_row)
             .child(div().flex_1().h(px(1.)).bg(c(HAIRLINE_SOFT)))
             .child(
                 mono(report_text::fill(
@@ -728,6 +798,241 @@ impl AppShell {
             .child(warnings)
             .child(body)
             .child(self.radar_probes(scan.probe_candidates.clone(), cx))
+    }
+
+    /// 页签切换条：交易所雷达 / 抓取雷达。当前段金字 + 2px 金下划线，
+    /// 同设置页分段栏的语汇；两段共用一张表，切段只是换行（`sync_radar_table`）。
+    fn radar_segment_row(&self, cx: &mut Context<Self>) -> gpui::Div {
+        use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+        let text = self.text();
+        let current = self.radar_segment;
+        let mut row = div().h_flex().items_center().gap(px(SP_8));
+        for segment in RadarSegment::ALL {
+            let active = segment == current;
+            let chip = div()
+                .id(segment.element_id())
+                .h(px(H_INPUT))
+                .px(px(SP_8))
+                .flex()
+                .items_center()
+                .text_size(fs(FS_12))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.radar_segment = segment;
+                    this.sync_radar_table(cx);
+                    cx.notify();
+                }));
+            let chip = if active {
+                chip.border_b_2()
+                    .border_color(c(ACCENT))
+                    .font_semibold()
+                    .text_color(c(ACCENT_TEXT))
+            } else {
+                chip.text_color(c(TEXT_SECONDARY))
+                    .hover(|style| style.bg(c(HOVER)))
+            };
+            row = row.child(chip.child(SharedString::from(segment.label(text).to_string())));
+        }
+        row
+    }
+
+    /// 「交易所雷达」段：官方小时成交均价跑出来的环。同一张表、同一个明细栏，
+    /// 只是事实带换成数据小时/资产/市场，并常驻一条"是线索不是承诺"的注意条。
+    fn render_exchange_radar(
+        &self,
+        model: &OpportunitiesModel,
+        segment_row: gpui::Div,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let text = self.text();
+        let language = self.language();
+        let report = report_text::report(language);
+        let max_age = ptt_runtime::reports::EXCHANGE_RADAR_MAX_AGE_HOURS.to_string();
+
+        // 计数先算:标题行只造一次,不可用的几条出口各自把它带走。
+        let ran = model
+            .exchange
+            .as_ref()
+            .and_then(|exchange| match &exchange.scan {
+                RadarScan::Ran(scan) => Some(scan),
+                RadarScan::Unavailable(_) => None,
+            });
+        let count = ran.map(|scan| {
+            report_text::fill(
+                report.results_cut,
+                &[
+                    &scan.diagnostics.item_count_before_limit.to_string(),
+                    &scan.items.len().to_string(),
+                ],
+            )
+        });
+        let title_row = radar_title_row(text.page_opportunities, segment_row, count);
+
+        // 没配联赛 / 算不出来:一句话说清为什么没有表,页签条留着好切回去。
+        let Some(exchange) = &model.exchange else {
+            return radar_unavailable(title_row, text.exchange_no_league);
+        };
+        let scan = match &exchange.scan {
+            RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency) => {
+                return radar_unavailable(title_row, report.no_core_currency);
+            }
+            RadarScan::Unavailable(RadarUnavailable::NotEnoughMarket) => {
+                return radar_unavailable(
+                    title_row,
+                    &report_text::fill(report.exchange_radar_no_data, &[&max_age]),
+                );
+            }
+            RadarScan::Unavailable(RadarUnavailable::NoStartUnits { anchor }) => {
+                let anchor = anchor
+                    .as_ref()
+                    .map_or_else(|| "?".to_owned(), |asset| self.display_name(asset.as_str()));
+                return radar_unavailable(
+                    title_row,
+                    &report_text::fill(report.exchange_radar_no_start, &[&anchor, &max_age]),
+                );
+            }
+            RadarScan::Ran(scan) => scan,
+        };
+
+        let selected = self
+            .radar_table
+            .read(cx)
+            .selected_row()
+            .and_then(|index| self.radar_table.read(cx).delegate().row(index).cloned());
+
+        // 34px 事实带:起点 / 数据小时(落后) / 资产 / 市场 / 评估环 / 过门槛 / 门槛。
+        let data_hour = exchange
+            .data_hour_ts
+            .and_then(|ts| chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0))
+            .map_or_else(
+                || "-".to_owned(),
+                |at| {
+                    at.with_timezone(&chrono::Local)
+                        .format("%m-%d %H:00")
+                        .to_string()
+                },
+            );
+        let behind = exchange.hours_behind;
+        let band = div()
+            .h(px(34.))
+            .flex_none()
+            .h_flex()
+            .items_center()
+            .bg(c(PANEL))
+            .border_1()
+            .border_color(c(HAIRLINE))
+            .child(
+                div()
+                    .h_flex()
+                    .items_baseline()
+                    .gap(px(6.))
+                    .px(px(SP_12))
+                    .child(
+                        div()
+                            .text_size(fs(FS_10_5))
+                            .text_color(c(TEXT_META))
+                            .child(text.radar_band_start),
+                    )
+                    .child(
+                        div().text_size(fs(FS_12)).child(SharedString::from(
+                            scan.starts
+                                .iter()
+                                .map(|asset| self.display_name(asset.as_str()))
+                                .collect::<Vec<_>>()
+                                .join(" · "),
+                        )),
+                    ),
+            )
+            .child(band_divider())
+            .child(band_stat(
+                text.exchange_radar_band_hour,
+                data_hour,
+                TEXT_DATA,
+            ))
+            .child(band_stat(
+                "",
+                report_text::fill(text.exchange_radar_band_behind, &[&behind.to_string()]),
+                // 落后两小时是 API 的常态;再多就是同步停了,值得变色。
+                if behind > 2 { WARN_TEXT } else { TEXT_META },
+            ))
+            .child(band_divider())
+            .child(band_stat(
+                text.exchange_radar_band_assets,
+                exchange.assets_used.to_string(),
+                TEXT_DATA,
+            ))
+            .child(band_stat(
+                text.exchange_radar_band_markets,
+                exchange.pairs_used.to_string(),
+                TEXT_DATA,
+            ))
+            .child(band_divider())
+            .child(band_stat(
+                text.radar_band_loops,
+                scan.diagnostics.triangle_evaluation_count.to_string(),
+                TEXT_DATA,
+            ))
+            .child(band_stat(
+                text.radar_band_profitable,
+                scan.diagnostics.profitable_loop_count.to_string(),
+                TEXT_DATA,
+            ))
+            .child(div().flex_1())
+            .child(band_stat(
+                text.radar_band_threshold,
+                report_text::percent_from_basis_points(i64::from(
+                    exchange.minimum_profit_basis_points,
+                )),
+                TEXT_DATA,
+            ));
+
+        // 常驻注意条:这页永远带着"是线索不是承诺"。预算耗尽再加一条。
+        let note_tag = text.note_band_tag;
+        let mut warnings = div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(warning_band(note_tag, report.exchange_radar_caveat));
+        if scan.diagnostics.budget_exhausted {
+            warnings = warnings.child(warning_band(
+                note_tag,
+                report.exchange_radar_budget_exhausted,
+            ));
+        }
+
+        let table = if scan.items.is_empty() {
+            panel()
+                .flex_1()
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .child(empty_state(report.exchange_radar_no_loop))
+        } else {
+            panel().flex_1().flex().flex_col().overflow_hidden().child(
+                div().flex_1().overflow_hidden().child(
+                    Table::new(&self.radar_table)
+                        .stripe(true)
+                        .bordered(false)
+                        .with_size(Size::XSmall),
+                ),
+            )
+        };
+        let mut body = div()
+            .flex_1()
+            .min_h(px(0.))
+            .min_w(px(0.))
+            .flex()
+            .gap(px(SP_8))
+            .overflow_hidden()
+            .child(table);
+        if let Some(row) = selected {
+            body = body.child(self.radar_detail(&row, cx));
+        }
+        radar_page(title_row)
+            .child(band)
+            .child(warnings)
+            .child(body)
     }
 
     /// One structural note as compact text: name, class, trend, greedy fit.
@@ -989,9 +1294,72 @@ impl AppShell {
             }
         }
 
-        // A route that needs confirming is the one worth queueing, so the
-        // control sits on the verdict that says so.
-        if item.category != Actionability::InstantExecutable
+        // 交易所雷达段:「去抓这组」把整条环的每一腿都排进待抓队列——
+        // 大雷达给的是一组通货,不是一对;抓回来小雷达才有东西可裁。
+        // 环的路径自带闭合(末尾回到起点),相邻两两就是全部的腿。
+        if self.radar_segment == RadarSegment::Exchange {
+            let legs: Vec<(String, String)> = item
+                .path_asset_ids
+                .windows(2)
+                .map(|pair| (pair[0].as_str().to_owned(), pair[1].as_str().to_owned()))
+                .collect();
+            let pinned = legs
+                .iter()
+                .filter(|(from, to)| self.probe_queue.is_pinned(from, to))
+                .count();
+            let reason = report_text::fill(
+                text.exchange_radar_pin_reason,
+                &[&item
+                    .round_trip_basis_points
+                    .map_or_else(|| "?".to_owned(), report_text::percent_from_basis_points)],
+            );
+            let control = if !legs.is_empty() && pinned == legs.len() {
+                let unpin_legs = legs.clone();
+                div()
+                    .h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        mono(report_text::fill(
+                            text.exchange_radar_queued,
+                            &[&pinned.to_string()],
+                        ))
+                        .text_size(fs(FS_11))
+                        .text_color(c(ACCENT_TEXT)),
+                    )
+                    .child(
+                        button(
+                            "radar-unpin-group",
+                            LedgerButton::Quiet,
+                            text.unpin_label,
+                            cx,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            for (from, to) in &unpin_legs {
+                                this.unpin_probe(from, to);
+                            }
+                            cx.notify();
+                        })),
+                    )
+            } else {
+                div().child(
+                    button(
+                        "radar-pin-group",
+                        LedgerButton::Secondary,
+                        text.exchange_radar_capture_group,
+                        cx,
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        // 倒着钉:`pin` 每次插到队首,正着钉第一腿会被挤到最后。
+                        for (from, to) in legs.iter().rev() {
+                            this.pin_probe(from, to, &reason);
+                        }
+                        cx.notify();
+                    })),
+                )
+            };
+            inner = inner.child(div().pt_2().child(control));
+        } else if item.category != Actionability::InstantExecutable
             && let (Some(from), Some(to)) =
                 (item.path_asset_ids.first(), item.path_asset_ids.get(1))
         {
