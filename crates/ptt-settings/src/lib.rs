@@ -1,7 +1,8 @@
 //! Versioned, crash-safe JSON settings store.
 //!
-//! Reading is lenient: a missing, unreadable, or malformed file yields safe
-//! defaults, never a user-facing error. Writing is strict and atomic: pretty
+//! Reading is lenient: a missing file yields defaults; a malformed file is moved
+//! aside as `settings.json.corrupt-<stamp>` and reported, so the next save can
+//! never clobber it. Writing is strict and atomic: pretty
 //! JSON to a sibling temp file, fsync, then rename. A file written by a newer
 //! schema puts the store into read-only mode instead of being clobbered.
 //! (Same posture as POE Alarm's settings store, with a fresh v1 schema.)
@@ -726,6 +727,10 @@ pub enum LoadStatus {
     Defaults,
     /// File written by a newer schema — defaults returned, saving refused.
     FutureSchemaReadOnly { detected: u32 },
+    /// File existed but could not be parsed. It was moved aside to `backup`
+    /// so the next save cannot silently overwrite a file that may still be
+    /// mostly recoverable by hand; defaults returned.
+    Corrupt { backup: PathBuf, reason: String },
 }
 
 #[derive(Debug, Clone)]
@@ -797,7 +802,7 @@ impl SettingsStore {
                 },
                 settings: AppSettings::default(),
             },
-            Err(_) => {
+            Err(error) => {
                 // Tolerate a partially-known file: retry just the version gate so a
                 // future schema is still detected as such rather than "malformed".
                 if let Some(detected) = detect_schema_version(&raw)
@@ -808,11 +813,39 @@ impl SettingsStore {
                         status: LoadStatus::FutureSchemaReadOnly { detected },
                     };
                 }
+                // A file that exists but does not parse is not "no file": move
+                // it aside before anyone saves, so the broken copy survives.
+                let backup = self.move_corrupt_aside();
                 LoadedSettings {
                     settings: AppSettings::default(),
-                    status: LoadStatus::Defaults,
+                    status: LoadStatus::Corrupt {
+                        backup,
+                        reason: error.to_string(),
+                    },
                 }
             }
+        }
+    }
+
+    /// Renames the unreadable file to `settings.json.corrupt-<unix seconds>`.
+    /// If the rename itself fails the original path is returned so the
+    /// message the user sees still points at a real file.
+    fn move_corrupt_aside(&self) -> PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let file_name = self
+            .path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| SETTINGS_FILE_NAME.to_owned());
+        let backup = self
+            .path
+            .with_file_name(format!("{file_name}.corrupt-{stamp}"));
+        match fs::rename(&self.path, &backup) {
+            Ok(()) => backup,
+            Err(_) => self.path.clone(),
         }
     }
 
@@ -890,6 +923,21 @@ mod tests {
     }
 
     #[test]
+    fn corrupt_file_is_backed_up_and_reported() {
+        let store = temp_store("corrupt");
+        fs::create_dir_all(store.path().parent().expect("parent")).expect("mkdir");
+        fs::write(store.path(), "{ this is not json").expect("write");
+        let loaded = store.load();
+        let LoadStatus::Corrupt { backup, reason } = loaded.status else {
+            panic!("expected Corrupt, got {:?}", loaded.status);
+        };
+        assert!(backup.exists(), "backup must exist at {}", backup.display());
+        assert!(!store.path().exists(), "the broken file must be moved away");
+        assert!(!reason.is_empty());
+        assert_eq!(loaded.settings, AppSettings::default());
+    }
+
+    #[test]
     fn round_trip_preserves_settings() {
         let store = temp_store("round-trip");
         let mut settings = AppSettings {
@@ -910,11 +958,11 @@ mod tests {
     }
 
     #[test]
-    fn malformed_file_yields_defaults_and_stays_writable() {
+    fn malformed_file_is_reported_and_the_store_stays_writable() {
         let store = temp_store("malformed");
         fs::create_dir_all(store.path().parent().unwrap()).unwrap();
         fs::write(store.path(), b"{not json").unwrap();
-        assert_eq!(store.load().status, LoadStatus::Defaults);
+        assert!(matches!(store.load().status, LoadStatus::Corrupt { .. }));
         store.save(&AppSettings::default()).unwrap();
         assert_eq!(store.load().status, LoadStatus::Loaded);
     }

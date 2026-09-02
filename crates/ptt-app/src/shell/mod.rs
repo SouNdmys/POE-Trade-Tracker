@@ -549,11 +549,33 @@ impl AppShell {
         .detach();
 
         #[cfg(windows)]
-        let (settings_store, settings, shell_tx, shell_rx, hotkey_ok) = {
+        let (settings_store, settings, shell_tx, shell_rx, hotkey_ok, startup_fault, startup_log) = {
             let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
             let store =
                 ptt_settings::SettingsStore::release_default_from(std::path::Path::new(&local));
             let loaded = store.load();
+            // A settings file that could not be read is a fault the user must
+            // see at once: the page otherwise looks like a fresh install.
+            let mut startup_log = VecDeque::new();
+            let startup_fault = {
+                let text = crate::i18n::text(loaded.settings.ui_language);
+                match &loaded.status {
+                    ptt_settings::LoadStatus::Corrupt { backup, reason } => {
+                        startup_log.push_back(format!("settings: {reason}"));
+                        Some(ptt_runtime::report_text::fill(
+                            text.settings_corrupt_notice,
+                            &[&backup.display().to_string()],
+                        ))
+                    }
+                    ptt_settings::LoadStatus::FutureSchemaReadOnly { detected } => {
+                        Some(ptt_runtime::report_text::fill(
+                            text.settings_future_schema_notice,
+                            &[&detected.to_string()],
+                        ))
+                    }
+                    ptt_settings::LoadStatus::Loaded | ptt_settings::LoadStatus::Defaults => None,
+                }
+            };
             let settings = loaded.settings;
             // Re-apply persisted calibration to the recognition route.
             if let Some(profile) = settings.profile(settings.active_profile) {
@@ -595,7 +617,9 @@ impl AppShell {
             {
                 settings.hotkeys.toggle_watch = resolved_watch;
                 settings.hotkeys.toggle_hud = resolved_hud;
-                let _ = store.save(&settings);
+                if let Err(error) = store.save(&settings) {
+                    startup_log.push_back(format!("settings: {error}"));
+                }
             }
             let (tx, rx) = std::sync::mpsc::channel();
             let hotkey_ok = spawn_hotkey_thread(
@@ -603,13 +627,24 @@ impl AppShell {
                 settings.hotkeys.toggle_watch.clone(),
                 settings.hotkeys.toggle_hud.clone(),
             );
-            (store, settings, tx, rx, hotkey_ok)
+            (
+                store,
+                settings,
+                tx,
+                rx,
+                hotkey_ok,
+                startup_fault,
+                startup_log,
+            )
         };
         #[cfg(not(windows))]
         let hotkey_ok = HotkeyRegistration {
             watch: false,
             hud: false,
         };
+        #[cfg(not(windows))]
+        let (startup_fault, startup_log): (Option<String>, VecDeque<String>) =
+            (None, VecDeque::new());
 
         // The table is created here rather than on first render so it can
         // keep its scroll and selection from the very first refresh, and so
@@ -804,8 +839,8 @@ impl AppShell {
             skips: BTreeMap::new(),
             last_skip: None,
             last_book: None,
-            log: VecDeque::new(),
-            fault: None,
+            log: startup_log,
+            fault: startup_fault,
             page: Page::Monitor,
             report_pair: None,
             analytics_selected: None,
