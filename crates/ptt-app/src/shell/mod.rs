@@ -355,6 +355,8 @@ pub struct AppShell {
     /// 上一次算出的交易所雷达：水位没变就直接复用，不再每来一本书重跑一次
     /// 770 ms 的环路搜索。
     exchange_radar_cache: Option<Box<ptt_runtime::reports::ExchangeRadarModel>>,
+    /// 交易所页的小时账本，按水位缓存：整段保留期的小时行只在水位前进时重读一次。
+    exchange_ledger_cache: Option<ptt_runtime::reports::ExchangeLedgerModel>,
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
@@ -763,6 +765,7 @@ impl AppShell {
             settings_segment: SettingsSegment::Basic,
             radar_segment: RadarSegment::Capture,
             exchange_radar_cache: None,
+            exchange_ledger_cache: None,
             report_stale: true,
             #[cfg(windows)]
             update_state: updater::UpdateState::default(),
@@ -1080,6 +1083,22 @@ impl AppShell {
                     {
                         this.exchange_radar_cache = Some(Box::new(exchange.clone()));
                     }
+                    // 先把账本克隆出来再改 self：借着 report 的时候不能写日志。
+                    let ledger = match &this.report {
+                        crate::state::PageData::Exchange(model) => model.ledger.clone(),
+                        _ => None,
+                    };
+                    if let Some(ledger) = ledger {
+                        // 账本只在水位前进时真读一次库；那一次的耗时写进日志，
+                        // 用户不用开探针也看得见这本账多贵。
+                        if ledger.load_millis > 0 {
+                            this.push_log(format!(
+                                "exchange: ledger {} hours / {} rows in {} ms",
+                                ledger.hours_loaded, ledger.rows_loaded, ledger.load_millis
+                            ));
+                        }
+                        this.exchange_ledger_cache = Some(ledger);
+                    }
                     this.close_answered_probes(requested_at);
                     cx.notify();
                 }
@@ -1158,6 +1177,7 @@ impl AppShell {
                 .collect(),
             requested_at: chrono::Utc::now(),
             exchange_radar_cache: self.exchange_radar_cache.clone(),
+            exchange_ledger_cache: self.exchange_ledger_cache.clone(),
         })
     }
 
@@ -1416,6 +1436,8 @@ struct PageRequest {
     /// The exchange radar the shell last drew; reused while the watermark and
     /// the knobs it was built with have not moved.
     exchange_radar_cache: Option<Box<ptt_runtime::reports::ExchangeRadarModel>>,
+    /// 上一次画的小时账本；联赛、水位、锚、保留天数都没变就直接复用。
+    exchange_ledger_cache: Option<ptt_runtime::reports::ExchangeLedgerModel>,
 }
 
 /// Reads the store and builds one page's answer.
@@ -1822,15 +1844,19 @@ fn load_exchange(
     let day_rows = store
         .load_exchange_days(game, &league, &from_day, &to_day)
         .map_err(|error| format!("days: {error}"))?;
-    let mut model =
-        ptt_runtime::reports::exchange_model(&day_rows, &hour_rows, &league, &request.tuning)?;
     // 水位与欠账在这里补进模型：进度是存储层的事实，模型函数不碰 store。
     let watermark = store
         .exchange_watermark(game, &league)
         .map_err(|error| format!("watermark: {error}"))?;
+    let mut model =
+        ptt_runtime::reports::exchange_model(&day_rows, &hour_rows, &league, &request.tuning)?;
     let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
     model.synced_through = watermark;
     model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+    // 小时账本是"现在"的读数，历史视角下不算（与小时行一样）。
+    if as_of.is_none() {
+        model.ledger = load_exchange_ledger(&store, request, &league, watermark)?;
+    }
 
     // ---- 面板核对：按抓取时刻逐点查官方小时行 ----
     // 窗口 = 小时明细保留天数（明细清掉后就没区间可比；0 = 不清理，取一年），
@@ -1873,6 +1899,44 @@ fn load_exchange(
         &matched_rows,
         window_days,
     )?);
+    Ok(Some(model))
+}
+
+/// 整段保留期的小时账本。同联赛、同水位、同锚、同保留天数 = 同一本账，
+/// 直接复用；否则读精简行重建——1.8M 行一两秒，只在水位前进时付一次。
+/// 复用时 `load_millis` 归零：只有真读了库的那次才值得写进日志。
+#[cfg(windows)]
+fn load_exchange_ledger(
+    store: &ptt_storage::MarketStore,
+    request: &PageRequest,
+    league: &str,
+    watermark: Option<i64>,
+) -> Result<Option<ptt_runtime::reports::ExchangeLedgerModel>, String> {
+    let Some(watermark) = watermark else {
+        return Ok(None);
+    };
+    let anchor = ptt_runtime::reports::exchange_anchor(&request.tuning)?;
+    let retention_days = request.tuning.exchange.hour_retention_days;
+    if let Some(cached) = &request.exchange_ledger_cache
+        && cached.league == league
+        && cached.synced_through == Some(watermark)
+        && cached.anchor_asset_id == anchor
+        && cached.retention_days == retention_days
+    {
+        let mut model = cached.clone();
+        model.load_millis = 0;
+        return Ok(Some(model));
+    }
+    let game = request.profile.game.as_str();
+    let window_hours = ptt_runtime::reports::exchange_ledger_window_hours(&request.tuning);
+    let from_ts = watermark - i64::from(window_hours) * 3600;
+    let started = std::time::Instant::now();
+    let rows = store
+        .load_exchange_hour_volumes(game, league, from_ts, watermark + 3600)
+        .map_err(|error| format!("hour volumes: {error}"))?;
+    let mut model = ptt_runtime::reports::exchange_ledger_model(&rows, league, &request.tuning)?;
+    model.synced_through = Some(watermark);
+    model.load_millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     Ok(Some(model))
 }
 
