@@ -6,7 +6,7 @@
 //!
 //! POE1（2026-09-02，P11 追记）：RePoE 的 base_items（原版 + 维护中的 fork，fork 覆盖）
 //! 给出路径 → 英文名，按英文名对进 POE1 catalog 的主名与别名；联赛 Allflame 十七个
-//! 小时里出现过的 1043 条路径全部对上，只有一张神谕卡（Prometheus' Armoury 对
+//! 小时（后来扩到 168 小时的并集）里出现过的 1046 条路径全部对上，只有一张神谕卡（Prometheus' Armoury 对
 //! catalog 的 "Prometheus"）是手工钉的。
 //!
 //! 运行时只认这份 JSON，生成脚本不进仓库：启发式只做生成器，不做运行时逻辑。

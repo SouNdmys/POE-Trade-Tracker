@@ -1428,6 +1428,34 @@ order 文件派生，`ptt-exchange-history/data/poe2/categories.json`，与路�
 钉的是 sticky 钉子，loader 把"窗口里还没有新鲜可吃档"的钉子重新提成 High
 候选（来源 `ExchangeRadar`）；抓到新鲜的它就不再被提出来，自然消失。
 
+### POE1 对齐：每游戏一张映射表，锚由设置决定（2026-09-02）
+
+阶段 5 之前映射表、分类表、导出、雷达、面板核对全是 POE2 一份，POE1 页面是空的。
+对齐的原则是**一套代码、两张表**：`mapping::entries/index/categories(game)` 按
+`profile.game` 取 `data/poe1/` 或 `data/poe2/`，报表、账本、雷达、导出、探针全部
+多带一个 `game` 参数——没有第二条"POE1 专用"的算法路径。
+
+- **POE1 的表怎么来的**：RePoE 的 `base_items`（原版 + 维护中的 fork，fork 覆盖，
+  因为原版停在 3.25 缺了 3.26+ 的物品）给出路径 → 英文名，按英文名对进 POE1 catalog
+  的主名与别名（大小写不敏感）。联赛 Allflame 实测（168 小时的路径并集）1046 条不同路径全部对上，60 天日行 99% 两侧都映射得上，只有一张
+  神谕卡（`Prometheus' Armoury` 对 catalog 的 "Prometheus"）是手工钉的。生成器仍不进
+  仓库（P11 既定裁定），配方记在这里：路径清单来自缓存的若干小时取并集，两份 RePoE
+  JSON 合成一张 `path → name` 表，脚本对 catalog、剩余的走驼峰拆词、最后人工表。
+- **分类**：POE1 的 order 文件本来就是 16 个英文 slug（allflame / catalysts / currency /
+  … / tattoos），`category_slug(Poe1, …)` 只是把它钉成静态字符串顺便挡拼错；
+  POE2 仍是 14 个繁中标签翻 slug。两个游戏的分类词表不同，导出只在同游戏内可比。
+- **锚不再写死是崇高**：交易所页、雷达、账本、导出、探针都走 `exchange_anchor(tuning)`
+  （设置里的锚，没设就取第一个结算资产）。POE1 默认结算 `divine-orb, chaos-orb`，
+  所以 POE1 的锚是神圣，崇高在那页上是被计价的那个；POE2 用户设的是神圣就也按神圣。
+  `EXALTED_PATH/DIVINE_PATH/CHAOS_PATH` 三个常量两游戏共用（同一串 GGG 路径，只是
+  catalog id 拼法不同：POE2 下划线、POE1 连字符），锚三件套测试两种拼法各锁一遍。
+- **导出列改名（格式变更）**：`volume_exalted` 拆成 `anchor`（这行按哪个锚折算）+
+  `volume_anchor`（按它折算的成交额）。三列价格（崇高/神圣/混沌）保留——锚随赛季轮动，
+  历史该用哪个锚由分析者定；成交额只按当前锚给一份，锚不在三件套里就多跑一次脉搏。
+  读旧文件的脚本要改列名。
+- **域 id 的反查经 `domain_asset_id` 归一**：映射表存 catalog 拼法，回到路径时两种拼法
+  都能回环，转换通道只留那一条。
+
 ## P12 附记：小时账本（2026-09-02）
 
 交易所页的走势曲线画的是日线（`value_by_day`）。赛季头几天只有两三个点——
@@ -1483,3 +1511,9 @@ order 文件派生，`ptt-exchange-history/data/poe2/categories.json`，与路�
 `load_exchange_ledger` + `render_exchange_series` + 同档位重排的表格前 15 行；
 `--status` 多打一行账本的读库/建账耗时——这个数决定按水位缓存够不够，
 超过 3 s 再考虑按天分块合并，眼下不做。
+
+`--ingest` 把缓存里这个联赛的小时写进生产表并折出日线，和 app 同步同一条写路径
+（`storage_row` + `replace_exchange_hour` + `ensure_exchange_day_rollups`）。
+它存在的理由是跨游戏验证：把 `LOCALAPPDATA` 指到一个临时目录、放一份切成 POE1 的
+设置，`--fetch` → `--ingest` → `--status/--paths/--radar/--series/--export`
+就是一个不碰真实数据库、不开 GUI 的干净沙盒。
