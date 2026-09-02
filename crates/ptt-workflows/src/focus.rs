@@ -272,6 +272,65 @@ impl FocusScope {
         })
     }
 
+    /// 整个市场当一张图：锚是结算通货，其余全部当中转，没有 target。
+    /// 大雷达要的是"任意两两成边、环路扫全图"，而 `try_new` 没有 target 就不 Ready——
+    /// 这里另开一条路：直兑扫描只扫锚↔锚（两三对，便宜且有意义），环路扫整个索引。
+    pub fn whole_market(
+        anchors: &[MarketAssetId],
+        members: &[MarketAssetId],
+    ) -> Result<Self, WorkflowError> {
+        let mut anchors = anchors.to_vec();
+        anchors.sort();
+        anchors.dedup();
+        if anchors.is_empty() {
+            return Err(WorkflowError::InvalidFocusScope);
+        }
+        let mut bridges = members
+            .iter()
+            .filter(|asset_id| !anchors.contains(asset_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        bridges.sort();
+        bridges.dedup();
+        let counts = FocusRoleCounts {
+            anchor_count: count(&anchors)?,
+            target_count: 0,
+            bridge_count: count(&bridges)?,
+            watch_only_count: 0,
+        };
+        let mut intermediate_asset_ids = anchors.clone();
+        intermediate_asset_ids.extend(bridges.iter().cloned());
+        intermediate_asset_ids.sort();
+        let mut directed_pairs = Vec::new();
+        let mut seen = BTreeSet::new();
+        for from in &anchors {
+            for to in &anchors {
+                push_pair(
+                    &mut directed_pairs,
+                    &mut seen,
+                    from,
+                    to,
+                    FocusRole::Anchor,
+                    FocusRole::Anchor,
+                    ProbePriority::Medium,
+                    FocusPairRelation::AnchorAnchor,
+                );
+            }
+        }
+        Ok(Self {
+            status: FocusScopeStatus::Ready,
+            counts,
+            endpoint_asset_ids: anchors.clone(),
+            anchors,
+            targets: Vec::new(),
+            bridges,
+            watch_only: Vec::new(),
+            intermediate_asset_ids,
+            directed_pairs,
+            allow_target_interconnect: false,
+        })
+    }
+
     #[must_use]
     pub fn endpoint_pair_allowed(&self, from: &MarketAssetId, to: &MarketAssetId) -> bool {
         self.directed_pairs
@@ -409,5 +468,57 @@ mod tests {
             .expect("target pair");
         assert_eq!(pair.priority, ProbePriority::Low);
         assert_eq!(pair.relation, FocusPairRelation::TargetTarget);
+    }
+
+    #[test]
+    fn whole_market_lets_any_two_members_form_an_edge() {
+        let scope = FocusScope::whole_market(
+            &[asset("exalted")],
+            &[asset("exalted"), asset("divine"), asset("chaos")],
+        )
+        .expect("scope");
+
+        assert_eq!(scope.status, FocusScopeStatus::Ready);
+        assert!(scope.targets.is_empty());
+        assert_eq!(scope.bridges, vec![asset("chaos"), asset("divine")]);
+        // bridge↔bridge 也成边：环路扫描要走整张图。
+        assert!(scope.edge_allowed(&asset("divine"), &asset("chaos")));
+        assert!(scope.edge_allowed(&asset("exalted"), &asset("chaos")));
+        assert!(!scope.edge_allowed(&asset("chaos"), &asset("chaos")));
+        assert!(!scope.edge_allowed(&asset("chaos"), &asset("unknown")));
+        assert!(scope.intermediate_allowed(&asset("divine")));
+        assert!(scope.intermediate_allowed(&asset("exalted")));
+        // 只有一个锚：没有锚↔锚的直兑对。
+        assert!(scope.directed_pairs.is_empty());
+    }
+
+    #[test]
+    fn whole_market_endpoints_are_only_the_anchors() {
+        let scope = FocusScope::whole_market(
+            &[asset("exalted"), asset("divine"), asset("exalted")],
+            &[asset("divine"), asset("chaos"), asset("chaos")],
+        )
+        .expect("scope");
+
+        assert_eq!(scope.anchors, vec![asset("divine"), asset("exalted")]);
+        assert_eq!(
+            scope.endpoint_asset_ids,
+            vec![asset("divine"), asset("exalted")]
+        );
+        assert_eq!(scope.bridges, vec![asset("chaos")]);
+        assert_eq!(scope.counts.anchor_count, 2);
+        assert_eq!(scope.counts.bridge_count, 1);
+        assert_eq!(scope.counts.target_count, 0);
+        // 两个锚：正反两条锚↔锚直兑对，都是 Medium。
+        assert_eq!(scope.directed_pairs.len(), 2);
+        assert!(scope.endpoint_pair_allowed(&asset("exalted"), &asset("divine")));
+        assert!(scope.endpoint_pair_allowed(&asset("divine"), &asset("exalted")));
+        assert!(!scope.endpoint_pair_allowed(&asset("exalted"), &asset("chaos")));
+    }
+
+    #[test]
+    fn whole_market_needs_at_least_one_anchor() {
+        let error = FocusScope::whole_market(&[], &[asset("divine")]).expect_err("no anchor");
+        assert_eq!(error, WorkflowError::InvalidFocusScope);
     }
 }
