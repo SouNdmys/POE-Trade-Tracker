@@ -98,6 +98,10 @@ pub struct SizeRoute {
     /// and not the same thing as finding no route, which is why it is a flag
     /// rather than an empty list.
     pub direct_is_the_only_one: bool,
+    /// How many candidates were priced worse than direct and left out. A
+    /// route seen in game and missing here could be hidden or never
+    /// captured; the count is what tells the two apart.
+    pub hidden_worse_than_direct: usize,
 }
 
 impl SizeRoute {
@@ -1541,6 +1545,7 @@ pub fn convert_model(
                 size,
                 quotes: Vec::new(),
                 direct_is_the_only_one: false,
+                hidden_worse_than_direct: 0,
             });
             continue;
         }
@@ -1554,6 +1559,7 @@ pub fn convert_model(
         routes.push(SizeRoute {
             size,
             direct_is_the_only_one: quotes.len() == 1 && quotes[0].is_direct,
+            hidden_worse_than_direct: candidates.len().saturating_sub(quotes.len()),
             quotes,
         });
     }
@@ -1643,6 +1649,15 @@ fn render_convert(model: &ConvertModel, language: UiLanguage) -> Vec<String> {
         }
         if route.direct_is_the_only_one {
             lines.push(format!("     {}", text.no_route_beats_direct));
+        }
+        if route.hidden_worse_than_direct > 0 {
+            lines.push(format!(
+                "     {}",
+                crate::report_text::fill(
+                    text.routes_hidden_worse_than_direct,
+                    &[&route.hidden_worse_than_direct.to_string()],
+                )
+            ));
         }
     }
 
@@ -7718,6 +7733,27 @@ mod route_quote_tests {
     /// The common case, and it is a conclusion rather than a fault: this book
     /// simply has nothing better than trading straight across. Saying "no
     /// route" there would read as a broken page.
+    #[test]
+    fn routes_priced_worse_than_direct_are_counted_not_just_dropped() {
+        // A route seen in game and missing here could be hidden or never
+        // captured; the count is what tells the two apart.
+        let mut observations = direct_book();
+        observations.extend(deep_but_worse());
+        let size = model_at(&observations, 5_000)
+            .sizes
+            .first()
+            .cloned()
+            .expect("one priced size");
+        assert!(size.direct_is_the_only_one);
+        assert!(
+            size.hidden_worse_than_direct >= 1,
+            "{}",
+            size.hidden_worse_than_direct
+        );
+        let english = english_report(&observations, 5_000);
+        assert!(english.contains("hidden"), "{english}");
+    }
+
     #[test]
     fn when_nothing_beats_direct_the_page_says_so() {
         let mut observations = direct_book();

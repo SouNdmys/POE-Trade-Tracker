@@ -746,6 +746,20 @@ impl AppShell {
                     )),
             );
         }
+        // 游戏里看到一条路线、回来这页找不到:是被藏了还是没抓到,靠这一行分辨。
+        if route.hidden_worse_than_direct > 0 {
+            table = table.child(
+                div()
+                    .px_3()
+                    .py_1()
+                    .text_size(fs(FS_10_5))
+                    .text_color(c(TEXT_META))
+                    .child(gpui::SharedString::from(report_text::fill(
+                        report.routes_hidden_worse_than_direct,
+                        &[&route.hidden_worse_than_direct.to_string()],
+                    ))),
+            );
+        }
         // 表尾口径:「能吃下」取全路径最窄的那一段(§7)。
         table.child(div().flex_1()).child(
             div()
