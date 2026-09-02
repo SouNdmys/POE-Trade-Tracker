@@ -1,0 +1,2642 @@
+[
+  {
+    "id": "augmentation_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "greater_augmentation_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "perfect_augmentation_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "transmutation_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "greater_transmutation_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "perfect_transmutation_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "regal_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "greater_regal_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "perfect_regal_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "exalted_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "greater_exalted_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "perfect_exalted_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "chaos_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "greater_chaos_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "perfect_chaos_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "vaal_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "orb_of_alchemy",
+    "category": "通貨"
+  },
+  {
+    "id": "divine_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "orb_of_chance",
+    "category": "通貨"
+  },
+  {
+    "id": "orb_of_annulment",
+    "category": "通貨"
+  },
+  {
+    "id": "artificers_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "fracturing_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "hinekoras_lock",
+    "category": "通貨"
+  },
+  {
+    "id": "mirror_of_kalandra",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_1",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_2",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_3",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_4",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_5",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_6",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_7",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_8",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_9",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_10",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_11",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_12",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_13",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_14",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_15",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_16",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_17",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_18",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_19",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_20",
+    "category": "通貨"
+  },
+  {
+    "id": "lesser_jewellers_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "greater_jewellers_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "perfect_jewellers_orb",
+    "category": "通貨"
+  },
+  {
+    "id": "transmutation_shard",
+    "category": "通貨"
+  },
+  {
+    "id": "regal_shard",
+    "category": "通貨"
+  },
+  {
+    "id": "artificers_shard",
+    "category": "通貨"
+  },
+  {
+    "id": "chance_shard",
+    "category": "通貨"
+  },
+  {
+    "id": "armourers_scrap",
+    "category": "通貨"
+  },
+  {
+    "id": "blacksmiths_whetstone",
+    "category": "通貨"
+  },
+  {
+    "id": "arcanists_etcher",
+    "category": "通貨"
+  },
+  {
+    "id": "glassblowers_bauble",
+    "category": "通貨"
+  },
+  {
+    "id": "gemcutters_prism",
+    "category": "通貨"
+  },
+  {
+    "id": "scroll_of_wisdom",
+    "category": "通貨"
+  },
+  {
+    "id": "lesser_body_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_mind_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_enhancement_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_abrasion_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_flames_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_insulation_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_ice_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_thawing_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_electricity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_grounding_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_ruin_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_command_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_battle_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_sorcery_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_haste_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_alacrity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_infinite_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_seeking_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "lesser_opulence_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "body_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "mind_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "enhancement_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "abrasion_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "flames_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "insulation_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "ice_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "thawing_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "electricity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "grounding_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "ruin_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "command_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "battle_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "sorcery_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "haste_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "alacrity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "infinite_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "seeking_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "opulence_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_body_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_mind_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_enhancement_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_abrasion_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_flames_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_insulation_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_ice_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_thawing_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_electricity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_grounding_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_ruin_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_command_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_battle_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_sorcery_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_haste_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_alacrity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_infinite_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_seeking_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_opulence_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_body_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_mind_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_enhancement_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_abrasion_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_flames_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_insulation_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_ice_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_thawing_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_electricity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_grounding_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_ruin_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_command_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_battle_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_sorcery_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_haste_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_alacrity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_infinite_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_seeking_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "perfect_opulence_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "hysteria_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "delirium_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "horror_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "insanity_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "abyss_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "breach_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "simulacrum_splinter",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "simulacrum",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ravens_reflection",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "raven_touched_shard",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "diluted_liquid_rage",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "diluted_liquid_guilt",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "diluted_liquid_greed",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "liquid_paranoia",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "liquid_envy",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "liquid_disgust",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "liquid_despair",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "concentrated_liquid_fear",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "concentrated_liquid_suffering",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "concentrated_liquid_isolation",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_diluted_liquid_rage",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_diluted_liquid_guilt",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_diluted_liquid_greed",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_liquid_paranoia",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_liquid_envy",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_liquid_disgust",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_liquid_despair",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_concentrated_liquid_fear",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_concentrated_liquid_suffering",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_concentrated_liquid_isolation",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "potent_liquid_melancholy",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "potent_liquid_ferocity",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "potent_liquid_contempt",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_potent_liquid_melancholy",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_potent_liquid_ferocity",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "ancient_potent_liquid_contempt",
+    "category": "譫妄異域"
+  },
+  {
+    "id": "breach_splinter",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "breachstone",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "life_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "mana_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "carapace_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "adaptive_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "fire_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "cold_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "lightning_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "physical_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "reaver_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "sibilant_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "chaos_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "skittering_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_flesh_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_neural_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_carapace_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_uul_netols_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_xophs_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_tuls_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_eshs_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_chayulas_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_reaver_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_sibilant_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_skittering_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_adaptive_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "breachlord_sac",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "broken_jawbone",
+    "category": "深淵"
+  },
+  {
+    "id": "preserved_jawbone",
+    "category": "深淵"
+  },
+  {
+    "id": "ancient_jawbone",
+    "category": "深淵"
+  },
+  {
+    "id": "broken_rib",
+    "category": "深淵"
+  },
+  {
+    "id": "preserved_rib",
+    "category": "深淵"
+  },
+  {
+    "id": "ancient_rib",
+    "category": "深淵"
+  },
+  {
+    "id": "broken_clavicle",
+    "category": "深淵"
+  },
+  {
+    "id": "preserved_clavicle",
+    "category": "深淵"
+  },
+  {
+    "id": "ancient_clavicle",
+    "category": "深淵"
+  },
+  {
+    "id": "preserved_skull",
+    "category": "深淵"
+  },
+  {
+    "id": "preserved_spine",
+    "category": "深淵"
+  },
+  {
+    "id": "altered_collarbone",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_abyssal_echoes",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_the_sovereign",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_the_liege",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_the_blackblooded",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_putrefaction",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_light",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_sinistral_necromancy",
+    "category": "深淵"
+  },
+  {
+    "id": "omen_of_dextral_necromancy",
+    "category": "深淵"
+  },
+  {
+    "id": "kulemaks_invitation",
+    "category": "深淵"
+  },
+  {
+    "id": "amanamus_gaze",
+    "category": "深淵"
+  },
+  {
+    "id": "tecrodos_gaze",
+    "category": "深淵"
+  },
+  {
+    "id": "kurgals_gaze",
+    "category": "深淵"
+  },
+  {
+    "id": "ulamans_gaze",
+    "category": "深淵"
+  },
+  {
+    "id": "architects_orb",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "crystallised_corruption",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "core_destabiliser",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "ancient_infuser",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "vaal_cultivation_orb",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "vaal_armourers_infuser",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "vaal_blacksmiths_infuser",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "vaal_arcanists_infuser",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "vaal_catalysing_infuser",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "orb_of_extraction",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "vaal_siphoner",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "guatelitzi_hypothesis",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "citaqualotl_hypothesis",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "jiquani_hypothesis",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "quipolatl_hypothesis",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "cowardly_fate",
+    "category": "碎片"
+  },
+  {
+    "id": "deadly_fate",
+    "category": "碎片"
+  },
+  {
+    "id": "victorious_fate",
+    "category": "碎片"
+  },
+  {
+    "id": "ancient_crisis_fragment",
+    "category": "碎片"
+  },
+  {
+    "id": "faded_crisis_fragment",
+    "category": "碎片"
+  },
+  {
+    "id": "weathered_crisis_fragment",
+    "category": "碎片"
+  },
+  {
+    "id": "dawn_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "xeshts_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "trialmaster_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "ritual_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "tangmazu_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "olroths_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "arbiter_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "zarokhs_vault_key_against_the_darkness",
+    "category": "碎片"
+  },
+  {
+    "id": "zarokhs_vault_key_sandstorm_veil",
+    "category": "碎片"
+  },
+  {
+    "id": "zarokhs_vault_key_bonds_of_benediction",
+    "category": "碎片"
+  },
+  {
+    "id": "zarokhs_vault_key_sekhemas_resolve",
+    "category": "碎片"
+  },
+  {
+    "id": "zarokhs_vault_key_temporal_object",
+    "category": "碎片"
+  },
+  {
+    "id": "azmeri_vault_key",
+    "category": "碎片"
+  },
+  {
+    "id": "lesser_desert_rune",
+    "category": "符文"
+  },
+  {
+    "id": "desert_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_desert_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_glacial_rune",
+    "category": "符文"
+  },
+  {
+    "id": "glacial_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_glacial_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_storm_rune",
+    "category": "符文"
+  },
+  {
+    "id": "storm_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_storm_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_iron_rune",
+    "category": "符文"
+  },
+  {
+    "id": "iron_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_iron_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_body_rune",
+    "category": "符文"
+  },
+  {
+    "id": "body_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_body_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_mind_rune",
+    "category": "符文"
+  },
+  {
+    "id": "mind_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_mind_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_vision_rune",
+    "category": "符文"
+  },
+  {
+    "id": "vision_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_vision_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_rebirth_rune",
+    "category": "符文"
+  },
+  {
+    "id": "rebirth_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_rebirth_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_inspiration_rune",
+    "category": "符文"
+  },
+  {
+    "id": "inspiration_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_inspiration_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_stone_rune",
+    "category": "符文"
+  },
+  {
+    "id": "stone_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_stone_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_robust_rune",
+    "category": "符文"
+  },
+  {
+    "id": "robust_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_robust_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_adept_rune",
+    "category": "符文"
+  },
+  {
+    "id": "adept_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_adept_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_resolve_rune",
+    "category": "符文"
+  },
+  {
+    "id": "resolve_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_resolve_rune",
+    "category": "符文"
+  },
+  {
+    "id": "masterwork_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_ward_rune",
+    "category": "符文"
+  },
+  {
+    "id": "ward_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_ward_rune",
+    "category": "符文"
+  },
+  {
+    "id": "lesser_charging_rune",
+    "category": "符文"
+  },
+  {
+    "id": "charging_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_charging_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_desert_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_glacial_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_storm_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_iron_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_body_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_mind_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_rebirth_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_inspiration_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_stone_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_vision_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_robust_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_adept_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_resolve_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_ward_rune",
+    "category": "符文"
+  },
+  {
+    "id": "perfect_charging_rune",
+    "category": "符文"
+  },
+  {
+    "id": "greater_rune_of_leadership",
+    "category": "符文"
+  },
+  {
+    "id": "greater_rune_of_tithing",
+    "category": "符文"
+  },
+  {
+    "id": "greater_rune_of_alacrity",
+    "category": "符文"
+  },
+  {
+    "id": "greater_rune_of_nobility",
+    "category": "符文"
+  },
+  {
+    "id": "farruls_rune_of_the_hunt",
+    "category": "符文"
+  },
+  {
+    "id": "thane_myrks_rune_of_summer",
+    "category": "符文"
+  },
+  {
+    "id": "lady_hestras_rune_of_winter",
+    "category": "符文"
+  },
+  {
+    "id": "thane_lelds_rune_of_spring",
+    "category": "符文"
+  },
+  {
+    "id": "fenumus_rune_of_agony",
+    "category": "符文"
+  },
+  {
+    "id": "thane_girts_rune_of_wildness",
+    "category": "符文"
+  },
+  {
+    "id": "hedgewitch_assandras_rune_of_wisdom",
+    "category": "符文"
+  },
+  {
+    "id": "saqawals_rune_of_the_sky",
+    "category": "符文"
+  },
+  {
+    "id": "greatwolfs_rune_of_willpower",
+    "category": "符文"
+  },
+  {
+    "id": "craiceanns_rune_of_recovery",
+    "category": "符文"
+  },
+  {
+    "id": "craiceanns_rune_of_warding",
+    "category": "符文"
+  },
+  {
+    "id": "countess_seskes_rune_of_archery",
+    "category": "符文"
+  },
+  {
+    "id": "saqawals_rune_of_erosion",
+    "category": "符文"
+  },
+  {
+    "id": "saqawals_rune_of_memory",
+    "category": "符文"
+  },
+  {
+    "id": "greatwolfs_rune_of_claws",
+    "category": "符文"
+  },
+  {
+    "id": "courtesan_mannans_rune_of_cruelty",
+    "category": "符文"
+  },
+  {
+    "id": "thane_grannells_rune_of_mastery",
+    "category": "符文"
+  },
+  {
+    "id": "fenumus_rune_of_spinning",
+    "category": "符文"
+  },
+  {
+    "id": "fenumus_rune_of_draining",
+    "category": "符文"
+  },
+  {
+    "id": "farruls_rune_of_grace",
+    "category": "符文"
+  },
+  {
+    "id": "farruls_rune_of_the_chase",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_splinters",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_dueling",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_the_titan",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_shattering",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_prowess",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_control",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_discovery",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_decay",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_witchcraft",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_the_horde",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_animosity",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_detonation",
+    "category": "符文"
+  },
+  {
+    "id": "ancient_rune_of_retaliation",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_vitality",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_the_hunt",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_acrobatics",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_culmination",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_renown",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_accumulation",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_foundations",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_the_prism",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_the_blossom",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_consistency",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_reach",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_vital_flame",
+    "category": "符文"
+  },
+  {
+    "id": "rune_of_confrontation",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_reinforcement",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_protection",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_disintegration",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_desperation",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_symbiosis",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_courage",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_stability",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_glancing",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_heart",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_nourishment",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_annihilation",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_armature",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_obsession",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_equinox",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_salvaging",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_bodyguards",
+    "category": "符文"
+  },
+  {
+    "id": "warding_rune_of_hollowing",
+    "category": "符文"
+  },
+  {
+    "id": "serles_triumph",
+    "category": "符文"
+  },
+  {
+    "id": "cadigans_epiphany",
+    "category": "符文"
+  },
+  {
+    "id": "astrids_creativity",
+    "category": "符文"
+  },
+  {
+    "id": "emergent_vigour",
+    "category": "符文"
+  },
+  {
+    "id": "emergent_possibility",
+    "category": "符文"
+  },
+  {
+    "id": "emergent_protection",
+    "category": "符文"
+  },
+  {
+    "id": "emergent_instinct",
+    "category": "符文"
+  },
+  {
+    "id": "uhtreds_sidereus",
+    "category": "符文"
+  },
+  {
+    "id": "kolrs_hunt",
+    "category": "符文"
+  },
+  {
+    "id": "voranas_carnage",
+    "category": "符文"
+  },
+  {
+    "id": "thruds_might",
+    "category": "符文"
+  },
+  {
+    "id": "medveds_tending",
+    "category": "符文"
+  },
+  {
+    "id": "katlas_gloom",
+    "category": "符文"
+  },
+  {
+    "id": "aldurs_legacy",
+    "category": "符文"
+  },
+  {
+    "id": "passion_of_aldur",
+    "category": "符文"
+  },
+  {
+    "id": "breath_of_aldur",
+    "category": "符文"
+  },
+  {
+    "id": "ire_of_aldur",
+    "category": "符文"
+  },
+  {
+    "id": "betrayal_of_aldur",
+    "category": "符文"
+  },
+  {
+    "id": "omen_of_sinistral_alchemy",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_alchemy",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_coronation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_coronation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_homogenising_coronation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_refreshment",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_resurgence",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_corruption",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_amelioration",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_exaltation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_exaltation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_homogenising_exaltation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_catalysing_exaltation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_greater_annulment",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_whittling",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_erasure",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_erasure",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_chaotic_rarity",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_chaotic_quantity",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_chaotic_monsters",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_chaotic_effectiveness",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_annulment",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_annulment",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_chance",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_the_ancients",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_crystallisation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_crystallisation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_greater_exaltation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_the_blessed",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sanctification",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_gambling",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_bartering",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_answered_prayers",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_the_hunt",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_reinforcements",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_secret_compartments",
+    "category": "祭祀"
+  },
+  {
+    "id": "head_of_the_king",
+    "category": "祭祀"
+  },
+  {
+    "id": "tupatati_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "tacati_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "opiloti_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "zalatl_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "citaqualotl_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "puhuarte_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "tzamoto_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "xopec_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "quipolatl_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "ticaba_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "atetemaha_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "cholotl_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "zantipi_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "azcapa_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "atetemaha_retreat_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "hayoxi_heatproofing_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "zalatl_insulation_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "topotante_dampening_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "opiloti_assault_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "guatelitzi_endurance_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "xopec_power_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "xipocado_dominion_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "citaqualotl_foulness_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "cholotl_war_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "tacati_affliction_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "quipolatl_flow_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "tzamoto_ferocity_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "uromoti_attenuation_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "estazunti_convalescence_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "bear_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "primate_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "stag_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "boar_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "python_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "wolf_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "cat_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "nightbird_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "bull_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "fox_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "hare_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "tuldana_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "masaris_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "eeshta_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "egrin_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "ralakesh_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "sirrius_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "grold_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_greust",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_yeena",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_eramir",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_oak",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_alira",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_kraityn",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_silk",
+    "category": "魔偶"
+  },
+  {
+    "id": "panther_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "hawk_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "stoat_idol",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_the_sycophant",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_the_martyr",
+    "category": "魔偶"
+  },
+  {
+    "id": "idol_of_the_pharisee",
+    "category": "魔偶"
+  },
+  {
+    "id": "carved_cunning",
+    "category": "魔偶"
+  },
+  {
+    "id": "carved_majesty",
+    "category": "魔偶"
+  },
+  {
+    "id": "carved_mischief",
+    "category": "魔偶"
+  },
+  {
+    "id": "carved_tenacity",
+    "category": "魔偶"
+  },
+  {
+    "id": "uncut_support_gem_level_1",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_support_gem_level_2",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_support_gem_level_3",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_support_gem_level_4",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_support_gem_level_5",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_4",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_5",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_6",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_7",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_8",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_9",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_10",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_11",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_12",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_13",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_14",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_15",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_16",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_17",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_18",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_19",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_spirit_gem_level_20",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_1",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_2",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_3",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_4",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_5",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_6",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_7",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_8",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_9",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_10",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_11",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_12",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_13",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_14",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_15",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_16",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_17",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_18",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_19",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "uncut_skill_gem_level_20",
+    "category": "未切割的寶石"
+  },
+  {
+    "id": "atalui_bloodletting",
+    "category": "寶石"
+  },
+  {
+    "id": "einhar_beastrite",
+    "category": "寶石"
+  },
+  {
+    "id": "brutus_brain",
+    "category": "寶石"
+  },
+  {
+    "id": "uruk_smelting",
+    "category": "寶石"
+  },
+  {
+    "id": "paquate_pact",
+    "category": "寶石"
+  },
+  {
+    "id": "vilenta_propulsion",
+    "category": "寶石"
+  },
+  {
+    "id": "ailith_chimes",
+    "category": "寶石"
+  },
+  {
+    "id": "tecrods_revenge",
+    "category": "寶石"
+  },
+  {
+    "id": "doedres_undoing",
+    "category": "寶石"
+  },
+  {
+    "id": "ratha_assault",
+    "category": "寶石"
+  },
+  {
+    "id": "arjun_medal",
+    "category": "寶石"
+  },
+  {
+    "id": "kaom_madness",
+    "category": "寶石"
+  },
+  {
+    "id": "sione_temper",
+    "category": "寶石"
+  },
+  {
+    "id": "ixchel_torment",
+    "category": "寶石"
+  },
+  {
+    "id": "romira_requital",
+    "category": "寶石"
+  },
+  {
+    "id": "tawhoa_tending",
+    "category": "寶石"
+  },
+  {
+    "id": "dominus_grasp",
+    "category": "寶石"
+  },
+  {
+    "id": "dialla_desire",
+    "category": "寶石"
+  },
+  {
+    "id": "kalisa_crescendo",
+    "category": "寶石"
+  },
+  {
+    "id": "kulemak_dominion",
+    "category": "寶石"
+  },
+  {
+    "id": "amanamu_tithe",
+    "category": "寶石"
+  },
+  {
+    "id": "xoph_pyre",
+    "category": "寶石"
+  },
+  {
+    "id": "esh_radiance",
+    "category": "寶石"
+  },
+  {
+    "id": "tul_stillness",
+    "category": "寶石"
+  },
+  {
+    "id": "uul_netol_embrace",
+    "category": "寶石"
+  },
+  {
+    "id": "rakiata_flow",
+    "category": "寶石"
+  },
+  {
+    "id": "garukhan_resolve",
+    "category": "寶石"
+  },
+  {
+    "id": "tasalio_rhythm",
+    "category": "寶石"
+  },
+  {
+    "id": "tacati_ire",
+    "category": "寶石"
+  },
+  {
+    "id": "rigwald_ferocity",
+    "category": "寶石"
+  },
+  {
+    "id": "khatal_rejuvenation",
+    "category": "寶石"
+  },
+  {
+    "id": "bhatair_vengeance",
+    "category": "寶石"
+  },
+  {
+    "id": "uhtred_exodus",
+    "category": "寶石"
+  },
+  {
+    "id": "uhtred_omen",
+    "category": "寶石"
+  },
+  {
+    "id": "uhtred_augury",
+    "category": "寶石"
+  },
+  {
+    "id": "daresso_passion",
+    "category": "寶石"
+  },
+  {
+    "id": "ahn_citadel",
+    "category": "寶石"
+  },
+  {
+    "id": "atziri_allure",
+    "category": "寶石"
+  },
+  {
+    "id": "hayoxi_fulmination",
+    "category": "寶石"
+  },
+  {
+    "id": "zarokh_refrain",
+    "category": "寶石"
+  },
+  {
+    "id": "kurgal_leash",
+    "category": "寶石"
+  },
+  {
+    "id": "varashta_blessing",
+    "category": "寶石"
+  },
+  {
+    "id": "arbiter_ignition",
+    "category": "寶石"
+  },
+  {
+    "id": "arakaali_lust",
+    "category": "寶石"
+  },
+  {
+    "id": "xibaqua_rending",
+    "category": "寶石"
+  },
+  {
+    "id": "guatelitzi_ablation",
+    "category": "寶石"
+  },
+  {
+    "id": "atziris_communion",
+    "category": "寶石"
+  },
+  {
+    "id": "atziri_impatience",
+    "category": "寶石"
+  },
+  {
+    "id": "zerphi_infamy",
+    "category": "寶石"
+  },
+  {
+    "id": "zarokh_revolt",
+    "category": "寶石"
+  },
+  {
+    "id": "oisin_oath",
+    "category": "寶石"
+  },
+  {
+    "id": "cirel_cultivation",
+    "category": "寶石"
+  },
+  {
+    "id": "morgana_tempest",
+    "category": "寶石"
+  },
+  {
+    "id": "eonyrs_thunder",
+    "category": "寶石"
+  },
+  {
+    "id": "helbryms_hide",
+    "category": "寶石"
+  },
+  {
+    "id": "her_declaration",
+    "category": "寶石"
+  },
+  {
+    "id": "prototype_seventeen",
+    "category": "寶石"
+  },
+  {
+    "id": "seraphs_heart",
+    "category": "寶石"
+  },
+  {
+    "id": "uhtreds_rite",
+    "category": "寶石"
+  },
+  {
+    "id": "tricksters_shard",
+    "category": "寶石"
+  },
+  {
+    "id": "arbiters_reach",
+    "category": "寶石"
+  },
+  {
+    "id": "tangmazus_thurible",
+    "category": "寶石"
+  },
+  {
+    "id": "eshs_prowess",
+    "category": "寶石"
+  },
+  {
+    "id": "breachlords_rift",
+    "category": "寶石"
+  },
+  {
+    "id": "breachlords_amalgam",
+    "category": "寶石"
+  },
+  {
+    "id": "vruuns_aftermath",
+    "category": "寶石"
+  },
+  {
+    "id": "vruuns_inevitability",
+    "category": "寶石"
+  },
+  {
+    "id": "uhtreds_constellation",
+    "category": "寶石"
+  },
+  {
+    "id": "medveds_felling",
+    "category": "寶石"
+  },
+  {
+    "id": "voranas_siege",
+    "category": "寶石"
+  },
+  {
+    "id": "styrns_mountain",
+    "category": "寶石"
+  },
+  {
+    "id": "styrns_ferocity",
+    "category": "寶石"
+  },
+  {
+    "id": "cathas_brilliance",
+    "category": "寶石"
+  },
+  {
+    "id": "morrigans_insight",
+    "category": "寶石"
+  },
+  {
+    "id": "tuls_avalanche",
+    "category": "寶石"
+  },
+  {
+    "id": "olroths_hubris",
+    "category": "寶石"
+  },
+  {
+    "id": "olroths_conviction",
+    "category": "寶石"
+  },
+  {
+    "id": "expedition_logbook",
+    "category": "死境探險"
+  },
+  {
+    "id": "shattered_triskelion",
+    "category": "死境探險"
+  },
+  {
+    "id": "the_triskelion_reforged",
+    "category": "死境探險"
+  },
+  {
+    "id": "aldurs_saga",
+    "category": "死境探險"
+  },
+  {
+    "id": "medveds_saga",
+    "category": "死境探險"
+  },
+  {
+    "id": "voranas_saga",
+    "category": "死境探險"
+  },
+  {
+    "id": "uhtreds_saga",
+    "category": "死境探險"
+  },
+  {
+    "id": "olroths_saga",
+    "category": "死境探險"
+  },
+  {
+    "id": "verisium",
+    "category": "死境探險"
+  },
+  {
+    "id": "exceptional_verisium",
+    "category": "死境探險"
+  },
+  {
+    "id": "medveds_crest_of_the_circle",
+    "category": "死境探險"
+  },
+  {
+    "id": "voranas_crest_of_the_scythe",
+    "category": "死境探險"
+  },
+  {
+    "id": "uhtreds_crest_of_the_chalice",
+    "category": "死境探險"
+  },
+  {
+    "id": "olroths_crest_of_the_sun",
+    "category": "死境探險"
+  },
+  {
+    "id": "runic_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "adaptive_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "protective_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "expansive_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "swift_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "cyclonic_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "prismatic_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "mystic_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "sovereign_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "celestial_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "transcendent_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "the_runebinders_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "the_runefathers_alloy",
+    "category": "死境探險"
+  },
+  {
+    "id": "blazing_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "chilling_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "crackling_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "void_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "perfect_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "starlit_ore",
+    "category": "死境探險"
+  },
+  {
+    "id": "venerable_starlit_ore",
+    "category": "死境探險"
+  },
+  {
+    "id": "revered_starlit_ore",
+    "category": "死境探險"
+  },
+  {
+    "id": "veridical_starlit_ore",
+    "category": "死境探險"
+  },
+  {
+    "id": "warding_starlit_ore",
+    "category": "死境探險"
+  }
+]

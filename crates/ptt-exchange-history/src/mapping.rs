@@ -46,6 +46,103 @@ pub fn poe2_index() -> Result<BTreeMap<String, String>, serde_json::Error> {
         .collect())
 }
 
+/// catalog 资产 id → 游戏内交易所分类（繁中原文，14 类）。
+///
+/// 来源是 catalog 旁的 transcription-order.json（那份文件不进二进制：
+/// catalog 只回答"这个名字是哪个资产"，分类是这里的事）。生成命令：
+/// 读 order 文件、只留 id 与 in_game_category、写成本文件——0.5.5 合入
+/// 新通货后重跑一遍，和 ggg_paths.json 同一批。
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CategoryEntry {
+    pub id: String,
+    pub category: String,
+}
+
+const POE2_CATEGORIES_JSON: &str = include_str!("../data/poe2/categories.json");
+
+/// asset_id → 分类 slug（`category_slug` 的英文短名）。赛季节奏按类别聚合、
+/// 导出给 AI 时都用 slug：跨语言稳定，且不需要读者认得繁中标签。
+pub fn poe2_categories() -> Result<BTreeMap<String, &'static str>, serde_json::Error> {
+    let entries: Vec<CategoryEntry> = serde_json::from_str(POE2_CATEGORIES_JSON)?;
+    Ok(entries
+        .into_iter()
+        .map(|entry| {
+            let slug = category_slug(&entry.category);
+            (entry.id, slug)
+        })
+        .collect())
+}
+
+/// 游戏内分类标签 → 英文 slug。认不出的标签归 "other"，单测锁住"没有一条
+/// 落进 other"——新分类出现时是这里先响，不是导出文件里悄悄多一列问号。
+pub fn category_slug(label: &str) -> &'static str {
+    match label {
+        "通貨" => "currency",
+        "碎片" => "fragment",
+        "精髓" => "essence",
+        "符文" => "rune",
+        "靈魂核心" => "soul_core",
+        "寶石" => "gem",
+        "未切割的寶石" => "uncut_gem",
+        "魔偶" => "idol",
+        "祭祀" => "ritual",
+        "死境探險" => "expedition",
+        "譫妄異域" => "delirium",
+        "裂痕聯盟" => "breach",
+        "深淵" => "abyss",
+        "阿茲里的神廟" => "temple",
+        _ => "other",
+    }
+}
+
+#[cfg(test)]
+mod category_tests {
+    use super::*;
+
+    #[test]
+    fn every_categorised_asset_exists_and_every_label_is_known() {
+        let catalog = ptt_catalog::poe2();
+        let entries: Vec<CategoryEntry> =
+            serde_json::from_str(POE2_CATEGORIES_JSON).expect("categories json parses");
+        assert_eq!(
+            entries.len(),
+            catalog.len(),
+            "one category per catalog asset"
+        );
+        for entry in &entries {
+            assert!(
+                catalog.by_id(&entry.id).is_some(),
+                "{} is not in the catalog",
+                entry.id
+            );
+            assert_ne!(
+                category_slug(&entry.category),
+                "other",
+                "{} has an unknown category label {:?}",
+                entry.id,
+                entry.category
+            );
+        }
+        let categories = poe2_categories().expect("categories");
+        assert_eq!(categories.get("exalted_orb").copied(), Some("currency"));
+    }
+
+    #[test]
+    fn every_mapped_path_has_a_category() {
+        // 映射表与分类表同源同批重生成；一边有一边没有 = 忘了重跑其中一份。
+        let categories = poe2_categories().expect("categories");
+        for entry in poe2_entries().expect("mapping json parses") {
+            assert!(
+                categories.contains_key(&entry.asset_id),
+                "{} maps to {} which has no category",
+                entry.path,
+                entry.asset_id
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod mapping_tests {
     use super::*;
