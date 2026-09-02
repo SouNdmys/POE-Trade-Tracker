@@ -21,6 +21,18 @@ impl AppShell {
             return;
         }
         self.exchange_sync_kicked = true;
+        // 启动那轮也出声：第一轮补拉要跑十几秒才有第一条进度，
+        // 没有这句用户会以为程序根本没动（六测反馈）。
+        if !self
+            .settings
+            .market_tuning(self.settings.active_profile.game)
+            .exchange
+            .league
+            .trim()
+            .is_empty()
+        {
+            self.push_log("exchange: sync started".to_owned());
+        }
         self.begin_exchange_sync(cx, false);
     }
 
@@ -28,11 +40,21 @@ impl AppShell {
     /// 醒来时发现代次不对就安静退场。手动轮永远出声——四测反馈：
     /// 点了没反馈，分不清生效、无事可做还是网断了。
     pub(crate) fn restart_exchange_sync(&mut self, cx: &mut Context<Self>) {
+        if self.exchange_sync_running {
+            // 正在跑就别再开一条：同一段小时会被两条链抓两遍。
+            // 说一声就够——正在跑本身就是用户想要的状态。
+            self.push_log("exchange: sync already running".to_owned());
+            return;
+        }
         self.push_log("exchange: sync started".to_owned());
         self.begin_exchange_sync(cx, true);
     }
 
     fn begin_exchange_sync(&mut self, cx: &mut Context<Self>, manual: bool) {
+        if self.exchange_sync_running {
+            return;
+        }
+        self.exchange_sync_running = true;
         let game = self.settings.active_profile.game;
         let exchange = self.settings.market_tuning(game).exchange.clone();
         let game_key = game.as_str().to_owned();
@@ -64,6 +86,8 @@ impl AppShell {
             };
             let errored = matches!(&outcome, Some(Err(_)));
             this.update(cx, |this: &mut AppShell, cx| {
+                // 无论代次是否还有效，这条链的抓取都真的结束了。
+                this.exchange_sync_running = false;
                 if this.exchange_sync_generation != generation {
                     return;
                 }
@@ -124,6 +148,8 @@ struct SyncRound {
     /// 这轮之后水位已到最新。false = 撞上单轮上限，还有历史欠着，
     /// 立刻续跑下一轮而不是睡到整点。
     caught_up: bool,
+    /// 这轮结束时手上真实握有的日线天数（不含赛季前的确认空天）。
+    total_days: usize,
 }
 
 impl SyncRound {
@@ -131,6 +157,8 @@ impl SyncRound {
         self.stored > 0 || self.days_folded > 0 || self.days_pruned > 0 || self.league_name_suspect
     }
 
+    /// 六测反馈：`folded 1d` 被读成了同步进度。进度就说进度——
+    /// 手上共有几天数据，才是用户在等的那个数。
     fn log_line(&self) -> String {
         if self.league_name_suspect {
             return format!(
@@ -138,10 +166,11 @@ impl SyncRound {
                 self.stored
             );
         }
-        format!(
-            "exchange: +{}h (folded {}d, pruned {}d)",
-            self.stored, self.days_folded, self.days_pruned
-        )
+        let mut line = format!("exchange: +{}h, data {}d", self.stored, self.total_days);
+        if self.days_pruned > 0 {
+            line.push_str(&format!(" (pruned {}d of hourly detail)", self.days_pruned));
+        }
+        line
     }
 }
 
@@ -218,8 +247,9 @@ fn run_sync_round(
     let mut fetch_one =
         |hour_ts: i64, store: &mut ptt_storage::MarketStore| -> Result<bool, String> {
             if throttled {
-                // 对公开 CDN 的礼貌节流；历史不可变，不赶时间。
-                std::thread::sleep(Duration::from_millis(250));
+                // 对公开 CDN 的礼貌间隔。六测嫌慢，从 250ms 降到 100ms——
+                // 串行请求本身就是限速，这只是别贴脸的余量。
+                std::thread::sleep(Duration::from_millis(100));
             }
             throttled = true;
             let bytes = fetcher
@@ -275,10 +305,16 @@ fn run_sync_round(
         now,
         exchange.hour_retention_days,
     )?;
+    // 手上共有几天日线（赛季前的确认空天不算"数据"）。
+    let total_days = store
+        .list_exchange_day_marks(game, league)
+        .map(|marks| marks.iter().filter(|mark| mark.market_count > 0).count())
+        .unwrap_or(0);
     Ok(SyncRound {
         stored,
         days_folded: fold.days_processed.len(),
         days_pruned: prune.days_deleted.len(),
+        total_days,
         league_name_suspect: published_hours >= 3 && league_rows == 0,
         // 计划排满 48（正向或回补被预算截断）就必然还有欠账；
         // 计划不满时，即便最新小时"还没发布"（deferred），剩下的也只有
@@ -327,6 +363,7 @@ mod exchange_sync_tests {
             days_pruned: 0,
             league_name_suspect: false,
             caught_up: true,
+            total_days: 30,
         };
         assert!(!quiet.worth_a_log_line());
     }
@@ -339,6 +376,7 @@ mod exchange_sync_tests {
             days_pruned: 0,
             league_name_suspect: true,
             caught_up: true,
+            total_days: 0,
         };
         assert!(suspect.worth_a_log_line());
         assert!(suspect.log_line().contains("league name"));

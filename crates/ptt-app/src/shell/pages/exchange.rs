@@ -15,11 +15,8 @@ use crate::ui::{LedgerButton, StatusKind, button, chip, empty_state, mono, panel
 /// 滚动列表也设个上限：尾巴里是每小时几笔的冷门，画六百行 div 换不来信息。
 const ROW_LIMIT: usize = 200;
 
-/// 涨跌天数下拉的候选档。装配时按"手上真实有几天数据"截断——
-/// 只回补了 14 天就别让人选 30，选了也是假的（二测反馈）。
-const TREND_DAY_CHOICES: [u64; 18] = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 17, 21, 25, 30, 45, 60,
-];
+// （曾经是一张 1/2/3/…/17/21/25/45 的档位表——六测吐槽档位缝像抽奖，
+// 而下拉自带搜索，长列表不碍事，于是换成 1..=数据天数 的完整列表。）
 
 /// 走势列宽。柱宽随天数自适应，7 天到 60 天都塞得进这一格。
 const SPARK_WIDTH: f32 = 100.;
@@ -330,23 +327,12 @@ impl AppShell {
         self.exchange_trend_synced = (data_days, selected);
 
         let text = self.text();
-        let mut days: Vec<u64> = TREND_DAY_CHOICES
-            .iter()
-            .copied()
-            .filter(|day| *day <= u64::from(data_days))
-            .collect();
-        if days.is_empty() {
-            days.push(1);
-        }
-        // 真实数据天数永远是一个可选档——五测教训：40 天落在 30 和 45 的
-        // 档位缝里，拉成功了界面上却看不出任何变化。
-        if !days.contains(&u64::from(data_days)) {
-            days.push(u64::from(data_days));
-        }
+        // 1 到"手上真实有几天"的完整整数列表——这才是当初说好的"任意天"。
+        let mut days: Vec<u64> = (1..=u64::from(data_days).min(120)).collect();
         if !days.contains(&selected) {
             days.push(selected);
+            days.sort_unstable();
         }
-        days.sort_unstable();
         let choices: Vec<AssetChoice> = days
             .iter()
             .map(|day| {

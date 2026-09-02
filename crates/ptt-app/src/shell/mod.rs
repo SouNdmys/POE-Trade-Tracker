@@ -397,6 +397,10 @@ pub struct AppShell {
     /// 交易所页每分钟例行刷新的上一次时刻(见 `tick`)。
     #[cfg(windows)]
     exchange_page_refreshed: Option<std::time::Instant>,
+    /// 一轮抓取正在后台跑。六测教训:回补进行中再点"立即同步"会开出
+    /// 第二条并发链,同一段小时被抓两遍。
+    #[cfg(windows)]
+    exchange_sync_running: bool,
     /// 哪一次检查/安装的答案有资格写回来。
     ///
     /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
@@ -710,6 +714,7 @@ impl AppShell {
             exchange_sync_kicked: false,
             exchange_sync_generation: 0,
             exchange_page_refreshed: None,
+            exchange_sync_running: false,
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
