@@ -110,6 +110,15 @@ mod category_tests {
             catalog.len(),
             "one category per catalog asset"
         );
+        // 数量相等挡不住"一个重复 + 一个缺失":重复的在 BTreeMap 里静默合并,
+        // 缺的那个资产就悄悄导出成 other。
+        let unique: std::collections::BTreeSet<&str> =
+            entries.iter().map(|entry| entry.id.as_str()).collect();
+        assert_eq!(
+            unique.len(),
+            entries.len(),
+            "duplicate ids in categories.json"
+        );
         for entry in &entries {
             assert!(
                 catalog.by_id(&entry.id).is_some(),

@@ -1277,6 +1277,21 @@ pub const fn probe_priority(language: UiLanguage, value: ProbePriority) -> &'sta
 
 /// What capturing a pair would supply.
 #[must_use]
+/// 面板核对每对的"故事"，按语言。以前直接印枚举的英文名，中文行里夹一个
+/// `PanelWorse`——审查抓的。
+pub const fn exchange_reading(
+    language: UiLanguage,
+    value: crate::reports::ExchangeReconcileReading,
+) -> &'static str {
+    use crate::reports::ExchangeReconcileReading as Reading;
+    match value {
+        Reading::SuspectMapping => pick(language, "suspect mapping", "疑似映射错"),
+        Reading::PanelWorse => pick(language, "panel worse than traded", "面板比成交价差"),
+        Reading::PanelBetter => pick(language, "panel better than traded", "面板比成交价好"),
+        Reading::Sporadic => pick(language, "sporadic", "偶发越界"),
+    }
+}
+
 pub const fn probe_reason(language: UiLanguage, value: ProbeReason) -> &'static str {
     match value {
         ProbeReason::MissingForwardQuote => pick(language, "no forward quote", "缺正向报价"),

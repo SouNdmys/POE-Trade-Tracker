@@ -3775,7 +3775,7 @@ pub fn render_exchange_reconcile(
                 &pair.better.to_string(),
                 &pair.worse.to_string(),
                 &percent_from_bps(pair.deviation_bps),
-                &format!("{:?}", pair.reading),
+                crate::report_text::exchange_reading(language, pair.reading),
             ],
         ));
     }
@@ -4186,12 +4186,12 @@ pub struct ExchangeRadarModel {
     pub scan: RadarScan,
 }
 
-/// 只拿成交额最大的这么多资产进图：环路评估随资产数三次方涨，120 个已经
-/// 盖住全部有意义的成交额，再往后是每小时成交几个的长尾。
+/// 只拿成交额最大的这么多资产进图（结算通货另加）：环路评估随资产数三次方
+/// 涨，120 个已经盖住全部有意义的成交额，再往后是每小时成交几个的长尾。
 pub const EXCHANGE_RADAR_ASSETS: usize = 120;
 /// 一对市场最多回看多少小时：超过一天的均价不是"现在的市场"。
 pub const EXCHANGE_RADAR_MAX_AGE_HOURS: i64 = 24;
-/// 环路评估预算。引擎上限一百万；二十万在几百个市场上够扫完四环。
+/// 环路评估预算 = 引擎上限。实测 391 个市场的四环只用了四万次评估，余量很大。
 const EXCHANGE_RADAR_EVALUATIONS: u32 = 1_000_000;
 /// 比抓取雷达的默认 12 条多：这页是线索清单，不是执行清单。
 const EXCHANGE_RADAR_RESULTS: u16 = 20;
@@ -8073,6 +8073,21 @@ mod exchange_radar_model_tests {
         );
         // 均价小时结束于 HOUR+1h，now 是 HOUR+2h：一小时的账，三小时内算新鲜。
         assert_eq!(row.light, Some(FreshnessStatus::Fresh));
+        // 腿书的口径:前排能吃下 = 这小时 from 侧成交量,挂着 = to 侧成交量。
+        let divine_to_chaos = row
+            .leg_books
+            .iter()
+            .find(|leg| leg.from_asset_id == id("divine-orb") && leg.to_asset_id == id("chaos-orb"))
+            .expect("divine->chaos leg");
+        assert_eq!(divine_to_chaos.front_capacity, Some(100));
+        assert_eq!(divine_to_chaos.listed, Some(300));
+        assert_eq!(
+            divine_to_chaos
+                .rate
+                .as_ref()
+                .map(|rate| (rate.numerator, rate.denominator)),
+            Some((3, 1))
+        );
     }
 
     #[test]
