@@ -127,6 +127,18 @@ impl AppShell {
                     })),
                 )
                 .child(
+                    button(
+                        "exchange-export",
+                        LedgerButton::Quiet,
+                        text.exchange_export,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.export_exchange(cx);
+                        cx.notify();
+                    })),
+                )
+                .child(
                     div()
                         .w(px(96.))
                         .flex_none()
@@ -439,6 +451,66 @@ impl AppShell {
                     .child(header)
                     .child(scrollable(rows, "exchange-rows")),
             )
+    }
+
+    /// 把这个联赛的全部日线导成 CSV + JSON，落在数据库旁的 exports 目录。
+    /// 同步读、同步写：几万行几秒钟，一个手动按钮等得起；路径写进日志，
+    /// 用户从那里找文件。
+    #[cfg(windows)]
+    pub(crate) fn export_exchange(&mut self, _cx: &mut Context<Self>) {
+        let game = self.settings.active_profile.game;
+        let league = self
+            .settings
+            .market_tuning(game)
+            .exchange
+            .league
+            .trim()
+            .to_owned();
+        if league.is_empty() {
+            self.push_log("exchange: set the league in Settings before exporting".to_owned());
+            return;
+        }
+        let database = ptt_runtime::pipeline::default_database_path();
+        let result = (|| -> Result<(std::path::PathBuf, usize), String> {
+            let store = ptt_storage::MarketStore::open(database.clone())
+                .map_err(|error| format!("storage: {error}"))?;
+            let days = store
+                .load_exchange_days(game.as_str(), &league, "2000-01-01", "2999-12-31")
+                .map_err(|error| format!("days: {error}"))?;
+            let season_start = store
+                .active_season(game.as_str())
+                .ok()
+                .flatten()
+                .map(|season| season.started_at.date_naive());
+            let rows =
+                ptt_runtime::exchange_export::exchange_export_rows(&days, &league, season_start)?;
+            let directory = database
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join("exports");
+            std::fs::create_dir_all(&directory).map_err(|error| format!("mkdir: {error}"))?;
+            let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+            let slug = league.to_lowercase().replace(' ', "-");
+            let base = directory.join(format!("exchange-{slug}-{stamp}"));
+            std::fs::write(
+                base.with_extension("csv"),
+                ptt_runtime::exchange_export::export_csv(&rows),
+            )
+            .map_err(|error| format!("write csv: {error}"))?;
+            std::fs::write(
+                base.with_extension("json"),
+                ptt_runtime::exchange_export::export_json(&rows),
+            )
+            .map_err(|error| format!("write json: {error}"))?;
+            Ok((base, rows.len()))
+        })();
+        match result {
+            Ok((base, count)) => self.push_log(format!(
+                "exchange: exported {count} rows to {}.csv / .json",
+                base.display()
+            )),
+            Err(error) => self.push_log(format!("exchange: export failed: {error}")),
+        }
     }
 
     /// 日期框里的那天成为"截至哪天看"。空 = 回到现在。格式不对只写日志，
