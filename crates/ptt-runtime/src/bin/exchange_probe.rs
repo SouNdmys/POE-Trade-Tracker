@@ -21,8 +21,11 @@
 //!   `exchange_probe --audit`
 //!       复查 market_count=0 的小时 mark：CDN 不可变、可重查，假空直接
 //!       重抓覆写修复（replace 连 mark 带行一起换，不需要删除原语）。
+//!   `exchange_probe --export [--out DIR]`
+//!       镜像交易所页的导出按钮：读生产日线表，写 CSV + JSON 到 DIR
+//!       （默认数据库旁的 exports/），并打印行数与几行样本核对数量级。
 //!
-//! `--status`/`--audit` 的联赛默认取设置里的 `exchange.league`，
+//! `--status`/`--audit`/`--export` 的联赛默认取设置里的 `exchange.league`，
 //! `--league` 可覆盖；其余子命令仍要求显式 `--league`。
 
 #[cfg(windows)]
@@ -48,7 +51,8 @@ mod probe {
             || has("--trend")
             || has("--reconcile")
             || has("--status")
-            || has("--audit");
+            || has("--audit")
+            || has("--export");
         if !any_command {
             return Err("nothing to do: see the file header for subcommands".to_owned());
         }
@@ -108,7 +112,84 @@ mod probe {
         if has("--audit") {
             session.audit()?;
         }
+        if has("--export") {
+            session.export(option("--out").map(std::path::PathBuf::from))?;
+        }
         Ok(())
+    }
+
+    impl Session {
+        /// 与 app 的导出按钮同一条路径（同一个模型函数、同样的文件名规则），
+        /// 只多打印样本：数量级对不对，一眼看得出来。
+        fn export(&self, out: Option<std::path::PathBuf>) -> Result<(), String> {
+            use ptt_runtime::exchange_export::{exchange_export_rows, export_csv, export_json};
+
+            let database = ptt_runtime::pipeline::default_database_path();
+            let store = ptt_storage::MarketStore::open(database.clone())
+                .map_err(|error| format!("storage: {error}"))?;
+            let days = store
+                .load_exchange_days(&self.realm, &self.league, "2000-01-01", "2999-12-31")
+                .map_err(|error| format!("days: {error}"))?;
+            let season_start = store
+                .active_season(&self.realm)
+                .ok()
+                .flatten()
+                .map(|season| season.started_at.date_naive());
+            let rows = exchange_export_rows(&days, &self.league, season_start)?;
+            let directory = out.unwrap_or_else(|| {
+                database
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .join("exports")
+            });
+            std::fs::create_dir_all(&directory).map_err(|error| format!("mkdir: {error}"))?;
+            let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+            let slug = self.league.to_lowercase().replace(' ', "-");
+            let base = directory.join(format!("exchange-{slug}-{stamp}"));
+            std::fs::write(base.with_extension("csv"), export_csv(&rows))
+                .map_err(|error| format!("write csv: {error}"))?;
+            std::fs::write(base.with_extension("json"), export_json(&rows))
+                .map_err(|error| format!("write json: {error}"))?;
+
+            let days_seen: BTreeSet<&str> = rows.iter().map(|row| row.day.as_str()).collect();
+            let unmapped = rows.iter().filter(|row| row.category == "unmapped").count();
+            println!(
+                "export: {} rows, {} days, {} unmapped rows, season start {:?} -> {}.csv/.json",
+                rows.len(),
+                days_seen.len(),
+                unmapped,
+                season_start,
+                base.display(),
+            );
+            // 样本：锚三件套 + 成交额最大的几行，最后一天。
+            let Some(last_day) = days_seen.iter().next_back().copied() else {
+                return Ok(());
+            };
+            let mut sample: Vec<_> = rows.iter().filter(|row| row.day == last_day).collect();
+            sample.sort_by(|left, right| {
+                right
+                    .volume_exalted
+                    .unwrap_or(0)
+                    .cmp(&left.volume_exalted.unwrap_or(0))
+            });
+            for row in sample.iter().take(12) {
+                println!(
+                    "  {} d{} {:<10} {:<28} ex={:<10} div={:<10} chaos={:<10} units={} vol_ex={}",
+                    row.day,
+                    row.day_index
+                        .map_or("-".to_owned(), |index| index.to_string()),
+                    row.phase.unwrap_or("-"),
+                    row.asset_id,
+                    row.value_exalted.as_deref().unwrap_or("-"),
+                    row.value_divine.as_deref().unwrap_or("-"),
+                    row.value_chaos.as_deref().unwrap_or("-"),
+                    row.units_traded,
+                    row.volume_exalted
+                        .map_or("-".to_owned(), |volume| volume.to_string()),
+                );
+            }
+            Ok(())
+        }
     }
 
     struct Session {
