@@ -932,3 +932,221 @@ pub(crate) fn day_bars(points: &[f32]) -> Div {
     }
     row
 }
+
+// ---------------------------------------------------------------------------
+// Hour-grid charts (P12 小时账本明细栏)
+// ---------------------------------------------------------------------------
+
+/// 连续 `Some` 段的 `[start, end)` 区间。缺口把线切开：没成交的小时不是零，
+/// 跨过它连一条斜线就是凭空画出来的价格。
+pub(crate) fn runs(points: &[Option<f32>]) -> Vec<(usize, usize)> {
+    let mut runs = Vec::new();
+    let mut start = None;
+    for (index, point) in points.iter().enumerate() {
+        match (point, start) {
+            (Some(_), None) => start = Some(index),
+            (None, Some(begin)) => {
+                runs.push((begin, index));
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(begin) = start {
+        runs.push((begin, points.len()));
+    }
+    runs
+}
+
+/// 格数比像素还多时把相邻几格并成一格（30 天 = 720 小时塞进 270px 会糊成一片）。
+/// `combine` 决定并法：成交额求和、价格取均值。并出来的格里全是缺口才算缺口。
+pub(crate) fn bucket_points(
+    points: &[Option<f32>],
+    max_slots: usize,
+    combine: fn(&[f32]) -> f32,
+) -> Vec<Option<f32>> {
+    let max_slots = max_slots.max(1);
+    if points.len() <= max_slots {
+        return points.to_vec();
+    }
+    let per_slot = points.len().div_ceil(max_slots);
+    points
+        .chunks(per_slot)
+        .map(|chunk| {
+            let present: Vec<f32> = chunk.iter().flatten().copied().collect();
+            if present.is_empty() {
+                None
+            } else {
+                Some(combine(&present))
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn sum_points(values: &[f32]) -> f32 {
+    values.iter().sum()
+}
+
+#[allow(clippy::cast_precision_loss)]
+pub(crate) fn mean_points(values: &[f32]) -> f32 {
+    values.iter().sum::<f32>() / values.len().max(1) as f32
+}
+
+/// 任意尺寸的面积曲线，x 按格（小时）而不是按点序铺开。`None` 是缺口：
+/// 线在缺口处断开，每段连续的点各画一条线、一块填充；孤零零一个点画成
+/// 一小段横线，让"只有这一小时有成交"也看得见。
+pub(crate) fn sparkline_sized(
+    points: Vec<Option<f32>>,
+    width: f32,
+    height: f32,
+    line_color: Token,
+    fill_color: Token,
+) -> impl IntoElement {
+    gpui::canvas(
+        |_, _, _| {},
+        move |bounds, (), window, _| {
+            let present: Vec<f32> = points.iter().flatten().copied().collect();
+            if present.is_empty() {
+                return;
+            }
+            let min = present.iter().copied().fold(f32::INFINITY, f32::min);
+            let max = present.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            let span = (max - min).max(f32::EPSILON);
+            let width = f32::from(bounds.size.width);
+            let height = f32::from(bounds.size.height);
+            let origin = bounds.origin;
+            #[allow(clippy::cast_precision_loss)]
+            let step = width / (points.len().max(2) - 1) as f32;
+            #[allow(clippy::cast_precision_loss)]
+            let x_at = |index: usize| origin.x + px(step * index as f32);
+            let y_at =
+                |value: f32| origin.y + px(1.0 + (height - 2.0) * (1.0 - (value - min) / span));
+            let bottom = origin.y + px(height);
+
+            for (begin, end) in runs(&points) {
+                let segment: Vec<(usize, f32)> = (begin..end)
+                    .filter_map(|index| points[index].map(|value| (index, value)))
+                    .collect();
+                if segment.len() == 1 {
+                    let (index, value) = segment[0];
+                    let mut tick = gpui::PathBuilder::stroke(px(1.5));
+                    tick.move_to(gpui::point(x_at(index) - px(1.5), y_at(value)));
+                    tick.line_to(gpui::point(x_at(index) + px(1.5), y_at(value)));
+                    if let Ok(path) = tick.build() {
+                        window.paint_path(path, c(line_color));
+                    }
+                    continue;
+                }
+                let mut fill = gpui::PathBuilder::fill();
+                fill.move_to(gpui::point(x_at(segment[0].0), bottom));
+                for (index, value) in &segment {
+                    fill.line_to(gpui::point(x_at(*index), y_at(*value)));
+                }
+                fill.line_to(gpui::point(x_at(segment[segment.len() - 1].0), bottom));
+                fill.close();
+                if let Ok(path) = fill.build() {
+                    window.paint_path(path, c(fill_color));
+                }
+                let mut stroke = gpui::PathBuilder::stroke(px(1.5));
+                stroke.move_to(gpui::point(x_at(segment[0].0), y_at(segment[0].1)));
+                for (index, value) in segment.iter().skip(1) {
+                    stroke.line_to(gpui::point(x_at(*index), y_at(*value)));
+                }
+                if let Ok(path) = stroke.build() {
+                    window.paint_path(path, c(line_color));
+                }
+            }
+        },
+    )
+    .w(px(width))
+    .h(px(height))
+}
+
+/// 逐格成交柱：每格一个矩形，高度按窗口内最大值归一。0 和缺口都画 1px
+/// 底线——"少"和"没有"在柱子上分不出来，靠上面的曲线断口和缺口计数分。
+pub(crate) fn hour_bars(
+    points: Vec<Option<f32>>,
+    width: f32,
+    height: f32,
+    color: Token,
+) -> impl IntoElement {
+    gpui::canvas(
+        |_, _, _| {},
+        move |bounds, (), window, _| {
+            if points.is_empty() {
+                return;
+            }
+            let max = points
+                .iter()
+                .flatten()
+                .copied()
+                .fold(0.0f32, f32::max)
+                .max(f32::EPSILON);
+            let width = f32::from(bounds.size.width);
+            let height = f32::from(bounds.size.height);
+            let origin = bounds.origin;
+            #[allow(clippy::cast_precision_loss)]
+            let slot = width / points.len() as f32;
+            let bar_width = (slot - 1.0).max(1.0);
+            for (index, point) in points.iter().enumerate() {
+                let bar_height = match point {
+                    Some(value) if *value > 0.0 => (height * value / max).max(1.0),
+                    _ => 1.0,
+                };
+                #[allow(clippy::cast_precision_loss)]
+                let x = origin.x + px(slot * index as f32);
+                let y = origin.y + px(height - bar_height);
+                window.paint_quad(gpui::fill(
+                    gpui::Bounds {
+                        origin: gpui::point(x, y),
+                        size: gpui::size(px(bar_width), px(bar_height)),
+                    },
+                    c(color),
+                ));
+            }
+        },
+    )
+    .w(px(width))
+    .h(px(height))
+}
+
+#[cfg(test)]
+mod chart_tests {
+    use super::*;
+
+    #[test]
+    fn runs_split_on_gaps() {
+        let points = [
+            Some(1.0),
+            Some(2.0),
+            None,
+            None,
+            Some(3.0),
+            None,
+            Some(4.0),
+            Some(5.0),
+        ];
+        assert_eq!(runs(&points), vec![(0, 2), (4, 5), (6, 8)]);
+        assert_eq!(runs(&[None, None]), Vec::<(usize, usize)>::new());
+        assert_eq!(runs(&[Some(1.0)]), vec![(0, 1)]);
+    }
+
+    #[test]
+    fn bucket_points_merges_adjacent_slots_and_keeps_gaps_honest() {
+        let points: Vec<Option<f32>> = (0..10).map(|i| Some(i as f32)).collect();
+        // 10 格塞进 4 格：每 3 格一并，最后一格只剩 1 个。
+        assert_eq!(
+            bucket_points(&points, 4, sum_points),
+            vec![Some(3.0), Some(12.0), Some(21.0), Some(9.0)]
+        );
+        assert_eq!(
+            bucket_points(&points, 4, mean_points),
+            vec![Some(1.0), Some(4.0), Some(7.0), Some(9.0)]
+        );
+        // 放得下就原样。
+        assert_eq!(bucket_points(&points, 10, sum_points), points);
+        // 并出来的格里全是缺口才是缺口。
+        let gappy = [None, None, None, Some(2.0), None, None];
+        assert_eq!(bucket_points(&gappy, 2, sum_points), vec![None, Some(2.0)]);
+    }
+}
