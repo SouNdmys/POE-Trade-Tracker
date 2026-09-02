@@ -118,7 +118,7 @@ pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, Token) {
         || (report_text::report(language).unpriced.to_owned(), TEXT_META),
         |points| {
             (
-                report_text::percent_from_basis_points(points),
+                report_text::signed_percent_from_basis_points(points),
                 // 正收益金字(色字=主题);负数砖红文字是那条规则唯一的
                 // 批准例外。
                 if points >= 0 {
@@ -1091,7 +1091,7 @@ impl AppShell {
             Some(points) => {
                 inner = inner.child(crate::ui::kv_headline(
                     text.detail_round_trip,
-                    &report_text::percent_from_basis_points(points),
+                    &report_text::signed_percent_from_basis_points(points),
                     if points >= 0 {
                         ACCENT_TEXT
                     } else {
@@ -1115,7 +1115,7 @@ impl AppShell {
         if let Some(points) = item.value_basis_points {
             inner = inner.child(kv_row(
                 text.detail_versus_direct,
-                &report_text::percent_from_basis_points(points),
+                &report_text::signed_percent_from_basis_points(points),
             ));
         }
         inner = inner.child(sep());
@@ -1300,9 +1300,10 @@ impl AppShell {
                 .count();
             let reason = report_text::fill(
                 text.exchange_radar_pin_reason,
-                &[&item
-                    .round_trip_basis_points
-                    .map_or_else(|| "?".to_owned(), report_text::percent_from_basis_points)],
+                &[&item.round_trip_basis_points.map_or_else(
+                    || "?".to_owned(),
+                    report_text::signed_percent_from_basis_points,
+                )],
             );
             let control = if !legs.is_empty() && pinned == legs.len() {
                 let unpin_legs = legs.clone();

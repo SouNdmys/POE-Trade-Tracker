@@ -1114,19 +1114,9 @@ fn tinted_cell(value: String, width: f32, color: Token) -> gpui::Div {
 /// 超过 ±999% 只显示 `>+999%` / `<-999%`：开服头几天以稀缺锚计价的涨幅能到
 /// 几千万个百分点，数字没错但一格只放得下一行（28px 硬约束），方向比位数重要。
 fn signed_percent(basis_points: i64) -> String {
-    const CAP_BASIS_POINTS: i64 = 999 * 100;
-    if basis_points > CAP_BASIS_POINTS {
-        return ">+999%".to_owned();
-    }
-    if basis_points < -CAP_BASIS_POINTS {
-        return "<-999%".to_owned();
-    }
-    let text = ptt_runtime::report_text::percent_from_basis_points(basis_points);
-    if basis_points >= 0 && !text.starts_with('+') {
-        format!("+{text}")
-    } else {
-        text
-    }
+    // 封顶和符号规则都住在 report_text 里:三页各自一套的时候,雷达无号、
+    // 交易所有号、只有这一页封顶。
+    ptt_runtime::report_text::signed_percent_from_basis_points(basis_points)
 }
 
 /// Ratio → 展示小数。f64 只在这条绘制边界上出现（既有裁定）。

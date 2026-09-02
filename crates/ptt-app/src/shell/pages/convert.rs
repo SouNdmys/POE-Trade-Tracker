@@ -1225,7 +1225,7 @@ impl AppShell {
                         &[
                             &delta.quanta.to_string(),
                             &self.display_name(strategy.to_asset_id.as_str()),
-                            &report_text::percent_from_basis_points(points),
+                            &report_text::signed_percent_from_basis_points(points),
                         ],
                     ),
                     _ => String::new(),

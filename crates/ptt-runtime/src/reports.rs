@@ -1813,7 +1813,7 @@ fn render_maker(
                     &[
                         &delta.quanta.to_string(),
                         need.as_str(),
-                        &crate::report_text::percent_from_basis_points(points),
+                        &crate::report_text::signed_percent_from_basis_points(points),
                     ],
                 )),
                 _ => None,
@@ -2625,7 +2625,7 @@ fn radar_item_lines(
     // things on the two row kinds; this one means one thing on both.
     let edge = item.round_trip_basis_points.map_or_else(
         || text.unpriced.to_owned(),
-        crate::report_text::percent_from_basis_points,
+        crate::report_text::signed_percent_from_basis_points,
     );
     let category = crate::report_text::actionability(language, item.category);
     let light = freshness.map_or(String::new(), |status| {
@@ -4745,7 +4745,7 @@ fn exchange_domain_id(
 
 /// bps → "+3.42%"。正负号保留，界面统一百分比的既有裁定。
 fn percent_from_bps(bps: i64) -> String {
-    format!("{:+.2}%", bps as f64 / 100.0)
+    crate::report_text::signed_percent_from_basis_points(bps)
 }
 
 /// Ratio → 展示用小数。大数不带小数位，小数保留三位。

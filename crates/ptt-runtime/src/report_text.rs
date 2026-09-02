@@ -417,8 +417,20 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 /// the part that is easy to get wrong. Anything smaller than a percent
 /// divides to a whole part of zero, and zero carries no sign — so -1 bp
 /// would print as `0.01%`, the right size pointing the wrong way.
+/// Past ±999% a percentage no longer fits one 28px cell, and on launch day a
+/// card priced in a scarce anchor moves by tens of millions of percent. The
+/// number is right; the cell is one line high. Capped here, once, for every
+/// page and both formatters.
+const PERCENT_CAP_BASIS_POINTS: i64 = 999 * 100;
+
 #[must_use]
 pub fn percent_from_basis_points(points: i64) -> String {
+    if points > PERCENT_CAP_BASIS_POINTS {
+        return ">999%".to_owned();
+    }
+    if points < -PERCENT_CAP_BASIS_POINTS {
+        return "<-999%".to_owned();
+    }
     let magnitude = points.unsigned_abs();
     format!(
         "{}{}.{:02}%",
@@ -443,6 +455,9 @@ pub fn percent_from_basis_points(points: i64) -> String {
 /// number at all.
 #[must_use]
 pub fn signed_percent_from_basis_points(points: i64) -> String {
+    if points > PERCENT_CAP_BASIS_POINTS {
+        return ">+999%".to_owned();
+    }
     let percent = percent_from_basis_points(points);
     if points < 0 {
         percent
@@ -1748,5 +1763,19 @@ mod percentage_tests {
         assert_eq!(signed_percent_from_basis_points(0), "+0.00%");
         assert_eq!(signed_percent_from_basis_points(1), "+0.01%");
         assert_eq!(signed_percent_from_basis_points(-1), "-0.01%");
+    }
+
+    /// A card priced in a scarce anchor on launch day moves by tens of
+    /// millions of percent. The number is right; the cell is one line high.
+    /// Capped once here, for every page, instead of on the one page that
+    /// happened to notice.
+    #[test]
+    fn runaway_percentages_are_capped_to_one_cell_on_both_formatters() {
+        assert_eq!(signed_percent_from_basis_points(99_900), "+999.00%");
+        assert_eq!(signed_percent_from_basis_points(99_901), ">+999%");
+        assert_eq!(signed_percent_from_basis_points(4_844_094_326), ">+999%");
+        assert_eq!(signed_percent_from_basis_points(-99_901), "<-999%");
+        assert_eq!(percent_from_basis_points(99_901), ">999%");
+        assert_eq!(percent_from_basis_points(-99_901), "<-999%");
     }
 }

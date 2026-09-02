@@ -1005,12 +1005,7 @@ impl AppShell {
 
 /// `+50.00%` / `-26.00%`:收益列带符号,正负都一眼可辨。
 fn signed_percent(basis_points: i64) -> String {
-    let text = report_text::percent_from_basis_points(basis_points);
-    if basis_points >= 0 && !text.starts_with('+') {
-        format!("+{text}")
-    } else {
-        text
-    }
+    report_text::signed_percent_from_basis_points(basis_points)
 }
 
 #[cfg(test)]
