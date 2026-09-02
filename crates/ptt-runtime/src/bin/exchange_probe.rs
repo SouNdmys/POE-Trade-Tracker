@@ -122,34 +122,18 @@ mod probe {
         /// 与 app 的导出按钮同一条路径（同一个模型函数、同样的文件名规则），
         /// 只多打印样本：数量级对不对，一眼看得出来。
         fn export(&self, out: Option<std::path::PathBuf>) -> Result<(), String> {
-            use ptt_runtime::exchange_export::{exchange_export_rows, export_csv, export_json};
-
-            let database = ptt_runtime::pipeline::default_database_path();
-            let store = ptt_storage::MarketStore::open(database.clone())
-                .map_err(|error| format!("storage: {error}"))?;
-            let days = store
-                .load_exchange_days(&self.realm, &self.league, "2000-01-01", "2999-12-31")
-                .map_err(|error| format!("days: {error}"))?;
-            let season_start = store
-                .active_season(&self.realm)
-                .ok()
-                .flatten()
-                .map(|season| season.started_at.date_naive());
-            let rows = exchange_export_rows(&days, &self.league, season_start)?;
             let directory = out.unwrap_or_else(|| {
-                database
+                ptt_runtime::pipeline::default_database_path()
                     .parent()
                     .unwrap_or_else(|| std::path::Path::new("."))
                     .join("exports")
             });
-            std::fs::create_dir_all(&directory).map_err(|error| format!("mkdir: {error}"))?;
-            let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
-            let slug = self.league.to_lowercase().replace(' ', "-");
-            let base = directory.join(format!("exchange-{slug}-{stamp}"));
-            std::fs::write(base.with_extension("csv"), export_csv(&rows))
-                .map_err(|error| format!("write csv: {error}"))?;
-            std::fs::write(base.with_extension("json"), export_json(&rows))
-                .map_err(|error| format!("write json: {error}"))?;
+            let outcome = ptt_runtime::exchange_export::write_exchange_export(
+                &self.realm,
+                &self.league,
+                &directory,
+            )?;
+            let (base, rows, season_start) = (outcome.base, outcome.rows, outcome.season_start);
 
             let days_seen: BTreeSet<&str> = rows.iter().map(|row| row.day.as_str()).collect();
             let unmapped = rows.iter().filter(|row| row.category == "unmapped").count();

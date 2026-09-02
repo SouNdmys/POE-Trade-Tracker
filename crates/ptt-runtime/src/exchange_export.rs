@@ -190,6 +190,46 @@ pub fn exchange_export_rows(
     Ok(rows)
 }
 
+/// 一次导出落下的东西：文件基名（加 .csv/.json 就是两份文件）与写进去的行。
+pub struct ExchangeExportOutcome {
+    pub base: std::path::PathBuf,
+    pub rows: Vec<ExchangeExportRow>,
+    pub season_start: Option<NaiveDate>,
+}
+
+/// 读生产日线表 → 导出行 → 写 `exchange-<league>-<时间戳>.csv/.json` 到 `directory`。
+/// 页面按钮与探针 `--export` 走的是同一个函数：探针镜像生产路径的老规矩。
+pub fn write_exchange_export(
+    game: &str,
+    league: &str,
+    directory: &std::path::Path,
+) -> Result<ExchangeExportOutcome, String> {
+    let store = ptt_storage::MarketStore::open(crate::pipeline::default_database_path())
+        .map_err(|error| format!("storage: {error}"))?;
+    let days = store
+        .load_exchange_days(game, league, "2000-01-01", "2999-12-31")
+        .map_err(|error| format!("days: {error}"))?;
+    let season_start = store
+        .active_season(game)
+        .ok()
+        .flatten()
+        .map(|season| season.started_at.date_naive());
+    let rows = exchange_export_rows(&days, league, season_start)?;
+    std::fs::create_dir_all(directory).map_err(|error| format!("mkdir: {error}"))?;
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let slug = league.trim().to_lowercase().replace(' ', "-");
+    let base = directory.join(format!("exchange-{slug}-{stamp}"));
+    std::fs::write(base.with_extension("csv"), export_csv(&rows))
+        .map_err(|error| format!("write csv: {error}"))?;
+    std::fs::write(base.with_extension("json"), export_json(&rows))
+        .map_err(|error| format!("write json: {error}"))?;
+    Ok(ExchangeExportOutcome {
+        base,
+        rows,
+        season_start,
+    })
+}
+
 /// CSV：一行表头，字段顺序与结构体一致。逗号/引号/换行才加引号。
 #[must_use]
 pub fn export_csv(rows: &[ExchangeExportRow]) -> String {
