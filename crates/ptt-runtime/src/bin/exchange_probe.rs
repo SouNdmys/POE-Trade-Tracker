@@ -751,12 +751,12 @@ mod probe {
                 "{:<4} {:<18} {:>12} {:>9} {:>9}  {:<4} {:>14} {:>14} {:>5}",
                 "#",
                 "asset",
-                "value(ex)",
+                format!("value({})", self.anchor),
                 "raw bps",
                 "rel bps",
                 "",
-                "vol/h(ex)",
-                "depth(ex)",
+                format!("vol/h({})", self.anchor),
+                format!("depth({})", self.anchor),
                 "d-rk",
             );
             for (rank, row) in rows.iter().take(top).enumerate() {
