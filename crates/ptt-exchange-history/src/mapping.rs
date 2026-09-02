@@ -139,19 +139,6 @@ pub fn category_slug(game: Game, label: &str) -> &'static str {
     }
 }
 
-// 旧的 POE2 专用入口。调用方逐个改成带 game 的版本后删除。
-pub fn poe2_entries() -> Result<Vec<MappingEntry>, serde_json::Error> {
-    entries(Game::Poe2)
-}
-
-pub fn poe2_index() -> Result<BTreeMap<String, String>, serde_json::Error> {
-    index(Game::Poe2)
-}
-
-pub fn poe2_categories() -> Result<BTreeMap<String, &'static str>, serde_json::Error> {
-    categories(Game::Poe2)
-}
-
 #[cfg(test)]
 mod category_tests {
     use super::*;
