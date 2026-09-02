@@ -1439,6 +1439,19 @@ impl AppShell {
     }
 
     /// The reader's language.
+    /// 顶栏的"游戏 · 联赛"。联赛名是交易所同步的总开关，空着就写破折号。
+    fn profile_chip(&self) -> String {
+        #[cfg(windows)]
+        {
+            let game = self.settings.active_profile.game;
+            profile_chip_text(game, &self.settings.market_tuning(game).exchange.league)
+        }
+        #[cfg(not(windows))]
+        {
+            profile_chip_text(ptt_core::Game::Poe2, "")
+        }
+    }
+
     fn language(&self) -> ptt_settings::UiLanguage {
         #[cfg(windows)]
         {
@@ -1800,6 +1813,16 @@ fn load_pulse(request: &PageRequest) -> Result<ptt_runtime::reports::AnalyticsMo
         &request.tuning,
         request.language,
     ))
+}
+
+/// "POE1 · Allflame"。游戏名大写是为了和目录里的小写 slug 区分开：这行是给人看的。
+fn profile_chip_text(game: ptt_core::Game, league: &str) -> String {
+    let league = if league.trim().is_empty() {
+        "—"
+    } else {
+        league
+    };
+    format!("{} · {league}", game.as_str().to_uppercase())
 }
 
 /// 脉搏读失败不能长得和"这对没有结构性问题"一样：少一条警告的方向是让路线
@@ -2293,6 +2316,9 @@ impl Render for AppShell {
                             .font_family(FONT_MONO)
                             .text_size(fs(FS_11))
                             .text_color(c(TEXT_META))
+                            // 两个游戏、两个联赛共用一个窗口：不常驻写明白，
+                            // 切错档案时雷达上的每个数都"看起来对"。
+                            .child(band_stat(text.game_label, self.profile_chip()))
                             .child(band_stat(text.accepted_label, self.accepted.to_string()))
                             .child(band_stat(text.skips_label, skip_total.to_string())),
                     )
@@ -2442,6 +2468,20 @@ fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     let standby = skips.get("not-book-view").copied().unwrap_or(0);
     let total: u64 = skips.values().sum();
     (total - standby, standby)
+}
+
+#[cfg(test)]
+mod profile_chip_tests {
+    use super::profile_chip_text;
+    use ptt_core::Game;
+
+    /// Two games, two leagues, one window: without this chip every number
+    /// on the radar looks right for whichever profile happens to be active.
+    #[test]
+    fn the_chip_names_the_game_and_the_league() {
+        assert_eq!(profile_chip_text(Game::Poe1, "Allflame"), "POE1 · Allflame");
+        assert_eq!(profile_chip_text(Game::Poe2, ""), "POE2 · —");
+    }
 }
 
 #[cfg(test)]
