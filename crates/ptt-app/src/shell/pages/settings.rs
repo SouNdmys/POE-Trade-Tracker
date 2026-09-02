@@ -270,10 +270,6 @@ impl AppShell {
                 .child(hotkey_row(
                     text.hud_hotkey_toggle,
                     self.settings.hotkeys.toggle_hud.clone(),
-                ))
-                .child(hotkey_row(
-                    text.hud_hotkey_capture,
-                    self.settings.hotkeys.manual_capture.clone(),
                 )),
         )
     }
@@ -383,8 +379,7 @@ impl AppShell {
                     )),
             );
 
-        // 只列真正注册了的两个。`manual_capture` 存在设置里、浮窗段也画着,
-        // 但没有任何地方去绑它,写进说明就是教人按一个不会响的键。
+        // 只列真正注册了的两个:写进说明的键必须是按下去会响的键。
         let hotkey_row = |label: &'static str, key: &str| {
             div()
                 .h_flex()

@@ -630,7 +630,6 @@ pub struct Text {
     /// 浮窗段的三条热键行。
     pub hud_hotkey_watch: &'static str,
     pub hud_hotkey_toggle: &'static str,
-    pub hud_hotkey_capture: &'static str,
 
     // -- overlay card (§4 浮窗定稿) --
     /// 结论行绿态:`{} 行全部读到`
@@ -1220,7 +1219,6 @@ impl Text {
             ("tuning_bp_hint", self.tuning_bp_hint),
             ("hud_hotkey_watch", self.hud_hotkey_watch),
             ("hud_hotkey_toggle", self.hud_hotkey_toggle),
-            ("hud_hotkey_capture", self.hud_hotkey_capture),
             ("hud_rows_ok", self.hud_rows_ok),
             ("hud_meta", self.hud_meta),
             ("hud_probe_label", self.hud_probe_label),
@@ -1751,7 +1749,6 @@ pub static ENGLISH: Text = Text {
     tuning_bp_hint: "100 bp = 1%",
     hud_hotkey_watch: "watch toggle",
     hud_hotkey_toggle: "overlay toggle",
-    hud_hotkey_capture: "capture one frame",
 
     hud_rows_ok: "all {} rows read",
     hud_meta: "{}ms · accepted {} · skipped {}",
@@ -2313,7 +2310,6 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     tuning_bp_hint: "100 bp = 1%",
     hud_hotkey_watch: "监视开关",
     hud_hotkey_toggle: "浮窗开关",
-    hud_hotkey_capture: "手动抓一帧",
 
     hud_rows_ok: "{} 行全部读到",
     hud_meta: "{}ms · 已接受 {} · 跳过 {}",

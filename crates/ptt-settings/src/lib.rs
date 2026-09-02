@@ -82,8 +82,6 @@ pub struct Hotkeys {
     pub toggle_watch: String,
     #[serde(default = "default_toggle_hud")]
     pub toggle_hud: String,
-    #[serde(default = "default_manual_capture")]
-    pub manual_capture: String,
 }
 
 fn default_toggle_watch() -> String {
@@ -92,16 +90,12 @@ fn default_toggle_watch() -> String {
 fn default_toggle_hud() -> String {
     "Alt+F11".to_string()
 }
-fn default_manual_capture() -> String {
-    "Alt+F12".to_string()
-}
 
 impl Default for Hotkeys {
     fn default() -> Self {
         Self {
             toggle_watch: default_toggle_watch(),
             toggle_hud: default_toggle_hud(),
-            manual_capture: default_manual_capture(),
         }
     }
 }
@@ -931,6 +925,23 @@ mod tests {
         let loaded = store.load();
         assert_eq!(loaded.status, LoadStatus::Defaults);
         assert_eq!(loaded.settings, AppSettings::default());
+    }
+
+    /// Files written before the dead "capture one frame" key was removed
+    /// still carry `manual_capture`; they must load as `Loaded`, not fall
+    /// back to defaults over a key nobody reads any more.
+    #[test]
+    fn a_file_with_the_retired_capture_hotkey_still_loads() {
+        let store = temp_store("retired-hotkey");
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        fs::write(
+            store.path(),
+            br#"{"schema_version": 1, "hotkeys": {"toggle_watch": "Alt+F10", "toggle_hud": "Alt+F11", "manual_capture": "Alt+F12"}}"#,
+        )
+        .unwrap();
+        let loaded = store.load();
+        assert_eq!(loaded.status, LoadStatus::Loaded);
+        assert_eq!(loaded.settings.hotkeys.toggle_watch, "Alt+F10");
     }
 
     #[test]

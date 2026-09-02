@@ -163,9 +163,6 @@ nothing. Anything unrecognised is normalised to the default and written back to 
 Settings → Basics prints whether the watch key actually registered, so a combination another
 program already owns is visible rather than dead.
 
-The Overlay segment also draws a third key, "capture one frame" (`Alt+F12`). Nothing binds it.
-It does nothing today.
-
 ## What each page answers
 
 The nav order is "what do I look at first each day", not a menu tree.
