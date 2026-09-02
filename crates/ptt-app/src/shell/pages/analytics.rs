@@ -84,72 +84,6 @@ impl AppShell {
     }
 }
 
-/// The 110×22 area sparkline: the curve *is* the trend column.
-///
-/// 每条曲线用自身窗口的最高/最低撑满 22px,只看形状不看绝对值——否则
-/// 52635 的魔鏡和 1.39 的迴響之兆没法画在同一列。涨用金(绿被新鲜度占了),
-/// 跌用砖红,持平灰。
-fn sparkline(points: Vec<f32>, line_color: Token, fill_color: Token) -> impl IntoElement {
-    gpui::canvas(
-        |_, _, _| {},
-        move |bounds, (), window, _| {
-            if points.len() < 2 {
-                return;
-            }
-            let min = points.iter().copied().fold(f32::INFINITY, f32::min);
-            let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-            let span = (max - min).max(f32::EPSILON);
-            let width = f32::from(bounds.size.width);
-            let height = f32::from(bounds.size.height);
-            let origin = bounds.origin;
-            #[allow(clippy::cast_precision_loss)]
-            let step = width / (points.len() - 1) as f32;
-            // 上下各让 1px,线帽不被裁。
-            let plot = |index: usize, value: f32| {
-                gpui::point(
-                    origin.x + px(step * index as f32),
-                    origin.y + px(1.0 + (height - 2.0) * (1.0 - (value - min) / span)),
-                )
-            };
-
-            let mut fill = gpui::PathBuilder::fill();
-            fill.move_to(gpui::point(origin.x, origin.y + px(height)));
-            for (index, value) in points.iter().enumerate() {
-                fill.line_to(plot(index, *value));
-            }
-            fill.line_to(gpui::point(origin.x + px(width), origin.y + px(height)));
-            fill.close();
-            if let Ok(path) = fill.build() {
-                window.paint_path(path, c(fill_color));
-            }
-
-            let mut stroke = gpui::PathBuilder::stroke(px(1.5));
-            stroke.move_to(plot(0, points[0]));
-            for (index, value) in points.iter().enumerate().skip(1) {
-                stroke.line_to(plot(index, *value));
-            }
-            if let Ok(path) = stroke.build() {
-                window.paint_path(path, c(line_color));
-            }
-        },
-    )
-    .w(px(110.))
-    .h(px(22.))
-}
-
-/// 数据不够画曲线时:有几天画几根柱,不画假折线(§6)。
-fn day_bars(points: &[f32]) -> gpui::Div {
-    let min = points.iter().copied().fold(f32::INFINITY, f32::min);
-    let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    let span = (max - min).max(f32::EPSILON);
-    let mut row = div().h(px(22.)).h_flex().items_end().gap(px(3.));
-    for value in points {
-        let height = 6.0 + 14.0 * ((value - min) / span);
-        row = row.child(div().w(px(8.)).h(px(height)).bg(c(TEXT_GHOST)));
-    }
-    row
-}
-
 impl AppShell {
     /// The Analytics page.
     pub(crate) fn render_analytics(&mut self, cx: &mut Context<Self>) -> gpui::Div {
@@ -430,7 +364,7 @@ impl AppShell {
                     .h_flex()
                     .items_center()
                     .gap_2()
-                    .child(day_bars(&points))
+                    .child(crate::ui::day_bars(&points))
                     .child(
                         div()
                             .text_size(fs(FS_10))
@@ -459,7 +393,7 @@ impl AppShell {
                     .h_flex()
                     .items_center()
                     .gap_2()
-                    .child(sparkline(points, line, fill))
+                    .child(crate::ui::sparkline(points, line, fill))
                     .child(mono(delta).text_size(fs(FS_10_5)).text_color(c(text_color)))
                     .into_any_element()
             }

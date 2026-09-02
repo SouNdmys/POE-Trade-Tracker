@@ -3,7 +3,7 @@
 //! 这页读的是成交量证据域（官方 API 的账），和市场分析页（挂单簿证据域）
 //! 并排放着：同一个市场，两本账，各说各的事实，谁也不冒充谁。
 
-use gpui::{Context, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
+use gpui::{Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
 use gpui_component::{Sizable, Size, StyledExt as _, input::Input, select::Select};
 
 use super::convert::{AssetChoice, AssetList};
@@ -19,7 +19,7 @@ const ROW_LIMIT: usize = 200;
 // 而下拉自带搜索，长列表不碍事，于是换成 1..=数据天数 的完整列表。）
 
 /// 走势列宽。柱宽随天数自适应，7 天到 60 天都塞得进这一格。
-const SPARK_WIDTH: f32 = 100.;
+const SPARK_WIDTH: f32 = 110.;
 
 /// 面板核对最多列几对：越界率最高的几对就是要看的，长尾是噪音。
 const RECONCILE_LIMIT: usize = 6;
@@ -401,7 +401,7 @@ impl AppShell {
                     div()
                         .w(px(SPARK_WIDTH))
                         .flex_none()
-                        .child(spark_bars(&row.value_by_day, spark_days(&model))),
+                        .child(spark_curve(&row.value_by_day, spark_days(&model))),
                 )
                 .child(data_cell(
                     if model.historical {
@@ -628,29 +628,19 @@ fn local_hour(hour_ts: i64) -> String {
     )
 }
 
-/// 迷你日柱：有几天画几根，不画假折线（Analytics 页的既定裁定 §6）。
-/// min-max 归一化只决定柱高，f32 只在这条绘制边界上出现。
-fn spark_bars(values: &[ptt_trade_domain::Ratio], span_days: usize) -> gpui::Div {
+/// 走势列：最近 `span_days` 天的日 VWAP 画成市场分析页同款的面积曲线；
+/// 不够两天就画柱，不画假折线（§6 既定裁定）。f32 只出现在这条绘制边界上。
+fn spark_curve(values: &[ptt_trade_domain::Ratio], span_days: usize) -> gpui::AnyElement {
     let recent = values.len().saturating_sub(span_days);
+    #[allow(clippy::cast_precision_loss)]
     let points: Vec<f32> = values[recent..]
         .iter()
         .map(|rate| rate.numerator as f32 / (rate.denominator as f32).max(1.0))
         .collect();
-    let mut row = div().h(px(16.)).h_flex().items_end().gap(px(1.));
     if points.len() < 2 {
-        // 一天以内说不出"走势"，留白比一根孤柱诚实。
-        return row;
+        return crate::ui::day_bars(&points).into_any_element();
     }
-    let min = points.iter().copied().fold(f32::INFINITY, f32::min);
-    let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    let span = (max - min).max(f32::EPSILON);
-    // 柱宽吃满列宽：60 根时 ~1px，7 根时封顶 5px。
-    let bar = ((SPARK_WIDTH - 4.0) / span_days as f32 - 1.0).clamp(1.0, 5.0);
-    for value in &points {
-        let height = 4.0 + 12.0 * ((value - min) / span);
-        row = row.child(div().w(px(bar)).h(px(height)).bg(c(TEXT_GHOST)));
-    }
-    row
+    crate::ui::sparkline(points, TEXT_DISABLED, TREND_FLAT_FILL).into_any_element()
 }
 
 /// `+50.00%` / `-26.00%`：与监视页同款，正负一眼可辨。
