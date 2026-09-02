@@ -237,6 +237,48 @@ impl RadarSegment {
     }
 }
 
+/// 交易所页的时段档位：明细栏曲线画多远、表格按多远的成交额排。
+/// 不持久化——这是"现在想看多远"，不是设置；窗口终点是账本最新小时。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ExchangeRange {
+    Hours24,
+    Days3,
+    Days7,
+    AllKept,
+}
+
+impl ExchangeRange {
+    pub(crate) const ALL: [Self; 4] = [Self::Hours24, Self::Days3, Self::Days7, Self::AllKept];
+
+    /// 窗口小时数；None = 账本里保留的全部。
+    pub(crate) const fn hours(self) -> Option<u32> {
+        match self {
+            Self::Hours24 => Some(24),
+            Self::Days3 => Some(72),
+            Self::Days7 => Some(168),
+            Self::AllKept => None,
+        }
+    }
+
+    pub(crate) fn label(self, text: &'static crate::i18n::Text) -> &'static str {
+        match self {
+            Self::Hours24 => text.exchange_range_24h,
+            Self::Days3 => text.exchange_range_3d,
+            Self::Days7 => text.exchange_range_7d,
+            Self::AllKept => text.exchange_range_all,
+        }
+    }
+
+    pub(crate) const fn element_id(self) -> &'static str {
+        match self {
+            Self::Hours24 => "exchange-range-24h",
+            Self::Days3 => "exchange-range-3d",
+            Self::Days7 => "exchange-range-7d",
+            Self::AllKept => "exchange-range-all",
+        }
+    }
+}
+
 /// Everything one accepted book said, kept as a single value.
 ///
 /// These fields are only meaningful together, and keeping them apart cost a
@@ -324,6 +366,12 @@ pub struct AppShell {
     report_pair: Option<(String, String)>,
     /// The currency whose day-by-day detail the Analytics page shows.
     pub(crate) analytics_selected: Option<String>,
+    /// 交易所页选中的通货（明细栏画它的小时账本）。
+    pub(crate) exchange_selected: Option<String>,
+    /// 交易所页的时段档位（明细栏曲线与表格排序共用）。
+    pub(crate) exchange_range: ExchangeRange,
+    /// 明细栏是按小时铺开还是按一天里的时段汇总。
+    pub(crate) exchange_hour_of_day: bool,
     /// What the visible page is showing.
     report: crate::state::PageData,
     /// Which request the displayed answer came from.
@@ -756,6 +804,9 @@ impl AppShell {
             page: Page::Monitor,
             report_pair: None,
             analytics_selected: None,
+            exchange_selected: None,
+            exchange_range: ExchangeRange::Hours24,
+            exchange_hour_of_day: false,
             report: crate::state::PageData::Empty,
             report_generation: 0,
             probe_queue: crate::state::ProbeQueue::default(),

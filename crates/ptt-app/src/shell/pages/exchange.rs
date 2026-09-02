@@ -3,14 +3,20 @@
 //! 这页读的是成交量证据域（官方 API 的账），和市场分析页（挂单簿证据域）
 //! 并排放着：同一个市场，两本账，各说各的事实，谁也不冒充谁。
 
-use gpui::{Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
+use gpui::{
+    Context, InteractiveElement as _, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement as _, Styled, div, prelude::FluentBuilder as _, px,
+};
 use gpui_component::{Sizable, Size, StyledExt as _, input::Input, select::Select};
 
 use super::convert::{AssetChoice, AssetList};
-use crate::shell::AppShell;
+use crate::shell::{AppShell, ExchangeRange};
 use crate::state::PageData;
 use crate::theme::*;
-use crate::ui::{LedgerButton, StatusKind, button, chip, empty_state, mono, panel, scrollable};
+use crate::ui::{
+    LedgerButton, StatusKind, bucket_points, button, chip, detail_panel, empty_state, hour_bars,
+    kv_headline, kv_row, mean_points, mono, panel, scrollable, sparkline_sized, sum_points,
+};
 
 /// 滚动列表也设个上限：尾巴里是每小时几笔的冷门，画六百行 div 换不来信息。
 const ROW_LIMIT: usize = 200;
@@ -400,12 +406,30 @@ impl AppShell {
             let surge = row.surge_percent.filter(|percent| *percent >= 200);
             // 涨跌列与曲线同一套三态色（八测反馈：满屏灰抓不到重点）。
             let (spark_line, spark_fill, trend_color) = trend_tones(row.trend_bps_relative);
+            // 行可选中：点一行，右侧明细栏画它的小时账本（行高固定是硬约束，
+            // 细节不在行内展开）。
+            let click_id = row.asset_id.as_str().to_owned();
+            let is_selected = self.exchange_selected.as_deref() == Some(row.asset_id.as_str());
             let mut line = div()
+                .id(SharedString::from(format!(
+                    "exchange-{}",
+                    row.asset_id.as_str()
+                )))
+                .h(px(H_TABLE_ROW))
+                .flex_none()
                 .px_3()
-                .py_1()
                 .h_flex()
                 .items_center()
                 .gap_2()
+                .cursor_pointer()
+                .on_mouse_down(
+                    gpui::MouseButton::Left,
+                    cx.listener(move |this, _, _, cx| {
+                        this.exchange_selected = Some(click_id.clone());
+                        cx.notify();
+                    }),
+                )
+                .when(is_selected, |line| line.bg(c(SELECTED)))
                 .child(
                     div()
                         .w(px(210.))
@@ -460,17 +484,18 @@ impl AppShell {
             rows = rows.child(line);
         }
 
+        let detail = self.exchange_detail(&model, cx);
         div()
             .flex_1()
             .min_h(px(0.))
             .flex()
-            .flex_col()
             .gap_3()
             .p_3()
             .overflow_hidden()
             .child(
                 panel()
                     .flex_1()
+                    .min_w(px(0.))
                     .min_h(px(0.))
                     .flex()
                     .flex_col()
@@ -479,6 +504,184 @@ impl AppShell {
                     .child(header)
                     .child(scrollable(rows, "exchange-rows")),
             )
+            .child(detail)
+    }
+
+    /// 时段档位条：24h / 3d / 7d / 全部保留。当前档金字 + 2px 金下划线，
+    /// 同雷达页页签的语汇。切档标脏页面：账本已按水位缓存，重算只是重排。
+    fn exchange_range_row(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let text = self.text();
+        let current = self.exchange_range;
+        let mut row = div().h_flex().items_center().gap(px(SP_8));
+        for range in ExchangeRange::ALL {
+            let active = range == current;
+            let chip = div()
+                .id(range.element_id())
+                .h(px(H_INPUT))
+                .px(px(SP_8))
+                .flex()
+                .items_center()
+                .text_size(fs(FS_12))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.exchange_range = range;
+                    this.report_stale = true;
+                    cx.notify();
+                }));
+            let chip = if active {
+                chip.border_b_2()
+                    .border_color(c(ACCENT))
+                    .font_semibold()
+                    .text_color(c(ACCENT_TEXT))
+            } else {
+                chip.text_color(c(TEXT_SECONDARY))
+                    .hover(|style| style.bg(c(HOVER)))
+            };
+            row = row.child(chip.child(SharedString::from(range.label(text).to_string())));
+        }
+        row
+    }
+
+    /// 右侧明细栏：选中通货的小时账本——最新小时价、窗口成交额、价格线、
+    /// 成交柱，或者按一天里的时段汇总。行高固定、不做行内展开是硬约束，
+    /// 细节只能在这里。
+    fn exchange_detail(
+        &self,
+        model: &ptt_runtime::reports::ExchangeModel,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let text = self.text();
+        let Some(selected) = self.exchange_selected.as_deref() else {
+            return div().w(px(0.)).flex_none();
+        };
+        let Some(row) = model
+            .rows
+            .iter()
+            .find(|row| row.asset_id.as_str() == selected)
+        else {
+            return div().w(px(0.)).flex_none();
+        };
+        let title = self.display_name(selected);
+        let Some(ledger_model) = &model.ledger else {
+            return detail_panel(&title)
+                .child(div().p_3().child(empty_state(text.exchange_detail_none)));
+        };
+        let ledger = &ledger_model.ledger;
+        let hours = self.exchange_range.hours();
+        let asset = &row.asset_id;
+        let points = ledger.points_in(asset, hours);
+        let (total, _) = ledger.window_volume(asset, hours);
+        let mean = ledger.window_mean_per_hour(asset, hours);
+        let missing = ledger.missing_hours(asset, hours);
+        let (line_color, fill_color, value_color) = trend_tones(row.trend_bps_relative);
+        let latest = points
+            .last()
+            .map_or_else(|| "-".to_owned(), |point| ratio_text(&point.value));
+
+        let mut body = div().p_3().flex().flex_col().gap_2();
+        body = body
+            .child(kv_headline(
+                text.exchange_detail_latest,
+                &latest,
+                value_color,
+            ))
+            .child(kv_headline(
+                text.exchange_detail_window_volume,
+                &compact_amount(total),
+                TEXT_DATA,
+            ))
+            .child(kv_row(text.exchange_detail_mean, &compact_amount(mean)))
+            .child(self.exchange_range_row(cx));
+
+        if let Some((start, end)) = ledger.window(hours) {
+            // 本地时区只在这条绘制边界上出现；账本本身是 UTC 整点。
+            let offset = chrono::Local::now().offset().local_minus_utc();
+            if self.exchange_hour_of_day {
+                let profile = ledger.hour_of_day_profile(asset, hours, offset);
+                #[allow(clippy::cast_precision_loss)]
+                let bars: Vec<Option<f32>> = profile.iter().map(|v| Some(*v as f32)).collect();
+                body = body
+                    .child(hour_bars(bars, CHART_WIDTH, CHART_BARS_HEIGHT, TEXT_GHOST))
+                    .child(axis_row("00:00", "23:00"));
+                if let Some((from, to)) = ptt_runtime::domain::peak_window(&profile) {
+                    body = body.child(
+                        mono(ptt_runtime::report_text::fill(
+                            text.exchange_detail_peak,
+                            &[&format!("{from:02}"), &format!("{to:02}")],
+                        ))
+                        .text_size(fs(FS_11))
+                        .text_color(c(ACCENT_TEXT)),
+                    );
+                }
+            } else {
+                // 按小时格铺开：没成交的小时留 None，曲线在那里断开。
+                let slots = usize::try_from((end - start) / 3600 + 1).unwrap_or(1);
+                let mut values: Vec<Option<f32>> = vec![None; slots];
+                let mut volumes: Vec<Option<f32>> = vec![None; slots];
+                for point in points {
+                    let index = usize::try_from((point.hour_ts - start) / 3600).unwrap_or(0);
+                    if index < slots {
+                        #[allow(clippy::cast_precision_loss)]
+                        let value = point.value.numerator as f32
+                            / (point.value.denominator as f32).max(1.0);
+                        values[index] = Some(value);
+                        #[allow(clippy::cast_precision_loss)]
+                        let volume = point.anchor_volume as f32;
+                        volumes[index] = Some(volume);
+                    }
+                }
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let max_slots = (CHART_WIDTH / 2.0) as usize;
+                let values = bucket_points(&values, max_slots, mean_points);
+                let volumes = bucket_points(&volumes, max_slots, sum_points);
+                body = body
+                    .child(sparkline_sized(
+                        values,
+                        CHART_WIDTH,
+                        CHART_LINE_HEIGHT,
+                        line_color,
+                        fill_color,
+                    ))
+                    .child(hour_bars(
+                        volumes,
+                        CHART_WIDTH,
+                        CHART_BARS_HEIGHT,
+                        TEXT_DISABLED,
+                    ))
+                    .child(axis_row(&local_hour(start), &local_hour(end)));
+            }
+        }
+
+        let toggle_label = if self.exchange_hour_of_day {
+            text.exchange_detail_by_hours
+        } else {
+            text.exchange_detail_hour_of_day
+        };
+        body = body.child(
+            div().h_flex().items_center().gap_2().child(
+                button(
+                    "exchange-hour-of-day",
+                    LedgerButton::Quiet,
+                    toggle_label,
+                    cx,
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.exchange_hour_of_day = !this.exchange_hour_of_day;
+                    cx.notify();
+                })),
+            ),
+        );
+        if missing > 0 {
+            body = body.child(
+                mono(ptt_runtime::report_text::fill(
+                    text.exchange_detail_missing,
+                    &[&missing.to_string()],
+                ))
+                .text_size(fs(FS_10_5))
+                .text_color(c(TEXT_META)),
+            );
+        }
+        detail_panel(&title).child(scrollable(body, "exchange-detail"))
     }
 
     /// 把这个联赛的全部日线导成 CSV + JSON——先弹系统的选文件夹对话框
@@ -635,6 +838,29 @@ impl AppShell {
             state.set_selected_value(&value, window, cx);
         });
     }
+}
+
+/// 明细栏图表的宽度：明细栏 300 减两边内边距。高度分线和柱两档。
+const CHART_WIDTH: f32 = 270.;
+const CHART_LINE_HEIGHT: f32 = 56.;
+const CHART_BARS_HEIGHT: f32 = 36.;
+
+/// 图下面的两端时刻：左起点、右终点，中间不标——300px 里标不下更多。
+fn axis_row(left: &str, right: &str) -> gpui::Div {
+    div()
+        .w(px(CHART_WIDTH))
+        .h_flex()
+        .justify_between()
+        .child(
+            mono(left.to_owned())
+                .text_size(fs(FS_10))
+                .text_color(c(TEXT_META)),
+        )
+        .child(
+            mono(right.to_owned())
+                .text_size(fs(FS_10))
+                .text_color(c(TEXT_META)),
+        )
 }
 
 fn head_cell(label: &str, width: f32) -> gpui::Div {

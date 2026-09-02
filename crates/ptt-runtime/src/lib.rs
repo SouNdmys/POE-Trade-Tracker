@@ -35,6 +35,8 @@ pub mod domain {
         FreshnessAssessment, FreshnessPolicy, FreshnessStatus, QuoteRiskFlag, QuoteSelectionPolicy,
         QuoteSelectionStrategy,
     };
+    /// 明细栏的"峰值时段"要用它；app 不直接依赖 strategy，从这里转一手。
+    pub use ptt_strategy::peak_window;
     pub use ptt_strategy::{
         Actionability, AnchorAction, AnchorCross, AnchorDrift, AnchorHealth, AnchorRecommendation,
         AnomalySeverity, AssetPulse, BucketSize, ExecutionRisk, LiquidityClass,
