@@ -24,6 +24,9 @@ const SPARK_WIDTH: f32 = 110.;
 /// 面板核对最多列几对：越界率最高的几对就是要看的，长尾是噪音。
 const RECONCILE_LIMIT: usize = 6;
 
+/// ±2% 以内算持平（与市场分析页同值）：涨跌列和曲线在这条带里不上色。
+const FLAT_BAND_BASIS_POINTS: i64 = 200;
+
 /// 柱图画多少天：跟涨跌选择器同一个 N（二测反馈：两处不同步看着像坏了），
 /// 但至少 7 根——一两根柱子摆不出"走势"这个词。
 fn spark_days(model: &ptt_runtime::reports::ExchangeModel) -> usize {
@@ -226,12 +229,28 @@ impl AppShell {
                         )
                     }
                 };
+                // 升值那条的证据是"涨了多少"，走表内同一套三态色；放量与
+                // 价差的证据是倍数和偏离，不是涨跌，保持灰阶。
+                let reason_color = match item.signal {
+                    ptt_runtime::reports::ExchangeRadarSignal::Appreciating { relative_bps } => {
+                        trend_tones(Some(relative_bps)).2
+                    }
+                    _ => TEXT_SECONDARY,
+                };
                 band = band.child(
-                    mono(format!(
-                        "{} · {reason}",
-                        self.display_name(item.asset_id.as_str())
-                    ))
-                    .text_size(fs(FS_10_5)),
+                    div()
+                        .h_flex()
+                        .items_center()
+                        .gap_1()
+                        .child(
+                            mono(format!("{} ·", self.display_name(item.asset_id.as_str())))
+                                .text_size(fs(FS_10_5)),
+                        )
+                        .child(
+                            mono(reason)
+                                .text_size(fs(FS_10_5))
+                                .text_color(c(reason_color)),
+                        ),
                 );
             }
             head = head.child(band);
@@ -379,6 +398,8 @@ impl AppShell {
             // 放量标签只在显著时出现（≥2 倍自身常态），别把每行都点亮。
             // 展示成倍数（×4.8）而不是百分比：二测反馈百分比读不懂。
             let surge = row.surge_percent.filter(|percent| *percent >= 200);
+            // 涨跌列与曲线同一套三态色（八测反馈：满屏灰抓不到重点）。
+            let (spark_line, spark_fill, trend_color) = trend_tones(row.trend_bps_relative);
             let mut line = div()
                 .px_3()
                 .py_1()
@@ -386,23 +407,30 @@ impl AppShell {
                 .items_center()
                 .gap_2()
                 .child(
-                    div().w(px(210.)).flex_none().child(
-                        mono(if row.tracked {
-                            format!("{name} ·")
-                        } else {
-                            name
-                        })
-                        .text_size(fs(FS_11_5)),
-                    ),
+                    div()
+                        .w(px(210.))
+                        .flex_none()
+                        .h_flex()
+                        .items_center()
+                        .gap_1()
+                        .child(mono(name).text_size(fs(FS_11_5)))
+                        // 关注中的通货：金点——一眼看出哪些是自己的。
+                        .when(row.tracked, |cell| {
+                            cell.child(
+                                mono("·".to_owned())
+                                    .text_size(fs(FS_11_5))
+                                    .text_color(c(ACCENT_TEXT)),
+                            )
+                        }),
                 )
                 .child(data_cell(value, 110.))
-                .child(data_cell(trend, 80.))
-                .child(
-                    div()
-                        .w(px(SPARK_WIDTH))
-                        .flex_none()
-                        .child(spark_curve(&row.value_by_day, spark_days(&model))),
-                )
+                .child(tinted_cell(trend, 80., trend_color))
+                .child(div().w(px(SPARK_WIDTH)).flex_none().child(spark_curve(
+                    &row.value_by_day,
+                    spark_days(&model),
+                    spark_line,
+                    spark_fill,
+                )))
                 .child(data_cell(
                     if model.historical {
                         "-".to_owned()
@@ -630,7 +658,12 @@ fn local_hour(hour_ts: i64) -> String {
 
 /// 走势列：最近 `span_days` 天的日 VWAP 画成市场分析页同款的面积曲线；
 /// 不够两天就画柱，不画假折线（§6 既定裁定）。f32 只出现在这条绘制边界上。
-fn spark_curve(values: &[ptt_trade_domain::Ratio], span_days: usize) -> gpui::AnyElement {
+fn spark_curve(
+    values: &[ptt_trade_domain::Ratio],
+    span_days: usize,
+    line: Token,
+    fill: Token,
+) -> gpui::AnyElement {
     let recent = values.len().saturating_sub(span_days);
     #[allow(clippy::cast_precision_loss)]
     let points: Vec<f32> = values[recent..]
@@ -640,7 +673,25 @@ fn spark_curve(values: &[ptt_trade_domain::Ratio], span_days: usize) -> gpui::An
     if points.len() < 2 {
         return crate::ui::day_bars(&points).into_any_element();
     }
-    crate::ui::sparkline(points, TEXT_DISABLED, TREND_FLAT_FILL).into_any_element()
+    crate::ui::sparkline(points, line, fill).into_any_element()
+}
+
+/// 涨跌的三态色（线色, 填充, 字色），与市场分析页同一条规矩：涨=金、跌=砖红
+/// （绿留给新鲜度），±2% 以内持平灰——一半的行都在持平带里，全上色就没重点。
+fn trend_tones(relative_bps: Option<i64>) -> (Token, Token, Token) {
+    match relative_bps {
+        Some(bps) if bps >= FLAT_BAND_BASIS_POINTS => (ACCENT, ACCENT_FILL, ACCENT_TEXT),
+        Some(bps) if bps <= -FLAT_BAND_BASIS_POINTS => (DANGER, DANGER_WASH, DANGER_TEXT),
+        _ => (TEXT_DISABLED, TREND_FLAT_FILL, TEXT_META),
+    }
+}
+
+/// 带字色的数值格：只给涨跌列用，其余数值列保持"色字=主题"的灰阶。
+fn tinted_cell(value: String, width: f32, color: Token) -> gpui::Div {
+    div()
+        .w(px(width))
+        .flex_none()
+        .child(mono(value).text_size(fs(FS_11_5)).text_color(c(color)))
 }
 
 /// `+50.00%` / `-26.00%`：与监视页同款，正负一眼可辨。
