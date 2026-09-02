@@ -417,6 +417,39 @@ pub fn fill(template: &str, values: &[&str]) -> String {
 /// the part that is easy to get wrong. Anything smaller than a percent
 /// divides to a whole part of zero, and zero carries no sign — so -1 bp
 /// would print as `0.01%`, the right size pointing the wrong way.
+/// A large amount at table width, in the reader's own convention: 万 / 亿 in
+/// Chinese, k / M in English. Below the first step the number is printed as
+/// it is — 18531 still reads. The exact value always sits in the detail
+/// panel; this is for scanning a column, not for copying a figure.
+///
+/// One rule for every page: the analytics page used to write 1214万 (in the
+/// English interface too) while the exchange page wrote 125k one tab over.
+#[must_use]
+pub fn compact_units(value: u128, language: UiLanguage) -> String {
+    #[allow(clippy::cast_precision_loss)]
+    let float = value as f64;
+    match language {
+        UiLanguage::Chinese => {
+            if value >= 100_000_000 {
+                format!("{:.1}亿", float / 100_000_000.0)
+            } else if value >= 100_000 {
+                format!("{}万", value / 10_000)
+            } else {
+                value.to_string()
+            }
+        }
+        UiLanguage::English => {
+            if value >= 1_000_000 {
+                format!("{:.1}M", float / 1_000_000.0)
+            } else if value >= 10_000 {
+                format!("{:.0}k", float / 1_000.0)
+            } else {
+                value.to_string()
+            }
+        }
+    }
+}
+
 /// Past ±999% a percentage no longer fits one 28px cell, and on launch day a
 /// card priced in a scarce anchor moves by tens of millions of percent. The
 /// number is right; the cell is one line high. Capped here, once, for every
@@ -1777,5 +1810,24 @@ mod percentage_tests {
         assert_eq!(signed_percent_from_basis_points(-99_901), "<-999%");
         assert_eq!(percent_from_basis_points(99_901), ">999%");
         assert_eq!(percent_from_basis_points(-99_901), "<-999%");
+    }
+}
+
+#[cfg(test)]
+mod compact_units_tests {
+    use super::compact_units;
+    use ptt_settings::UiLanguage;
+
+    /// The analytics page wrote 1214万 (hard-coded Chinese, in English too)
+    /// while the exchange page wrote 125k / 3.5M for the same kind of number
+    /// one tab over. One rule, chosen by the interface language.
+    #[test]
+    fn large_amounts_follow_the_interface_language() {
+        assert_eq!(compact_units(1_200_000, UiLanguage::English), "1.2M");
+        assert_eq!(compact_units(85_000, UiLanguage::English), "85k");
+        assert_eq!(compact_units(9_999, UiLanguage::English), "9999");
+        assert_eq!(compact_units(1_200_000, UiLanguage::Chinese), "120万");
+        assert_eq!(compact_units(250_000_000, UiLanguage::Chinese), "2.5亿");
+        assert_eq!(compact_units(18_531, UiLanguage::Chinese), "18531");
     }
 }

@@ -43,16 +43,6 @@ fn signed_percent(value: i64) -> String {
     report_text::signed_percent_from_basis_points(value)
 }
 
-/// 大数字用万(§6):12141911 → 1214万。十万以下保持原样——18531 还读得动,
-/// 精确值永远在明细栏。
-fn wan(units: u128) -> String {
-    if units >= 100_000 {
-        format!("{}万", units / 10_000)
-    } else {
-        units.to_string()
-    }
-}
-
 /// 供需比:买压是在售的几倍,一位小数。标签旁边的依据(§6 规则 3)。
 fn demand_supply_ratio(demand: Option<u128>, supply: Option<u128>) -> Option<String> {
     let demand = demand?;
@@ -248,12 +238,15 @@ impl AppShell {
                 .value_in_anchor
                 .as_ref()
                 .map_or_else(|| "—".to_owned(), super::watchlist::per_unit_text);
+            // 大数按界面语言压缩(§6):中文 万/亿,英文 k/M;规则住在 report_text,
+            // 和交易所页同一套。精确值永远在明细栏。
+            let compact = |units: u128| report_text::compact_units(units, language);
             let demand = asset
                 .demand_anchor
-                .map_or_else(|| format!("{}?", wan(asset.demand_units)), wan);
+                .map_or_else(|| format!("{}?", compact(asset.demand_units)), compact);
             let supply = asset
                 .supply_anchor
-                .map_or_else(|| format!("{}?", wan(asset.supply_units)), wan);
+                .map_or_else(|| format!("{}?", compact(asset.supply_units)), compact);
             let ratio = demand_supply_ratio(asset.demand_anchor, asset.supply_anchor);
 
             // 默认态不给标签(§6 规则 2):供需均衡就是没事,没事不占眼睛。

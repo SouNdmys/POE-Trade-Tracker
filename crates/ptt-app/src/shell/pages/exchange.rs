@@ -55,6 +55,7 @@ impl AppShell {
         };
         let model: ptt_runtime::reports::ExchangeModel = (**model).clone();
         let text = self.text();
+        let language = self.language();
 
         // ---- 页头：联赛、锚、覆盖率、市场漂移 ----
         let mut head = div().p_3().flex().flex_col().gap_1();
@@ -472,13 +473,13 @@ impl AppShell {
                     if model.historical {
                         "-".to_owned()
                     } else {
-                        compact_amount(row.volume_per_hour_anchor)
+                        compact_amount(row.volume_per_hour_anchor, language)
                     },
                     90.,
                 ))
                 .child(data_cell(
                     row.depth_anchor
-                        .map_or_else(|| "-".to_owned(), compact_amount),
+                        .map_or_else(|| "-".to_owned(), |value| compact_amount(value, language)),
                     90.,
                 ));
             line = if let Some(percent) = surge {
@@ -565,6 +566,7 @@ impl AppShell {
         cx: &mut Context<Self>,
     ) -> gpui::Div {
         let text = self.text();
+        let language = self.language();
         let Some(selected) = self.exchange_selected.as_deref() else {
             return div().w(px(0.)).flex_none();
         };
@@ -601,10 +603,13 @@ impl AppShell {
             ))
             .child(kv_headline(
                 text.exchange_detail_window_volume,
-                &compact_amount(total),
+                &compact_amount(total, language),
                 TEXT_DATA,
             ))
-            .child(kv_row(text.exchange_detail_mean, &compact_amount(mean)))
+            .child(kv_row(
+                text.exchange_detail_mean,
+                &compact_amount(mean, language),
+            ))
             .child(self.exchange_range_row(cx));
 
         if let Some((start, end)) = ledger.window(hours) {
@@ -635,7 +640,7 @@ impl AppShell {
                             &[
                                 &format!("{slot:02}"),
                                 &format!("{:02}", (slot + 1) % 24),
-                                &compact_amount(profile[slot]),
+                                &compact_amount(profile[slot], language),
                             ],
                         )),
                         None => axis_row("00:00", "23:00"),
@@ -677,6 +682,7 @@ impl AppShell {
                 let readout = hover.map(|slot| {
                     hover_readout(
                         text,
+                        language,
                         start,
                         end,
                         per_slot,
@@ -977,8 +983,11 @@ fn readout_row(text: String) -> gpui::Div {
 /// 悬停读数：一格一小时就报那一小时的数；像素不够并了格，就报区间与
 /// 合计成交、均价——并出来的数就说是并的，不冒充某一小时。
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+// 文案目录和界面语言成对出现，第八个参数是诚实的计数，不为凑数拆结构体。
+#[allow(clippy::too_many_arguments)]
 fn hover_readout(
     text: &crate::i18n::Text,
+    language: ptt_settings::UiLanguage,
     start: i64,
     end: i64,
     per_slot: usize,
@@ -999,7 +1008,11 @@ fn hover_readout(
     match (value, volume) {
         (Some(value), Some(volume)) => ptt_runtime::report_text::fill(
             template,
-            &[&when, &compact_amount(volume as u64), &price_text(value)],
+            &[
+                &when,
+                &compact_amount(volume as u64, language),
+                &price_text(value),
+            ],
         ),
         _ => ptt_runtime::report_text::fill(text.exchange_hover_gap, &[&when]),
     }
@@ -1136,15 +1149,10 @@ fn price_text(value: impl Into<f64>) -> String {
     }
 }
 
-/// 8_500_000 → "8.5M"，读表扫得快比位数精确重要。
-fn compact_amount(value: u64) -> String {
-    if value >= 10_000_000 {
-        format!("{:.1}M", value as f64 / 1_000_000.0)
-    } else if value >= 10_000 {
-        format!("{:.0}k", value as f64 / 1_000.0)
-    } else {
-        value.to_string()
-    }
+/// 8_500_000 → "8.5M" / "850万"，读表扫得快比位数精确重要。规则住在
+/// report_text，和市场分析页同一套，按界面语言选写法。
+fn compact_amount(value: u64, language: ptt_settings::UiLanguage) -> String {
+    ptt_runtime::report_text::compact_units(u128::from(value), language)
 }
 
 #[cfg(test)]
