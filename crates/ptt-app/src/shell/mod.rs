@@ -1615,7 +1615,8 @@ fn load_probe_queue(
     use ptt_runtime::pipeline::LIVE_LEAGUE;
 
     let (context_key, observations) = load_window(request)?;
-    let analytics = load_pulse(request);
+    // 待抓队列没有 notes 通道；脉搏缺席只是排序少一个依据，页面本身照常。
+    let analytics = load_pulse(request).ok();
     let mut model = ptt_runtime::reports::probe_queue_model(
         &observations,
         &context_key,
@@ -1715,42 +1716,55 @@ fn load_analytics(request: &PageRequest) -> Result<ptt_runtime::reports::Analyti
         .map_err(|error| format!("storage: {error}"))?;
     let game = request.profile.game.as_str();
     let now = chrono::Utc::now();
-    let _ = rollup::ensure_daily_rollups(
+    // 折叠/清理失败不拖垮页面，但要在页面上留一句：以前被吞掉，
+    // 市场分析只是悄悄少几天。
+    let mut notes = Vec::new();
+    if let Err(error) = rollup::ensure_daily_rollups(
         &mut store,
         game,
         now,
         rollup::MAX_ROLLUP_DAYS_PER_RUN,
         request.tuning.risk.top_book_outlier_factor,
-    );
-    if request.tuning.analytics.raw_retention_days > 0 {
-        let _ = rollup::prune_raw_days(
+    ) {
+        notes.push(rollup_note(request.language, &error));
+    }
+    if request.tuning.analytics.raw_retention_days > 0
+        && let Err(error) = rollup::prune_raw_days(
             &mut store,
             game,
             now,
             request.tuning.analytics.raw_retention_days,
-        );
+        )
+    {
+        notes.push(rollup_note(request.language, &error));
     }
     drop(store);
 
-    load_pulse(request).ok_or_else(|| "analytics unavailable".to_owned())
+    let mut model = load_pulse(request)?;
+    model.notes.extend(notes);
+    Ok(model)
 }
 
 /// The market pulse the structural annotations read: persisted day rollups
 /// (season-clamped) plus a live fold of today, read across every context of
-/// the game. `None` when the store cannot answer — annotations simply stay
-/// absent, the page itself is unaffected.
+/// the game. `Err` when the store cannot answer — the page still renders,
+/// but it must say the warnings are missing (see [`pulse_note`]): a silently
+/// absent warning reads as "this pair is fine".
 ///
 /// It loads its own window rather than taking the page's: the page reads one
 /// context key by design (a book must be self-consistent), and on a release
 /// day that key rotates at midday, which would drop the morning out of the
 /// fold.
 #[cfg(windows)]
-fn load_pulse(request: &PageRequest) -> Option<ptt_runtime::reports::AnalyticsModel> {
+fn load_pulse(request: &PageRequest) -> Result<ptt_runtime::reports::AnalyticsModel, String> {
     use ptt_runtime::pipeline::{LIVE_LEAGUE, default_database_path};
 
-    let store = ptt_storage::MarketStore::open(default_database_path()).ok()?;
+    let store = ptt_storage::MarketStore::open(default_database_path())
+        .map_err(|error| format!("storage: {error}"))?;
     let game = request.profile.game.as_str();
-    let season = store.active_season(game).ok().flatten();
+    let season = store
+        .active_season(game)
+        .map_err(|error| format!("season: {error}"))?;
     let now = chrono::Utc::now();
     let from_day = season.as_ref().map_or_else(
         || "0001-01-01".to_owned(),
@@ -1761,9 +1775,12 @@ fn load_pulse(request: &PageRequest) -> Option<ptt_runtime::reports::AnalyticsMo
     let end_cap =
         ptt_runtime::rollup::clamp_end_to_season(now, season.as_ref().and_then(|row| row.ended_at));
     let to_day = end_cap.format("%Y-%m-%d").to_string();
-    let rollup_rows = store.load_rollups(game, &from_day, &to_day).ok()?;
-    let today = ptt_runtime::rollup::today_window(&store, game, now, season.as_ref()).ok()?;
-    Some(ptt_runtime::reports::analytics_model(
+    let rollup_rows = store
+        .load_rollups(game, &from_day, &to_day)
+        .map_err(|error| format!("rollups: {error}"))?;
+    let today = ptt_runtime::rollup::today_window(&store, game, now, season.as_ref())
+        .map_err(|error| format!("today: {error}"))?;
+    Ok(ptt_runtime::reports::analytics_model(
         &rollup_rows,
         &today,
         season.as_ref(),
@@ -1771,6 +1788,18 @@ fn load_pulse(request: &PageRequest) -> Option<ptt_runtime::reports::AnalyticsMo
         &request.tuning,
         request.language,
     ))
+}
+
+/// 脉搏读失败不能长得和"这对没有结构性问题"一样：少一条警告的方向是让路线
+/// 看起来更安全。页面已有 notes 通道，错误就走它。
+fn pulse_note(language: ptt_settings::UiLanguage, error: &str) -> String {
+    ptt_runtime::report_text::fill(crate::i18n::text(language).pulse_unavailable, &[error])
+}
+
+/// 日 rollup 失败以前被 `let _ =` 吞掉，市场分析页只是悄悄少几天。
+#[cfg(windows)]
+fn rollup_note(language: ptt_settings::UiLanguage, error: &str) -> String {
+    ptt_runtime::report_text::fill(crate::i18n::text(language).rollup_failed, &[error])
 }
 
 /// The radar's ranked routes.
@@ -1788,8 +1817,11 @@ fn load_opportunities(
         LIVE_LEAGUE,
         &request.tuning,
         request.language,
-        analytics.as_ref().map(|model| &model.pulse),
+        analytics.as_ref().ok().map(|model| &model.pulse),
     )?;
+    if let Err(error) = &analytics {
+        model.notes.push(pulse_note(request.language, error));
+    }
     // 交易所雷达（大雷达）是同一页的另一个页签。算不出来只记一条 note，
     // 不拖垮抓取雷达——两层各自独立，坏一层另一层照常。
     match load_exchange_radar(request) {
@@ -1856,14 +1888,18 @@ fn load_watchlist(request: &PageRequest) -> Result<ptt_runtime::reports::Watchli
 
     let (context_key, observations) = load_window(request)?;
     let analytics = load_pulse(request);
-    ptt_runtime::reports::watchlist_model(
+    let mut model = ptt_runtime::reports::watchlist_model(
         &observations,
         &context_key,
         LIVE_LEAGUE,
         &request.tuning,
         request.language,
-        analytics.as_ref().map(|model| &model.pulse),
-    )
+        analytics.as_ref().ok().map(|model| &model.pulse),
+    )?;
+    if let Err(error) = &analytics {
+        model.notes.push(pulse_note(request.language, error));
+    }
+    Ok(model)
 }
 
 /// One pair's price series.
@@ -1904,7 +1940,7 @@ fn load_convert(
     let have = domain_asset_id(have).map_err(|error| format!("{error:?}"))?;
     let need = domain_asset_id(need).map_err(|error| format!("{error:?}"))?;
     let analytics = load_pulse(request);
-    ptt_runtime::reports::convert_model(
+    let mut model = ptt_runtime::reports::convert_model(
         &observations,
         &context_key,
         &have,
@@ -1912,9 +1948,12 @@ fn load_convert(
         request.holdings,
         &request.tuning,
         request.language,
-        analytics.as_ref().map(|model| &model.pulse),
-    )
-    .map(Some)
+        analytics.as_ref().ok().map(|model| &model.pulse),
+    )?;
+    if let Err(error) = &analytics {
+        model.notes.push(pulse_note(request.language, error));
+    }
+    Ok(Some(model))
 }
 
 /// 官方交易所总览。读的是 exchange 四表,不是 OCR 的账——联赛没配就返回
@@ -2391,6 +2430,25 @@ fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     let standby = skips.get("not-book-view").copied().unwrap_or(0);
     let total: u64 = skips.values().sum();
     (total - standby, standby)
+}
+
+#[cfg(test)]
+mod pulse_note_tests {
+    use super::pulse_note;
+    use ptt_settings::UiLanguage;
+
+    /// A pulse that failed to load used to look exactly like a pair with no
+    /// structural problems: the warnings just were not there. The note is the
+    /// difference the user can see.
+    #[test]
+    fn a_failed_pulse_becomes_a_visible_note() {
+        let english = pulse_note(UiLanguage::English, "storage: locked");
+        assert!(english.contains("market pulse unavailable"), "{english}");
+        assert!(english.contains("storage: locked"), "{english}");
+        let chinese = pulse_note(UiLanguage::Chinese, "storage: locked");
+        assert!(chinese.contains("市场脉搏"), "{chinese}");
+        assert!(chinese.contains("storage: locked"), "{chinese}");
+    }
 }
 
 #[cfg(test)]
