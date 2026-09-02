@@ -3536,6 +3536,9 @@ pub struct ExchangeModel {
     pub historical: bool,
     /// 小时账本，由 loader 填（按水位缓存）。`None` = 历史视角，或探针的纯模型路径。
     pub ledger: Option<ExchangeLedgerModel>,
+    /// 成交/小时列现在按哪个窗口算（`apply_exchange_window` 之后才有值）。
+    /// `None` = 脉搏的默认口径（loader 给的那 48 小时）。
+    pub window_hours: Option<Option<u32>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -3624,6 +3627,26 @@ pub fn exchange_ledger_model(
         load_millis: 0,
         ledger: std::sync::Arc::new(ledger),
     })
+}
+
+/// 用账本把"成交/小时"列换成窗口口径并重排：每行 = 该窗口内锚计价成交额 /
+/// 有成交小时数（与脉搏同分母），按它降序。回答的是"这个时段谁交易最多"。
+/// 雷达条不动：放量/升值的阈值是按 48 小时口径校的，换窗口不该把它们一起换掉。
+pub fn apply_exchange_window(
+    model: &mut ExchangeModel,
+    ledger: &ptt_strategy::ExchangeHourLedger,
+    window_hours: Option<u32>,
+) {
+    for row in &mut model.rows {
+        row.volume_per_hour_anchor = ledger.window_mean_per_hour(&row.asset_id, window_hours);
+    }
+    model.rows.sort_by(|left, right| {
+        right
+            .volume_per_hour_anchor
+            .cmp(&left.volume_per_hour_anchor)
+            .then_with(|| left.asset_id.cmp(&right.asset_id))
+    });
+    model.window_hours = Some(window_hours);
 }
 
 /// 一个资产的小时序列，文本形态（探针 `--series`）。时刻按调用方给的偏移
@@ -4165,6 +4188,7 @@ pub fn exchange_model(
         reconcile: None,
         historical: as_of.is_some(),
         ledger: None,
+        window_hours: None,
     })
 }
 
@@ -8545,5 +8569,96 @@ mod exchange_ledger_model_tests {
         // 偏移 +8：同一小时显示成 15:00。
         let east = render_exchange_series(&model, &divine, None, 8 * 3600, UiLanguage::English);
         assert!(east[1].contains("08-31 15:00"), "{}", east[1]);
+    }
+}
+
+#[cfg(test)]
+mod exchange_window_tests {
+    use super::*;
+
+    const EXALTED: &str = "Metadata/Items/Currency/CurrencyAddModToRare";
+    const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
+    const CHAOS: &str = "Metadata/Items/Currency/CurrencyRerollRare";
+    const HOUR: i64 = 1_788_159_600;
+
+    fn hour_row(
+        hour_ts: i64,
+        asset_b: &str,
+        volume_a: u64,
+        volume_b: u64,
+    ) -> ptt_storage::ExchangeHourMarketRow {
+        ptt_storage::ExchangeHourMarketRow {
+            hour_ts,
+            asset_a: EXALTED.to_owned(),
+            asset_b: asset_b.to_owned(),
+            volume_a,
+            volume_b,
+            lowest_stock_a: 0,
+            highest_stock_a: 0,
+            lowest_stock_b: 0,
+            highest_stock_b: 0,
+            lowest_ratio_a: "1".to_owned(),
+            lowest_ratio_b: "1".to_owned(),
+            highest_ratio_a: "1".to_owned(),
+            highest_ratio_b: "1".to_owned(),
+        }
+    }
+
+    fn lean(row: &ptt_storage::ExchangeHourMarketRow) -> ptt_storage::ExchangeHourVolumeRow {
+        ptt_storage::ExchangeHourVolumeRow {
+            hour_ts: row.hour_ts,
+            asset_a: row.asset_a.clone(),
+            asset_b: row.asset_b.clone(),
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+        }
+    }
+
+    fn tuning() -> MarketTuning {
+        MarketTuning {
+            settlement_assets: vec!["exalted_orb".to_owned()],
+            anchor_asset: None,
+            ..MarketTuning::default()
+        }
+    }
+
+    #[test]
+    fn a_narrow_window_re_ranks_by_recent_volume() {
+        // 神圣七天前一小时成交 90000 崇高，之后沉默；混沌只在最后一小时成交 600。
+        let rows = vec![
+            hour_row(HOUR, DIVINE, 90_000, 300),
+            hour_row(HOUR + 7 * 24 * 3600, CHAOS, 600, 60),
+        ];
+        let mut model = exchange_model(&[], &rows, "Runes of Aldur", &tuning()).expect("model");
+        assert_eq!(model.rows[0].asset_id.to_string(), "divine-orb");
+        assert_eq!(model.window_hours, None);
+
+        let lean_rows: Vec<_> = rows.iter().map(lean).collect();
+        let ledger =
+            exchange_ledger_model(&lean_rows, "Runes of Aldur", &tuning()).expect("ledger");
+        apply_exchange_window(&mut model, &ledger.ledger, Some(24));
+        assert_eq!(model.window_hours, Some(Some(24)));
+        assert_eq!(model.rows[0].asset_id.to_string(), "chaos-orb");
+        assert_eq!(model.rows[0].volume_per_hour_anchor, 600);
+        // 神圣在最近 24 小时里一笔都没有：0，不是旧数冒充。
+        assert_eq!(model.rows[1].asset_id.to_string(), "divine-orb");
+        assert_eq!(model.rows[1].volume_per_hour_anchor, 0);
+    }
+
+    #[test]
+    fn window_none_uses_every_hour_in_the_ledger() {
+        let rows = vec![
+            hour_row(HOUR, DIVINE, 90_000, 300),
+            hour_row(HOUR + 7 * 24 * 3600, CHAOS, 600, 60),
+        ];
+        let mut model = exchange_model(&[], &rows, "Runes of Aldur", &tuning()).expect("model");
+        let lean_rows: Vec<_> = rows.iter().map(lean).collect();
+        let ledger =
+            exchange_ledger_model(&lean_rows, "Runes of Aldur", &tuning()).expect("ledger");
+        apply_exchange_window(&mut model, &ledger.ledger, None);
+        assert_eq!(model.window_hours, Some(None));
+        assert_eq!(model.rows[0].asset_id.to_string(), "divine-orb");
+        assert_eq!(model.rows[0].volume_per_hour_anchor, 90_000);
+        assert_eq!(model.rows[1].volume_per_hour_anchor, 600);
     }
 }

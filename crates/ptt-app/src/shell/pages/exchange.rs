@@ -348,6 +348,17 @@ impl AppShell {
         }
 
         // ---- 表头 ----
+        // 成交列的表头带上当前档位：列里的数是按它算的，不标就是哑谜。
+        let volume_label = if model.window_hours.is_some() {
+            format!(
+                "{} · {}",
+                text.exchange_col_volume,
+                self.exchange_range.label(text)
+            )
+        } else {
+            text.exchange_col_volume.to_owned()
+        };
+        let range_row = div().px_3().pb_1().child(self.exchange_range_row(cx));
         let header = div()
             .px_3()
             .py_1()
@@ -370,7 +381,7 @@ impl AppShell {
                 ),
                 SPARK_WIDTH,
             ))
-            .child(head_cell(text.exchange_col_volume, 90.))
+            .child(head_cell(&volume_label, 90.))
             .child(head_cell(text.exchange_col_depth, 90.))
             .child(head_cell(text.exchange_surge_tag, 70.))
             .child(
@@ -501,6 +512,7 @@ impl AppShell {
                     .flex_col()
                     .overflow_hidden()
                     .child(head)
+                    .child(range_row)
                     .child(header)
                     .child(scrollable(rows, "exchange-rows")),
             )

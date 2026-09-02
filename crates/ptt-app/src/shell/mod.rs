@@ -1229,6 +1229,7 @@ impl AppShell {
             requested_at: chrono::Utc::now(),
             exchange_radar_cache: self.exchange_radar_cache.clone(),
             exchange_ledger_cache: self.exchange_ledger_cache.clone(),
+            exchange_window_hours: self.exchange_range.hours(),
         })
     }
 
@@ -1489,6 +1490,8 @@ struct PageRequest {
     exchange_radar_cache: Option<Box<ptt_runtime::reports::ExchangeRadarModel>>,
     /// 上一次画的小时账本；联赛、水位、锚、保留天数都没变就直接复用。
     exchange_ledger_cache: Option<ptt_runtime::reports::ExchangeLedgerModel>,
+    /// 交易所页当前的时段档位（小时数；None = 账本全部）。表格按它重排。
+    exchange_window_hours: Option<u32>,
 }
 
 /// Reads the store and builds one page's answer.
@@ -1907,6 +1910,15 @@ fn load_exchange(
     // 小时账本是"现在"的读数，历史视角下不算（与小时行一样）。
     if as_of.is_none() {
         model.ledger = load_exchange_ledger(&store, request, &league, watermark)?;
+    }
+    // 有账本就按用户选的时段重排表格（Arc 克隆一下，免得借着 model 改 model）。
+    let ledger = model.ledger.as_ref().map(|ledger| ledger.ledger.clone());
+    if let Some(ledger) = ledger {
+        ptt_runtime::reports::apply_exchange_window(
+            &mut model,
+            &ledger,
+            request.exchange_window_hours,
+        );
     }
 
     // ---- 面板核对：按抓取时刻逐点查官方小时行 ----
