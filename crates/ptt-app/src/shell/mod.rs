@@ -629,8 +629,19 @@ impl AppShell {
         .detach();
         let season_date_input = cx
             .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
-        let exchange_as_of_input = cx
-            .new(|cx| gpui_component::input::InputState::new(window, cx).placeholder("YYYY-MM-DD"));
+        // 重启后仍在历史视角时,框里要写着那天——否则芯片说"历史"而框是空的。
+        let exchange_as_of_input = {
+            let as_of = settings
+                .market_tuning(settings.active_profile.game)
+                .exchange
+                .as_of_day
+                .clone();
+            cx.new(|cx| {
+                gpui_component::input::InputState::new(window, cx)
+                    .placeholder("YYYY-MM-DD")
+                    .default_value(as_of)
+            })
+        };
         // A picked currency or a typed holding is a new question, so the page
         // is rebuilt; the read itself is backgrounded, so this stays cheap.
         for (select, is_have) in [(convert_have.clone(), true), (convert_need.clone(), false)] {
