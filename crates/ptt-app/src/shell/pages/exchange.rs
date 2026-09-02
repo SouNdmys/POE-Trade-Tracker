@@ -508,14 +508,22 @@ impl AppShell {
         });
         cx.spawn(async move |this, cx| {
             let outcome = match picked.await {
-                Ok(Ok(Some(paths))) => paths.into_iter().next().map(|directory| {
-                    ptt_runtime::exchange_export::write_exchange_export(
-                        game.as_str(),
-                        &league,
-                        &directory,
-                    )
-                    .map(|outcome| (outcome.base, outcome.rows.len()))
-                }),
+                // 读整张日线表再写两个文件要几秒:放后台线程,窗口不冻住。
+                Ok(Ok(Some(paths))) => match paths.into_iter().next() {
+                    Some(directory) => Some(
+                        cx.background_executor()
+                            .spawn(async move {
+                                ptt_runtime::exchange_export::write_exchange_export(
+                                    game.as_str(),
+                                    &league,
+                                    &directory,
+                                )
+                                .map(|outcome| (outcome.base, outcome.rows.len()))
+                            })
+                            .await,
+                    ),
+                    None => None,
+                },
                 Ok(Ok(None)) => None,
                 Ok(Err(error)) => Some(Err(format!("dialog: {error}"))),
                 Err(_) => Some(Err("dialog closed without an answer".to_owned())),
