@@ -109,6 +109,7 @@ pub struct Text {
     pub detail_leg: &'static str,
     pub detail_capture: &'static str,
     pub detail_risks: &'static str,
+    pub detail_verdict: &'static str,
     pub detail_structural: &'static str,
     pub detail_reasons: &'static str,
     /// The margin over the pair's own direct trade — a saving on a purchase,
@@ -413,9 +414,7 @@ pub struct Text {
     /// screen — and named for circulation rather than for a ceiling, because
     /// listings are replaced as they are taken.
     pub radar_column_depth: &'static str,
-    pub radar_column_verdict: &'static str,
     pub radar_column_light: &'static str,
-    pub radar_column_risks: &'static str,
 
     // -- radar table short labels --
     //
@@ -789,6 +788,7 @@ impl Text {
             ("detail_leg", self.detail_leg),
             ("detail_capture", self.detail_capture),
             ("detail_risks", self.detail_risks),
+            ("detail_verdict", self.detail_verdict),
             ("detail_structural", self.detail_structural),
             ("detail_reasons", self.detail_reasons),
             ("detail_versus_direct", self.detail_versus_direct),
@@ -1062,9 +1062,7 @@ impl Text {
             ("radar_column_edge", self.radar_column_edge),
             ("radar_column_rate", self.radar_column_rate),
             ("radar_column_depth", self.radar_column_depth),
-            ("radar_column_verdict", self.radar_column_verdict),
             ("radar_column_light", self.radar_column_light),
-            ("radar_column_risks", self.radar_column_risks),
             ("radar_kind_conversion", self.radar_kind_conversion),
             ("radar_kind_loop", self.radar_kind_loop),
             ("radar_verdict_instant", self.radar_verdict_instant),
@@ -1329,6 +1327,7 @@ pub static ENGLISH: Text = Text {
     detail_leg: "leg",
     detail_capture: "captured",
     detail_risks: "risks",
+    detail_verdict: "verdict",
     detail_structural: "liquidity context",
     detail_reasons: "why",
     detail_versus_direct: "vs direct",
@@ -1590,9 +1589,7 @@ pub static ENGLISH: Text = Text {
     radar_column_edge: "edge",
     radar_column_rate: "rate",
     radar_column_depth: "liquidity",
-    radar_column_verdict: "verdict",
     radar_column_light: "data",
-    radar_column_risks: "risks",
 
     radar_kind_conversion: "swap",
     radar_kind_loop: "loop",
@@ -1888,6 +1885,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     detail_leg: "第",
     detail_capture: "抓取",
     detail_risks: "风险",
+    detail_verdict: "可执行性",
     detail_structural: "结构性流动性",
     detail_reasons: "依据",
     detail_versus_direct: "比直兑",
@@ -2149,9 +2147,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     radar_column_edge: "收益",
     radar_column_rate: "汇率",
     radar_column_depth: "流动性",
-    radar_column_verdict: "可执行性",
     radar_column_light: "数据",
-    radar_column_risks: "风险",
 
     radar_kind_conversion: "兑换",
     radar_kind_loop: "闭环",

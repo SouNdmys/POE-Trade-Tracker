@@ -139,16 +139,15 @@ pub fn edge_text(item: &RadarItem, language: UiLanguage) -> (String, Token) {
 /// 闭没闭。
 pub const RADAR_TABLE_WIDTH_BUDGET: f32 = 822.0;
 
-// §3 定稿列宽:数据 54 | 种类 42 | 路径 348 | 收益 62 | 流动性 58 |
-// 汇率 88 | 可执行性 80 | 风险 90(设计里是 1fr,这里给它剩余预算)。
+// §3 定稿列宽:数据 54 | 种类 42 | 路径 518 | 收益 62 | 流动性 58 | 汇率 88。
+// 可执行性(80)与风险(90)两列撤了:稀薄期全表同值、充足期大多为空,
+// 一列所有格子相同就没有信息量;两者都在明细栏,170px 还给了路径列。
 const COL_LIGHT_WIDTH: f32 = 54.0;
 const COL_KIND_WIDTH: f32 = 42.0;
-const COL_ROUTE_WIDTH: f32 = 348.0;
+const COL_ROUTE_WIDTH: f32 = 518.0;
 const COL_EDGE_WIDTH: f32 = 62.0;
 const COL_DEPTH_WIDTH: f32 = 58.0;
 const COL_RATE_WIDTH: f32 = 88.0;
-const COL_VERDICT_WIDTH: f32 = 80.0;
-const COL_RISKS_WIDTH: f32 = 90.0;
 
 /// A column edit that breaks the budget has to fail at the build, not on
 /// screen at 1280 where the last column quietly walks off the panel.
@@ -159,8 +158,6 @@ const _: () = assert!(
         + COL_EDGE_WIDTH
         + COL_DEPTH_WIDTH
         + COL_RATE_WIDTH
-        + COL_VERDICT_WIDTH
-        + COL_RISKS_WIDTH
         == RADAR_TABLE_WIDTH_BUDGET,
     "the radar columns no longer add up to the §3 budget: change a column \
      and its neighbour together, the 1280 window will not grow"
@@ -211,8 +208,6 @@ impl RadarTable {
                 Column::new("rate", chrome.radar_column_rate)
                     .width(px(COL_RATE_WIDTH))
                     .text_right(),
-                Column::new("verdict", chrome.radar_column_verdict).width(px(COL_VERDICT_WIDTH)),
-                Column::new("risks", chrome.radar_column_risks).width(px(COL_RISKS_WIDTH)),
             ],
             rows,
             language,
@@ -373,26 +368,8 @@ impl RadarTable {
                 .justify_end(),
             )
             .into_any_element(),
-            // 可执行性:4 字徽章,完整说法在明细栏。
-            6 => cell(div())
-                .child(crate::ui::chip_table(
-                    actionability_kind(item.category),
-                    verdict_short(chrome, item.category),
-                ))
-                .into_any_element(),
-            // Capped and silent about it: what did not fit is in the detail
-            // panel, which is where a reader who cares is going anyway.
-            _ => cell(div())
-                .child(crate::ui::chips_table(
-                    StatusKind::Warning,
-                    &item
-                        .blocking_risks
-                        .iter()
-                        .map(|risk| report_text::execution_risk(language, *risk).to_owned())
-                        .collect::<Vec<_>>(),
-                    2,
-                ))
-                .into_any_element(),
+            // 可执行性与风险不再是列(见列宽常量旁的说明),两者都在明细栏。
+            _ => cell(div()).into_any_element(),
         }
     }
 }
@@ -1156,6 +1133,27 @@ impl AppShell {
                 ),
             ));
         }
+        // 可执行性从表格挪到这里:稀薄期全表同值、充足期大多为空,一列同值
+        // 没有信息量;选中一行再看它,4 字徽章加完整说法。
+        inner = inner.child(
+            div()
+                .flex()
+                .items_start()
+                .gap_2()
+                .py(px(3.))
+                .child(
+                    div()
+                        .w(px(64.))
+                        .flex_none()
+                        .text_size(fs(FS_11))
+                        .text_color(c(TEXT_META))
+                        .child(text.detail_verdict),
+                )
+                .child(crate::ui::chip_table(
+                    actionability_kind(item.category),
+                    verdict_short(text, item.category),
+                )),
+        );
         // 风险在明细栏是徽章不是句子:表格里被折掉的,在这里逐条铺开。
         if !item.blocking_risks.is_empty() {
             let labels: Vec<String> = item
@@ -1564,8 +1562,8 @@ mod column_width_tests {
         )
     }
 
-    /// The eight built columns must spend exactly the §3 budget: less leaves
-    /// a gap after the risk column, more pushes it off the 1280 window. The
+    /// The six built columns must spend exactly the §3 budget: less leaves
+    /// a gap after the rate column, more pushes it off the 1280 window. The
     /// const assert already checks the constants agree with each other; this
     /// checks the built table actually uses those constants.
     #[test]
