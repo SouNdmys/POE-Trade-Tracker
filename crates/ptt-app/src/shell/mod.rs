@@ -1788,8 +1788,13 @@ fn load_exchange_radar(
     let hour_rows = store
         .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
         .map_err(|error| format!("hours: {error}"))?;
-    let mut model =
-        ptt_runtime::reports::exchange_radar_model(&hour_rows, &league, &request.tuning, now)?;
+    let mut model = ptt_runtime::reports::exchange_radar_model(
+        &hour_rows,
+        &league,
+        request.profile.game,
+        &request.tuning,
+        now,
+    )?;
     model.hours_behind = hours_behind;
     model.synced_through = watermark;
     Ok(Some(model))
@@ -1902,8 +1907,13 @@ fn load_exchange(
     let watermark = store
         .exchange_watermark(game, &league)
         .map_err(|error| format!("watermark: {error}"))?;
-    let mut model =
-        ptt_runtime::reports::exchange_model(&day_rows, &hour_rows, &league, &request.tuning)?;
+    let mut model = ptt_runtime::reports::exchange_model(
+        &day_rows,
+        &hour_rows,
+        &league,
+        request.profile.game,
+        &request.tuning,
+    )?;
     let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
     model.synced_through = watermark;
     model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
@@ -1948,7 +1958,8 @@ fn load_exchange(
         )
         .map_err(|error| format!("observations: {error}"))?;
     let mut matched_rows = Vec::new();
-    for (hour_ts, asset_a, asset_b) in ptt_runtime::reports::exchange_reconcile_keys(&observations)?
+    for (hour_ts, asset_a, asset_b) in
+        ptt_runtime::reports::exchange_reconcile_keys(&observations, request.profile.game)?
     {
         if let Some(row) = store
             .load_exchange_hour_market(game, &league, hour_ts, &asset_a, &asset_b)
@@ -1959,6 +1970,7 @@ fn load_exchange(
     }
     model.reconcile = Some(ptt_runtime::reports::exchange_reconcile(
         &observations,
+        request.profile.game,
         &matched_rows,
         window_days,
     )?);
@@ -1997,7 +2009,12 @@ fn load_exchange_ledger(
     let rows = store
         .load_exchange_hour_volumes(game, league, from_ts, watermark + 3600)
         .map_err(|error| format!("hour volumes: {error}"))?;
-    let mut model = ptt_runtime::reports::exchange_ledger_model(&rows, league, &request.tuning)?;
+    let mut model = ptt_runtime::reports::exchange_ledger_model(
+        &rows,
+        league,
+        request.profile.game,
+        &request.tuning,
+    )?;
     model.synced_through = Some(watermark);
     model.load_millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     Ok(Some(model))

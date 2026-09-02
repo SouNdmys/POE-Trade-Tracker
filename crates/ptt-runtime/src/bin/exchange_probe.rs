@@ -99,6 +99,7 @@ mod probe {
 
         let session = Session {
             realm,
+            game: settings.active_profile.game,
             league,
             cache_dir,
             fetcher: ExchangeFetcher::new(),
@@ -156,8 +157,13 @@ mod probe {
                 )
                 .map_err(|error| format!("hours: {error}"))?;
             let started = std::time::Instant::now();
-            let mut model =
-                ptt_runtime::reports::exchange_radar_model(&hour_rows, &self.league, &tuning, now)?;
+            let mut model = ptt_runtime::reports::exchange_radar_model(
+                &hour_rows,
+                &self.league,
+                self.game,
+                &tuning,
+                now,
+            )?;
             let elapsed = started.elapsed();
             let watermark = store
                 .exchange_watermark(&self.realm, &self.league)
@@ -200,8 +206,12 @@ mod probe {
                 .map_err(|error| format!("hour volumes: {error}"))?;
             let load_millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
             let started = std::time::Instant::now();
-            let mut model =
-                ptt_runtime::reports::exchange_ledger_model(&rows, &self.league, tuning)?;
+            let mut model = ptt_runtime::reports::exchange_ledger_model(
+                &rows,
+                &self.league,
+                self.game,
+                tuning,
+            )?;
             let build_millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
             model.synced_through = Some(watermark);
             model.load_millis = load_millis;
@@ -259,8 +269,13 @@ mod probe {
                     now.timestamp(),
                 )
                 .map_err(|error| format!("hours: {error}"))?;
-            let mut model =
-                ptt_runtime::reports::exchange_model(&[], &hour_rows, &self.league, &tuning)?;
+            let mut model = ptt_runtime::reports::exchange_model(
+                &[],
+                &hour_rows,
+                &self.league,
+                self.game,
+                &tuning,
+            )?;
             ptt_runtime::reports::apply_exchange_window(&mut model, &ledger.ledger, hours);
             println!(
                 "table by window {}: top 15 of {} rows",
@@ -334,7 +349,10 @@ mod probe {
     }
 
     struct Session {
+        /// 存储键与缓存文件名（"poe1"/"poe2"）。
         realm: String,
+        /// 映射表、目录、锚都按它取——与 app 的 `request.profile.game` 同源。
+        game: ptt_core::Game,
         league: String,
         cache_dir: std::path::PathBuf,
         fetcher: ExchangeFetcher,
@@ -728,7 +746,7 @@ mod probe {
                     now + chrono::Duration::hours(1),
                 )
                 .map_err(|error| format!("observations: {error}"))?;
-            let keys = ptt_runtime::reports::exchange_reconcile_keys(&observations)?;
+            let keys = ptt_runtime::reports::exchange_reconcile_keys(&observations, self.game)?;
             let mut matched_rows = Vec::new();
             for (hour_ts, asset_a, asset_b) in &keys {
                 if let Some(row) = store
@@ -754,6 +772,7 @@ mod probe {
             );
             let reconcile = ptt_runtime::reports::exchange_reconcile(
                 &observations,
+                self.game,
                 &matched_rows,
                 window_days,
             )?;

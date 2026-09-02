@@ -3589,10 +3589,11 @@ pub fn exchange_ledger_window_hours(tuning: &MarketTuning) -> u32 {
 pub fn exchange_ledger_model(
     hour_rows: &[ptt_storage::ExchangeHourVolumeRow],
     league: &str,
+    game: ptt_core::Game,
     tuning: &MarketTuning,
 ) -> Result<ExchangeLedgerModel, String> {
     let mapping =
-        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+        ptt_exchange_history::mapping::index(game).map_err(|error| format!("mapping: {error}"))?;
     let mut cache: BTreeMap<String, Option<MarketAssetId>> = BTreeMap::new();
     let anchor = exchange_anchor(tuning)?;
     let mut hour_stats = Vec::with_capacity(hour_rows.len());
@@ -3756,8 +3757,9 @@ pub struct ExchangeReconcile {
 /// 路径已按字典序规整（asset_a < asset_b），与存储主键同序。
 pub fn exchange_reconcile_keys(
     observations: &[MarketEdgeObservation],
+    game: ptt_core::Game,
 ) -> Result<Vec<(i64, String, String)>, String> {
-    let path_of_domain = exchange_path_of_domain()?;
+    let path_of_domain = exchange_path_of_domain(game)?;
     let mut keys: std::collections::BTreeSet<(i64, String, String)> =
         std::collections::BTreeSet::new();
     for observation in observations.iter().filter(|o| reconcile_eligible(&o.edge)) {
@@ -3778,12 +3780,13 @@ pub fn exchange_reconcile_keys(
 /// `exchange_reconcile_keys` 查回来的行（多给不碍事，少给算"没对上"）。
 pub fn exchange_reconcile(
     observations: &[MarketEdgeObservation],
+    game: ptt_core::Game,
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     window_days: u32,
 ) -> Result<ExchangeReconcile, String> {
     use ptt_trade_domain::Ratio;
 
-    let path_of_domain = exchange_path_of_domain()?;
+    let path_of_domain = exchange_path_of_domain(game)?;
     let rows: BTreeMap<(i64, &str, &str), &ptt_storage::ExchangeHourMarketRow> = hour_rows
         .iter()
         .map(|row| {
@@ -3964,13 +3967,18 @@ fn sorted_pair<'a>(left: &'a String, right: &'a String) -> (&'a String, &'a Stri
     }
 }
 
-/// 域层 id（连字符）→ GGG 路径。映射表是 catalog id（下划线），反查做一次逆转换。
-fn exchange_path_of_domain() -> Result<BTreeMap<String, String>, String> {
+/// 域层 id（连字符）→ GGG 路径。映射表是 catalog id（POE2 下划线、POE1 连字符），
+/// 反查经 `domain_asset_id` 归一——两种拼法都能回环，转换通道只留那一条。
+fn exchange_path_of_domain(game: ptt_core::Game) -> Result<BTreeMap<String, String>, String> {
     let mapping =
-        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+        ptt_exchange_history::mapping::index(game).map_err(|error| format!("mapping: {error}"))?;
     Ok(mapping
         .iter()
-        .map(|(path, asset_id)| (asset_id.replace('_', "-"), path.clone()))
+        .filter_map(|(path, asset_id)| {
+            crate::live::domain_asset_id(asset_id)
+                .ok()
+                .map(|domain| (domain.to_string(), path.clone()))
+        })
         .collect())
 }
 
@@ -4020,10 +4028,11 @@ pub fn exchange_model(
     day_rows: &[ptt_storage::ExchangeDayMarketRow],
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     league: &str,
+    game: ptt_core::Game,
     tuning: &MarketTuning,
 ) -> Result<ExchangeModel, String> {
     let mapping =
-        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+        ptt_exchange_history::mapping::index(game).map_err(|error| format!("mapping: {error}"))?;
     let mut cache: BTreeMap<String, Option<MarketAssetId>> = BTreeMap::new();
     let mut total_rows = 0u64;
     let mut mapped_rows = 0u64;
@@ -4273,10 +4282,11 @@ pub fn exchange_report(
     day_rows: &[ptt_storage::ExchangeDayMarketRow],
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     league: &str,
+    game: ptt_core::Game,
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let model = exchange_model(day_rows, hour_rows, league, tuning)?;
+    let model = exchange_model(day_rows, hour_rows, league, game, tuning)?;
     Ok(render_exchange(&model, language))
 }
 
@@ -4363,10 +4373,11 @@ const EXCHANGE_RADAR_RESULTS: u16 = 20;
 pub fn exchange_radar_report(
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     league: &str,
+    game: ptt_core::Game,
     tuning: &MarketTuning,
     language: UiLanguage,
 ) -> Result<Vec<String>, String> {
-    let model = exchange_radar_model(hour_rows, league, tuning, Utc::now())?;
+    let model = exchange_radar_model(hour_rows, league, game, tuning, Utc::now())?;
     Ok(render_exchange_radar(&model, language))
 }
 
@@ -4391,6 +4402,7 @@ pub fn exchange_radar_knobs(tuning: &MarketTuning) -> (u32, u8) {
 pub fn exchange_radar_model(
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     league: &str,
+    game: ptt_core::Game,
     tuning: &MarketTuning,
     now: chrono::DateTime<Utc>,
 ) -> Result<ExchangeRadarModel, String> {
@@ -4412,7 +4424,7 @@ pub fn exchange_radar_model(
     let anchor = exchange_anchor(tuning)?;
 
     let mapping =
-        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+        ptt_exchange_history::mapping::index(game).map_err(|error| format!("mapping: {error}"))?;
     let mut cache: BTreeMap<String, Option<MarketAssetId>> = BTreeMap::new();
     let mut hour_stats = Vec::with_capacity(hour_rows.len());
     for row in hour_rows {
@@ -7876,6 +7888,28 @@ mod exchange_model_tests {
     }
 
     #[test]
+    fn poe1_paths_price_against_the_poe1_anchor() {
+        // 同一串路径、另一张映射表：POE1 的锚是神圣，崇高在这页上是被计价的那个。
+        let tuning = MarketTuning {
+            settlement_assets: vec!["divine-orb".to_owned()],
+            anchor_asset: None,
+            ..MarketTuning::default()
+        };
+        let hours = vec![hour_row(4150, 10)];
+        let model =
+            exchange_model(&[], &hours, "Allflame", ptt_core::Game::Poe1, &tuning).expect("model");
+        assert_eq!(model.coverage_percent, 100);
+        assert_eq!(model.anchor_asset_id.to_string(), "divine-orb");
+        assert_eq!(model.rows.len(), 1);
+        let exalted = &model.rows[0];
+        assert_eq!(exalted.asset_id.to_string(), "exalted-orb");
+        assert_eq!(
+            exalted.value_in_anchor,
+            Some(ptt_trade_domain::Ratio::from_parts(1, 415).expect("ratio"))
+        );
+    }
+
+    #[test]
     fn prices_against_the_configured_anchor_through_the_real_mapping() {
         // 真实的 GGG 路径走真实的映射表:路径名与资产名的反差(AddModToRare
         // = 崇高)在这条链上不许再骗到任何人。
@@ -7883,7 +7917,14 @@ mod exchange_model_tests {
             .map(|day| day_row(&format!("2026-08-{day:02}"), 4000, 10))
             .collect();
         let hours = vec![hour_row(4150, 10)];
-        let model = exchange_model(&days, &hours, "Runes of Aldur", &tuning()).expect("model");
+        let model = exchange_model(
+            &days,
+            &hours,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("model");
         assert_eq!(model.coverage_percent, 100);
         assert_eq!(model.anchor_asset_id.to_string(), "exalted-orb");
         assert_eq!(model.rows.len(), 1);
@@ -7914,7 +7955,14 @@ mod exchange_model_tests {
                 hours_covered: 1,
             },
         ];
-        let model = exchange_model(&days, &[], "Runes of Aldur", &tuning()).expect("model");
+        let model = exchange_model(
+            &days,
+            &[],
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("model");
         assert_eq!(model.coverage_percent, 50);
     }
 
@@ -7928,7 +7976,14 @@ mod exchange_model_tests {
         let hours = vec![hour_row(4150, 10)];
         let mut tuning = tuning();
         tuning.exchange.as_of_day = "2026-08-05".to_owned();
-        let model = exchange_model(&days, &hours, "Runes of Aldur", &tuning).expect("model");
+        let model = exchange_model(
+            &days,
+            &hours,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning,
+        )
+        .expect("model");
         assert!(model.historical);
         assert_eq!(model.as_of_day.as_deref(), Some("2026-08-05"));
         let divine = &model.rows[0];
@@ -8035,7 +8090,8 @@ mod exchange_reconcile_tests {
             taker("exalted-orb", "divine-orb", (1, 400), HOUR + 600),
         ];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         assert_eq!(reconcile.samples, 2);
         assert_eq!(reconcile.hits, 2);
         assert_eq!(reconcile.unmatched, 0);
@@ -8052,7 +8108,8 @@ mod exchange_reconcile_tests {
             taker("divine-orb", "exalted-orb", (400, 1), HOUR + 180),
         ];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         assert_eq!((reconcile.samples, reconcile.hits), (3, 1));
         assert_eq!(reconcile.pairs.len(), 1);
         let pair = &reconcile.pairs[0];
@@ -8070,7 +8127,8 @@ mod exchange_reconcile_tests {
         // 对吃单方是更差的价（比 434 还贵），不是更好。
         let observations = vec![taker("exalted-orb", "divine-orb", (1, 450), HOUR)];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         let pair = &reconcile.pairs[0];
         assert_eq!((pair.better, pair.worse), (0, 1));
         assert_eq!(pair.reading, ExchangeReconcileReading::PanelWorse);
@@ -8101,7 +8159,8 @@ mod exchange_reconcile_tests {
             ),
         ];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         assert_eq!(reconcile.samples, 0);
         assert_eq!(reconcile.unmatched, 0);
     }
@@ -8111,7 +8170,8 @@ mod exchange_reconcile_tests {
         // 官方那小时没这对市场（或还没同步到）：不能算越界，也不能算命中。
         let observations = vec![taker("divine-orb", "exalted-orb", (400, 1), HOUR + 7200)];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         assert_eq!(reconcile.samples, 0);
         assert_eq!(reconcile.unmatched, 1);
     }
@@ -8125,7 +8185,8 @@ mod exchange_reconcile_tests {
             taker("divine-orb", "exalted-orb", (42, 1), HOUR + 180),
         ];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         let pair = &reconcile.pairs[0];
         assert_eq!((pair.samples, pair.misses), (3, 3));
         assert_eq!(pair.reading, ExchangeReconcileReading::SuspectMapping);
@@ -8142,7 +8203,8 @@ mod exchange_reconcile_tests {
             taker("exalted-orb", "divine-orb", (1, 300), HOUR + 120),
         ];
         let reconcile =
-            exchange_reconcile(&observations, &[hour_row(HOUR)], 14).expect("reconcile");
+            exchange_reconcile(&observations, ptt_core::Game::Poe2, &[hour_row(HOUR)], 14)
+                .expect("reconcile");
         assert_eq!(reconcile.pairs.len(), 2);
         assert_eq!(reconcile.pairs[0].from_asset_id.to_string(), "exalted-orb");
         assert_eq!(reconcile.pairs[1].from_asset_id.to_string(), "divine-orb");
@@ -8206,6 +8268,7 @@ mod exchange_radar_model_tests {
         let model = exchange_radar_model(
             &inconsistent_triangle(),
             "Test",
+            ptt_core::Game::Poe2,
             &MarketTuning::default(),
             now(),
         )
@@ -8259,7 +8322,7 @@ mod exchange_radar_model_tests {
 
     #[test]
     fn without_a_settlement_currency_in_the_data_there_is_nowhere_to_start() {
-        let index = ptt_exchange_history::mapping::poe2_index().expect("mapping");
+        let index = ptt_exchange_history::mapping::index(ptt_core::Game::Poe2).expect("mapping");
         let others: Vec<String> = index
             .iter()
             .filter(|(_, catalog_id)| {
@@ -8273,8 +8336,14 @@ mod exchange_radar_model_tests {
             hour_row(EXALTED_PATH, &others[0], 100, 200),
             hour_row(EXALTED_PATH, &others[1], 100, 300),
         ];
-        let model =
-            exchange_radar_model(&rows, "Test", &MarketTuning::default(), now()).expect("model");
+        let model = exchange_radar_model(
+            &rows,
+            "Test",
+            ptt_core::Game::Poe2,
+            &MarketTuning::default(),
+            now(),
+        )
+        .expect("model");
 
         assert_eq!(model.pairs_used, 2);
         assert_eq!(
@@ -8287,8 +8356,14 @@ mod exchange_radar_model_tests {
 
     #[test]
     fn no_hours_is_not_enough_market_and_no_settlement_is_no_core_currency() {
-        let model =
-            exchange_radar_model(&[], "Test", &MarketTuning::default(), now()).expect("model");
+        let model = exchange_radar_model(
+            &[],
+            "Test",
+            ptt_core::Game::Poe2,
+            &MarketTuning::default(),
+            now(),
+        )
+        .expect("model");
         assert_eq!(
             model.scan_unavailable(),
             Some(RadarUnavailable::NotEnoughMarket)
@@ -8296,7 +8371,8 @@ mod exchange_radar_model_tests {
 
         let mut tuning = MarketTuning::default();
         tuning.settlement_assets.clear();
-        let model = exchange_radar_model(&[], "Test", &tuning, now()).expect("model");
+        let model =
+            exchange_radar_model(&[], "Test", ptt_core::Game::Poe2, &tuning, now()).expect("model");
         assert_eq!(
             model.scan_unavailable(),
             Some(RadarUnavailable::NoCoreCurrency)
@@ -8308,6 +8384,7 @@ mod exchange_radar_model_tests {
         let model = exchange_radar_model(
             &inconsistent_triangle(),
             "Test",
+            ptt_core::Game::Poe2,
             &MarketTuning::default(),
             now(),
         )
@@ -8503,7 +8580,9 @@ mod exchange_ledger_model_tests {
             volume_row(HOUR, EXALTED, DIVINE, 4000, 10),
             volume_row(HOUR + 3600, EXALTED, DIVINE, 4150, 10),
         ];
-        let model = exchange_ledger_model(&rows, "Runes of Aldur", &tuning(14)).expect("model");
+        let model =
+            exchange_ledger_model(&rows, "Runes of Aldur", ptt_core::Game::Poe2, &tuning(14))
+                .expect("model");
         assert_eq!(model.anchor_asset_id.to_string(), "exalted-orb");
         assert_eq!(model.hours_loaded, 2);
         assert_eq!(model.rows_loaded, 2);
@@ -8530,7 +8609,9 @@ mod exchange_ledger_model_tests {
                 5,
             ),
         ];
-        let model = exchange_ledger_model(&rows, "Runes of Aldur", &tuning(14)).expect("model");
+        let model =
+            exchange_ledger_model(&rows, "Runes of Aldur", ptt_core::Game::Poe2, &tuning(14))
+                .expect("model");
         // 没映上的那一小时不进账本，但读进来的行数如实记。
         assert_eq!(model.hours_loaded, 1);
         assert_eq!(model.rows_loaded, 2);
@@ -8551,7 +8632,9 @@ mod exchange_ledger_model_tests {
             volume_row(HOUR + 3600, EXALTED, DIVINE, 4150, 10),
             volume_row(HOUR, EXALTED, DIVINE, 4000, 10),
         ];
-        let model = exchange_ledger_model(&rows, "Runes of Aldur", &tuning(14)).expect("model");
+        let model =
+            exchange_ledger_model(&rows, "Runes of Aldur", ptt_core::Game::Poe2, &tuning(14))
+                .expect("model");
         let divine = crate::live::domain_asset_id("divine_orb").expect("id");
         let lines = render_exchange_series(&model, &divine, None, 0, UiLanguage::English);
         // 表头 + 两个点 + 峰值。
@@ -8629,13 +8712,25 @@ mod exchange_window_tests {
             hour_row(HOUR, DIVINE, 90_000, 300),
             hour_row(HOUR + 7 * 24 * 3600, CHAOS, 600, 60),
         ];
-        let mut model = exchange_model(&[], &rows, "Runes of Aldur", &tuning()).expect("model");
+        let mut model = exchange_model(
+            &[],
+            &rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("model");
         assert_eq!(model.rows[0].asset_id.to_string(), "divine-orb");
         assert_eq!(model.window_hours, None);
 
         let lean_rows: Vec<_> = rows.iter().map(lean).collect();
-        let ledger =
-            exchange_ledger_model(&lean_rows, "Runes of Aldur", &tuning()).expect("ledger");
+        let ledger = exchange_ledger_model(
+            &lean_rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("ledger");
         apply_exchange_window(&mut model, &ledger.ledger, Some(24));
         assert_eq!(model.window_hours, Some(Some(24)));
         assert_eq!(model.rows[0].asset_id.to_string(), "chaos-orb");
@@ -8651,10 +8746,22 @@ mod exchange_window_tests {
             hour_row(HOUR, DIVINE, 90_000, 300),
             hour_row(HOUR + 7 * 24 * 3600, CHAOS, 600, 60),
         ];
-        let mut model = exchange_model(&[], &rows, "Runes of Aldur", &tuning()).expect("model");
+        let mut model = exchange_model(
+            &[],
+            &rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("model");
         let lean_rows: Vec<_> = rows.iter().map(lean).collect();
-        let ledger =
-            exchange_ledger_model(&lean_rows, "Runes of Aldur", &tuning()).expect("ledger");
+        let ledger = exchange_ledger_model(
+            &lean_rows,
+            "Runes of Aldur",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("ledger");
         apply_exchange_window(&mut model, &ledger.ledger, None);
         assert_eq!(model.window_hours, Some(None));
         assert_eq!(model.rows[0].asset_id.to_string(), "divine-orb");
