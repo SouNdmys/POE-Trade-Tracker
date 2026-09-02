@@ -2090,7 +2090,11 @@ fn load_exchange(
     let context =
         ptt_runtime::live::live_context(request.profile, ptt_runtime::pipeline::LIVE_LEAGUE)
             .map_err(|error| format!("{error:?}"))?;
-    let season = store.active_season(game).ok().flatten();
+    // 读失败不是"没有赛季":当成没有,窗口就不再钳制,上季的书会混进本季。
+    // 换季 = 钳制归档是 P10 特意防的事,一次读错不该悄悄把门打开。
+    let season = store
+        .active_season(game)
+        .map_err(|error| format!("season: {error}"))?;
     let since = ptt_runtime::rollup::clamp_to_season(
         now - chrono::Duration::days(i64::from(window_days)),
         season.as_ref().map(|row| row.started_at),

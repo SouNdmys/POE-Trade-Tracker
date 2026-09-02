@@ -209,7 +209,11 @@ fn run_sync_round(
     // 四测修正：两个下限**都**生效——不早于赛季起点，也不超过用户要的
     // 天数窗口。此前赛季起点完全接管，"拉取历史(天)"成了摆设；想拉全季
     // 就把天数填大，回补自动停在赛季起点。
-    let floor = store.active_season(game).ok().flatten().map(|row| {
+    // 读失败要报出来(走同步错误落点),不能当"没有赛季"把回补拉过赛季起点。
+    let season = store
+        .active_season(game)
+        .map_err(|error| format!("season: {error}"))?;
+    let floor = season.map(|row| {
         let window_floor =
             now.timestamp() - (exchange.backfill_days as i64).saturating_mul(24 * 3600);
         row.started_at.timestamp().max(window_floor)
