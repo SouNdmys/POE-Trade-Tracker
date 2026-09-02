@@ -4182,6 +4182,11 @@ pub struct ExchangeRadarModel {
     pub assets_used: usize,
     pub pairs_used: usize,
     pub minimum_profit_basis_points: u32,
+    /// 环长上限（3 或 4）。和门槛一起进 app 的缓存键：改了参数就得重算。
+    pub max_cycle_length: u8,
+    /// 抓取水位（unix 整点秒），loader 填。同一水位 = 同一批小时数据 = 同一个
+    /// 答案；app 靠它决定要不要重跑那 770 ms 的搜索。
+    pub synced_through: Option<i64>,
     /// 复用抓取雷达的容器：同一张表、同一个明细栏画得出来。
     pub scan: RadarScan,
 }
@@ -4214,14 +4219,24 @@ fn exchange_radar_freshness() -> Result<FreshnessPolicy, String> {
         .map_err(|error| format!("freshness: {error:?}"))
 }
 
+/// 大雷达从设置里读的两个旋钮（门槛 bps、环长 3..=4），钳位在一处：模型和
+/// app 的缓存键都用它，两边各算一遍迟早对不上。
+#[must_use]
+pub fn exchange_radar_knobs(tuning: &MarketTuning) -> (u32, u8) {
+    let minimum_bps =
+        u32::try_from(tuning.radar.minimum_profit_basis_points.min(1_000_000)).unwrap_or(100);
+    // 三或四：图是全连接的，五环起评估数爆炸，而且说不出四环说不了的话。
+    let max_cycle_length = u8::try_from(tuning.radar.max_cycle_length.clamp(3, 4)).unwrap_or(4);
+    (minimum_bps, max_cycle_length)
+}
+
 pub fn exchange_radar_model(
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     league: &str,
     tuning: &MarketTuning,
     now: chrono::DateTime<Utc>,
 ) -> Result<ExchangeRadarModel, String> {
-    let minimum_bps =
-        u32::try_from(tuning.radar.minimum_profit_basis_points.min(1_000_000)).unwrap_or(100);
+    let (minimum_bps, max_cycle_length) = exchange_radar_knobs(tuning);
     let mut model = ExchangeRadarModel {
         league: league.to_owned(),
         data_hour_ts: None,
@@ -4229,6 +4244,8 @@ pub fn exchange_radar_model(
         assets_used: 0,
         pairs_used: 0,
         minimum_profit_basis_points: minimum_bps,
+        max_cycle_length,
+        synced_through: None,
         scan: RadarScan::Unavailable(RadarUnavailable::NoCoreCurrency),
     };
     if tuning.settlement_assets.is_empty() {
@@ -4331,8 +4348,7 @@ pub fn exchange_radar_model(
         context_key: format!("exchange:{league}"),
         starts: starts.clone(),
         minimum_profit_basis_points: minimum_bps,
-        // 三或四：图是全连接的，五环起评估数爆炸，而且说不出四环说不了的话。
-        max_cycle_length: u8::try_from(tuning.radar.max_cycle_length.clamp(3, 4)).unwrap_or(4),
+        max_cycle_length,
         max_triangle_evaluations: EXCHANGE_RADAR_EVALUATIONS,
         max_results: EXCHANGE_RADAR_RESULTS,
         thresholds: risk_thresholds_from(tuning, None),
@@ -8048,6 +8064,7 @@ mod exchange_radar_model_tests {
         assert_eq!(model.data_hour_ts, Some(HOUR));
         assert_eq!(model.assets_used, 3);
         assert_eq!(model.pairs_used, 3);
+        assert_eq!((model.max_cycle_length, model.synced_through), (4, None));
         let RadarScan::Ran(scan) = &model.scan else {
             panic!("{:?}", model.scan);
         };

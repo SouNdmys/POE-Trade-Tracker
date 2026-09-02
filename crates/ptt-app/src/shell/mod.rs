@@ -352,6 +352,9 @@ pub struct AppShell {
     pub(crate) settings_segment: SettingsSegment,
     /// 雷达页当前页签。默认抓取雷达:那是裁决层,也是老用户熟悉的那页。
     pub(crate) radar_segment: RadarSegment,
+    /// 上一次算出的交易所雷达：水位没变就直接复用，不再每来一本书重跑一次
+    /// 770 ms 的环路搜索。
+    exchange_radar_cache: Option<Box<ptt_runtime::reports::ExchangeRadarModel>>,
     /// The market tuning boxes on the settings page.
     #[cfg(windows)]
     tuning_inputs: pages::tuning::TuningInputs,
@@ -759,6 +762,7 @@ impl AppShell {
             convert_selected_route: None,
             settings_segment: SettingsSegment::Basic,
             radar_segment: RadarSegment::Capture,
+            exchange_radar_cache: None,
             report_stale: true,
             #[cfg(windows)]
             update_state: updater::UpdateState::default(),
@@ -1071,6 +1075,11 @@ impl AppShell {
                         this.hud_probes = Some(model.clone());
                     }
                     this.sync_radar_table(cx);
+                    if let crate::state::PageData::Opportunities(model) = &this.report
+                        && let Some(exchange) = &model.exchange
+                    {
+                        this.exchange_radar_cache = Some(Box::new(exchange.clone()));
+                    }
                     this.close_answered_probes(requested_at);
                     cx.notify();
                 }
@@ -1148,6 +1157,7 @@ impl AppShell {
                 })
                 .collect(),
             requested_at: chrono::Utc::now(),
+            exchange_radar_cache: self.exchange_radar_cache.clone(),
         })
     }
 
@@ -1403,6 +1413,9 @@ struct PageRequest {
     /// When this snapshot was taken. A pin placed after it was never seen by
     /// the answer it produces, so that answer must not close it.
     requested_at: chrono::DateTime<chrono::Utc>,
+    /// The exchange radar the shell last drew; reused while the watermark and
+    /// the knobs it was built with have not moved.
+    exchange_radar_cache: Option<Box<ptt_runtime::reports::ExchangeRadarModel>>,
 }
 
 /// Reads the store and builds one page's answer.
@@ -1674,6 +1687,26 @@ fn load_exchange_radar(
         .map_err(|error| format!("storage: {error}"))?;
     let game = request.profile.game.as_str();
     let now = chrono::Utc::now();
+    // 水位是存储层的事实，模型函数不碰 store（与交易所页同一条规矩）。
+    let watermark = store
+        .exchange_watermark(game, &league)
+        .map_err(|error| format!("watermark: {error}"))?;
+    let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
+    let hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+    // 同一水位、同一联赛、同样的门槛和环长 = 同一批小时数据、同一个答案。
+    // 书每几秒落一本，环路搜索 770 ms 一次——不复用就是每本书白烧一次。
+    let (minimum_bps, max_cycle_length) =
+        ptt_runtime::reports::exchange_radar_knobs(&request.tuning);
+    if let Some(cached) = &request.exchange_radar_cache
+        && cached.league == league
+        && cached.synced_through == watermark
+        && cached.minimum_profit_basis_points == minimum_bps
+        && cached.max_cycle_length == max_cycle_length
+    {
+        let mut model = (**cached).clone();
+        model.hours_behind = hours_behind;
+        return Ok(Some(model));
+    }
     // 48 小时：模型只取每对最新一小时，但 API 落后一两小时、周末更久，
     // 窗口宽一点才不会一到周一就空白。
     let hour_rows = store
@@ -1681,12 +1714,8 @@ fn load_exchange_radar(
         .map_err(|error| format!("hours: {error}"))?;
     let mut model =
         ptt_runtime::reports::exchange_radar_model(&hour_rows, &league, &request.tuning, now)?;
-    // 水位是存储层的事实，模型函数不碰 store（与交易所页同一条规矩）。
-    let watermark = store
-        .exchange_watermark(game, &league)
-        .map_err(|error| format!("watermark: {error}"))?;
-    let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
-    model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
+    model.hours_behind = hours_behind;
+    model.synced_through = watermark;
     Ok(Some(model))
 }
 
