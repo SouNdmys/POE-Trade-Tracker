@@ -20,16 +20,20 @@ use ptt_market_book::{
     EvaluatedQuoteEdge, FreshnessPolicy, PolicyCalibrationStatus, QuoteSelectionPolicy,
     QuoteSelectionResult, QuoteSelectionStrategy, SelectedQuoteEdge,
 };
-use ptt_strategy::RiskThresholds;
+use ptt_strategy::{ExecutionRisk, RiskThresholds};
 use ptt_trade_domain::{
     Comparator, ExecutionType, MarketAssetId, MarketEdgeObservation, QuoteEdge, QuoteEdgeRole,
     QuoteSide, Ratio, SnapshotRecordStatus,
 };
-use ptt_trade_engine::{AssetAmount, AssetUnit, AssetUnitCatalog, FeePolicy, SearchCancellation};
+use ptt_trade_engine::{
+    AssetAmount, AssetUnit, AssetUnitCatalog, ExecutionRiskFlag, FeePolicy, SearchCancellation,
+};
 
 use crate::WorkflowError;
 use crate::focus::FocusScope;
-use crate::radar::{RadarBudget, RadarRequest, RadarResult, RadarStart, run_opportunity_radar};
+use crate::radar::{
+    RadarBudget, RadarItemKind, RadarRequest, RadarResult, RadarStart, run_opportunity_radar,
+};
 
 /// Identity of the synthetic policy — surfaces in the result so a report can
 /// never confuse a VWAP loop with a captured one.
@@ -148,8 +152,8 @@ pub fn run_exchange_radar(
         minimum_triangle_profit_basis_points: request.minimum_profit_basis_points,
         max_hops: 3,
         max_cycle_length: request.max_cycle_length,
-        // The conversion scan only runs anchor↔anchor here (a handful of
-        // targets), so its per-target knobs stay small; the budget that
+        // The whole-market scope has no directed pairs, so the conversion
+        // scan has nothing to do and these knobs never bite; the budget that
         // matters is the triangle one.
         max_paths_per_target: 8,
         max_expansions_per_target: 2_000,
@@ -172,6 +176,21 @@ pub fn run_exchange_radar(
         |_| {},
     )?;
     result.probe_candidates.clear();
+    // Loops only. A conversion is "better than direct *at this stake*", and
+    // a synthetic book has no honest stake: walked at the search size the
+    // anchor↔anchor conversions came back as +500% through two thin legs —
+    // partial fills wearing the shape of an opportunity. A loop sizes itself
+    // from its thinnest leg and needs no stake to mean something.
+    result.items.retain(|item| item.kind == RadarItemKind::Loop);
+    // One level per pair is how this book is built, not a fact about the
+    // market — the hour's average is backed by every trade in it, the very
+    // opposite of an uncorroborated single listing.
+    for item in &mut result.items {
+        item.risk_flags
+            .retain(|flag| *flag != ExecutionRiskFlag::SingleListingBook);
+        item.blocking_risks
+            .retain(|risk| *risk != ExecutionRisk::SingleListingBook);
+    }
     Ok(result)
 }
 
@@ -315,7 +334,6 @@ fn synthetic_edge(
 #[cfg(test)]
 mod exchange_radar_tests {
     use super::*;
-    use crate::RadarItemKind;
     use ptt_strategy::Actionability;
 
     fn asset(value: &str) -> MarketAssetId {

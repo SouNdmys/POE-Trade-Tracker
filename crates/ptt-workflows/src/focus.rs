@@ -301,22 +301,10 @@ impl FocusScope {
         let mut intermediate_asset_ids = anchors.clone();
         intermediate_asset_ids.extend(bridges.iter().cloned());
         intermediate_asset_ids.sort();
-        let mut directed_pairs = Vec::new();
-        let mut seen = BTreeSet::new();
-        for from in &anchors {
-            for to in &anchors {
-                push_pair(
-                    &mut directed_pairs,
-                    &mut seen,
-                    from,
-                    to,
-                    FocusRole::Anchor,
-                    FocusRole::Anchor,
-                    ProbePriority::Medium,
-                    FocusPairRelation::AnchorAnchor,
-                );
-            }
-        }
+        // 故意不给直兑对：直兑的答案是"以这个量比直兑好多少"，而大雷达的
+        // 合成书没有诚实的量（按搜索量走出来是 +500% 的假数）。环不需要量——
+        // 它们才是这个 scope 的目的，而且环路扫描读的是整个索引，不是这些对。
+        let directed_pairs = Vec::new();
         Ok(Self {
             status: FocusScopeStatus::Ready,
             counts,
@@ -488,7 +476,6 @@ mod tests {
         assert!(!scope.edge_allowed(&asset("chaos"), &asset("unknown")));
         assert!(scope.intermediate_allowed(&asset("divine")));
         assert!(scope.intermediate_allowed(&asset("exalted")));
-        // 只有一个锚：没有锚↔锚的直兑对。
         assert!(scope.directed_pairs.is_empty());
     }
 
@@ -509,11 +496,9 @@ mod tests {
         assert_eq!(scope.counts.anchor_count, 2);
         assert_eq!(scope.counts.bridge_count, 1);
         assert_eq!(scope.counts.target_count, 0);
-        // 两个锚：正反两条锚↔锚直兑对，都是 Medium。
-        assert_eq!(scope.directed_pairs.len(), 2);
-        assert!(scope.endpoint_pair_allowed(&asset("exalted"), &asset("divine")));
-        assert!(scope.endpoint_pair_allowed(&asset("divine"), &asset("exalted")));
-        assert!(!scope.endpoint_pair_allowed(&asset("exalted"), &asset("chaos")));
+        // 没有直兑对：全市场 scope 只扫环，锚↔锚直兑也不扫。
+        assert!(scope.directed_pairs.is_empty());
+        assert!(!scope.endpoint_pair_allowed(&asset("exalted"), &asset("divine")));
     }
 
     #[test]
