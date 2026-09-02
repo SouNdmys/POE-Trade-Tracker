@@ -13,8 +13,9 @@
 //!   `exchange_probe --trend --league "<联赛名>" [--cache DIR] [--top N]`
 //!       小时 VWAP → 日折 → 近 2 天 vs 基线的趋势 bps（原始 + 扣市场中位），
 //!       同时给出成交量口径与挂单库存口径的两份流动性读数，供证据分工裁定。
-//!   `exchange_probe --reconcile --league "<联赛名>" [--cache DIR]`
-//!       把 OCR 库里的 taker 汇率逐条对进同小时同对的 API 区间，输出命中率。
+//!   `exchange_probe --reconcile`
+//!       镜像交易所页的「面板核对」条：同一个模型函数、同一个窗口、同样逐点查
+//!       生产小时表，打印每对的越界率与典型偏离。
 //!   `exchange_probe --status`
 //!       读生产表：水位、近 48 小时覆盖、日折/清理进度、映射覆盖率。
 //!       镜像 app 同步的读路径，app 里看到的数字和这里对不上就是漂移。
@@ -28,7 +29,7 @@
 //!       镜像雷达页「交易所雷达」段：读近 48 小时的小时行，按官方成交均价跑
 //!       与抓取雷达同一套环路搜索，打印耗时、数据小时与每条环。
 //!
-//! `--status`/`--audit`/`--export`/`--radar` 的联赛默认取设置里的 `exchange.league`，
+//! `--reconcile`/`--status`/`--audit`/`--export`/`--radar` 的联赛默认取设置里的 `exchange.league`，
 //! `--league` 可覆盖；其余子命令仍要求显式 `--league`。
 
 #[cfg(windows)]
@@ -582,156 +583,78 @@ mod probe {
             Ok(())
         }
 
+        /// 镜像交易所页的「面板核对」条：同一个模型函数（`exchange_reconcile`）、
+        /// 同一个窗口（小时保留天数，钳到赛季起点）、同一种逐点查库。
+        ///
+        /// 以前这里是 spike 时代的版本：读 CDN 缓存、双向都算命中、不限窗口、
+        /// 扫全部上下文——和页面的数字对不上账，正是 CLAUDE.md 警告的那种
+        /// 漂移（审查抓出来的）。现在页面和探针只差一个 println。
         fn reconcile(&self) -> Result<(), String> {
-            use ptt_trade_domain::QuoteEdgeRole;
-
-            let mapping = poe2_index().map_err(|error| format!("mapping: {error}"))?;
-            // 域层 id 是连字符风格；catalog/映射是下划线。反查这一步做一次逆转换。
-            let path_of_domain: BTreeMap<String, String> = mapping
-                .iter()
-                .map(|(path, asset_id)| (asset_id.replace('_', "-"), path.clone()))
-                .collect();
-
+            let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+            let settings = ptt_settings::SettingsStore::release_default_from(&local)
+                .load()
+                .settings;
+            let tuning = settings.market_tuning(settings.active_profile.game);
             let store =
                 ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
                     .map_err(|error| format!("storage: {error}"))?;
-            let contexts = store
-                .list_contexts()
-                .map_err(|error| format!("contexts: {error}"))?;
-
-            let mut samples = 0u64;
-            let mut hits_direct = 0u64;
-            let mut hits_inverse = 0u64;
-            // 只看每次抓取的最优档：API 区间是"该小时实际成交过的价格"，
-            // 阶梯深处没成交的档位落在区间外是结构性的，不算数据错。
-            let mut top_samples = 0u64;
-            let mut top_hits = 0u64;
-            let mut near_misses = 0u64;
-            let mut misses: Vec<String> = Vec::new();
-            let mut no_market = 0u64;
-            let mut unmapped = 0u64;
-            let mut hour_misses: BTreeSet<u64> = BTreeSet::new();
-            let mut fetch_budget = 96u32;
-            let mut throttled = false;
-
-            for context in &contexts {
-                let value: serde_json::Value = serde_json::from_str(&context.context_json)
-                    .map_err(|error| format!("context json: {error}"))?;
-                if value.get("game").and_then(|game| game.as_str()) != Some(self.realm.as_str()) {
-                    continue;
-                }
-                let observations = store
-                    .load_observations(&context.context_key, None)
-                    .map_err(|error| format!("observations: {error}"))?;
-                for observation in &observations {
-                    let edge = &observation.edge;
-                    if edge.role != QuoteEdgeRole::AvailableTaker {
-                        continue;
-                    }
-                    let (Some(from_path), Some(to_path)) = (
-                        path_of_domain.get(&edge.from_asset_id.to_string()),
-                        path_of_domain.get(&edge.to_asset_id.to_string()),
-                    ) else {
-                        unmapped += 1;
-                        continue;
-                    };
-                    let hour_ts = (edge.captured_at.timestamp().max(0) as u64) / 3600 * 3600;
-                    let path = self.cache_path(hour_ts);
-                    if !path.exists() {
-                        if fetch_budget == 0 {
-                            hour_misses.insert(hour_ts);
-                            continue;
-                        }
-                        fetch_budget -= 1;
-                        if self.load_hour(hour_ts, &mut throttled).is_err() {
-                            hour_misses.insert(hour_ts);
-                            continue;
-                        }
-                    }
-                    let bytes = std::fs::read(&path).map_err(|error| format!("read: {error}"))?;
-                    let hour =
-                        parse_hour(&bytes).map_err(|error| format!("parse {hour_ts}: {error}"))?;
-                    let (asset_a, asset_b) = if from_path < to_path {
-                        (from_path, to_path)
-                    } else {
-                        (to_path, from_path)
-                    };
-                    let Some(row) = hour
-                        .rows_for_league(&self.league)
-                        .find(|row| row.asset_a == **asset_a && row.asset_b == **asset_b)
-                    else {
-                        no_market += 1;
-                        continue;
-                    };
-                    // a_per_b 的小时区间，两个快照比值不保证大小序，自己排。
-                    let bound_low = ratio_f64(&row.lowest_ratio_a) / ratio_f64(&row.lowest_ratio_b);
-                    let bound_high =
-                        ratio_f64(&row.highest_ratio_a) / ratio_f64(&row.highest_ratio_b);
-                    let (low, high) = if bound_low <= bound_high {
-                        (bound_low, bound_high)
-                    } else {
-                        (bound_high, bound_low)
-                    };
-                    let scalar = edge.rate.numerator as f64 / edge.rate.denominator.max(1) as f64;
-                    samples += 1;
-                    let top_row = edge.original_row_index == 0;
-                    if top_row {
-                        top_samples += 1;
-                    }
-                    let hit_direct = scalar >= low && scalar <= high;
-                    let hit_inverse =
-                        scalar > 0.0 && (1.0 / scalar) >= low && (1.0 / scalar) <= high;
-                    if hit_direct || hit_inverse {
-                        if top_row {
-                            top_hits += 1;
-                        }
-                    } else {
-                        let stretched_low = low * 0.95;
-                        let stretched_high = high * 1.05;
-                        let near = |value: f64| value >= stretched_low && value <= stretched_high;
-                        if near(scalar) || (scalar > 0.0 && near(1.0 / scalar)) {
-                            near_misses += 1;
-                        }
-                    }
-                    if hit_direct {
-                        hits_direct += 1;
-                    } else if hit_inverse {
-                        hits_inverse += 1;
-                    } else if misses.len() < 20 {
-                        misses.push(format!(
-                            "  miss {} {}->{} rate={} interval=[{low:.4},{high:.4}] at {}",
-                            format_hour(hour_ts),
-                            edge.from_asset_id,
-                            edge.to_asset_id,
-                            edge.rate.text,
-                            edge.captured_at.format("%m-%d %H:%M"),
-                        ));
-                    }
+            let now = chrono::Utc::now();
+            let retention = tuning.exchange.hour_retention_days;
+            let window_days = u32::try_from(if retention == 0 {
+                365
+            } else {
+                retention.min(365)
+            })
+            .unwrap_or(14);
+            let context = ptt_runtime::live::live_context(
+                settings.active_profile,
+                ptt_runtime::pipeline::LIVE_LEAGUE,
+            )
+            .map_err(|error| format!("{error:?}"))?;
+            let season = store.active_season(&self.realm).ok().flatten();
+            let since = ptt_runtime::rollup::clamp_to_season(
+                now - chrono::Duration::days(i64::from(window_days)),
+                season.as_ref().map(|row| row.started_at),
+            );
+            let observations = store
+                .load_observations_between(
+                    &context.stable_key(),
+                    since,
+                    now + chrono::Duration::hours(1),
+                )
+                .map_err(|error| format!("observations: {error}"))?;
+            let keys = ptt_runtime::reports::exchange_reconcile_keys(&observations)?;
+            let mut matched_rows = Vec::new();
+            for (hour_ts, asset_a, asset_b) in &keys {
+                if let Some(row) = store
+                    .load_exchange_hour_market(
+                        &self.realm,
+                        &self.league,
+                        *hour_ts,
+                        asset_a,
+                        asset_b,
+                    )
+                    .map_err(|error| format!("hour market: {error}"))?
+                {
+                    matched_rows.push(row);
                 }
             }
-
-            let hits = hits_direct + hits_inverse;
             println!(
-                "reconcile: samples={samples} hits={hits} ({:.1}%) direct={hits_direct} inverse={hits_inverse}",
-                if samples == 0 {
-                    0.0
-                } else {
-                    hits as f64 * 100.0 / samples as f64
-                },
+                "window: {} days since {} · observations={} · (hour, pair) keys={} · official rows matched={}",
+                window_days,
+                since.format("%m-%d %H:%M"),
+                observations.len(),
+                keys.len(),
+                matched_rows.len(),
             );
-            println!(
-                "  top-of-book: samples={top_samples} hits={top_hits} ({:.1}%)  near-miss(±5%)={near_misses}",
-                if top_samples == 0 {
-                    0.0
-                } else {
-                    top_hits as f64 * 100.0 / top_samples as f64
-                },
-            );
-            println!(
-                "  no-market={no_market} unmapped-edges={unmapped} hours-unavailable={}",
-                hour_misses.len(),
-            );
-            for line in &misses {
+            let reconcile = ptt_runtime::reports::exchange_reconcile(
+                &observations,
+                &matched_rows,
+                window_days,
+            )?;
+            for line in
+                ptt_runtime::reports::render_exchange_reconcile(&reconcile, settings.ui_language)
+            {
                 println!("{line}");
             }
             Ok(())
@@ -879,10 +802,6 @@ mod probe {
         let mut sorted = values.to_vec();
         sorted.sort_by(f64::total_cmp);
         sorted[(sorted.len() - 1) / 2]
-    }
-
-    fn ratio_f64(text: &str) -> f64 {
-        text.parse::<f64>().unwrap_or(0.0).max(f64::MIN_POSITIVE)
     }
 
     pub fn format_hour(hour_ts: u64) -> String {
