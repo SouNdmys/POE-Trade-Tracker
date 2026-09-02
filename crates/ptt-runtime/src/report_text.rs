@@ -263,7 +263,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     exchange_no_data: "还没有交易所数据——去设置页填联赛名，同步会自己补齐",
     exchange_reconcile: "面板核对，近 {} 天：最优档 {}/{} 次落在官方成交区间内（{} 次没对上）",
     exchange_reconcile_none: "面板核对，近 {} 天：没有面板抓取可比",
-    exchange_reconcile_pair: "  {} -> {}：{}/{} 越界，更好 {} / 更差 {}，典型偏离 {}，{:?}",
+    exchange_reconcile_pair: "  {} -> {}：{}/{} 越界，更好 {} / 更差 {}，典型偏离 {}，{}",
     leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
     leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",
@@ -604,6 +604,36 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "scanning_from",
             REPORT_ENGLISH.scanning_from,
             REPORT_CHINESE.scanning_from,
+        ),
+        (
+            "exchange_header",
+            REPORT_ENGLISH.exchange_header,
+            REPORT_CHINESE.exchange_header,
+        ),
+        (
+            "exchange_drift",
+            REPORT_ENGLISH.exchange_drift,
+            REPORT_CHINESE.exchange_drift,
+        ),
+        (
+            "exchange_no_data",
+            REPORT_ENGLISH.exchange_no_data,
+            REPORT_CHINESE.exchange_no_data,
+        ),
+        (
+            "exchange_reconcile",
+            REPORT_ENGLISH.exchange_reconcile,
+            REPORT_CHINESE.exchange_reconcile,
+        ),
+        (
+            "exchange_reconcile_none",
+            REPORT_ENGLISH.exchange_reconcile_none,
+            REPORT_CHINESE.exchange_reconcile_none,
+        ),
+        (
+            "exchange_reconcile_pair",
+            REPORT_ENGLISH.exchange_reconcile_pair,
+            REPORT_CHINESE.exchange_reconcile_pair,
         ),
         (
             "leg_share",
