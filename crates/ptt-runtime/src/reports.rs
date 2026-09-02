@@ -3534,6 +3534,148 @@ pub struct ExchangeModel {
     /// 历史视角（设置里填了截至日期）。小时级的列在这个视角下全空，
     /// 界面用它决定画 "-" 还是画数。
     pub historical: bool,
+    /// 小时账本，由 loader 填（按水位缓存）。`None` = 历史视角，或探针的纯模型路径。
+    pub ledger: Option<ExchangeLedgerModel>,
+}
+
+// ---------------------------------------------------------------------------
+// 小时账本（P12）：整段保留期的逐资产小时序列
+// ---------------------------------------------------------------------------
+
+/// 逐资产小时账本 + 它是按什么算的。`Arc`：`ExchangeModel` 每帧整体克隆
+/// （exchange.rs），账本几万个点不能跟着克隆。
+#[derive(Clone, Debug)]
+pub struct ExchangeLedgerModel {
+    pub league: String,
+    pub anchor_asset_id: MarketAssetId,
+    /// 与雷达缓存同一把钥匙：水位没动 = 同一批小时行 = 同一本账。由 loader 填。
+    pub synced_through: Option<i64>,
+    pub retention_days: u64,
+    /// 映射后进了账本的小时数。
+    pub hours_loaded: u32,
+    /// 读进来的小时行数（含没映上的）。
+    pub rows_loaded: u64,
+    /// 读库耗时，由 loader 填；模型自己不计时。
+    pub load_millis: u64,
+    pub ledger: std::sync::Arc<ptt_strategy::ExchangeHourLedger>,
+}
+
+/// 锚随用户设置走（赛季主流换了，用户换锚，各页跟着走），回落规则与
+/// `anchor_asset` 的文档语义一致：锚必须在结算列表内，否则列表第一个。
+/// 交易所页、大雷达、账本、导出都问这一个函数——锚只有一条选法。
+pub fn exchange_anchor(tuning: &MarketTuning) -> Result<MarketAssetId, String> {
+    let anchor_slug = tuning
+        .anchor_asset
+        .clone()
+        .filter(|anchor| tuning.settlement_assets.contains(anchor))
+        .or_else(|| tuning.settlement_assets.first().cloned())
+        .ok_or("no settlement asset configured")?;
+    crate::live::domain_asset_id(&anchor_slug).map_err(|error| format!("{error:?}"))
+}
+
+/// 账本窗口 = 从水位往回多少小时。保留 0（不清理）钳到 30 天：账本是
+/// "最近怎么交易"的读数，不是全季存档——全季归日线与导出。
+#[must_use]
+pub fn exchange_ledger_window_hours(tuning: &MarketTuning) -> u32 {
+    let days = tuning.exchange.hour_retention_days;
+    let days = if days == 0 { 30 } else { days.clamp(1, 30) };
+    u32::try_from(days * 24).unwrap_or(720)
+}
+
+/// 精简小时行 → 账本。映射走和交易所页同一张表；没映上的行是诚实的缺口。
+pub fn exchange_ledger_model(
+    hour_rows: &[ptt_storage::ExchangeHourVolumeRow],
+    league: &str,
+    tuning: &MarketTuning,
+) -> Result<ExchangeLedgerModel, String> {
+    let mapping =
+        ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
+    let mut cache: BTreeMap<String, Option<MarketAssetId>> = BTreeMap::new();
+    let anchor = exchange_anchor(tuning)?;
+    let mut hour_stats = Vec::with_capacity(hour_rows.len());
+    for row in hour_rows {
+        let (Some(asset_a), Some(asset_b)) = (
+            exchange_domain_id(&mapping, &mut cache, &row.asset_a),
+            exchange_domain_id(&mapping, &mut cache, &row.asset_b),
+        ) else {
+            continue;
+        };
+        // 库存四列账本不读，填 0 即可——别为了它们多搬四列。
+        hour_stats.push(ptt_strategy::ExchangePairHour {
+            hour_ts: row.hour_ts,
+            asset_a,
+            asset_b,
+            volume_a: row.volume_a,
+            volume_b: row.volume_b,
+            lowest_stock_a: 0,
+            highest_stock_a: 0,
+            lowest_stock_b: 0,
+            highest_stock_b: 0,
+        });
+    }
+    let ledger = ptt_strategy::exchange_hour_ledger(&hour_stats, &anchor);
+    Ok(ExchangeLedgerModel {
+        league: league.to_owned(),
+        anchor_asset_id: anchor,
+        synced_through: None,
+        retention_days: tuning.exchange.hour_retention_days,
+        hours_loaded: u32::try_from(ledger.hours.len()).unwrap_or(u32::MAX),
+        rows_loaded: hour_rows.len() as u64,
+        load_millis: 0,
+        ledger: std::sync::Arc::new(ledger),
+    })
+}
+
+/// 一个资产的小时序列，文本形态（探针 `--series`）。时刻按调用方给的偏移
+/// 显示成本地整点；峰值时段同一偏移。
+pub fn render_exchange_series(
+    model: &ExchangeLedgerModel,
+    asset: &MarketAssetId,
+    hours: Option<u32>,
+    utc_offset_seconds: i32,
+    language: UiLanguage,
+) -> Vec<String> {
+    let text = crate::report_text::report(language);
+    let ledger = &model.ledger;
+    let points = ledger.points_in(asset, hours);
+    let missing = ledger.missing_hours(asset, hours);
+    let (total, traded) = ledger.window_volume(asset, hours);
+    let mean = ledger.window_mean_per_hour(asset, hours);
+    let mut lines = vec![crate::report_text::fill(
+        text.exchange_series_header,
+        &[
+            &asset.to_string(),
+            &(traded + missing).to_string(),
+            &traded.to_string(),
+            &missing.to_string(),
+            &total.to_string(),
+            &mean.to_string(),
+        ],
+    )];
+    let offset = chrono::FixedOffset::east_opt(utc_offset_seconds)
+        .unwrap_or_else(|| chrono::FixedOffset::east_opt(0).expect("zero offset"));
+    for point in points {
+        let stamp = chrono::DateTime::from_timestamp(point.hour_ts, 0).map_or_else(
+            || "?".to_owned(),
+            |ts| ts.with_timezone(&offset).format("%m-%d %H:00").to_string(),
+        );
+        lines.push(crate::report_text::fill(
+            text.exchange_series_point,
+            &[
+                &stamp,
+                &ratio_display(&point.value),
+                &point.anchor_volume.to_string(),
+            ],
+        ));
+    }
+    let profile = ledger.hour_of_day_profile(asset, hours, utc_offset_seconds);
+    if let Some((start, end)) = ptt_strategy::peak_window(&profile) {
+        lines.push(crate::report_text::fill(
+            text.exchange_series_peak,
+            &[&start.to_string(), &end.to_string()],
+        ));
+    }
+    lines
 }
 
 // ---------------------------------------------------------------------------
@@ -3913,16 +4055,7 @@ pub fn exchange_model(
         });
     }
 
-    // 锚随用户设置走（赛季主流换了，用户换锚，这页跟着走），回落规则与
-    // `anchor_asset` 的文档语义一致：锚必须在结算列表内，否则列表第一个。
-    let anchor_slug = tuning
-        .anchor_asset
-        .clone()
-        .filter(|anchor| tuning.settlement_assets.contains(anchor))
-        .or_else(|| tuning.settlement_assets.first().cloned())
-        .ok_or("no settlement asset configured")?;
-    let anchor =
-        crate::live::domain_asset_id(&anchor_slug).map_err(|error| format!("{error:?}"))?;
+    let anchor = exchange_anchor(tuning)?;
     let thresholds = analytics_thresholds_from(tuning).unwrap_or_default();
     // 1..=60 的钳位：0 天没有意义，60 天之外日窗口本来也没加载。
     let trend_days = u32::try_from(tuning.exchange.trend_days.clamp(1, 60)).unwrap_or(7);
@@ -4031,6 +4164,7 @@ pub fn exchange_model(
         },
         reconcile: None,
         historical: as_of.is_some(),
+        ledger: None,
     })
 }
 
@@ -4251,15 +4385,7 @@ pub fn exchange_radar_model(
     if tuning.settlement_assets.is_empty() {
         return Ok(model);
     }
-    // 锚与交易所页同一条回落规则：锚必须在结算列表内，否则列表第一个。
-    let anchor_slug = tuning
-        .anchor_asset
-        .clone()
-        .filter(|anchor| tuning.settlement_assets.contains(anchor))
-        .or_else(|| tuning.settlement_assets.first().cloned())
-        .ok_or("no settlement asset configured")?;
-    let anchor =
-        crate::live::domain_asset_id(&anchor_slug).map_err(|error| format!("{error:?}"))?;
+    let anchor = exchange_anchor(tuning)?;
 
     let mapping =
         ptt_exchange_history::mapping::poe2_index().map_err(|error| format!("mapping: {error}"))?;
@@ -8310,5 +8436,114 @@ mod sticky_probe_tests {
         let candidates = sticky_probe_candidates(&[pin("divine", "lock", 600)], &observations);
 
         assert_eq!(candidates.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod exchange_ledger_model_tests {
+    use super::*;
+
+    const EXALTED: &str = "Metadata/Items/Currency/CurrencyAddModToRare";
+    const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
+    const HOUR: i64 = 1_788_159_600;
+
+    fn volume_row(
+        hour_ts: i64,
+        asset_a: &str,
+        asset_b: &str,
+        volume_a: u64,
+        volume_b: u64,
+    ) -> ptt_storage::ExchangeHourVolumeRow {
+        ptt_storage::ExchangeHourVolumeRow {
+            hour_ts,
+            asset_a: asset_a.to_owned(),
+            asset_b: asset_b.to_owned(),
+            volume_a,
+            volume_b,
+        }
+    }
+
+    fn tuning(retention_days: u64) -> MarketTuning {
+        let mut tuning = MarketTuning {
+            settlement_assets: vec!["exalted_orb".to_owned()],
+            anchor_asset: None,
+            ..MarketTuning::default()
+        };
+        tuning.exchange.hour_retention_days = retention_days;
+        tuning
+    }
+
+    #[test]
+    fn prices_through_the_real_mapping_and_counts_hours() {
+        let rows = vec![
+            volume_row(HOUR, EXALTED, DIVINE, 4000, 10),
+            volume_row(HOUR + 3600, EXALTED, DIVINE, 4150, 10),
+        ];
+        let model = exchange_ledger_model(&rows, "Runes of Aldur", &tuning(14)).expect("model");
+        assert_eq!(model.anchor_asset_id.to_string(), "exalted-orb");
+        assert_eq!(model.hours_loaded, 2);
+        assert_eq!(model.rows_loaded, 2);
+        assert_eq!(model.retention_days, 14);
+        let divine = crate::live::domain_asset_id("divine_orb").expect("id");
+        let points = &model.ledger.series[&divine];
+        assert_eq!(points.len(), 2);
+        assert_eq!(
+            points[1].value,
+            ptt_trade_domain::Ratio::from_parts(415, 1).expect("ratio")
+        );
+        assert_eq!(points[1].anchor_volume, 4150);
+    }
+
+    #[test]
+    fn unmapped_paths_are_skipped_not_fatal() {
+        let rows = vec![
+            volume_row(HOUR, EXALTED, DIVINE, 4000, 10),
+            volume_row(
+                HOUR + 3600,
+                EXALTED,
+                "Metadata/Items/Currency/NotInTheTable",
+                5,
+                5,
+            ),
+        ];
+        let model = exchange_ledger_model(&rows, "Runes of Aldur", &tuning(14)).expect("model");
+        // 没映上的那一小时不进账本，但读进来的行数如实记。
+        assert_eq!(model.hours_loaded, 1);
+        assert_eq!(model.rows_loaded, 2);
+        assert_eq!(model.ledger.series.len(), 1);
+    }
+
+    #[test]
+    fn window_hours_clamp_retention_zero_to_thirty_days() {
+        assert_eq!(exchange_ledger_window_hours(&tuning(0)), 720);
+        assert_eq!(exchange_ledger_window_hours(&tuning(14)), 336);
+        assert_eq!(exchange_ledger_window_hours(&tuning(90)), 720);
+        assert_eq!(exchange_ledger_window_hours(&tuning(1)), 24);
+    }
+
+    #[test]
+    fn render_exchange_series_lists_points_oldest_first_and_names_the_peak() {
+        let rows = vec![
+            volume_row(HOUR + 3600, EXALTED, DIVINE, 4150, 10),
+            volume_row(HOUR, EXALTED, DIVINE, 4000, 10),
+        ];
+        let model = exchange_ledger_model(&rows, "Runes of Aldur", &tuning(14)).expect("model");
+        let divine = crate::live::domain_asset_id("divine_orb").expect("id");
+        let lines = render_exchange_series(&model, &divine, None, 0, UiLanguage::English);
+        // 表头 + 两个点 + 峰值。
+        assert_eq!(lines.len(), 4, "{lines:?}");
+        assert!(
+            lines[0].contains("2 hours in window, 2 traded, 0 missing"),
+            "{}",
+            lines[0]
+        );
+        // HOUR 是 2026-08-31 07:00 UTC，早的在前。
+        assert!(lines[1].contains("08-31 07:00"), "{}", lines[1]);
+        assert!(lines[1].contains("400"), "{}", lines[1]);
+        assert!(lines[2].contains("08-31 08:00"), "{}", lines[2]);
+        assert!(lines[3].starts_with("peak hours"), "{}", lines[3]);
+        // 偏移 +8：同一小时显示成 15:00。
+        let east = render_exchange_series(&model, &divine, None, 8 * 3600, UiLanguage::English);
+        assert!(east[1].contains("08-31 15:00"), "{}", east[1]);
     }
 }

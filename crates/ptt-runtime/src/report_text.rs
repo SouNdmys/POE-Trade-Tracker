@@ -55,6 +55,12 @@ pub struct ReportText {
     pub exchange_radar_diagnostics: &'static str,
     pub exchange_radar_budget_exhausted: &'static str,
     pub exchange_radar_no_loop: &'static str,
+    /// Hourly ledger series (probe `--series`). Header slots: asset, hours in
+    /// window, traded, missing, volume, mean per hour. Point slots: local hour,
+    /// value, volume. Peak slots: start hour, end hour.
+    pub exchange_series_header: &'static str,
+    pub exchange_series_point: &'static str,
+    pub exchange_series_peak: &'static str,
     /// One leg of a route against the listings it would have to take right
     /// now. Slots: from, to, listed, taken, share.
     ///
@@ -185,6 +191,9 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     exchange_radar_diagnostics: "loops evaluated {} · above the floor {}",
     exchange_radar_budget_exhausted: "loop budget exhausted - the list may be missing loops",
     exchange_radar_no_loop: "the hourly averages agree with each other: no loop above the floor",
+    exchange_series_header: "{} · {} hours in window, {} traded, {} missing · volume {} · mean/h {}",
+    exchange_series_point: "  {}  value {}  volume {}",
+    exchange_series_peak: "peak hours {}:00-{}:00 (local)",
     leg_take: "{} -> {}   {} listed, this trip takes {}{}",
     leg_share: " ({}%)",
     leg_covered: "listings cover it",
@@ -285,6 +294,9 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     exchange_radar_diagnostics: "评估环 {} 个 · 过门槛 {} 个",
     exchange_radar_budget_exhausted: "环路预算耗尽——名单可能有漏",
     exchange_radar_no_loop: "各小时均价彼此自洽：没有过门槛的环",
+    exchange_series_header: "{} · 窗口 {} 小时，有成交 {}，缺 {} · 成交额 {} · 每小时 {}",
+    exchange_series_point: "  {}  价 {}  成交 {}",
+    exchange_series_peak: "峰值时段 {}:00–{}:00（本地）",
     leg_take: "{} -> {}   市面挂着 {}，这一趟要吃掉 {}{}",
     leg_share: "（{}%）",
     leg_covered: "现有挂单够吃",
@@ -690,6 +702,21 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "exchange_radar_no_loop",
             REPORT_ENGLISH.exchange_radar_no_loop,
             REPORT_CHINESE.exchange_radar_no_loop,
+        ),
+        (
+            "exchange_series_header",
+            REPORT_ENGLISH.exchange_series_header,
+            REPORT_CHINESE.exchange_series_header,
+        ),
+        (
+            "exchange_series_point",
+            REPORT_ENGLISH.exchange_series_point,
+            REPORT_CHINESE.exchange_series_point,
+        ),
+        (
+            "exchange_series_peak",
+            REPORT_ENGLISH.exchange_series_peak,
+            REPORT_CHINESE.exchange_series_peak,
         ),
         (
             "leg_share",
