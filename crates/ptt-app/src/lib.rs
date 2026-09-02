@@ -10,6 +10,7 @@
 pub mod assets;
 pub mod backend;
 pub mod calibrate;
+pub mod crashlog;
 pub mod i18n;
 pub mod names;
 pub mod shell;
@@ -49,6 +50,9 @@ fn restore_saved_palette() {}
 
 /// Opens the product window and runs until it closes.
 pub fn run() {
+    // release 是 panic = "abort" + 无控制台:先装 hook,否则任何 panic 都是
+    // 窗口无声消失,连"哪个版本、哪一行"都留不下。
+    crashlog::install();
     // 不注册资源源,gpui-component 的 SVG 图标(下拉箭头、菜单勾)会静默
     // 画成空白。
     Application::new()
