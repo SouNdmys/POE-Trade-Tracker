@@ -495,6 +495,11 @@ pub struct AppShell {
     /// 第二条并发链,同一段小时被抓两遍。
     #[cfg(windows)]
     exchange_sync_running: bool,
+    /// 一轮跑到一半时用户又要求重来（多半是刚改了联赛名）。设置只在每轮
+    /// 开头读一次，所以在跑的那轮还是旧联赛：它跑完要立刻用新设置再来一轮，
+    /// 而不是让新名字等到下个整点。
+    #[cfg(windows)]
+    exchange_sync_restart_pending: bool,
     /// 最近一轮同步的失败原因（网络、解析、联赛名可疑），成功一轮即清。
     /// 交易所页读它：日志行只留得住一句话，错误必须有自己的落点。
     exchange_sync_error: Option<String>,
@@ -873,6 +878,7 @@ impl AppShell {
             exchange_sync_generation: 0,
             exchange_page_refreshed: None,
             exchange_sync_running: false,
+            exchange_sync_restart_pending: false,
             exchange_sync_error: None,
             exchange_sync_failures: 0,
             #[cfg(windows)]

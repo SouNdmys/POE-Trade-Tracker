@@ -323,6 +323,9 @@ impl AppShell {
                 } else {
                     format!("exchange: league {league}, backfill {backfill_days}d, keep {retention_days}d")
                 });
+                // 旧联赛的"联赛名可疑"是对旧名字的判词。留着它，用户改完名字
+                // 看到的还是同一句红字，只会以为新名字也错了。
+                self.exchange_sync_error = None;
                 self.restart_exchange_sync(cx);
             }
             Err(error) => self.push_log(format!("settings save failed: {error}")),

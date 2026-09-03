@@ -42,8 +42,12 @@ impl AppShell {
     pub(crate) fn restart_exchange_sync(&mut self, cx: &mut Context<Self>) {
         if self.exchange_sync_running {
             // 正在跑就别再开一条：同一段小时会被两条链抓两遍。
-            // 说一声就够——正在跑本身就是用户想要的状态。
-            self.push_log("exchange: sync already running".to_owned());
+            // 但记一笔"跑完立刻再来"——改了联赛名却要等到下个整点才生效，
+            // 用户看到的就是"我改了名字，页面还是那句错"。
+            self.exchange_sync_restart_pending = true;
+            self.push_log(
+                "exchange: sync already running -- will restart when it finishes".to_owned(),
+            );
             return;
         }
         self.push_log("exchange: sync started".to_owned());
@@ -85,54 +89,73 @@ impl AppShell {
                 Some(Err(_)) => false,
             };
             let errored = matches!(&outcome, Some(Err(_)));
-            this.update(cx, |this: &mut AppShell, cx| {
-                // 无论代次是否还有效，这条链的抓取都真的结束了。
-                this.exchange_sync_running = false;
-                if this.exchange_sync_generation != generation {
-                    return;
-                }
-                match outcome {
-                    Some(Ok(round)) => {
-                        this.exchange_sync_failures = 0;
-                        if round.stored > 0 || round.days_folded > 0 {
-                            // 新数据落库了，正开着的页面得知道账变了。
-                            this.report_stale = true;
-                        }
-                        // 页面级落点：联赛名可疑要一直挂在交易所页上，
-                        // 直到某一轮真的收到了这个联赛的行；其它成功轮清掉旧错。
-                        this.exchange_sync_error = round
-                            .league_name_suspect
-                            .then(|| round.log_line().trim_start_matches("exchange: ").to_owned());
-                        if round.worth_a_log_line() {
-                            this.push_log(round.log_line());
-                        } else if manual {
-                            // 自动轮安静无妨，手动轮必须交代"没事可做"。
-                            this.push_log(
-                                "exchange: nothing to fetch -- already at the latest hour"
-                                    .to_owned(),
-                            );
-                        }
-                        cx.notify();
+            let disposition = this
+                .update(cx, |this: &mut AppShell, cx| {
+                    // 无论代次是否还有效，这条链的抓取都真的结束了。
+                    this.exchange_sync_running = false;
+                    if this.exchange_sync_generation != generation {
+                        // 旧链：结论作废，待重启的标记留给还活着的那条链。
+                        return RoundDisposition {
+                            publish_error: false,
+                            next_delay: Duration::ZERO,
+                        };
                     }
-                    Some(Err(error)) => {
-                        // 断网只是"下一轮再试"，水位停在原地，补拉天然填洞。
-                        // 但原因要留在交易所页上：日志行下一条就被盖掉。
-                        this.exchange_sync_error = Some(error.to_string());
-                        this.exchange_sync_failures = this.exchange_sync_failures.saturating_add(1);
-                        this.push_log(format!("exchange: {error}"));
-                        cx.notify();
+                    // 用户在这轮跑到一半时改了联赛名（设置每轮开头才读，
+                    // 所以这轮抓的还是旧联赛）。
+                    let restart_pending = std::mem::take(&mut this.exchange_sync_restart_pending);
+                    let failures_after = if errored {
+                        this.exchange_sync_failures.saturating_add(1)
+                    } else {
+                        0
+                    };
+                    let disposition =
+                        settle_round(restart_pending, errored, caught_up, failures_after);
+                    match outcome {
+                        Some(Ok(round)) => {
+                            this.exchange_sync_failures = 0;
+                            if round.stored > 0 || round.days_folded > 0 {
+                                // 新数据落库了，正开着的页面得知道账变了。
+                                this.report_stale = true;
+                            }
+                            // 页面级落点：联赛名可疑要一直挂在交易所页上，
+                            // 直到某一轮真的收到了这个联赛的行；其它成功轮清掉旧错。
+                            if disposition.publish_error {
+                                this.exchange_sync_error = round.league_name_suspect.then(|| {
+                                    round.log_line().trim_start_matches("exchange: ").to_owned()
+                                });
+                            }
+                            if round.worth_a_log_line() {
+                                this.push_log(round.log_line());
+                            } else if manual {
+                                // 自动轮安静无妨，手动轮必须交代"没事可做"。
+                                this.push_log(
+                                    "exchange: nothing to fetch -- already at the latest hour"
+                                        .to_owned(),
+                                );
+                            }
+                            cx.notify();
+                        }
+                        Some(Err(error)) => {
+                            // 断网只是"下一轮再试"，水位停在原地，补拉天然填洞。
+                            // 但原因要留在交易所页上：日志行下一条就被盖掉。
+                            if disposition.publish_error {
+                                this.exchange_sync_error = Some(error.to_string());
+                            }
+                            this.exchange_sync_failures = failures_after;
+                            this.push_log(format!("exchange: {error}"));
+                            cx.notify();
+                        }
+                        None => {}
                     }
-                    None => {}
-                }
-            })
-            .ok();
+                    disposition
+                })
+                .unwrap_or(RoundDisposition {
+                    publish_error: false,
+                    next_delay: Duration::ZERO,
+                });
             // 追平了才睡到下一个 HH:05（数据整点后才发布，错开 5 分钟）；
             // 睡过头（系统休眠）也没关系，醒来照样从水位续传。
-            let failures = this
-                .update(cx, |this: &mut AppShell, _| this.exchange_sync_failures)
-                .unwrap_or(0);
-            let delay = retry_delay(errored, caught_up, failures);
-            cx.background_executor().timer(delay).await;
+            cx.background_executor().timer(disposition.next_delay).await;
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.exchange_sync_generation == generation {
                     this.begin_exchange_sync(cx, false);
@@ -382,6 +405,38 @@ fn top_leagues(counts: std::collections::BTreeMap<String, usize>, limit: usize) 
         .collect()
 }
 
+/// 一轮跑完时的处置：这轮的结论还算不算数，下一轮什么时候开。
+#[derive(Debug, PartialEq, Eq)]
+struct RoundDisposition {
+    /// 把这轮的失败原因挂到交易所页上。
+    publish_error: bool,
+    next_delay: Duration,
+}
+
+/// 待重启的一轮（用户中途改了联赛名）跑完时，结论作废、立刻再来一轮。
+///
+/// 换联赛就是换一本账：旧账上的"联赛名可疑"贴在新名字旁边，用户只会
+/// 以为新名字也错了；而每轮开头都会重读设置，所以立刻续跑的那一轮
+/// 用的就是刚存下的联赛名，不必等到下个整点。
+fn settle_round(
+    restart_pending: bool,
+    errored: bool,
+    caught_up: bool,
+    consecutive_failures: u32,
+) -> RoundDisposition {
+    if restart_pending {
+        RoundDisposition {
+            publish_error: false,
+            next_delay: Duration::ZERO,
+        }
+    } else {
+        RoundDisposition {
+            publish_error: true,
+            next_delay: retry_delay(errored, caught_up, consecutive_failures),
+        }
+    }
+}
+
 /// 出错半分钟后重试；连续三次都失败就退到下一个整点过五分。永久性错误
 /// （联赛不存在、某小时永远解析失败）每 30 秒敲一次 CDN 只是稳定地制造噪音，
 /// 而原因已经挂在交易所页上，不需要靠频繁重试来提醒。
@@ -419,6 +474,22 @@ mod exchange_sync_tests {
         assert!(retry_delay(true, false, 3) >= Duration::from_secs(60));
         assert_eq!(retry_delay(false, false, 9), Duration::from_secs(1));
         assert!(retry_delay(false, true, 0) >= Duration::from_secs(60));
+    }
+
+    /// 用户改联赛名时正好有一轮在跑：那轮抓的是旧联赛，它的结论
+    /// （"联赛名可疑"、超时）说的是旧账，挂在页面上会让用户以为
+    /// 刚改的名字也不对。新名字也不该等到下个整点才生效。
+    #[test]
+    fn a_pending_restart_drops_the_old_rounds_verdict_and_starts_over_at_once() {
+        let pending = settle_round(true, true, false, 1);
+        assert!(!pending.publish_error);
+        assert_eq!(pending.next_delay, Duration::ZERO);
+        let normal = settle_round(false, true, false, 1);
+        assert!(normal.publish_error);
+        assert_eq!(normal.next_delay, retry_delay(true, false, 1));
+        let caught_up = settle_round(false, false, true, 0);
+        assert!(caught_up.publish_error);
+        assert_eq!(caught_up.next_delay, retry_delay(false, true, 0));
     }
 
     #[test]
