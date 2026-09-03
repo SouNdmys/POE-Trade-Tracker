@@ -251,7 +251,7 @@ impl AppShell {
             return;
         }
         self.update_checked = true;
-        self.begin_update_check(cx);
+        self.begin_update_check(update::CheckKind::Startup, cx);
     }
 
     /// 关于页那个"现在检查"按钮。
@@ -259,7 +259,7 @@ impl AppShell {
         if !self.can_check_update() {
             return;
         }
-        self.begin_update_check(cx);
+        self.begin_update_check(update::CheckKind::Manual, cx);
     }
 
     /// 按钮现在该不该画出来。
@@ -275,7 +275,9 @@ impl AppShell {
     /// 形状照抄 `refresh_report`:输入先取成自己的一份,纯函数扔到后台执行器上
     /// 跑,回来在 `this.update` 里写。代次那一道是必须的——一次慢的检查回来时
     /// 用户可能已经点了第二次,让旧答案盖掉新状态就成了"点了没反应"。
-    fn begin_update_check(&mut self, cx: &mut Context<Self>) {
+    /// `kind` 只决定这一次等多久,别的一概不变——"一次启动只问一次"和那 60 秒
+    /// 冷却还是原来的那两道闸,不因为是手点的就放宽。
+    fn begin_update_check(&mut self, kind: update::CheckKind, cx: &mut Context<Self>) {
         self.last_update_check = Some(std::time::Instant::now());
         self.update_generation = self.update_generation.wrapping_add(1);
         let generation = self.update_generation;
@@ -297,7 +299,7 @@ impl AppShell {
         cx.spawn(async move |this, cx| {
             let answer = cx
                 .background_executor()
-                .spawn(async move { update::latest_release(env!("CARGO_PKG_VERSION")) })
+                .spawn(async move { update::latest_release(env!("CARGO_PKG_VERSION"), kind) })
                 .await;
             this.update(cx, |this: &mut AppShell, cx| {
                 if this.update_generation != generation {

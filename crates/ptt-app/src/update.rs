@@ -575,14 +575,40 @@ fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
 // 一:问一次
 // ---------------------------------------------------------------------------
 
+/// 这一次检查是谁发起的。
+///
+/// 存在的理由只有一个:两种检查该等多久不一样。开机那次是背着人跑的,它必须
+/// 短;手点的那次人正盯着按钮等答案,可以久一点。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckKind {
+    /// 开窗之后自己跑的那一次。
+    Startup,
+    /// 关于页上"现在检查"按下去的那一次。
+    Manual,
+}
+
+/// 这一次检查最多等多久。
+///
+/// 开机那次给 12 秒:没人在等它,而一个在假死网络上挂着的后台请求毫无价值。
+/// 手点那次给 30 秒:人已经决定要等了,这时候提前掐掉换来的不是"快",是一句
+/// 假的"连不上"——而慢线上多等 18 秒往往就问出来了。
+pub(crate) const fn check_timeout(kind: CheckKind) -> Duration {
+    match kind {
+        CheckKind::Startup => Duration::from_secs(12),
+        CheckKind::Manual => Duration::from_secs(30),
+    }
+}
+
 /// 问 GitHub 有没有比 `current_version` 新的版本。
 ///
 /// 一次启动只问一次,失败也不重试:匿名 API 每小时每 IP 只有 60 次,循环重试会
 /// 把额度烧光,然后连"有没有新版本"都问不出来了。
-pub fn latest_release(current_version: &str) -> Result<Option<Release>, UpdateError> {
+pub fn latest_release(
+    current_version: &str,
+    kind: CheckKind,
+) -> Result<Option<Release>, UpdateError> {
     let config = ureq::Agent::config_builder()
-        // 启动后不久跑的一次后台请求,不该在一个假死的网络上挂很久。
-        .timeout_global(Some(Duration::from_secs(12)))
+        .timeout_global(Some(check_timeout(kind)))
         .build();
     let agent: ureq::Agent = config.into();
 
@@ -1412,6 +1438,17 @@ fn live_counterpart(path: &Path, name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod update_tests {
     use super::*;
+
+    /// 手点的那次检查要等得比开机那次久。
+    ///
+    /// 两次检查走的是同一条 `latest_release`,所以很容易被写成同一个超时。但人
+    /// 按下按钮之后是在等答案的,12 秒对一条慢线来说太短——而开机那次没人在等,
+    /// 它必须短。同一个数字满足不了两边,这条测的就是"它们确实是两个数"。
+    #[test]
+    fn a_manual_check_waits_longer_than_the_one_at_launch() {
+        assert_eq!(check_timeout(CheckKind::Startup), Duration::from_secs(12));
+        assert_eq!(check_timeout(CheckKind::Manual), Duration::from_secs(30));
+    }
 
     fn manifest_file(path: &str, sha256: &str) -> ManifestFile {
         ManifestFile {
