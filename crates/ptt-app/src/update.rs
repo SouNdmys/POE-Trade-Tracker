@@ -1603,34 +1603,32 @@ fn undo_aside(aside: &[(PathBuf, PathBuf)]) -> bool {
 /// 的进程已经不在了,才轮得到删。删不掉就跳过:清垃圾失败不该让程序起不来。
 /// 返回真正删掉的个数。
 ///
-/// 顺手把 `%LOCALAPPDATA%\PoeTradeTracker\updates\` 里的 `pending-update.zip`
-/// 和所有 `*.zip.part` 也收了。前者是上一轮下载留下的几十兆,`stage` 只在核对
-/// 不过时删它;后者是断在半路的那截。续传只在一次安装之内接得上,跨到"下一次
-/// 启动"就没人会去续了,留着只是占几十兆磁盘。
+/// 顺手把 `%LOCALAPPDATA%\PoeTradeTracker\updates\pending-update.zip` 也收了,
+/// 但**不碰** `*.zip.part`。哪些该收哪些该留,见 `sweep_updates_dir`。
 pub fn clean_leftovers() -> usize {
     let mut removed = 0;
     if let Ok(directory) = updates_dir() {
-        if fs::remove_file(directory.join(PENDING_ARCHIVE_NAME)).is_ok() {
-            removed += 1;
-        }
-        if let Ok(listing) = fs::read_dir(&directory) {
-            for entry in listing.flatten() {
-                let path = entry.path();
-                let is_part = path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.ends_with(PART_SUFFIX));
-                if is_part && fs::remove_file(&path).is_ok() {
-                    removed += 1;
-                }
-            }
-        }
+        removed += sweep_updates_dir(&directory);
     }
     let Ok(root) = install_dir() else {
         return removed;
     };
     sweep(&root, 0, &mut removed);
     removed
+}
+
+/// 启动时在 `updates\` 里收什么。返回真的删掉的个数。
+///
+/// 只收 `pending-update.zip`。那份已经核对完了,要么装过了要么废了,走到
+/// "下一次启动"这一刻它一定没用。
+///
+/// **`*.zip.part` 不收。** 它的名字里带着 tag,能不能续是由"tag 对不对得上"
+/// 决定的,和"程序中间关过没有"无关。在一条慢线上攒了半天的那几十兆,恰恰
+/// 就是他关掉程序去睡觉的理由;启动时把它当垃圾扫了,下一次又从零开始。
+/// 别的 release 剩下的半截由 `stage` 在开始下载前扫掉(`remove_stale_parts`)
+/// ——那一刻才知道哪一个 tag 是"当前的"。
+fn sweep_updates_dir(directory: &Path) -> usize {
+    usize::from(fs::remove_file(directory.join(PENDING_ARCHIVE_NAME)).is_ok())
 }
 
 /// 递归扫,深度封顶——包里最深的也只是 `assets/ocr/`,不需要往下走很远,
@@ -2622,6 +2620,30 @@ mod update_tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("a scratch folder");
         dir
+    }
+
+    /// 下到一半的那截必须活过一次重启。
+    ///
+    /// 半截文件的名字里带着 tag,所以它到底能不能续,是由"tag 对不对得上"决定
+    /// 的,和"程序中间关过没有"无关。启动时把它删掉,等于把用户在一条慢线上
+    /// 攒了半天的进度当垃圾扫了——而那正是他关掉程序去睡觉的原因。
+    ///
+    /// `pending-update.zip` 是另一回事:那份已经核对完、要么装过了要么废了,
+    /// 走到下一次启动这一刻它一定没用了,该收。
+    #[test]
+    fn a_half_downloaded_release_survives_a_restart() {
+        let dir = scratch("leftover-part");
+        let pending = dir.join(PENDING_ARCHIVE_NAME);
+        let part = dir.join(part_name("v9.9.9"));
+        fs::write(&pending, b"an archive that already had its turn").expect("writing the zip");
+        fs::write(&part, b"half a download").expect("writing the part");
+
+        let removed = sweep_updates_dir(&dir);
+
+        assert!(!pending.exists(), "核对完的那份该收掉");
+        assert!(part.exists(), "下到一半的那截要留着,下次接着下");
+        assert_eq!(removed, 1);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     /// 这条钉的是整条更新路上最坏的一个结局。
