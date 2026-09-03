@@ -104,7 +104,11 @@ impl AppShell {
         // ---- 同步进度行 + 手动同步 ----
         // 首测教训：回补进行中页面空白又不报进度，看起来像卡死。
         // 水位、欠账、按钮放在一行，"到哪了"和"推一把"都有地方。
-        let (sync_line, sync_is_fault) = sync_status_line(
+        let SyncLine {
+            status: sync_status,
+            fault: sync_is_fault,
+            error: sync_error,
+        } = sync_status_line(
             text,
             model.synced_through,
             model.hours_behind,
@@ -115,17 +119,17 @@ impl AppShell {
                 .h_flex()
                 .items_center()
                 .gap_2()
-                .child(
-                    mono(sync_line)
-                        .text_size(fs(FS_10_5))
-                        .text_color(if sync_is_fault {
+                .when(!sync_status.is_empty(), |line| {
+                    line.child(mono(sync_status).text_size(fs(FS_10_5)).text_color(
+                        if sync_is_fault {
                             c(DANGER_TEXT)
                         } else if model.hours_behind > 1 {
                             c(TEXT_DATA)
                         } else {
                             c(TEXT_META)
-                        }),
-                )
+                        },
+                    ))
+                })
                 .child(
                     button(
                         "exchange-sync-now",
@@ -197,6 +201,17 @@ impl AppShell {
                     )
                 }),
         );
+        // 失败原因自己占一行：列宽等于整页，长成什么样都自己换行，
+        // 上面那排按钮不会被它推走。
+        if let Some(error) = sync_error {
+            head = head.child(
+                div().w_full().child(
+                    mono(error)
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(DANGER_TEXT)),
+                ),
+            );
+        }
         if let Some(as_of) = model.as_of_day.as_deref().filter(|_| model.historical) {
             head = head.child(div().h_flex().items_center().child(chip(
                 StatusKind::Warning,
@@ -1033,36 +1048,46 @@ fn data_cell(value: String, width: f32) -> gpui::Div {
         .child(mono(value).text_size(fs(FS_11_5)))
 }
 
+/// 同步进度行的三样东西：状态文字、这是不是故障、以及**另起一行**的失败原因。
+///
+/// 失败原因单独拿出来，是因为它可能很长（联赛名拼错时要把数据里见到的
+/// 联赛全列出来，一百七十多个字），塞在控件前面会把"立即同步/导出/看那天"
+/// 整排顶出 1180px 的窗口、被面板的 overflow_hidden 剪掉——用户报的
+/// "按钮不见了"就是这么来的。
+struct SyncLine {
+    status: String,
+    fault: bool,
+    error: Option<String>,
+}
+
 /// 水位时间戳按本地时区显示——个人工具，读表的人在哪个时区一目了然。
-/// 同步进度行的文字与"这是不是故障"。失败原因优先于"几分钟内会自己补齐"——
-/// 联赛名拼错、限速、断网在页面上必须长得和"数据在路上"不一样；
-/// 水位还在时保留它，用户既知道停在哪也知道为什么。
+/// 失败原因优先于"几分钟内会自己补齐"——联赛名拼错、限速、断网在页面上
+/// 必须长得和"数据在路上"不一样；水位还在时保留它，用户既知道停在哪
+/// 也知道为什么。
 fn sync_status_line(
     text: &crate::i18n::Text,
     synced_through: Option<i64>,
     hours_behind: i64,
     sync_error: Option<&str>,
-) -> (String, bool) {
+) -> SyncLine {
     let progress = synced_through.map(|mark| {
         ptt_runtime::report_text::fill(
             text.exchange_synced_through,
             &[&local_hour(mark), &hours_behind.to_string()],
         )
     });
-    match (sync_error, progress) {
-        (Some(error), Some(progress)) => (
-            format!(
-                "{progress} · {}",
-                ptt_runtime::report_text::fill(text.exchange_sync_failed, &[error])
-            ),
-            true,
-        ),
-        (Some(error), None) => (
-            ptt_runtime::report_text::fill(text.exchange_sync_failed, &[error]),
-            true,
-        ),
-        (None, Some(progress)) => (progress, false),
-        (None, None) => (text.exchange_no_data.to_owned(), false),
+    let error =
+        sync_error.map(|error| ptt_runtime::report_text::fill(text.exchange_sync_failed, &[error]));
+    let status = match (&error, progress) {
+        (_, Some(progress)) => progress,
+        // 出错了就别再说"几分钟内会自己补齐"：下面那行红字才是实情。
+        (Some(_), None) => String::new(),
+        (None, None) => text.exchange_no_data.to_owned(),
+    };
+    SyncLine {
+        fault: error.is_some(),
+        status,
+        error,
     }
 }
 
@@ -1160,24 +1185,48 @@ mod exchange_page_tests {
     use super::*;
 
     #[test]
-    fn a_sync_failure_shows_on_the_progress_line_and_reads_as_a_fault() {
+    fn a_sync_failure_shows_on_the_page_and_reads_as_a_fault() {
         // 联赛拼错、429、断网以前都只在会被盖掉的日志行里闪一下，
         // 页面永远说"几分钟内会自己补齐"。错误必须落在页面上。
         let text = crate::i18n::text(ptt_settings::UiLanguage::English);
-        let (line, is_fault) = sync_status_line(text, Some(1_700_000_000), 2, Some("boom"));
-        assert!(line.contains("boom"), "{line}");
+        let line = sync_status_line(text, Some(1_700_000_000), 2, Some("boom"));
+        assert!(line.error.is_some_and(|error| error.contains("boom")));
         assert!(
-            line.contains("2 h behind"),
-            "the watermark must survive: {line}"
+            line.status.contains("2 h behind"),
+            "the watermark must survive: {}",
+            line.status
         );
-        assert!(is_fault);
-        let (line, is_fault) = sync_status_line(text, None, 0, Some("boom"));
-        assert!(line.contains("boom"), "{line}");
-        assert!(!line.contains(text.exchange_no_data), "{line}");
-        assert!(is_fault);
-        let (line, is_fault) = sync_status_line(text, None, 0, None);
-        assert_eq!(line, text.exchange_no_data);
-        assert!(!is_fault);
+        assert!(line.fault);
+        let line = sync_status_line(text, None, 0, Some("boom"));
+        assert!(line.error.is_some_and(|error| error.contains("boom")));
+        assert!(
+            !line.status.contains(text.exchange_no_data),
+            "{}",
+            line.status
+        );
+        assert!(line.fault);
+        let line = sync_status_line(text, None, 0, None);
+        assert_eq!(line.status, text.exchange_no_data);
+        assert!(line.error.is_none());
+        assert!(!line.fault);
+    }
+
+    /// 1180px 的窗口里，错误串一长（"leagues in the data: …" 能到 170 字），
+    /// 控件行就被顶出窗外、被面板的 overflow_hidden 剪掉——用户报的
+    /// "按钮不见了"就是这个。错误必须自己占一行，不混进状态文字。
+    #[test]
+    fn a_long_sync_failure_stays_out_of_the_status_text() {
+        for (language, prefix) in [
+            (ptt_settings::UiLanguage::English, "last sync failed:"),
+            (ptt_settings::UiLanguage::Chinese, "上次同步失败："),
+        ] {
+            let text = crate::i18n::text(language);
+            let line = sync_status_line(text, Some(1_700_000_000), 2, Some("boom"));
+            assert!(!line.status.contains("boom"), "{}", line.status);
+            let error = line.error.expect("the error keeps its own line");
+            assert!(error.starts_with(prefix), "{error}");
+            assert!(error.contains("boom"), "{error}");
+        }
     }
 
     #[test]
