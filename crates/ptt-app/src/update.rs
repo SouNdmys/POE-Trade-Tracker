@@ -76,6 +76,15 @@ const NEW_SUFFIX: &str = ".new-update";
 /// 下来的名字不参与拼路径，省掉一整类“资产名里带 `..\` ”的问题。
 const PENDING_ARCHIVE_NAME: &str = "pending-update.zip";
 
+/// 下到一半的那份叫什么后缀。名字里还要带上 tag,见 `part_name`。
+const PART_SUFFIX: &str = ".zip.part";
+
+/// 一次安装最多试几回。
+///
+/// 有上界是必须的:一条真的断了的线上无限重试,用户看到的是一个永远停在
+/// "下载中"的面板,那比一句"失败了"更糟——他不知道该等还是该走。
+const MAX_DOWNLOAD_ATTEMPTS: u32 = 5;
+
 // ---------------------------------------------------------------------------
 // 错误
 // ---------------------------------------------------------------------------
@@ -811,21 +820,19 @@ pub fn stage(release: &Release, progress: &Progress) -> Result<StagedUpdate, Upd
     fs::create_dir_all(&directory).map_err(|error| storage_error(&directory, &error))?;
 
     let archive_path = directory.join(PENDING_ARCHIVE_NAME);
+    let part_path = directory.join(part_name(&release.tag));
 
-    // 分母用 GitHub 报的那个数。它只是"显示用的总数",真正的闸在读的时候,
-    // 所以就算它报错了也只是条画得不准,下不满或者提前满,包照样卡在上限上。
-    progress.begin(Stage::Downloading, release.asset_size);
-    let bytes = download(&release.asset_url, progress)?;
+    // 别人家的半截文件一律扔掉。留着只会白占几十兆:它们的 tag 不是这一个,
+    // 永远不会被续上。
+    remove_stale_parts(&directory, &part_path);
 
-    // 写盘没有中间量可数,传 0 让界面别画条,只换那一句话。
+    let bytes = download(&release.asset_url, release.asset_size, &part_path, progress)?;
+
+    // 现在"写盘"只剩一次改名——字节本来就已经在这个目录里了,不必再抄一遍。
+    // 改名没有中间量可数,传 0 让界面别画条,只换那一句话。
     progress.begin(Stage::Saving, 0);
-    let mut file =
-        fs::File::create(&archive_path).map_err(|error| storage_error(&archive_path, &error))?;
-    file.write_all(&bytes)
-        .map_err(|error| storage_error(&archive_path, &error))?;
-    file.sync_all()
-        .map_err(|error| storage_error(&archive_path, &error))?;
-    drop(file);
+    let _ = fs::remove_file(&archive_path);
+    fs::rename(&part_path, &archive_path).map_err(|error| storage_error(&archive_path, &error))?;
 
     // 核对不过就把这几十兆当场删掉,不留在用户的磁盘上等下一轮覆盖。
     let checked = inspect_archive(bytes, progress).and_then(|(manifest, entries)| {
@@ -849,20 +856,122 @@ pub fn stage(release: &Release, progress: &Progress) -> Result<StagedUpdate, Upd
     })
 }
 
-/// 把包整个读进内存。上限在 `MAX_ARCHIVE_BYTES`,ureq 读到超限自己会停。
+/// 半截文件叫什么。名字里带 tag,所以另一个版本剩下的半截永远不会被续上——
+/// 续错了不会当场报错,要等几十兆下完、哈希对不上才发作。
 ///
-/// 自己分块读而不是 `read_to_vec()`:那一句在几十兆读完之前不回话,外面看到的
-/// 就是一个静止几十秒的面板。64 KiB 一块,和 `drain_entry` 同一个块大小。
+/// tag 是从网上来的字符串,而这个名字要拼进 `updates\` 下面的一个路径。所以
+/// 只留 ASCII 的字母数字和 `.-_`,别的一律换成 `_`:一个写着 `..\..\` 的标签
+/// 在拼路径之前就被拍平了,而不是靠后面某一层去挡。
+fn part_name(tag: &str) -> String {
+    let mut safe = String::with_capacity(tag.len());
+    for ch in tag.chars().take(64) {
+        // `.` 留着是为了 `v1.0.8` 好认,所以要单独把 `..` 掐掉。
+        if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') {
+            if ch == '.' && safe.ends_with('.') {
+                safe.push('_');
+                continue;
+            }
+            safe.push(ch);
+        } else {
+            safe.push('_');
+        }
+    }
+    format!("pending-update-{safe}{PART_SUFFIX}")
+}
+
+/// 扔掉 `updates\` 里除了 `keep` 之外的所有半截文件。
 ///
-/// 上限没有放松。`.limit()` 还在,它超限时从读里吐出来的是一个包着 ureq 错的
-/// `io::Error`,`ureq::Error::from` 会把它原样拆回来,所以下面那个 `TooLarge`
-/// 的分支和以前接住的是同一件事。
-fn download(url: &str, progress: &Progress) -> Result<Vec<u8>, UpdateError> {
-    // 分段超时,不用全局的那一个。全局超时把"连不上"和"下得慢"算成同一件
-    // 事:26 MiB 配 600 秒,意味着线路低于 44 KB/s 就会被当成故障掐掉,而它
-    // 明明一直在推进。有了进度条之后这更难看——用户眼睁睁看着它死在 70%。
-    // 所以握手给短的(服务器死了要快点知道),正文给足(慢线也让它下完),
-    // 按"最慢也该完成"取值:26 MiB / 1800s ≈ 15 KB/s 的地板。
+/// 删不掉就跳过:清一份废料失败不该让这次更新装不成。
+fn remove_stale_parts(directory: &Path, keep: &Path) {
+    let Ok(listing) = fs::read_dir(directory) else {
+        return;
+    };
+    for entry in listing.flatten() {
+        let path = entry.path();
+        if path == keep {
+            continue;
+        }
+        let is_part = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(PART_SUFFIX));
+        if is_part {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+/// 断在半路之后,对面这一次的回答该怎么用。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResumeDecision {
+    /// 接着手上这截往后写。
+    Append,
+    /// 手上这截作废,从零重下。
+    Restart,
+}
+
+/// 我们发了 `Range: bytes=<have>-`,对面回了 `status` 和这个 `Content-Range`。
+///
+/// 只有一种情况允许接着写:206,而且它自己说的起点**正好**是 `have`。别的一律
+/// 从零来。理由是错位不会当场发作——接错一个字节,文件长度照样对得上,zip 照样
+/// 落盘,一直要到最后算哈希才炸,而那时候几十兆已经白下了。宁可重下一次。
+fn resume_decision(status: u16, content_range: Option<&str>, have: u64) -> ResumeDecision {
+    if status != 206 {
+        // 200 是"不认 Range,给你整个文件",416 是"这个范围要不到"。两种都得从头。
+        return ResumeDecision::Restart;
+    }
+    // `bytes 1000-1999/2000` —— 要的就是第一个数。
+    let start = content_range
+        .and_then(|value| value.trim().strip_prefix("bytes "))
+        .and_then(|rest| rest.split('-').next())
+        .and_then(|first| first.trim().parse::<u64>().ok());
+    match start {
+        Some(start) if start == have => ResumeDecision::Append,
+        _ => ResumeDecision::Restart,
+    }
+}
+
+/// 第 `attempt` 次失败之后歇多久,歇完还试不试。
+///
+/// 越等越久是因为立刻重试撞上的多半还是同一个故障;封到 16 秒是因为再久用户
+/// 就分不清"在等重试"和"卡死了"。`None` 表示到头了。
+fn retry_pause(attempt: u32) -> Option<Duration> {
+    let seconds = match attempt {
+        1 => 2,
+        2 => 4,
+        3 => 8,
+        4 | 5 => 16,
+        _ => return None,
+    };
+    Some(Duration::from_secs(seconds))
+}
+
+/// 这个错值不值得再试一次。
+///
+/// 只有"没连上"和"下到一半断了"值得。对面明确拒绝(403 限流、404 没这个文件)
+/// 再试五次也是同一个答案,只是让用户多等 46 秒。
+fn worth_retrying(error: &UpdateError) -> bool {
+    matches!(error, UpdateError::Unreachable(_))
+}
+
+/// 把包下到 `part` 这个文件上,断了就续,续不上就重下,五次都不成才放弃。
+///
+/// **为什么落盘而不是攒在内存里**:原来那版把几十兆攒在一个 `Vec` 里,只在全
+/// 部读完时才交出去。线路一抖,那个 `Vec` 连同已经收到的 90% 一起丢掉,下一次
+/// 从零开始——用户那条线上这意味着永远下不完。落到磁盘上,断掉的那次留下的字
+/// 节还在,下一次带上 `Range` 从那里接着要。
+///
+/// **超时为什么还是这三个数**:握手给短的(服务器死了要快点知道),正文给足。
+/// 注意 ureq 3.4 的 `recv_body` 是**每次读**重新算的,不是整段正文的预算;真正
+/// 卡住整段正文的是 `recv_response`——它在收完头之后仍然作为一个绝对期限压着
+/// 正文,所以一次尝试实际上最多收 30 秒的正文。这正是续传存在的理由:掐掉的
+/// 那一刀现在只是"这一段收完了",下一次接着收。
+fn download(
+    url: &str,
+    expected: u64,
+    part: &Path,
+    progress: &Progress,
+) -> Result<Vec<u8>, UpdateError> {
     let config = ureq::Agent::config_builder()
         .timeout_connect(Some(Duration::from_secs(20)))
         .timeout_recv_response(Some(Duration::from_secs(30)))
@@ -870,11 +979,108 @@ fn download(url: &str, progress: &Progress) -> Result<Vec<u8>, UpdateError> {
         .build();
     let agent: ureq::Agent = config.into();
 
-    let mut response = agent
-        .get(url)
-        .header("User-Agent", USER_AGENT)
+    let mut attempt: u32 = 1;
+    // 放弃的时候要说清楚是**怎么**断的。只留最后一次:前面几次多半是同一句话,
+    // 而用户要看的是"现在为什么还不行"。
+    let mut last_reason;
+    loop {
+        let have = part_len(part);
+        if expected > 0 && have >= expected {
+            break;
+        }
+
+        // 分母用 GitHub 报的那个数,再把已经收到的那截先记上:接着上次画,而不是
+        // 每重试一次就把条打回 0。真正的闸在读的时候,这两个数只管画。
+        progress.begin(Stage::Downloading, expected);
+        progress.advance(have);
+
+        match fetch_range(&agent, url, have, expected, part, progress) {
+            Ok(()) if expected == 0 || part_len(part) >= expected => break,
+            Ok(()) => {
+                last_reason = "the connection ended before the file did".to_string();
+            }
+            Err(error) if !worth_retrying(&error) => return Err(error),
+            Err(error) => last_reason = error.to_string(),
+        }
+
+        match retry_pause(attempt).filter(|_| attempt < MAX_DOWNLOAD_ATTEMPTS) {
+            Some(pause) => {
+                std::thread::sleep(pause);
+                attempt += 1;
+            }
+            None => {
+                return Err(UpdateError::Unreachable(format!(
+                    "{last_reason} - {} of {expected} bytes arrived after {attempt} tries",
+                    part_len(part)
+                )));
+            }
+        }
+    }
+
+    fs::read(part).map_err(|error| storage_error(part, &error))
+}
+
+/// 文件现在有多长。读不到就当 0——那多半是它还不存在,而"从零下"永远是安全的。
+fn part_len(path: &Path) -> u64 {
+    fs::metadata(path).map(|meta| meta.len()).unwrap_or(0)
+}
+
+/// 一次尝试:要一段、写进 `part`。回 `Ok` 只代表这一次的正文读完了,不代表文件
+/// 已经完整——完不完整由外面比长度,那是唯一说得准的判据。
+fn fetch_range(
+    agent: &ureq::Agent,
+    url: &str,
+    have: u64,
+    expected: u64,
+    part: &Path,
+    progress: &Progress,
+) -> Result<(), UpdateError> {
+    let mut request = agent.get(url).header("User-Agent", USER_AGENT);
+    if have > 0 {
+        request = request.header("Range", &format!("bytes={have}-"));
+    }
+    // 416 必须自己接住:默认设置下 ureq 把它变成 `StatusCode` 错,而它其实是
+    // 一条有用的回答——"你手上那截和我这份对不上",听懂了就该从零重下。
+    let mut response = request
+        .config()
+        .http_status_as_error(false)
+        .build()
         .call()
         .map_err(classify_transport)?;
+
+    let status = response.status().as_u16();
+    if !(200..300).contains(&status) && status != 416 {
+        return Err(UpdateError::Rejected(status));
+    }
+    let content_range = response
+        .headers()
+        .get("Content-Range")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+
+    let mut written = match resume_decision(status, content_range.as_deref(), have) {
+        ResumeDecision::Append => have,
+        ResumeDecision::Restart => {
+            // 从零重下:先把手上那截清掉,并且把条也打回 0,不然它会停在一个
+            // 再也走不到的位置上。
+            let _ = fs::remove_file(part);
+            progress.begin(Stage::Downloading, expected);
+            0
+        }
+    };
+    if status == 416 {
+        // 没有正文可读。清完了就让外面按"失败一次"处理,下一轮 `have` 是 0,
+        // 发的就是一个不带 Range 的普通请求。
+        return Err(UpdateError::Unreachable(
+            "the server refused to resume, starting the download over".to_string(),
+        ));
+    }
+
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(part)
+        .map_err(|error| storage_error(part, &error))?;
 
     let mut reader = response
         .body_mut()
@@ -882,8 +1088,8 @@ fn download(url: &str, progress: &Progress) -> Result<Vec<u8>, UpdateError> {
         .limit(MAX_ARCHIVE_BYTES)
         .reader();
 
-    // 不按对面报的大小预分配:那个数来自网络,而这条路上不多设一个信任点。
-    let mut bytes: Vec<u8> = Vec::new();
+    // 64 KiB 一块,和 `drain_entry` 同一个块大小。分块而不是 `read_to_vec()`:
+    // 那一句在几十兆读完之前不回话,外面看到的就是一个静止几十秒的面板。
     let mut buffer = [0u8; 64 * 1024];
     loop {
         let read =
@@ -898,13 +1104,24 @@ fn download(url: &str, progress: &Progress) -> Result<Vec<u8>, UpdateError> {
         if read == 0 {
             break;
         }
-        match buffer.get(..read) {
-            Some(chunk) => bytes.extend_from_slice(chunk),
-            None => return Err(UpdateError::BadArchive("short read".to_string())),
+        let Some(chunk) = buffer.get(..read) else {
+            return Err(UpdateError::BadArchive("short read".to_string()));
+        };
+        written = written.saturating_add(read as u64);
+        // 续传之后 ureq 的 `.limit()` 只数这一段,数不到之前那几段。上限得自己
+        // 按累计长度再卡一次,否则分五次就能绕过它。
+        if written > MAX_ARCHIVE_BYTES {
+            return Err(UpdateError::TooLarge {
+                limit_bytes: MAX_ARCHIVE_BYTES,
+            });
         }
+        file.write_all(chunk)
+            .map_err(|error| storage_error(part, &error))?;
         progress.advance(read as u64);
     }
-    Ok(bytes)
+    file.sync_all()
+        .map_err(|error| storage_error(part, &error))?;
+    Ok(())
 }
 
 /// zip64 的包我们不收,而且要在把字节交出去**之前**回绝。
@@ -1354,14 +1571,27 @@ fn undo_aside(aside: &[(PathBuf, PathBuf)]) -> bool {
 /// 的进程已经不在了,才轮得到删。删不掉就跳过:清垃圾失败不该让程序起不来。
 /// 返回真正删掉的个数。
 ///
-/// 顺手把 `%LOCALAPPDATA%\PoeTradeTracker\updates\pending-update.zip` 也收了。
-/// 那是上一轮下载留下的几十兆,`stage` 只在核对不过时删它,核对过了就一直躺着
-/// ——装成功要重启,装失败也没有续传,所以走到"下一次启动"这一刻它一定是废的。
+/// 顺手把 `%LOCALAPPDATA%\PoeTradeTracker\updates\` 里的 `pending-update.zip`
+/// 和所有 `*.zip.part` 也收了。前者是上一轮下载留下的几十兆,`stage` 只在核对
+/// 不过时删它;后者是断在半路的那截。续传只在一次安装之内接得上,跨到"下一次
+/// 启动"就没人会去续了,留着只是占几十兆磁盘。
 pub fn clean_leftovers() -> usize {
     let mut removed = 0;
     if let Ok(directory) = updates_dir() {
         if fs::remove_file(directory.join(PENDING_ARCHIVE_NAME)).is_ok() {
             removed += 1;
+        }
+        if let Ok(listing) = fs::read_dir(&directory) {
+            for entry in listing.flatten() {
+                let path = entry.path();
+                let is_part = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.ends_with(PART_SUFFIX));
+                if is_part && fs::remove_file(&path).is_ok() {
+                    removed += 1;
+                }
+            }
         }
     }
     let Ok(root) = install_dir() else {
@@ -1448,6 +1678,59 @@ mod update_tests {
     fn a_manual_check_waits_longer_than_the_one_at_launch() {
         assert_eq!(check_timeout(CheckKind::Startup), Duration::from_secs(12));
         assert_eq!(check_timeout(CheckKind::Manual), Duration::from_secs(30));
+    }
+
+    /// 续传只在对面**真的**从我们要的那个字节接着给时才允许。
+    ///
+    /// 这是整条续传路上唯一会悄悄毁掉一个包的判断:接错一个字节,zip 照样有
+    /// 长度、照样落盘,只有最后哈希对不上才发作,而那时候已经下完几十兆了。
+    /// 所以四种回答分别对应什么,在这里钉死。
+    #[test]
+    fn a_resume_is_only_appended_when_the_server_continues_where_we_stopped() {
+        // 206 + 起点正是我们手上的长度:接着写。
+        assert_eq!(
+            resume_decision(206, Some("bytes 1000-1999/2000"), 1000),
+            ResumeDecision::Append
+        );
+        // 200:对面不认 Range,给的是整个文件。手上那截必须扔掉,不然就是把
+        // 文件头又接了一遍。
+        assert_eq!(resume_decision(200, None, 1000), ResumeDecision::Restart);
+        // 416:对面说这个范围要不到。从零来。
+        assert_eq!(resume_decision(416, None, 1000), ResumeDecision::Restart);
+        // 206 但起点不是 1000:接上去就错位了,而错位不会当场报错。
+        assert_eq!(
+            resume_decision(206, Some("bytes 512-1999/2000"), 1000),
+            ResumeDecision::Restart
+        );
+        // 206 却没写 Content-Range:读不出起点就等于不知道它从哪开始。
+        assert_eq!(resume_decision(206, None, 1000), ResumeDecision::Restart);
+    }
+
+    /// 重试之间要越等越久,而且必须停得下来。
+    ///
+    /// 没有上界的重试在一条真的断了的线上会一直转,用户看到的是一个永远"下载中"
+    /// 的面板——比一句"失败了"还糟。
+    #[test]
+    fn the_pause_between_retries_grows_and_then_runs_out() {
+        assert_eq!(retry_pause(1), Some(Duration::from_secs(2)));
+        assert_eq!(retry_pause(2), Some(Duration::from_secs(4)));
+        assert_eq!(retry_pause(3), Some(Duration::from_secs(8)));
+        assert_eq!(retry_pause(4), Some(Duration::from_secs(16)));
+        assert_eq!(retry_pause(5), Some(Duration::from_secs(16)));
+        assert_eq!(retry_pause(6), None);
+    }
+
+    /// 半截文件的名字里带着 tag,而 tag 是从网上来的。
+    ///
+    /// 它要拼进 `%LOCALAPPDATA%\...\updates\` 下面的一个路径,所以一个写着
+    /// `..\..\` 的标签必须在拼之前就被拍平——否则这个更新器会往别人家里写。
+    #[test]
+    fn a_tag_from_the_network_cannot_climb_out_of_the_updates_folder() {
+        assert_eq!(part_name("v1.0.8"), "pending-update-v1.0.8.zip.part");
+        let hostile = part_name(r"..\..\Windows\System32\evil");
+        assert!(!hostile.contains('\\'), "{hostile}");
+        assert!(!hostile.contains('/'), "{hostile}");
+        assert!(!hostile.contains(".."), "{hostile}");
     }
 
     fn manifest_file(path: &str, sha256: &str) -> ManifestFile {
