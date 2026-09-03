@@ -954,6 +954,41 @@ fn worth_retrying(error: &UpdateError) -> bool {
     matches!(error, UpdateError::Unreachable(_))
 }
 
+/// 下载那个 agent 的三个超时。只有下载用这一份,`latest_release` 不碰。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DownloadTimeouts {
+    connect: Duration,
+    recv_response: Duration,
+    recv_body: Duration,
+}
+
+/// 下载一次给多长时间。**这三个数的大小关系是反直觉的,别照直觉改回去。**
+///
+/// 直觉会说"正文是大头,所以 `recv_body` 给大数、`recv_response` 给小数"。
+/// ureq 3.4 的实际行为正好相反,读过 `timings.rs` 才看得出来:
+///
+/// - `recv_body` 不是整段正文的预算。每次读之前它都拿**当下**重新算一遍
+///   (`next_timeout` 里 `to_check == timeout` 那一支用的是 `now`),所以它其实是
+///   "两次收到字节之间最多能空多久",一个卡住不动的守卫。
+/// - `recv_response` 收完响应头之后**并没有下班**。`RecvBody` 的
+///   `preceeding()` 是 `RecvResponse`,而 `next_timeout` 会把前一段的绝对期限
+///   (收完头的那一刻 + `recv_response`)一起取 min。所以它才是一次尝试的墙钟上限。
+///
+/// 实测过一次:`recv_response` 给 30 秒时,一个稳定推进的下载在第 30.0 秒被掐,
+/// 报的还是 "timeout: receive response"——用户看到的就是"下到 90% 然后失败"。
+///
+/// 所以现在:握手 20 秒(服务器死了要快点知道);`recv_response` 给 1800 秒,
+/// 这是一次尝试的墙钟上限,13 KB/s 的线一次也能搬走约 23 MB,配上续传就够了;
+/// `recv_body` 给 60 秒,卡住超过一分钟就当这条连接废了,断掉去重试——那比在
+/// 一条不再出字节的连接上干等半小时强得多。
+fn download_timeouts() -> DownloadTimeouts {
+    DownloadTimeouts {
+        connect: Duration::from_secs(20),
+        recv_response: Duration::from_secs(1800),
+        recv_body: Duration::from_secs(60),
+    }
+}
+
 /// 把包下到 `part` 这个文件上,断了就续,续不上就重下,五次都不成才放弃。
 ///
 /// **为什么落盘而不是攒在内存里**:原来那版把几十兆攒在一个 `Vec` 里,只在全
@@ -961,21 +996,18 @@ fn worth_retrying(error: &UpdateError) -> bool {
 /// 从零开始——用户那条线上这意味着永远下不完。落到磁盘上,断掉的那次留下的字
 /// 节还在,下一次带上 `Range` 从那里接着要。
 ///
-/// **超时为什么还是这三个数**:握手给短的(服务器死了要快点知道),正文给足。
-/// 注意 ureq 3.4 的 `recv_body` 是**每次读**重新算的,不是整段正文的预算;真正
-/// 卡住整段正文的是 `recv_response`——它在收完头之后仍然作为一个绝对期限压着
-/// 正文,所以一次尝试实际上最多收 30 秒的正文。这正是续传存在的理由:掐掉的
-/// 那一刀现在只是"这一段收完了",下一次接着收。
+/// 三个超时为什么是那样的大小关系,见 `download_timeouts`。
 fn download(
     url: &str,
     expected: u64,
     part: &Path,
     progress: &Progress,
 ) -> Result<Vec<u8>, UpdateError> {
+    let timeouts = download_timeouts();
     let config = ureq::Agent::config_builder()
-        .timeout_connect(Some(Duration::from_secs(20)))
-        .timeout_recv_response(Some(Duration::from_secs(30)))
-        .timeout_recv_body(Some(Duration::from_secs(1800)))
+        .timeout_connect(Some(timeouts.connect))
+        .timeout_recv_response(Some(timeouts.recv_response))
+        .timeout_recv_body(Some(timeouts.recv_body))
         .build();
     let agent: ureq::Agent = config.into();
 
@@ -1704,6 +1736,29 @@ mod update_tests {
         );
         // 206 却没写 Content-Range:读不出起点就等于不知道它从哪开始。
         assert_eq!(resume_decision(206, None, 1000), ResumeDecision::Restart);
+    }
+
+    /// 下载那个 agent 的三个超时,大小关系不能被人"顺手改回去"。
+    ///
+    /// 直觉会说"正文给大数、响应头给小数",而 ureq 3.4 的实际行为正好把这条直觉
+    /// 变成陷阱:`recv_response` 收完头之后仍然作为**绝对期限**压着整段正文,而
+    /// `recv_body` 是每次读重新算的滑动值。所以这两个数必须反着配。实测过一次:
+    /// `recv_response` 给 30 秒时,一个还在稳定推进的下载在第 30.0 秒被掐掉,报的
+    /// 还是 "timeout: receive response"。这条测的就是那个大小关系。
+    #[test]
+    fn the_body_deadline_is_the_big_number_and_the_stall_guard_the_small_one() {
+        let timeouts = download_timeouts();
+        assert!(
+            timeouts.recv_body <= Duration::from_secs(120),
+            "recv_body 是卡住不动的守卫,给大了就守不住:{:?}",
+            timeouts.recv_body
+        );
+        assert!(
+            timeouts.recv_response >= Duration::from_secs(1800),
+            "recv_response 才是一次尝试的墙钟上限,给小了整段正文都被它掐:{:?}",
+            timeouts.recv_response
+        );
+        assert_eq!(timeouts.connect, Duration::from_secs(20));
     }
 
     /// 重试之间要越等越久,而且必须停得下来。
