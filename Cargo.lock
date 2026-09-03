@@ -4360,7 +4360,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-app"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "async_zip",
  "chrono",
@@ -4386,7 +4386,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-catalog"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ptt-core",
  "serde",
@@ -4396,7 +4396,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-core"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "serde",
  "serde_json",
@@ -4404,7 +4404,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-exchange-history"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ptt-catalog",
  "ptt-core",
@@ -4416,7 +4416,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-market-book"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "ptt-trade-domain",
@@ -4426,7 +4426,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-monitoring"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ptt-core",
  "ptt-recognition",
@@ -4436,7 +4436,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-ocr-onnx"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ort",
  "ptt-core",
@@ -4447,7 +4447,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-ocr-win"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ptt-core",
  "ptt-vision",
@@ -4456,14 +4456,14 @@ dependencies = [
 
 [[package]]
 name = "ptt-platform-win"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "windows 0.61.3",
 ]
 
 [[package]]
 name = "ptt-recognition"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ptt-catalog",
  "ptt-core",
@@ -4476,7 +4476,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-runtime"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "ptt-catalog",
@@ -4501,7 +4501,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-settings"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "ptt-core",
  "serde",
@@ -4510,7 +4510,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-storage"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "ptt-trade-domain",
@@ -4522,7 +4522,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-strategy"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "ptt-market-book",
@@ -4535,7 +4535,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-trade-domain"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "serde",
@@ -4547,7 +4547,7 @@ dependencies = [
 
 [[package]]
 name = "ptt-trade-engine"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "ptt-market-book",
@@ -4558,14 +4558,14 @@ dependencies = [
 
 [[package]]
 name = "ptt-vision"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "windows 0.61.3",
 ]
 
 [[package]]
 name = "ptt-workflows"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "chrono",
  "ptt-market-book",
