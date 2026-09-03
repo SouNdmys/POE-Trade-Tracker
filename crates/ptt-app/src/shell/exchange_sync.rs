@@ -119,10 +119,15 @@ impl AppShell {
                             }
                             // 页面级落点：联赛名可疑要一直挂在交易所页上，
                             // 直到某一轮真的收到了这个联赛的行；其它成功轮清掉旧错。
+                            let notice = round.league_name_suspect.then(|| {
+                                league_suspect_notice(
+                                    this.text(),
+                                    round.stored,
+                                    &round.leagues_seen,
+                                )
+                            });
                             if disposition.publish_error {
-                                this.exchange_sync_error = round.league_name_suspect.then(|| {
-                                    round.log_line().trim_start_matches("exchange: ").to_owned()
-                                });
+                                this.exchange_sync_error = notice;
                             }
                             if round.worth_a_log_line() {
                                 this.push_log(round.log_line());
@@ -393,6 +398,24 @@ fn to_storage_row(
     }
 }
 
+/// 联赛名可疑时挂在交易所页上的那句话。
+///
+/// 和 `log_line` 分开写：日志行按惯例是英文，而页面这句是用户照着改设置的
+/// 说明书——界面切成中文，它就得是中文。联赛名本身不翻译，它们要被原样
+/// 抄回设置框里。
+fn league_suspect_notice(text: &crate::i18n::Text, stored: usize, leagues: &[String]) -> String {
+    let mut notice =
+        ptt_runtime::report_text::fill(text.exchange_league_rows_missing, &[&stored.to_string()]);
+    if !leagues.is_empty() {
+        notice.push_str(" · ");
+        notice.push_str(&ptt_runtime::report_text::fill(
+            text.exchange_leagues_in_data,
+            &[&leagues.join(", ")],
+        ));
+    }
+    notice
+}
+
 /// 联赛名按市场数从多到少排，只留前几个：正式联赛和标准都在前面，
 /// 私人联赛（PL 编号）市场少，自然沉底不占提示。
 fn top_leagues(counts: std::collections::BTreeMap<String, usize>, limit: usize) -> Vec<String> {
@@ -536,6 +559,36 @@ mod exchange_sync_tests {
         };
         let line = suspect.log_line();
         assert!(line.contains("Allflame, Standard"), "{line}");
+    }
+
+    /// 日志行按约定留英文，但页面上那句是用户照着改设置的说明书：
+    /// 界面切成中文，它也得是中文。联赛名本身不翻译（要照抄进设置框）。
+    #[test]
+    fn the_page_notice_speaks_the_interface_language() {
+        let leagues = vec!["Allflame".to_owned(), "Standard".to_owned()];
+        let english = league_suspect_notice(
+            crate::i18n::text(ptt_settings::UiLanguage::English),
+            48,
+            &leagues,
+        );
+        assert!(english.contains("check the league name"), "{english}");
+        assert!(english.contains("Allflame, Standard"), "{english}");
+        let chinese = league_suspect_notice(
+            crate::i18n::text(ptt_settings::UiLanguage::Chinese),
+            48,
+            &leagues,
+        );
+        assert!(chinese.contains("联赛名"), "{chinese}");
+        assert!(chinese.contains("Allflame, Standard"), "{chinese}");
+        assert!(!chinese.contains("check the league name"), "{chinese}");
+        // 一个联赛都没见到（比如整轮都是还没发布的空小时）就别摆空名单。
+        let bare = league_suspect_notice(
+            crate::i18n::text(ptt_settings::UiLanguage::English),
+            48,
+            &[],
+        );
+        assert!(bare.contains("48"), "{bare}");
+        assert!(!bare.contains('·'), "{bare}");
     }
 
     #[test]
