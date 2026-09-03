@@ -245,8 +245,10 @@ anonymous calls per IP per hour and an unthrottled button would burn the hour in
 
 If you press install, the package is downloaded, every file in it is checked against the
 `MANIFEST.json` the package carries, all the new files are written beside their destinations
-first, and only once every one has landed does the swap begin. A failed check deletes the
-download rather than leaving tens of megabytes behind. `ptt-app.exe` and `onnxruntime.dll`
+first, and only once every one has landed does the swap begin. The download is written straight
+to disk, so a connection that drops part-way resumes from the byte it stopped at rather than
+starting over, and it retries a few times with a growing pause before giving up. A failed check
+deletes the download rather than leaving tens of megabytes behind. `ptt-app.exe` and `onnxruntime.dll`
 cannot be deleted while running, so they are renamed aside to `.old` and swept on the next
 launch.
 
@@ -309,9 +311,11 @@ It reads pixels. That is the entire interaction with the game.
 - **Network, in full:** anonymous, read-only GETs to two places. GitHub Releases once per
   launch to ask whether there is a newer version (and, only if you press install, that
   release's download URL); and `https://web.poecdn.com/api/currency-exchange/...` once an
-  hour for the official exchange history, only while a league name is set. There is no POST or
-  PUT anywhere in the workspace, no telemetry and no crash reporting — crashes go to a local
-  `panic.log` and nowhere else.
+  hour for the official exchange history, only while a league name is set. Both GETs follow the
+  Windows system proxy setting — the one under Internet Options that your browser uses — and
+  `HTTPS_PROXY`/`ALL_PROXY` if either is set, so a machine that reaches GitHub only through a
+  proxy or VPN reaches it here too. There is no POST or PUT anywhere in the workspace, no
+  telemetry and no crash reporting — crashes go to a local `panic.log` and nowhere else.
 - **Writes, in full:** `%LOCALAPPDATA%\PoeTradeTracker\`, and — when you press install on an
   update — its own program folder. No registry writes, no system settings, no autostart entry,
   and it spawns no processes. The clipboard is written only when you press a copy button in
