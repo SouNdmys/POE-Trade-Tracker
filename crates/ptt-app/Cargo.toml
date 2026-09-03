@@ -38,7 +38,19 @@ serde_json.workspace = true
 sha2.workspace = true
 # 只要 rustls,不要 gzip:GitHub 的 zip 已经是压缩的,再套一层解压只是多一条
 # 会出错的路。rustls 0.23 和 ring 是 gpui 已经带进来的那份,共用。
-ureq = { version = "3.4", default-features = false, features = ["rustls"] }
+#
+# `win-system-proxy` 是为了跟浏览器走同一条路。ureq 默认只认 `HTTPS_PROXY` 这类
+# 环境变量,而 Windows 上设代理/开 VPN 的人几乎都是在"Internet 选项"里设的——那份
+# 设置存在注册表,不在环境变量里。少了这个 feature,浏览器能开 GitHub、这个程序
+# 却直连然后超时,而用户看到的只有一句"连不上 GitHub",完全指不到代理上去。
+# 代价是多一个 winreg 0.56(MIT),只用来读那两个注册表值;同名的 0.55 早就在
+# Cargo.lock 里(embed-resource 的构建依赖),所以这是一个已经审过的箱子的新版本。
+# feature 在整个 workspace 上是并起来的,所以 ptt-exchange-history 那条拉小时线的
+# 路也跟着走代理——正是想要的:两个 GET 应该同进同出。
+ureq = { version = "3.4", default-features = false, features = [
+    "rustls",
+    "win-system-proxy",
+] }
 ptt-core = { path = "../ptt-core" }
 ptt-exchange-history = { path = "../ptt-exchange-history" }
 ptt-platform-win = { path = "../ptt-platform-win" }
