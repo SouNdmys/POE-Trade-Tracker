@@ -1004,6 +1004,10 @@ impl AppShell {
                         *self.skips.entry(reason.clone()).or_default() += 1;
                         self.last_skip = Some(reason);
                     }
+                    // Into the log rather than the fault banner: the book was
+                    // kept, so the run is still healthy — this is a note to
+                    // read, not a state to recover from.
+                    UiEvent::Warning(message) => self.push_log(message),
                     UiEvent::Fault(message) => {
                         self.fault = Some(message);
                         self.watching = false;

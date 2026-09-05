@@ -152,6 +152,10 @@ mod windows_backend {
             analysis: Box<ptt_runtime::analysis::PairAnalysis>,
         },
         Skipped(String),
+        /// A stored book the pipeline wants a second look at. Already a
+        /// sentence, unlike the events above, because the pipeline built it
+        /// from the same bilingual catalogue the report pages use.
+        Warning(String),
         Fault(String),
         Stopped,
     }
@@ -254,6 +258,9 @@ mod windows_backend {
                     if reason != "duplicate" {
                         let _ = sender.send(UiEvent::Skipped(reason));
                     }
+                }
+                PipelineEvent::Warning(message) => {
+                    let _ = sender.send(UiEvent::Warning(message));
                 }
                 PipelineEvent::Fault(message) => {
                     let _ = sender.send(UiEvent::Fault(message));

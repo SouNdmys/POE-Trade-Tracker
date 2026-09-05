@@ -63,6 +63,98 @@ pub fn magnitude_suspect(
     baseline.is_some_and(|baseline| top_rate.differs_by_more_than(baseline, factor))
 }
 
+/// Flags the book's identity, then stores it either way.
+///
+/// A function of its own rather than four lines inside the loop, because this
+/// is the only place the "flag, never reject" rule is expressed and the rest
+/// of [`LivePipeline::run`] needs a real screen to reach. A test can drive
+/// exactly this, in exactly this order.
+pub fn warn_then_persist(
+    store: &mut MarketStore,
+    capture: &ptt_trade_domain::ConfirmedCapture,
+    language: ptt_settings::UiLanguage,
+    on_event: &mut impl FnMut(PipelineEvent),
+) -> Result<(), ptt_storage::StorageError> {
+    if let Some(warning) = identity_warning(store, capture, language) {
+        on_event(PipelineEvent::Warning(warning));
+    }
+    store.persist_capture(capture)
+}
+
+/// The sentence to show when this book's magnitude does not match its pair's
+/// recent history, or `None` when there is nothing to say.
+///
+/// Every unreadable case returns `None`: no rollups on disk, no history for
+/// this pair, no exact taker row to price from. This runs on the live capture
+/// path, where a guard that fails must cost nothing.
+fn identity_warning(
+    store: &MarketStore,
+    capture: &ptt_trade_domain::ConfirmedCapture,
+    language: ptt_settings::UiLanguage,
+) -> Option<String> {
+    let top_rate = top_taker_rate(&capture.rows)?;
+    let baseline = recent_median_top_taker_rate(store, capture)?;
+    if !magnitude_suspect(&top_rate, Some(&baseline), IDENTITY_SANITY_FACTOR) {
+        return None;
+    }
+    Some(crate::report_text::fill(
+        crate::report_text::report(language).identity_magnitude_suspect,
+        &[
+            capture.have_asset_id.as_str(),
+            capture.need_asset_id.as_str(),
+            &top_rate.text,
+            &baseline.text,
+        ],
+    ))
+}
+
+/// This book's own top-of-book taker rate: the best exact rate on the
+/// available side.
+///
+/// Computed the same way the daily fold computes `top_taker_rate` — aggregate
+/// rows (`<` / `>`) excluded because their boundary prices the whole tail, and
+/// the maximum taken. Two sides of a comparison that are computed differently
+/// make the ten-fold band mean two different things at once.
+fn top_taker_rate(rows: &[ptt_trade_domain::ConfirmedOrderRow]) -> Option<ptt_trade_domain::Ratio> {
+    rows.iter()
+        .filter(|row| {
+            row.side == ptt_trade_domain::QuoteSide::Available
+                && row.comparator == ptt_trade_domain::Comparator::Exact
+        })
+        .map(|row| row.ratio.clone())
+        .max_by(|left, right| left.compare_value(right))
+}
+
+/// What this pair was worth on the most recent of the three days before this
+/// capture that has a rollup.
+///
+/// Three days rather than one so a night off does not blind the guard, and
+/// not more so that a stale week of prices never becomes today's yardstick.
+/// The daily fold rather than the previous book: it is already a median over
+/// a whole day, which is what makes a ten-fold gap mean something.
+fn recent_median_top_taker_rate(
+    store: &MarketStore,
+    capture: &ptt_trade_domain::ConfirmedCapture,
+) -> Option<ptt_trade_domain::Ratio> {
+    let today = capture.captured_at.date_naive();
+    let from = (today - chrono::Days::new(3)).to_string();
+    let to = (today - chrono::Days::new(1)).to_string();
+    let rows = store
+        .load_rollups(crate::rollup::game_key(capture.context.game), &from, &to)
+        .ok()?;
+    // `load_rollups` orders by day ascending, so the last match is the newest.
+    rows.iter()
+        .filter(|row| {
+            row.need_asset_id == capture.need_asset_id.as_str()
+                && row.have_asset_id == capture.have_asset_id.as_str()
+        })
+        .filter_map(|row| {
+            let (numerator, denominator) = row.median_top_taker_rate?;
+            ptt_trade_domain::Ratio::from_parts(numerator, denominator).ok()
+        })
+        .next_back()
+}
+
 /// One order row of an accepted book.
 ///
 /// The panel's own fields rather than a sentence about them, so the interface
@@ -109,6 +201,13 @@ pub enum PipelineEvent {
     /// A frame was not used. The reason is the session's own typed key, not a
     /// parsed debug string.
     Skipped(String),
+    /// The book was used and stored, but something about it is worth a look.
+    ///
+    /// Deliberately not a `Skipped`: dressing a kept book as a dropped frame
+    /// would fold "this frame was not used" and "this frame was used but
+    /// looks odd" into the same counter, and the skip histogram is how the
+    /// user reads whether the watcher is working at all.
+    Warning(String),
     /// Something the run cannot recover from.
     Fault(String),
 }
@@ -218,6 +317,16 @@ pub fn active_profile() -> ptt_core::ProfileId {
         .active_profile
 }
 
+/// The interface language, or English if settings are unreadable.
+#[must_use]
+pub fn active_language() -> ptt_settings::UiLanguage {
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    ptt_settings::SettingsStore::release_default_from(Path::new(&local))
+        .load()
+        .settings
+        .ui_language
+}
+
 /// The saved calibration for the profile the pipeline actually runs.
 pub fn apply_saved_calibration() -> Vec<String> {
     apply_saved_calibration_for(active_profile())
@@ -234,6 +343,12 @@ pub struct LivePipeline {
     /// analysis window can be clamped with zero work inside the loop. A
     /// season started mid-session reaches the next session.
     season_floor: Option<chrono::DateTime<chrono::Utc>>,
+    /// Which language the pipeline's own warnings are written in, read once
+    /// at open. The pipeline normally hands the interface typed facts and lets
+    /// it do the wording, but the bilingual report catalogue lives in this
+    /// crate, so a sentence built here is the short path — and a language
+    /// switched mid-session reaches the next one.
+    language: ptt_settings::UiLanguage,
 }
 
 impl LivePipeline {
@@ -267,6 +382,7 @@ impl LivePipeline {
             context_key,
             sequence: 0,
             season_floor,
+            language: active_language(),
         })
     }
 
@@ -293,6 +409,7 @@ impl LivePipeline {
             context_key,
             sequence,
             season_floor,
+            language,
         } = self;
         run_session(
             route,
@@ -354,7 +471,8 @@ impl LivePipeline {
                             return;
                         }
                     };
-                    if let Err(error) = store.persist_capture(&capture) {
+                    if let Err(error) = warn_then_persist(store, &capture, *language, &mut on_event)
+                    {
                         on_event(PipelineEvent::Skipped("persist-failed".to_owned()));
                         on_event(PipelineEvent::Fault(format!(
                             "book NOT stored ({need_id} -> {have_id}): persist: {error}"

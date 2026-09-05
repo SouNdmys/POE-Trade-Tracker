@@ -70,6 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             // Skips are summarized by the stats block at the end.
             PipelineEvent::Skipped(_) => {}
+            PipelineEvent::Warning(message) => println!("WARN {message}"),
             PipelineEvent::Fault(message) => eprintln!("FAULT {message}"),
         },
     );

@@ -164,6 +164,13 @@ pub struct ReportText {
     pub analytics_table_header: &'static str,
     pub analytics_marker_high_turnover: &'static str,
     pub analytics_marker_greedy: &'static str,
+    /// The live pipeline's identity flag. Slots: from asset, to asset, this
+    /// book's best taker rate, the recent daily median it was compared to.
+    ///
+    /// The sentence has to end by saying the book was kept, because the flag
+    /// reports and never rejects — a warning that reads like a rejection
+    /// would send the user looking for a book that is already there.
+    pub identity_magnitude_suspect: &'static str,
 }
 
 #[must_use]
@@ -276,6 +283,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     analytics_table_header: "asset | value | supply | demand | class | trend",
     analytics_marker_high_turnover: "high-turnover",
     analytics_marker_greedy: "greedy-fit",
+    identity_magnitude_suspect: "{} -> {}: this book's best rate {} is nowhere near the recent daily median {} - check the currency names, the book was stored anyway",
 };
 
 pub static REPORT_CHINESE: ReportText = ReportText {
@@ -380,6 +388,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     analytics_table_header: "通货 | 价值 | 供给 | 需求 | 分类 | 趋势",
     analytics_marker_high_turnover: "高流转",
     analytics_marker_greedy: "适合贪婪",
+    identity_magnitude_suspect: "{} -> {}：这本书最好的一档 {} 和最近的日中位 {} 差了一个量级——书照常落库了，但先核对一下通货名字",
 };
 
 /// Fills a template's `{}` slots, in order.
@@ -1172,6 +1181,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "analytics_marker_greedy",
             REPORT_ENGLISH.analytics_marker_greedy,
             REPORT_CHINESE.analytics_marker_greedy,
+        ),
+        (
+            "identity_magnitude_suspect",
+            REPORT_ENGLISH.identity_magnitude_suspect,
+            REPORT_CHINESE.identity_magnitude_suspect,
         ),
     ]
 }
