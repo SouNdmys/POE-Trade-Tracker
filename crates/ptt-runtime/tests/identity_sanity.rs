@@ -7,6 +7,9 @@
 //! pair with no history is never doubted, and the one case where nothing may
 //! be said at all is the write that did not happen.
 
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use chrono::{DateTime, TimeZone, Utc};
 use ptt_runtime::pipeline::{PipelineEvent, persist_then_warn};
 use ptt_settings::UiLanguage;
@@ -110,12 +113,60 @@ fn at(day: u32) -> DateTime<Utc> {
         .expect("time")
 }
 
-fn store(name: &str) -> MarketStore {
-    let directory = std::env::temp_dir().join("ptt-identity-sanity");
+/// A database no other test can reach, deleted when the test ends.
+///
+/// The old helper put every test's database in one shared directory under a
+/// name of its own and deleted only the `.sqlite` file before opening it. Two
+/// things went wrong with that. The store runs in WAL mode, so each database
+/// is really three files, and the `-wal` and `-shm` the helper left behind
+/// were still sitting beside the next run's fresh database. And the directory
+/// is shared by every process, so two `cargo test` runs at once — two
+/// worktrees, or a crate run alongside a workspace run — reach for the same
+/// path and take turns truncating each other's database.
+///
+/// The process id and a counter make the directory this test's alone, and
+/// `Drop` removes the whole thing, WAL and all.
+struct TempStore {
+    directory: PathBuf,
+    /// An `Option` only so [`Drop`] can close the connection before removing
+    /// the directory: Windows refuses to delete a file that is still open.
+    store: Option<MarketStore>,
+}
+
+impl Drop for TempStore {
+    fn drop(&mut self) {
+        self.store.take();
+        let _ = std::fs::remove_dir_all(&self.directory);
+    }
+}
+
+impl std::ops::Deref for TempStore {
+    type Target = MarketStore;
+
+    fn deref(&self) -> &MarketStore {
+        self.store.as_ref().expect("store outlives every use")
+    }
+}
+
+impl std::ops::DerefMut for TempStore {
+    fn deref_mut(&mut self) -> &mut MarketStore {
+        self.store.as_mut().expect("store outlives every use")
+    }
+}
+
+fn store(name: &str) -> TempStore {
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let directory = std::env::temp_dir().join(format!(
+        "ptt-identity-sanity-{}-{}-{name}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let _ = std::fs::remove_dir_all(&directory);
     std::fs::create_dir_all(&directory).expect("temp dir");
-    let path = directory.join(format!("{name}.sqlite"));
-    let _ = std::fs::remove_file(&path);
-    MarketStore::open(&path).expect("store")
+    TempStore {
+        store: Some(MarketStore::open(directory.join("market.sqlite")).expect("store")),
+        directory,
+    }
 }
 
 /// One day's fold for exalted-for-chaos, with `rate` as the day's median top
