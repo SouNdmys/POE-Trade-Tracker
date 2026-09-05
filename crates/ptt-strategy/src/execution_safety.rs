@@ -155,6 +155,15 @@ pub enum ModelCaveat {
     /// sit in that table (they cannot take their own), and because a
     /// mis-labelled panel side would surface nowhere else.
     MirroredFromCompeting,
+    /// A leg's visible stock sits an order of magnitude from the rest of its
+    /// side of the panel.
+    ///
+    /// A caveat rather than a risk because the rate is untouched: what is in
+    /// doubt is how much of it there is. The same shape is either a reading
+    /// that gained a digit or the one deep listing on the panel, and the
+    /// reader — who can look at the row — decides which. Gating on it would
+    /// hide the best row exactly when it is real.
+    StockOutOfBand,
 }
 
 /// How far a result can be trusted, worst to best.
@@ -332,6 +341,11 @@ fn absorb_execution_flag(
         }
         ExecutionRiskFlag::SingleListingBook => {
             risks.insert(ExecutionRisk::SingleListingBook);
+        }
+        // Depth, not price -- see `ModelCaveat::StockOutOfBand`. Told, not
+        // gated: the rate this fill quotes is exactly as good as it looks.
+        ExecutionRiskFlag::StockOutOfBand => {
+            caveats.insert(ModelCaveat::StockOutOfBand);
         }
         ExecutionRiskFlag::PartialRoute => {
             risks.insert(ExecutionRisk::PartialRoute);
@@ -549,6 +563,31 @@ mod tests {
         assert!(risks.is_empty(), "model limits are not market hazards");
         assert_eq!(caveats.len(), 3);
         assert_eq!(actionability_for(&risks), Actionability::InstantExecutable);
+    }
+
+    /// B-2: the book flags a listing whose depth is an order of magnitude
+    /// off its side, and the reader needs to see it — but a suspect *depth*
+    /// is not a reason the quoted rate will not fill. Made a risk it would
+    /// drop the route to `ProbeRequired`, which is the tracker overruling the
+    /// reader on exactly the row the reader is best placed to judge.
+    #[test]
+    fn a_stock_out_of_band_is_a_caveat_not_a_risk() {
+        let mut risks = BTreeSet::new();
+        let mut caveats = BTreeSet::new();
+        absorb_execution_flag(ExecutionRiskFlag::StockOutOfBand, &mut risks, &mut caveats);
+        assert!(
+            risks.is_empty(),
+            "a suspect depth must not gate the route: {risks:?}"
+        );
+        assert_eq!(
+            actionability_for(&risks),
+            Actionability::InstantExecutable,
+            "and nothing else is wrong with the rate"
+        );
+        assert!(
+            caveats.contains(&ModelCaveat::StockOutOfBand),
+            "but the reader is told the depth looks misread: {caveats:?}"
+        );
     }
 
     /// **A rate read off the competing table is a trade you can take, not an

@@ -24,6 +24,11 @@ pub enum ExecutionRiskFlag {
     /// no second quote to corroborate the price, so the row that a median
     /// band cannot judge is named instead of trusted silently.
     SingleListingBook,
+    /// A level this fill priced against carries stock an order of magnitude
+    /// away from the rest of its side. The rate still fills; it is the depth
+    /// behind it — and so every capacity figure derived from it — that may be
+    /// a misread digit.
+    StockOutOfBand,
     BelowMinimumOutput,
     CapacityRoundedToUnit,
     UnknownFee,
@@ -557,6 +562,11 @@ impl MarketDepthIndex {
             {
                 risks.insert(ExecutionRiskFlag::ReverseFromCompeting);
             }
+            // Only for levels actually consumed: a suspect depth the walk
+            // never reached says nothing about this fill.
+            if level.risk_flags.contains(&QuoteRiskFlag::StockOutOfBand) {
+                risks.insert(ExecutionRiskFlag::StockOutOfBand);
+            }
             fills.push(QuoteLevelFill {
                 quote_edge_id: edge.edge_id.clone(),
                 snapshot_id: edge.snapshot_id.clone(),
@@ -682,6 +692,11 @@ impl MarketDepthIndex {
             .count();
         if reference_count == 1 {
             risks.insert(ExecutionRiskFlag::SingleListingBook);
+        }
+        // This one level's stock is the whole of the visible reference depth
+        // here, so a misread digit on it moves the suggested size directly.
+        if level.risk_flags.contains(&QuoteRiskFlag::StockOutOfBand) {
+            risks.insert(ExecutionRiskFlag::StockOutOfBand);
         }
         if input.quanta > visible_reference_quanta {
             risks.insert(ExecutionRiskFlag::MakerDepthExceeded);

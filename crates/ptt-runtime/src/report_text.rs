@@ -1322,6 +1322,11 @@ pub const fn execution_risk_flag(language: UiLanguage, value: ExecutionRiskFlag)
         ExecutionRiskFlag::SingleListingBook => {
             pick(language, "only one listing on this side", "该侧仅一条挂单")
         }
+        ExecutionRiskFlag::StockOutOfBand => pick(
+            language,
+            "stock unlike the rest of its side",
+            "库存与同侧其他行差一个数量级",
+        ),
         ExecutionRiskFlag::BelowMinimumOutput => {
             pick(language, "below minimum output", "低于最小产出")
         }
@@ -1587,6 +1592,7 @@ mod tests {
                 ExecutionRiskFlag::MakerDepthExceeded,
                 ExecutionRiskFlag::LiquidityCapped,
                 ExecutionRiskFlag::SingleListingBook,
+                ExecutionRiskFlag::StockOutOfBand,
                 ExecutionRiskFlag::BelowMinimumOutput,
                 ExecutionRiskFlag::CapacityRoundedToUnit,
                 ExecutionRiskFlag::UnknownFee,
