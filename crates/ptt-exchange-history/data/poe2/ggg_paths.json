@@ -455,6 +455,26 @@
     "note": "Core Destabiliser"
   },
   {
+    "path": "Metadata/Items/Currency/CurrencyIncursionMutateCorruptionEnchantArmour",
+    "asset_id": "kopecs_sacrifice_orb",
+    "note": "Kopec's Orb of Sacrifice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionMutateCorruptionEnchantJewel",
+    "asset_id": "yuguls_sacrifice_orb",
+    "note": "Yugul's Orb of Sacrifice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionMutateCorruptionEnchantJewellery",
+    "asset_id": "kamasas_sacrifice_orb",
+    "note": "Kamasa's Orb of Sacrifice"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyIncursionMutateCorruptionEnchantWeapon",
+    "asset_id": "yaomacs_sacrifice_orb",
+    "note": "Yaomac's Orb of Sacrifice"
+  },
+  {
     "path": "Metadata/Items/Currency/CurrencyIncursionMutateUnique",
     "asset_id": "vaal_cultivation_orb",
     "note": "Vaal Cultivation Orb"
@@ -468,66 +488,6 @@
     "path": "Metadata/Items/Currency/CurrencyIncursionWeaponOrArmourQualityHigh",
     "asset_id": "vaal_armourers_infuser",
     "note": "Vaal Armourer's Infuser"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttack",
-    "asset_id": "reaver_catalyst",
-    "note": "Reaver Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttribute",
-    "asset_id": "adaptive_catalyst",
-    "note": "Adaptive Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCaster",
-    "asset_id": "sibilant_catalyst",
-    "note": "Sibilant Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityChaos",
-    "asset_id": "chaos_catalyst",
-    "note": "Chayula's Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCold",
-    "asset_id": "cold_catalyst",
-    "note": "Tul's Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityDefences",
-    "asset_id": "carapace_catalyst",
-    "note": "Carapace Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityFire",
-    "asset_id": "fire_catalyst",
-    "note": "Xoph's Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityLife",
-    "asset_id": "life_catalyst",
-    "note": "Flesh Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityLightning",
-    "asset_id": "lightning_catalyst",
-    "note": "Esh's Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityMana",
-    "asset_id": "mana_catalyst",
-    "note": "Neural Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityPhysical",
-    "asset_id": "physical_catalyst",
-    "note": "Uul-Netol's Catalyst"
-  },
-  {
-    "path": "Metadata/Items/Currency/CurrencyJewelleryQualitySpeed",
-    "asset_id": "skittering_catalyst",
-    "note": "Skittering Catalyst"
   },
   {
     "path": "Metadata/Items/Currency/CurrencyJewelQualityAttack",
@@ -580,6 +540,11 @@
     "note": "Refined Neural Catalyst"
   },
   {
+    "path": "Metadata/Items/Currency/CurrencyJewelQualityMinion",
+    "asset_id": "refined_necrotic_catalyst",
+    "note": "Refined Necrotic Catalyst"
+  },
+  {
     "path": "Metadata/Items/Currency/CurrencyJewelQualityPhysical",
     "asset_id": "refined_uul_netols_catalyst",
     "note": "Refined Uul-Netol's Catalyst"
@@ -588,6 +553,71 @@
     "path": "Metadata/Items/Currency/CurrencyJewelQualitySpeed",
     "asset_id": "refined_skittering_catalyst",
     "note": "Refined Skittering Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttack",
+    "asset_id": "reaver_catalyst",
+    "note": "Reaver Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityAttribute",
+    "asset_id": "adaptive_catalyst",
+    "note": "Adaptive Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCaster",
+    "asset_id": "sibilant_catalyst",
+    "note": "Sibilant Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityChaos",
+    "asset_id": "chaos_catalyst",
+    "note": "Chayula's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityCold",
+    "asset_id": "cold_catalyst",
+    "note": "Tul's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityDefences",
+    "asset_id": "carapace_catalyst",
+    "note": "Carapace Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityFire",
+    "asset_id": "fire_catalyst",
+    "note": "Xoph's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityLife",
+    "asset_id": "life_catalyst",
+    "note": "Flesh Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityLightning",
+    "asset_id": "lightning_catalyst",
+    "note": "Esh's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityMana",
+    "asset_id": "mana_catalyst",
+    "note": "Neural Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityMinion",
+    "asset_id": "necrotic_catalyst",
+    "note": "Necrotic Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualityPhysical",
+    "asset_id": "physical_catalyst",
+    "note": "Uul-Netol's Catalyst"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyJewelleryQualitySpeed",
+    "asset_id": "skittering_catalyst",
+    "note": "Skittering Catalyst"
   },
   {
     "path": "Metadata/Items/Currency/CurrencyLesserEssenceAlly",
@@ -808,6 +838,11 @@
     "path": "Metadata/Items/Currency/CurrencyRerollRare3",
     "asset_id": "perfect_chaos_orb",
     "note": "Perfect Chaos Orb"
+  },
+  {
+    "path": "Metadata/Items/Currency/CurrencyRerollRemnant",
+    "asset_id": "liquid_verisium",
+    "note": "Liquid Verisium"
   },
   {
     "path": "Metadata/Items/Currency/CurrencySetKalguuranSkillGemLevel10",
@@ -1403,6 +1438,11 @@
     "path": "Metadata/Items/Currency/Ritual/RitualPinnacleKey",
     "asset_id": "head_of_the_king",
     "note": "Head of the King"
+  },
+  {
+    "path": "Metadata/Items/Currency/StrongboxKey",
+    "asset_id": "cryptic_key",
+    "note": "Cryptic Key"
   },
   {
     "path": "Metadata/Items/Expedition/Expedition2Logbook",
@@ -2040,6 +2080,16 @@
     "note": "Breachstone"
   },
   {
+    "path": "Metadata/Items/MapFragments/CurrencyRitualBossFragment",
+    "asset_id": "an_audience_with_the_king",
+    "note": "An Audience with the King"
+  },
+  {
+    "path": "Metadata/Items/MapFragments/CurrencyWildwoodFragment",
+    "asset_id": "sacred_bloom",
+    "note": "Sacred Bloom"
+  },
+  {
     "path": "Metadata/Items/MapFragments/VaultKeyAzmeriSpirits",
     "asset_id": "azmeri_vault_key",
     "note": "Azmeri Reliquary Key"
@@ -2118,6 +2168,26 @@
     "path": "Metadata/Items/Pinnacle/BurningMonolithKey3",
     "asset_id": "weathered_crisis_fragment",
     "note": "Weathered Crisis Fragment"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/MothersoulCombined",
+    "asset_id": "origin_core",
+    "note": "Origin Core"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/MothersoulEgg",
+    "asset_id": "origin_cradle",
+    "note": "Origin Cradle"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/MothersoulEmbryo",
+    "asset_id": "origin_spark",
+    "note": "Origin Spark"
+  },
+  {
+    "path": "Metadata/Items/Pinnacle/RitualPinnacleEffigyPiece",
+    "asset_id": "call_of_the_shadows",
+    "note": "Call of the Shadows"
   },
   {
     "path": "Metadata/Items/SoulCores/AmanamusGaze",
@@ -3055,14 +3125,99 @@
     "note": "Xipocado's Soul Core of Dominion"
   },
   {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial16",
+    "asset_id": "jiquani_automation_soul_core",
+    "note": "Jiquani's Soul Core of Automation"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial17",
+    "asset_id": "jiquani_malediction_soul_core",
+    "note": "Jiquani's Soul Core of Malediction"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial18",
+    "asset_id": "jiquani_targeting_soul_core",
+    "note": "Jiquani's Soul Core of Targeting"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial19",
+    "asset_id": "jiquani_rallying_soul_core",
+    "note": "Jiquani's Soul Core of Rallying"
+  },
+  {
     "path": "Metadata/Items/SoulCores/SoulCoreSpecial2",
     "asset_id": "zalatl_insulation_soul_core",
     "note": "Zalatl's Soul Core of Insulation"
   },
   {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial20",
+    "asset_id": "jiquani_radiance_soul_core",
+    "note": "Jiquani's Soul Core of Radiance"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial21",
+    "asset_id": "jiquani_severing_soul_core",
+    "note": "Jiquani's Soul Core of Severing"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial22",
+    "asset_id": "jiquani_rippling_soul_core",
+    "note": "Jiquani's Soul Core of Rippling"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial23",
+    "asset_id": "jiquani_quaking_soul_core",
+    "note": "Jiquani's Soul Core of Quaking"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial24",
+    "asset_id": "jiquani_munitions_soul_core",
+    "note": "Jiquani's Soul Core of Munitions"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial25",
+    "asset_id": "jiquani_snares_soul_core",
+    "note": "Jiquani's Soul Core of Snares"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial26",
+    "asset_id": "jiquani_abundance_soul_core",
+    "note": "Jiquani's Soul Core of Abundance"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial27",
+    "asset_id": "jiquani_squalls_soul_core",
+    "note": "Jiquani's Soul Core of Squalls"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial28",
+    "asset_id": "jiquani_thundering_soul_core",
+    "note": "Jiquani's Soul Core of Thundering"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial29",
+    "asset_id": "atziri_devotion_soul_core",
+    "note": "Atziri's Soul Core of Devotion"
+  },
+  {
     "path": "Metadata/Items/SoulCores/SoulCoreSpecial3",
     "asset_id": "topotante_dampening_soul_core",
     "note": "Topotante's Soul Core of Dampening"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial30",
+    "asset_id": "atziri_vitality_soul_core",
+    "note": "Atziri's Soul Core of Vitality"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial31",
+    "asset_id": "atziri_alacrity_soul_core",
+    "note": "Atziri's Soul Core of Alacrity"
+  },
+  {
+    "path": "Metadata/Items/SoulCores/SoulCoreSpecial32",
+    "asset_id": "atziri_inoculation_soul_core",
+    "note": "Atziri's Soul Core of Inoculation"
   },
   {
     "path": "Metadata/Items/SoulCores/SoulCoreSpecial4",
