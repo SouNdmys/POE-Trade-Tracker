@@ -160,7 +160,9 @@ This is the part people get wrong. Nothing is read until the three regions are f
 7. **Come back to the app.** The watchlist and the radar only know the pairs you flipped past.
 8. **Name your league** in Settings → Season & storage, in the exact form the game's API uses:
    for PoE 2 the full name, e.g. `Runes of Aldur`; for PoE 1 the short id, e.g. `Allflame`
-   (not "Curse of the Allflame"); hardcore leagues carry the `HC ` prefix. The Exchange page
+   (not "Curse of the Allflame"); hardcore leagues carry the `HC ` prefix. After the first sync
+   you can pick the name from a dropdown of every league that actually appeared in the data
+   instead of typing it — choosing one saves it and restarts the sync. The Exchange page
    starts filling within a minute. If the name is wrong, the Exchange page says so in red and
    lists the league names that actually appear in the data — it never sits on "syncing" forever.
 
@@ -168,7 +170,10 @@ This is the part people get wrong. Nothing is read until the three regions are f
 language pack; with a league name set it shows the first hours within a minute and the full
 two-week backfill within a few minutes. The radar and Convert pages need books: a route needs at
 least three captured markets that connect, so flip through about ten pairs before expecting a
-row, and expect the first day's radar to be thin.
+row, and expect the first day's radar to be thin. Hours the official feed was fetched for and
+genuinely had no data in are counted in the Exchange page header, and only when there are any —
+a count that stays put means the feed really was silent there, one that falls means the sync is
+refilling a hole a late publish left behind.
 
 Two behaviours that look like faults and are not: a panel that has not changed is read once and
 then left alone, and a panel that is not where you framed it is skipped rather than guessed at.
@@ -195,7 +200,7 @@ The nav order is "what do I look at first each day", not a menu tree.
 
 | Page | |
 |---|---|
-| **Monitor** | Is the watcher alive, what did it just read, and what that book is worth. |
+| **Monitor** | Is the watcher alive, what did it just read, and what that book is worth. It also flags a listing whose stock is an order of magnitude off the rest of its side, and a book whose rate is nowhere near what that pair has recently been worth — a sign the currency names were confused. Neither drops the book. |
 | **Analytics** | What each currency is worth, who is buying it, and whether the settlement anchor itself has drifted. |
 | **Watchlist** | What is being watched, whether it is healthy, and what to capture next. |
 | **Radar** | Every route the captured books already imply, ranked — the page that answers before you ask. |
@@ -468,7 +473,7 @@ in-game item names this program matches against are theirs.
 
 Where the data came from:
 
-- The **PoE 2 catalogue** (660 currency-exchange assets) was transcribed from **poe2db**, a
+- The **PoE 2 catalogue** (691 currency-exchange assets) was transcribed from **poe2db**, a
   third-party fan database. The **PoE 1 catalogue** (1,047 assets) was transcribed from
   in-game selector screenshots in both languages. Each entry carries four fields — id,
   Traditional Chinese name, English name, aliases — and nothing else: no icons, no artwork, no
