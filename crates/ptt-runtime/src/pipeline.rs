@@ -36,6 +36,33 @@ pub const LIVE_LEAGUE: &str = "live-league";
 /// with the season and eventually stalls recognition.
 const ANALYSIS_WINDOW_HOURS: i64 = 2;
 
+/// How far a top rate may sit from its recent daily median before the book's
+/// identity is suspect.
+///
+/// Deliberately not `top_book_outlier_factor` (3): that one compares rows
+/// inside a single frame, where three-fold is already extreme. Across days a
+/// real currency moving three-fold is ordinary market news, so borrowing that
+/// number here would warn every day and teach the user to ignore the warning.
+pub const IDENTITY_SANITY_FACTOR: u64 = 10;
+
+/// Whether this book's top taker rate is too far from what this pair has
+/// recently been worth to be the pair it claims to be.
+///
+/// Two currencies whose names differ by one prefix word (Exalted Orb / Perfect
+/// Exalted Orb) both match the catalog exactly, so the recognition layer has
+/// nothing to tell them apart with — but their rates are orders of magnitude
+/// apart, and history knows it. No history means no opinion: a missing
+/// baseline always passes, because a guard that cannot read must never be the
+/// reason a book is doubted.
+#[must_use]
+pub fn magnitude_suspect(
+    top_rate: &ptt_trade_domain::Ratio,
+    baseline: Option<&ptt_trade_domain::Ratio>,
+    factor: u64,
+) -> bool {
+    baseline.is_some_and(|baseline| top_rate.differs_by_more_than(baseline, factor))
+}
+
 /// One order row of an accepted book.
 ///
 /// The panel's own fields rather than a sentence about them, so the interface
@@ -384,6 +411,53 @@ fn analyse(
     let have = domain_asset_id(have_id).map_err(|error| format!("{error:?}"))?;
     pair_analysis(&observations, context_key, &need, &have)
         .map_err(|error| format!("analysis: {error}"))
+}
+
+#[cfg(test)]
+mod identity_sanity_tests {
+    use super::*;
+    use ptt_trade_domain::Ratio;
+
+    fn rate(numerator: u64, denominator: u64) -> Ratio {
+        Ratio::from_parts(numerator, denominator).expect("ratio")
+    }
+
+    /// The baseline is a real pair's recent daily median: 100 chaos per exalted.
+    #[test]
+    fn a_top_rate_ten_times_off_its_recent_median_is_suspect() {
+        let baseline = rate(100, 1);
+
+        // Exactly ten-fold is still inside the band — the test is "differs by
+        // more than", so the boundary itself passes.
+        assert!(!magnitude_suspect(
+            &rate(1_000, 1),
+            Some(&baseline),
+            IDENTITY_SANITY_FACTOR
+        ));
+        assert!(!magnitude_suspect(
+            &rate(900, 1),
+            Some(&baseline),
+            IDENTITY_SANITY_FACTOR
+        ));
+        assert!(magnitude_suspect(
+            &rate(1_100, 1),
+            Some(&baseline),
+            IDENTITY_SANITY_FACTOR
+        ));
+        // The other direction counts too: an eleventh of the median is just as
+        // wrong an order of magnitude.
+        assert!(magnitude_suspect(
+            &rate(100, 11),
+            Some(&baseline),
+            IDENTITY_SANITY_FACTOR
+        ));
+        // No history, no opinion — never the reason a book is doubted.
+        assert!(!magnitude_suspect(
+            &rate(1_000_000, 1),
+            None,
+            IDENTITY_SANITY_FACTOR
+        ));
+    }
 }
 
 #[cfg(test)]
