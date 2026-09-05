@@ -69,6 +69,12 @@ pub struct ExchangeAssetPulse {
     /// 单位数 × 当日锚价。日线永久保留，所以这条是赛季节奏与导出的原料；
     /// 小时侧只有 0 时（历史视角）它还兼任排序键。
     pub anchor_volume_by_day: Vec<(NaiveDate, u64)>,
+    /// 涨跌那一列的基线日锚计价成交额。`None` = 根本算不出涨跌，
+    /// `Some(0)` = 有涨跌但基线那天连锚价都没算出来。
+    ///
+    /// 开服头几天锚极稀缺，基线那天可能只有几个锚的成交额——那时的
+    /// "涨跌"是噪声不是行情，谁要拿涨跌去挑人看，得先能看见这个分量。
+    pub trend_baseline_anchor_volume: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -228,13 +234,18 @@ pub fn exchange_pulse(
             .filter_map(|days| days.keys().next_back().copied())
             .max()
     });
-    let mut raw_trend: BTreeMap<&MarketAssetId, i64> = BTreeMap::new();
+    let mut raw_trend: BTreeMap<&MarketAssetId, (i64, NaiveDate)> = BTreeMap::new();
     for (asset, days) in &value_by_day {
-        if let Some(bps) = endpoint_trend_bps(days, trend_days) {
-            raw_trend.insert(asset, bps);
+        if let Some(trend) = endpoint_trend_bps(days, trend_days) {
+            raw_trend.insert(asset, trend);
         }
     }
-    let market_median_move_bps = lower_middle(raw_trend.values().copied().collect());
+    let market_median_move_bps = lower_middle(
+        raw_trend
+            .values()
+            .map(|(bps, _)| *bps)
+            .collect::<Vec<i64>>(),
+    );
 
     let mut assets: Vec<ExchangeAssetPulse> = folds
         .into_iter()
@@ -262,7 +273,8 @@ pub fn exchange_pulse(
                 }
                 _ => None,
             };
-            let trend_bps_raw = raw_trend.get(&asset_id).copied();
+            let trend = raw_trend.get(&asset_id).copied();
+            let trend_bps_raw = trend.map(|(bps, _)| bps);
             let trend_bps_relative = match (trend_bps_raw, market_median_move_bps) {
                 (Some(raw), Some(median)) => Some(raw - median),
                 _ => None,
@@ -281,6 +293,15 @@ pub fn exchange_pulse(
                 .iter()
                 .max_by_key(|(_, volume)| **volume)
                 .map(|(partner, _)| partner.clone());
+            let day_volumes = day_volume.remove(&asset_id).unwrap_or_default();
+            // 基线那天算不出锚价就没有成交额可查——记 0 而不是 None，
+            // 因为"涨跌算得出来"和"基线有多厚"是两个问题，别混成一个空。
+            let trend_baseline_anchor_volume = trend.map(|(_, baseline_day)| {
+                day_volumes
+                    .get(&baseline_day)
+                    .map(|volume| u64::try_from(*volume).unwrap_or(u64::MAX))
+                    .unwrap_or(0)
+            });
             ExchangeAssetPulse {
                 value_in_anchor: fold.latest_value(),
                 value_by_day: value_by_day
@@ -302,14 +323,11 @@ pub fn exchange_pulse(
                 }),
                 surge_percent,
                 top_partner,
-                anchor_volume_by_day: day_volume
-                    .remove(&asset_id)
-                    .map(|days| {
-                        days.into_iter()
-                            .map(|(day, volume)| (day, u64::try_from(volume).unwrap_or(u64::MAX)))
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                anchor_volume_by_day: day_volumes
+                    .into_iter()
+                    .map(|(day, volume)| (day, u64::try_from(volume).unwrap_or(u64::MAX)))
+                    .collect(),
+                trend_baseline_anchor_volume,
                 asset_id: asset_id.clone(),
             }
         })
@@ -339,12 +357,19 @@ pub fn exchange_pulse(
     }
 }
 
-/// N 天涨跌：最新一天的日 VWAP 对"N 天前或更早的最近一天"的 bps。
+/// N 天涨跌：最新一天的日 VWAP 对"N 天前或更早的最近一天"的 bps，
+/// 连同基线落在哪一天。
 ///
 /// 端点比较而不是窗口中位——这列回答的是 ninja 式的"过去 N 天涨了多少"，
 /// N 由用户在表头轮换。数据不足 N 天时退到最早那天：
 /// 上限自动受已有数据限制（用户裁定），"不足"不该变成一列空白。
-fn endpoint_trend_bps(days: &BTreeMap<NaiveDate, Ratio>, trend_days: u32) -> Option<i64> {
+///
+/// 基线日一并交出来，是因为光有 bps 看不出这个涨幅有多少分量：
+/// 调用方要拿它去查那天的成交额，才能分辨"真涨"和"基线只有几个锚"。
+fn endpoint_trend_bps(
+    days: &BTreeMap<NaiveDate, Ratio>,
+    trend_days: u32,
+) -> Option<(i64, NaiveDate)> {
     let (latest_day, latest) = days.iter().next_back()?;
     let target = *latest_day - chrono::Days::new(u64::from(trend_days));
     let (baseline_day, baseline) = days
@@ -354,7 +379,7 @@ fn endpoint_trend_bps(days: &BTreeMap<NaiveDate, Ratio>, trend_days: u32) -> Opt
     if baseline_day == latest_day {
         return None;
     }
-    Some(bps_between(baseline, latest))
+    Some((bps_between(baseline, latest), *baseline_day))
 }
 
 /// 一个资产在一小时里的账：锚计价 VWAP 与锚计价成交额。

@@ -3535,6 +3535,9 @@ pub struct ExchangeRow {
     /// 日 VWAP 序列（升序），迷你走势列的原料。保持 Ratio：
     /// 归一化成像素高度是绘制的事，f32 只出现在那条边界上。
     pub value_by_day: Vec<ptt_trade_domain::Ratio>,
+    /// 涨跌那一列的基线日锚计价成交额（`None` = 没有涨跌）。
+    /// 雷达带拿它筛掉"基线那天几乎没成交"的天文涨幅。
+    pub trend_baseline_anchor_volume: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -4069,6 +4072,15 @@ const RADAR_RISE_BPS: i64 = 1000;
 const RADAR_GAP_BPS: i64 = 800;
 const RADAR_LIMIT: usize = 5;
 
+/// 升值信号要求基线那天至少有这么多锚计价成交额（单位：当天该资产在
+/// 全部市场的成交单位数 × 当天锚价，即"折成多少个锚"）。
+///
+/// 开服头几天锚极稀缺：基线那天全服只换了几个锚，两天一比就是
+/// `+48440943%`。表格照旧显示（表格不撒谎，用户能看成交量列自己判断），
+/// 但雷达带只有五个名额，不能给一个没有基线的资产。
+/// 同样是首过值，等新赛季的干净数据校准。
+const RADAR_MIN_BASELINE_ANCHOR_VOLUME: u64 = 200;
+
 /// 官方交易所总览。自产 `ExchangePulse`，所以和 `analytics_model` 一样
 /// 没有 `MarketPulse` 参数——两套脉搏分域，不互相注入。
 pub fn exchange_model(
@@ -4175,6 +4187,7 @@ pub fn exchange_model(
                 .iter()
                 .map(|(_, rate)| rate.clone())
                 .collect(),
+            trend_baseline_anchor_volume: asset.trend_baseline_anchor_volume,
         })
         .collect();
 
@@ -4194,6 +4207,10 @@ pub fn exchange_model(
                 .or_else(|| {
                     row.trend_bps_relative
                         .filter(|relative| *relative >= RADAR_RISE_BPS)
+                        .filter(|_| {
+                            row.trend_baseline_anchor_volume
+                                .is_some_and(|volume| volume >= RADAR_MIN_BASELINE_ANCHOR_VOLUME)
+                        })
                         .map(|relative_bps| ExchangeRadarSignal::Appreciating { relative_bps })
                 })
                 .or_else(|| {
@@ -7971,12 +7988,25 @@ mod exchange_model_tests {
 
     const EXALTED: &str = "Metadata/Items/Currency/CurrencyAddModToRare";
     const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
+    const CHAOS: &str = "Metadata/Items/Currency/CurrencyRerollRare";
+    const AUGMENTATION: &str = "Metadata/Items/Currency/CurrencyAddModToMagic";
+    const ARTIFICERS: &str = "Metadata/Items/Currency/CurrencyAddEquipmentSocket";
 
     fn day_row(day: &str, volume_a: u64, volume_b: u64) -> ptt_storage::ExchangeDayMarketRow {
+        pair_day(day, DIVINE, volume_a, volume_b)
+    }
+
+    /// 崇高（锚）对某个资产的一天。`volume_a` 是崇高侧，`volume_b` 是对手侧。
+    fn pair_day(
+        day: &str,
+        asset_b: &str,
+        volume_a: u64,
+        volume_b: u64,
+    ) -> ptt_storage::ExchangeDayMarketRow {
         ptt_storage::ExchangeDayMarketRow {
             utc_day: day.to_owned(),
             asset_a: EXALTED.to_owned(),
-            asset_b: DIVINE.to_owned(),
+            asset_b: asset_b.to_owned(),
             volume_a,
             volume_b,
             hours_covered: 24,
@@ -8114,6 +8144,68 @@ mod exchange_model_tests {
         assert_eq!(divine.volume_per_hour_anchor, 0);
         // 日线天数仍按手上全部数据算：选择器上限不该因为视角变窄。
         assert_eq!(model.data_days, 9);
+    }
+
+    #[test]
+    fn a_thin_baseline_keeps_an_astronomical_rise_out_of_the_radar_band() {
+        // 开服头几天的形状：基线那天神圣总共只换了 3 个崇高，第九天价格 ×1000。
+        // 混沌是同样的涨幅，但基线那天有 5000 崇高的成交额撑着。
+        // 另外两个平价资产只为把"市场中位漂移"压在 0，让两个涨幅都留在原值。
+        let mut days = Vec::new();
+        for day in 1..=8 {
+            let day = format!("2026-08-{day:02}");
+            days.push(pair_day(&day, DIVINE, 3, 1));
+            days.push(pair_day(&day, CHAOS, 5_000, 1_000));
+            days.push(pair_day(&day, AUGMENTATION, 100, 100));
+            days.push(pair_day(&day, ARTIFICERS, 100, 100));
+        }
+        days.push(pair_day("2026-08-09", DIVINE, 3_000, 1));
+        days.push(pair_day("2026-08-09", CHAOS, 5_000_000, 1_000));
+        days.push(pair_day("2026-08-09", AUGMENTATION, 100, 100));
+        days.push(pair_day("2026-08-09", ARTIFICERS, 100, 100));
+
+        let model = exchange_model(
+            &days,
+            &[],
+            "Forbidden Rites",
+            ptt_core::Game::Poe2,
+            &tuning(),
+        )
+        .expect("model");
+
+        let divine = model
+            .rows
+            .iter()
+            .find(|row| row.asset_id.to_string() == "divine-orb")
+            .expect("divine row");
+        // 表格不撒谎：涨跌列照旧是那个天文数字（界面另有封顶）。
+        assert_eq!(divine.trend_bps_relative, Some(9_990_000));
+
+        let chaos = model
+            .rows
+            .iter()
+            .find(|row| row.asset_id.to_string() == "chaos-orb")
+            .expect("chaos row");
+        assert_eq!(chaos.trend_bps_relative, Some(9_990_000));
+
+        // 雷达带只有五个名额：基线薄得只有 3 个崇高的那个不该占。
+        assert!(
+            !model
+                .radar
+                .iter()
+                .any(|item| item.asset_id.to_string() == "divine-orb"),
+            "{:?}",
+            model.radar
+        );
+        // 同样的涨幅、基线厚实的那个照旧上榜——门槛不能误伤真行情。
+        assert!(
+            model.radar.iter().any(|item| {
+                item.asset_id.to_string() == "chaos-orb"
+                    && matches!(item.signal, ExchangeRadarSignal::Appreciating { .. })
+            }),
+            "{:?}",
+            model.radar
+        );
     }
 }
 
