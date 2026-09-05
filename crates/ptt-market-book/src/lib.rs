@@ -569,9 +569,10 @@ pub enum QuoteRiskFlag {
     FutureTimestamp,
     PriceOutlier,
     OutsideTopBookBand,
-    /// Visible stock is an order of magnitude away from the rest of its own
+    /// Visible stock is an order of magnitude *above* the rest of its own
     /// side. Reported, never rejected: the same shape is either a misread
     /// digit or a genuinely huge listing, and only the reader can tell which.
+    /// Only the high side is accused — see [`stock_outlier_quote_ids`].
     StockOutOfBand,
 }
 
@@ -915,14 +916,22 @@ pub fn top_book_outlier_quote_ids(
     outliers
 }
 
-/// The quote ids whose visible stock sits outside their own side's band, by
-/// `factor`.
+/// The quote ids whose visible stock sits `factor` times *above* their own
+/// side's median.
 ///
 /// A companion to [`top_book_outlier_quote_ids`] and not a clause inside it,
 /// because the two catch opposite failures and deserve opposite verdicts. A
-/// rate that lost its decimal point is wrong; a stock that lost a digit is
+/// rate that lost its decimal point is wrong; a stock that gained a digit is
 /// wrong *or* is the deep listing that fills the whole order, so this one
 /// names rows and never removes them.
+///
+/// The band is one-sided on purpose. A row far *below* its side's median is
+/// arithmetically the same picture whether the OCR dropped a digit (1855 read
+/// as 185) or someone simply bought most of the listing out — and the second
+/// is what an order book does all day, so a badge there would fire constantly
+/// and carry no information. A row far *above* the median is the digit the
+/// reader *gained* (1855 read as 18550), and real listings that far past their
+/// neighbours are rare enough that the badge still means something.
 ///
 /// Fewer than three rows on a side get no verdict at all. The rate band falls
 /// back to the front row there, but that fallback rests on a panel semantic
@@ -973,9 +982,7 @@ pub fn stock_outlier_quote_ids(
             continue;
         }
         for edge in edges.iter() {
-            if edge.stock > factor.saturating_mul(median)
-                || median > factor.saturating_mul(edge.stock)
-            {
+            if edge.stock > factor.saturating_mul(median) {
                 outliers.insert(edge.quote_id.clone());
             }
         }
@@ -1734,6 +1741,57 @@ mod tests {
                 "{honest} sits inside the band and must not be accused"
             );
         }
+    }
+
+    /// The band must stay one-sided. A front row down to 4 of a side whose
+    /// median is 100 is the most ordinary thing an order book does — someone
+    /// bought most of it — and a badge there would fire every day and mean
+    /// nothing. The same side's 1855 still has to be named, so this pins both
+    /// halves at once.
+    #[test]
+    fn a_nearly_exhausted_row_is_not_accused_but_an_oversized_one_still_is() {
+        let observations = vec![
+            // Bought down to its last few, still listed, still honest.
+            taker_row_with_stock("exhausted", 0, 4),
+            taker_row_with_stock("honest-a", 1, 90),
+            taker_row_with_stock("honest-b", 2, 100),
+            taker_row_with_stock("honest-c", 3, 110),
+            taker_row_with_stock("honest-d", 4, 120),
+            // The row that should have read 185 and came back 1855.
+            taker_row_with_stock("misread", 5, 1855),
+        ];
+        let book =
+            build_coherent_current_book("context-a", &observations, DataVisibility::default())
+                .expect("book");
+        let result = select_quote_edges(
+            &book,
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("policy"),
+            at(10) + Duration::minutes(5),
+        )
+        .expect("selection");
+        let direction = result
+            .selections
+            .iter()
+            .find(|item| item.pair_key == "chaos-orb->divine-orb")
+            .expect("direction");
+        let flagged = |edge_id: &str| {
+            direction
+                .candidate_edges
+                .iter()
+                .find(|candidate| candidate.observation.edge.edge_id == edge_id)
+                .expect("candidate")
+                .risk_flags
+                .contains(&QuoteRiskFlag::StockOutOfBand)
+        };
+        assert!(
+            !flagged("exhausted"),
+            "a nearly sold-out row is normal trading, not a misread"
+        );
+        assert!(
+            flagged("misread"),
+            "a stock ten times its side's median must still be named"
+        );
     }
 
     /// A side of two rows has no majority to take a median from, and unlike
