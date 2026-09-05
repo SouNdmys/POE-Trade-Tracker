@@ -24,7 +24,7 @@ use sha2::{Digest, Sha256};
 /// weight in every build.
 pub const POE2_CATALOG_JSON: &str = include_str!("../data/poe2/currency_master.zh_tw.json");
 pub const POE2_CATALOG_SHA256: &str =
-    "0b6ea8a7ba4afd20ef3906a8c169a79a937494d69bd7befb583ebad5c040874c";
+    "5e5ebdce2cfff8ddf09b4993edf93d2194858030838dbd89ffc96da31cc2afd5";
 pub const POE2_CATALOG_ENTRIES: usize = 691;
 
 /// POE1 catalog: 1,047 assets across 16 categories, transcribed from in-game

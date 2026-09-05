@@ -228,30 +228,6 @@
     "aliases": []
   },
   {
-    "id": "thaumaturgic_flux_level_1",
-    "name_zh_tw": "奇術溶劑（等級1）",
-    "name_en": "Thaumaturgic Flux (Level 1)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_2",
-    "name_zh_tw": "奇術溶劑（等級2）",
-    "name_en": "Thaumaturgic Flux (Level 2)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_3",
-    "name_zh_tw": "奇術溶劑（等級3）",
-    "name_en": "Thaumaturgic Flux (Level 3)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_4",
-    "name_zh_tw": "奇術溶劑（等級4）",
-    "name_en": "Thaumaturgic Flux (Level 4)",
-    "aliases": []
-  },
-  {
     "id": "lesser_body_essence",
     "name_zh_tw": "低階肉體精髓",
     "name_en": "Lesser Essence of the Body",
@@ -4702,5 +4678,37 @@
     "name_zh_tw": "庇護星耀礦石",
     "name_en": "Warding Starlit Ore",
     "aliases": []
+  },
+  {
+    "id": "thaumaturgic_flux_level_1",
+    "name_zh_tw": "奇術熔劑（等級1）",
+    "name_en": "Thaumaturgic Flux (Level 1)",
+    "aliases": [
+      "奇術溶劑（等級1）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_2",
+    "name_zh_tw": "奇術熔劑（等級2）",
+    "name_en": "Thaumaturgic Flux (Level 2)",
+    "aliases": [
+      "奇術溶劑（等級2）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_3",
+    "name_zh_tw": "奇術熔劑（等級3）",
+    "name_en": "Thaumaturgic Flux (Level 3)",
+    "aliases": [
+      "奇術溶劑（等級3）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_4",
+    "name_zh_tw": "奇術熔劑（等級4）",
+    "name_en": "Thaumaturgic Flux (Level 4)",
+    "aliases": [
+      "奇術溶劑（等級4）"
+    ]
   }
 ]

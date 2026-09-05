@@ -190,26 +190,6 @@
     "trade_list_order": 38
   },
   {
-    "id": "thaumaturgic_flux_level_1",
-    "in_game_category": "通貨",
-    "trade_list_order": 39
-  },
-  {
-    "id": "thaumaturgic_flux_level_2",
-    "in_game_category": "通貨",
-    "trade_list_order": 40
-  },
-  {
-    "id": "thaumaturgic_flux_level_3",
-    "in_game_category": "通貨",
-    "trade_list_order": 41
-  },
-  {
-    "id": "thaumaturgic_flux_level_4",
-    "in_game_category": "通貨",
-    "trade_list_order": 42
-  },
-  {
     "id": "lesser_body_essence",
     "in_game_category": "精髓",
     "trade_list_order": 1
@@ -3453,5 +3433,25 @@
     "id": "warding_starlit_ore",
     "in_game_category": "死境探險",
     "trade_list_order": 54
+  },
+  {
+    "id": "thaumaturgic_flux_level_1",
+    "in_game_category": "死境探險",
+    "trade_list_order": 55
+  },
+  {
+    "id": "thaumaturgic_flux_level_2",
+    "in_game_category": "死境探險",
+    "trade_list_order": 56
+  },
+  {
+    "id": "thaumaturgic_flux_level_3",
+    "in_game_category": "死境探險",
+    "trade_list_order": 57
+  },
+  {
+    "id": "thaumaturgic_flux_level_4",
+    "in_game_category": "死境探險",
+    "trade_list_order": 58
   }
 ]

@@ -152,22 +152,6 @@
     "category": "通貨"
   },
   {
-    "id": "thaumaturgic_flux_level_1",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_2",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_3",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_4",
-    "category": "通貨"
-  },
-  {
     "id": "lesser_body_essence",
     "category": "精髓"
   },
@@ -2761,6 +2745,22 @@
   },
   {
     "id": "warding_starlit_ore",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_1",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_2",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_3",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_4",
     "category": "死境探險"
   }
 ]

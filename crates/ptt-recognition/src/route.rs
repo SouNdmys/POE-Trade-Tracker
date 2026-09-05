@@ -2328,7 +2328,12 @@ mod windows_route {
             let asset_index = catalog
                 .assets()
                 .iter()
-                .position(|asset| asset.name_zh_tw == "瓦爾護甲鍛造師的灌注器")
+                // Has to sit after a per-level family, or nothing has
+                // collapsed yet and position still equals index — which is
+                // what the assert below checks, loudly, when a league moves
+                // the families around. 0.5.5 moved the Thaumaturgic Flux
+                // ladder out of 通貨 and this was 瓦爾護甲鍛造師的灌注器.
+                .position(|asset| asset.name_zh_tw == "探險日誌")
                 .expect("the corpus currency exists");
             let canonical = matchers[asset_index].template().text.clone();
             let position = supports
@@ -2353,7 +2358,7 @@ mod windows_route {
             let mut supports = deduplicated_supports(&matchers);
             let position = supports
                 .iter()
-                .position(|entry| entry.source_template.starts_with("奇術溶劑"))
+                .position(|entry| entry.source_template.starts_with("奇術熔劑"))
                 .expect("the per-level family exists");
             supports[position].support = support(true);
             assert_eq!(
