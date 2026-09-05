@@ -372,7 +372,9 @@ fn absorb_quote_flag(flag: QuoteRiskFlag, risks: &mut BTreeSet<ExecutionRisk>) {
         QuoteRiskFlag::ReverseFromAvailable => {
             risks.insert(ExecutionRisk::CompetingReference);
         }
-        QuoteRiskFlag::ReverseFromCompeting => {}
+        // A depth reading, not a price one: it changes nothing about whether
+        // the quoted rate fills. It reaches the reader by another road.
+        QuoteRiskFlag::ReverseFromCompeting | QuoteRiskFlag::StockOutOfBand => {}
         QuoteRiskFlag::ComparatorBoundary => {
             risks.insert(ExecutionRisk::ComparatorBoundary);
         }

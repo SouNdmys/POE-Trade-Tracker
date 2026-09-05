@@ -10,6 +10,19 @@ use ptt_trade_domain::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// How far a listing's visible stock may sit from its own side's median
+/// before the band names it.
+///
+/// Deliberately an order of magnitude, and deliberately not a user knob.
+/// `top_book_outlier_factor` already lets the reader tune the *rate* band,
+/// and a second dial pulling on the same rows would leave two bands to
+/// reconcile every time one of them fired. Ten catches the failure this
+/// exists for — an OCR reading that gained or lost a digit — and clears a
+/// genuinely deep listing, which is routinely a few times the median and
+/// almost never ten. Calibrate it against a full season's captures before
+/// promoting it to a setting.
+pub const STOCK_OUTLIER_FACTOR: u64 = 10;
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketPairKey {
@@ -556,6 +569,10 @@ pub enum QuoteRiskFlag {
     FutureTimestamp,
     PriceOutlier,
     OutsideTopBookBand,
+    /// Visible stock is an order of magnitude away from the rest of its own
+    /// side. Reported, never rejected: the same shape is either a misread
+    /// digit or a genuinely huge listing, and only the reader can tell which.
+    StockOutOfBand,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -625,13 +642,14 @@ pub fn select_quote_edges(
 ) -> Result<QuoteSelectionResult, MarketBookError> {
     policy.validate()?;
     let mut directional =
-        BTreeMap::<(MarketAssetId, MarketAssetId), Vec<(MarketEdgeObservation, bool)>>::new();
+        BTreeMap::<(MarketAssetId, MarketAssetId), Vec<(MarketEdgeObservation, bool, bool)>>::new();
     for view in &book.views {
         if view.context_key != book.context_key {
             return Err(MarketBookError::ContextInvariantViolation);
         }
         let outlier_quotes =
             top_book_outlier_quote_ids(&view.observations, policy.top_book_outlier_factor);
+        let deep_quotes = stock_outlier_quote_ids(&view.observations, STOCK_OUTLIER_FACTOR);
         for observation in &view.observations {
             directional
                 .entry((
@@ -642,6 +660,7 @@ pub fn select_quote_edges(
                 .push((
                     observation.clone(),
                     outlier_quotes.contains(&observation.edge.quote_id),
+                    deep_quotes.contains(&observation.edge.quote_id),
                 ));
         }
     }
@@ -650,7 +669,9 @@ pub fn select_quote_edges(
     for ((from_asset_id, to_asset_id), observations) in directional {
         let mut candidates = observations
             .into_iter()
-            .map(|(observation, is_outlier)| evaluate_edge(observation, is_outlier, policy, now))
+            .map(|(observation, is_outlier, stock_out_of_band)| {
+                evaluate_edge(observation, is_outlier, stock_out_of_band, policy, now)
+            })
             .collect::<Vec<_>>();
         candidates.sort_by(|left, right| compare_candidates(left, right, policy.strategy));
 
@@ -708,6 +729,7 @@ pub fn select_quote_edges(
 fn evaluate_edge(
     observation: MarketEdgeObservation,
     is_outlier: bool,
+    stock_out_of_band: bool,
     policy: &QuoteSelectionPolicy,
     now: DateTime<Utc>,
 ) -> EvaluatedQuoteEdge {
@@ -765,6 +787,14 @@ fn evaluate_edge(
     if edge.stock <= policy.minimum_stock {
         execution_blockers.insert(QuoteRejectReason::NoStock);
         selection_rejections.insert(QuoteRejectReason::NoStock);
+    }
+    // Risk only, on purpose. A rate an order of magnitude off its side is
+    // wrong whichever way you read it, so it earns a blocker; a stock an
+    // order of magnitude off is either a misread digit or the one listing
+    // that can actually fill the whole order, and dropping the second to
+    // catch the first would hide the best row on the panel.
+    if stock_out_of_band {
+        risks.insert(QuoteRiskFlag::StockOutOfBand);
     }
     match observation.record_status {
         SnapshotRecordStatus::Active => {}
@@ -878,6 +908,74 @@ pub fn top_book_outlier_quote_ids(
         };
         for edge in edges.iter() {
             if edge.rate.differs_by_more_than(&baseline.rate, factor) {
+                outliers.insert(edge.quote_id.clone());
+            }
+        }
+    }
+    outliers
+}
+
+/// The quote ids whose visible stock sits outside their own side's band, by
+/// `factor`.
+///
+/// A companion to [`top_book_outlier_quote_ids`] and not a clause inside it,
+/// because the two catch opposite failures and deserve opposite verdicts. A
+/// rate that lost its decimal point is wrong; a stock that lost a digit is
+/// wrong *or* is the deep listing that fills the whole order, so this one
+/// names rows and never removes them.
+///
+/// Fewer than three rows on a side get no verdict at all. The rate band falls
+/// back to the front row there, but that fallback rests on a panel semantic
+/// stock does not have — the first listing is the best price, never
+/// necessarily the deepest — so on a short side there is simply nothing to
+/// compare against.
+///
+/// **The caller must hand in one panel side's worth of rows at most**, for
+/// the same reason the rate band does: the baseline is a median within
+/// `source_side`, and quote ids are only unique within a snapshot.
+#[must_use]
+pub fn stock_outlier_quote_ids(
+    observations: &[MarketEdgeObservation],
+    factor: u64,
+) -> BTreeSet<String> {
+    let mut current_edges = BTreeMap::<QuoteSide, Vec<&QuoteEdge>>::new();
+    for observation in observations {
+        let edge = &observation.edge;
+        if matches!(
+            edge.role,
+            QuoteEdgeRole::AvailableTaker | QuoteEdgeRole::CompetingMakerReference
+        ) {
+            current_edges
+                .entry(edge.source_side)
+                .or_default()
+                .push(edge);
+        }
+    }
+    let mut outliers = BTreeSet::new();
+    for edges in current_edges.values_mut() {
+        if edges.len() < 3 {
+            continue;
+        }
+        edges.sort_by(|left, right| {
+            left.stock
+                .cmp(&right.stock)
+                .then_with(|| left.original_row_index.cmp(&right.original_row_index))
+                .then_with(|| left.quote_id.cmp(&right.quote_id))
+        });
+        // Element selection, lower middle when even: no averaging, no
+        // division, and no minority of rows can drag it — the same reason the
+        // rate band picks its baseline this way.
+        let median = edges[(edges.len() - 1) / 2].stock;
+        // A side that is mostly sold out has no scale to be out of, and
+        // `factor * 0` would accuse every remaining row. Empty listings are
+        // `NoStock`'s business.
+        if median == 0 {
+            continue;
+        }
+        for edge in edges.iter() {
+            if edge.stock > factor.saturating_mul(median)
+                || median > factor.saturating_mul(edge.stock)
+            {
                 outliers.insert(edge.quote_id.clone());
             }
         }
@@ -1562,6 +1660,96 @@ mod tests {
                 .rejections
                 .iter()
                 .any(|rejection| rejection.edge_id == "front"),
+        );
+    }
+
+    /// One taker row with its own visible stock, for building a side whose
+    /// rates agree and whose depths do not.
+    fn taker_row_with_stock(edge_id: &str, row_index: u8, stock: u64) -> MarketEdgeObservation {
+        let mut row = taker_row(edge_id, row_index, "1:180");
+        row.edge.stock = stock;
+        row
+    }
+
+    /// B-2: a stock that lost a digit passes every rate check — the price is
+    /// right, only the depth is wrong — and then walks into coverage, the
+    /// liquidity class and the radar's ordering, all of which sum stock. The
+    /// band names it. It must not remove it: a real whale listing looks
+    /// exactly the same from here, and the tracker reports, it does not
+    /// adjudicate.
+    #[test]
+    fn a_stock_ten_times_its_side_median_is_flagged_but_not_rejected() {
+        let observations = vec![
+            taker_row_with_stock("honest-a", 0, 100),
+            taker_row_with_stock("honest-b", 1, 120),
+            taker_row_with_stock("honest-c", 2, 90),
+            taker_row_with_stock("honest-d", 3, 110),
+            // The row that should have read 185 and came back 1855.
+            taker_row_with_stock("misread", 4, 1855),
+        ];
+        let book =
+            build_coherent_current_book("context-a", &observations, DataVisibility::default())
+                .expect("book");
+        let result = select_quote_edges(
+            &book,
+            &QuoteSelectionPolicy::personal_default(QuoteSelectionStrategy::Instant)
+                .expect("policy"),
+            at(10) + Duration::minutes(5),
+        )
+        .expect("selection");
+        let direction = result
+            .selections
+            .iter()
+            .find(|item| item.pair_key == "chaos-orb->divine-orb")
+            .expect("direction");
+        let misread = direction
+            .candidate_edges
+            .iter()
+            .find(|candidate| candidate.observation.edge.edge_id == "misread")
+            .expect("misread candidate");
+        assert!(
+            misread.risk_flags.contains(&QuoteRiskFlag::StockOutOfBand),
+            "the misread depth must be named: {:?}",
+            misread.risk_flags
+        );
+        assert!(
+            misread.accepted_for_selection,
+            "a flagged stock is still a usable quote"
+        );
+        assert!(
+            misread.execution_blockers.is_empty(),
+            "a flagged stock must not block execution: {:?}",
+            misread.execution_blockers
+        );
+        for honest in ["honest-a", "honest-b", "honest-c", "honest-d"] {
+            let candidate = direction
+                .candidate_edges
+                .iter()
+                .find(|candidate| candidate.observation.edge.edge_id == honest)
+                .expect("honest candidate");
+            assert!(
+                !candidate
+                    .risk_flags
+                    .contains(&QuoteRiskFlag::StockOutOfBand),
+                "{honest} sits inside the band and must not be accused"
+            );
+        }
+    }
+
+    /// A side of two rows has no majority to take a median from, and unlike
+    /// the rate band there is no front-row fallback worth having: the first
+    /// listing is the best price, never the deepest one.
+    #[test]
+    fn a_two_row_side_gets_no_stock_verdict() {
+        assert!(
+            stock_outlier_quote_ids(
+                &[
+                    taker_row_with_stock("front", 0, 100),
+                    taker_row_with_stock("second", 1, 99_999),
+                ],
+                STOCK_OUTLIER_FACTOR,
+            )
+            .is_empty()
         );
     }
 

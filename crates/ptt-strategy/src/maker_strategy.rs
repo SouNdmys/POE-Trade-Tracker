@@ -360,7 +360,9 @@ fn edge_risks(evaluated: &EvaluatedQuoteEdge, risks: &mut BTreeSet<ExecutionRisk
             QuoteRiskFlag::ReverseFromAvailable => {
                 risks.insert(ExecutionRisk::CompetingReference);
             }
-            QuoteRiskFlag::ReverseFromCompeting => {}
+            // Neither is a reason the quoted rate will not fill. Same split
+            // as `execution_safety::absorb_quote_flag`.
+            QuoteRiskFlag::ReverseFromCompeting | QuoteRiskFlag::StockOutOfBand => {}
         }
     }
 }
