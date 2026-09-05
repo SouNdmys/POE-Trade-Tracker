@@ -420,6 +420,14 @@ pub struct AppShell {
     /// 交易所回补天数与小时线保留天数（首测反馈：设置得有地方改）。
     pub(crate) exchange_backfill_input: gpui::Entity<gpui_component::input::InputState>,
     pub(crate) exchange_retention_input: gpui::Entity<gpui_component::input::InputState>,
+    /// 联赛下拉。选项是上一轮同步在官方数据里见到的联赛名——CDN 里的写法
+    /// 猜不出来（3.29 叫 "Allflame"），能挑就别让人猜。文本框仍在，
+    /// 这是并列的第二条路。
+    pub(crate) exchange_league_select: pages::convert::AssetSelect,
+    /// 选单上次按 (选项表, 选中值) 装配的签名，变了才重建选项。
+    /// 也是"设置里的联赛变了"的信号：变了才把文本框拨到新值，
+    /// 否则每帧回写会把用户正在敲的半个名字抹掉。
+    pub(crate) exchange_league_synced: (Vec<String>, String),
     /// 涨跌天数下拉（二测反馈：轮换按钮不如选单，且上限要跟数据走）。
     pub(crate) exchange_trend_select: pages::convert::AssetSelect,
     /// 选单上次按 (数据天数, 选中值) 装配的签名，变了才重建选项。
@@ -705,6 +713,35 @@ impl AppShell {
                 }),
             )
         };
+        // 联赛下拉。选中即生效：换联赛就是换一本账，再让人去按一次"保存"
+        // 只会制造"我选了怎么没反应"。
+        let exchange_league_select = Self::new_asset_select(window, cx);
+        cx.subscribe(
+            &exchange_league_select,
+            |this: &mut AppShell, _, event, cx| {
+                let gpui_component::select::SelectEvent::Confirm(Some(value)) = event else {
+                    return;
+                };
+                let league = value.to_string();
+                let game = this.settings.active_profile.game;
+                if this.settings.market_tuning(game).exchange.league == league {
+                    return;
+                }
+                this.settings.market_tuning_mut(game).exchange.league = league.clone();
+                match this.settings_store.save(&this.settings) {
+                    Ok(()) => {
+                        this.push_log(format!("exchange: league {league}"));
+                        // 旧联赛的"联赛名可疑"是对旧名字的判词，留着它，
+                        // 用户会以为刚选的这个也错了。
+                        this.exchange_sync_error = None;
+                        this.restart_exchange_sync(cx);
+                    }
+                    Err(error) => this.push_log(format!("settings save failed: {error}")),
+                }
+                cx.notify();
+            },
+        )
+        .detach();
         // 涨跌天数下拉。选项列表跟着数据天数走,在 render 里装配
         // (重建选项需要 window,后台答案带不动它,和兑换页选择器同一个理由)。
         let exchange_trend_select = Self::new_asset_select(window, cx);
@@ -802,6 +839,8 @@ impl AppShell {
             exchange_league_input,
             exchange_backfill_input,
             exchange_retention_input,
+            exchange_league_select,
+            exchange_league_synced: (Vec::new(), String::new()),
             exchange_trend_select,
             exchange_trend_synced: (0, 0),
             exchange_as_of_input,
@@ -2248,6 +2287,8 @@ impl Render for AppShell {
         self.sync_convert_selects(window, cx);
         #[cfg(windows)]
         self.sync_exchange_trend_select(window, cx);
+        #[cfg(windows)]
+        self.sync_exchange_league_select(window, cx);
         let text = self.text();
         let (dot_kind, state_label) = if self.fault.is_some() {
             (StatusKind::Error, text.state_fault)

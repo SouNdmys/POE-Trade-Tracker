@@ -9,7 +9,7 @@
 //! is disabled while a watch session runs.
 
 use gpui::{Context, ParentElement, Styled, div, px};
-use gpui_component::{Sizable, Size, StyledExt as _, input::Input};
+use gpui_component::{Sizable, Size, StyledExt as _, input::Input, select::Select};
 
 use crate::shell::AppShell;
 use crate::theme::*;
@@ -89,6 +89,36 @@ impl AppShell {
                     ),
             );
 
+        // 联赛下拉：选项是上一轮同步在官方数据里见到的名字。CDN 里的写法
+        // 猜不出来（POE1 的 3.29 在里面叫 "Allflame"），能挑就别让人猜。
+        // 从没同步过就没有选项，这一行不出现，下面的文本框独自顶事。
+        let leagues_known = !self
+            .settings
+            .market_tuning(self.settings.active_profile.game)
+            .exchange
+            .leagues_seen
+            .is_empty();
+        if leagues_known {
+            body =
+                body.child(
+                    div()
+                        .h_flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(150.))
+                                .flex_none()
+                                .text_size(fs(FS_11_5))
+                                .text_color(c(TEXT_META))
+                                .child(text.exchange_league_label),
+                        )
+                        .child(div().w(px(200.)).flex_none().child(
+                            Select::new(&self.exchange_league_select).with_size(Size::Small),
+                        )),
+                );
+        }
+
         body =
             body.child(
                 div()
@@ -101,7 +131,11 @@ impl AppShell {
                             .flex_none()
                             .text_size(fs(FS_11_5))
                             .text_color(c(TEXT_META))
-                            .child(text.exchange_league_label),
+                            .child(if leagues_known {
+                                text.exchange_league_or_type
+                            } else {
+                                text.exchange_league_label
+                            }),
                     )
                     .child(
                         div()
@@ -469,6 +503,66 @@ impl AppShell {
             Err(error) => self.push_log(format!("storage: {error}")),
         }
         self.invalidate_season_info();
+    }
+
+    /// 每帧把联赛下拉的选项和选中值对齐设置。
+    ///
+    /// 重建选项需要 window，后台答案带不动它，所以在 render 里做——
+    /// 和涨跌选择器同一个套路，靠签名挡住重复重建。
+    /// 顺便把文本框拨到设置里的值：从下拉选完之后框还写着旧名字，
+    /// 用户再按一次"保存"就把刚选的联赛又改回去了。只在签名变了时拨，
+    /// 每帧回写会把正在敲的半个名字抹掉。
+    #[cfg(windows)]
+    pub(crate) fn sync_exchange_league_select(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        use super::convert::{AssetChoice, AssetList};
+
+        let exchange = &self
+            .settings
+            .market_tuning(self.settings.active_profile.game)
+            .exchange;
+        let mut leagues = exchange.leagues_seen.clone();
+        let selected = exchange.league.clone();
+        if leagues.is_empty() {
+            // 从没同步过：没有选项可摆，页面走文本框那条路。
+            return;
+        }
+        // 设置里手填的名字不在名单里也要塞进去，否则选单显示空白，
+        // 看着像"你配的联赛不存在"。
+        if !selected.is_empty() && !leagues.contains(&selected) {
+            leagues.insert(0, selected.clone());
+        }
+        if self.exchange_league_synced == (leagues.clone(), selected.clone()) {
+            return;
+        }
+        self.exchange_league_synced = (leagues.clone(), selected.clone());
+
+        if self.exchange_league_input.read(cx).value() != selected.as_str() {
+            let value = selected.clone();
+            self.exchange_league_input
+                .update(cx, |state, cx| state.set_value(value, window, cx));
+        }
+        // 搜索键要折过：一个赛季几十个私人联赛，靠翻是翻不动的，而
+        // `matches` 拿折过的查询串去 `contains`，原样的名字对不上。
+        let choices: Vec<AssetChoice> = leagues
+            .iter()
+            .map(|league| {
+                AssetChoice::new(
+                    league.clone(),
+                    league.clone(),
+                    vec![crate::names::fold_query(league)],
+                )
+            })
+            .collect();
+        let select = self.exchange_league_select.clone();
+        let value = gpui::SharedString::from(selected);
+        select.update(cx, |state, cx| {
+            state.set_items(AssetList::new(choices), window, cx);
+            state.set_selected_value(&value, window, cx);
+        });
     }
 }
 
