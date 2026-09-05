@@ -73,10 +73,12 @@ pub fn warn_then_persist(
     store: &mut MarketStore,
     capture: &ptt_trade_domain::ConfirmedCapture,
     season_floor: Option<chrono::DateTime<chrono::Utc>>,
+    outlier_factor: u64,
     language: ptt_settings::UiLanguage,
     on_event: &mut impl FnMut(PipelineEvent),
 ) -> Result<(), ptt_storage::StorageError> {
-    if let Some(warning) = identity_warning(store, capture, season_floor, language) {
+    if let Some(warning) = identity_warning(store, capture, season_floor, outlier_factor, language)
+    {
         on_event(PipelineEvent::Warning(warning));
     }
     store.persist_capture(capture)
@@ -92,9 +94,10 @@ fn identity_warning(
     store: &MarketStore,
     capture: &ptt_trade_domain::ConfirmedCapture,
     season_floor: Option<chrono::DateTime<chrono::Utc>>,
+    outlier_factor: u64,
     language: ptt_settings::UiLanguage,
 ) -> Option<String> {
-    let top_rate = top_taker_rate(&capture.rows)?;
+    let top_rate = top_taker_rate(capture, outlier_factor)?;
     let baseline = recent_median_top_taker_rate(store, capture, season_floor)?;
     if !magnitude_suspect(&top_rate, Some(&baseline), IDENTITY_SANITY_FACTOR) {
         return None;
@@ -114,16 +117,42 @@ fn identity_warning(
 /// available side.
 ///
 /// Computed the same way the daily fold computes `top_taker_rate` — aggregate
-/// rows (`<` / `>`) excluded because their boundary prices the whole tail, and
-/// the maximum taken. Two sides of a comparison that are computed differently
-/// make the ten-fold band mean two different things at once.
-fn top_taker_rate(rows: &[ptt_trade_domain::ConfirmedOrderRow]) -> Option<ptt_trade_domain::Ratio> {
-    rows.iter()
-        .filter(|row| {
-            row.side == ptt_trade_domain::QuoteSide::Available
-                && row.comparator == ptt_trade_domain::Comparator::Exact
+/// rows (`<` / `>`) excluded because their boundary prices the whole tail,
+/// rows outside their own side's band excluded because a maximum is exactly
+/// blind to the row that lost a decimal point, and the maximum of what is
+/// left taken. Two sides of a comparison that are computed differently make
+/// the ten-fold band mean two different things at once — and here the cost of
+/// that was one misread row doubting a correctly read book.
+///
+/// Read off the capture's own quote edges rather than its rows because that
+/// is the shape the outlier band adjudicates, and borrowing that one
+/// adjudicator is what keeps this from becoming a third opinion on what an
+/// outlier is.
+fn top_taker_rate(
+    capture: &ptt_trade_domain::ConfirmedCapture,
+    outlier_factor: u64,
+) -> Option<ptt_trade_domain::Ratio> {
+    let observations: Vec<ptt_trade_domain::MarketEdgeObservation> = capture
+        .quote_edges
+        .iter()
+        .map(|edge| ptt_trade_domain::MarketEdgeObservation {
+            edge: edge.clone(),
+            snapshot_complete: true,
+            record_status: ptt_trade_domain::SnapshotRecordStatus::Active,
+            record_revision: 1,
+            record_reason: None,
         })
-        .map(|row| row.ratio.clone())
+        .collect();
+    let outliers = ptt_market_book::top_book_outlier_quote_ids(&observations, outlier_factor);
+    capture
+        .quote_edges
+        .iter()
+        .filter(|edge| {
+            edge.role == ptt_trade_domain::QuoteEdgeRole::AvailableTaker
+                && edge.comparator == ptt_trade_domain::Comparator::Exact
+                && !outliers.contains(&edge.quote_id)
+        })
+        .map(|edge| edge.rate.clone())
         .max_by(|left, right| left.compare_value(right))
 }
 
@@ -346,6 +375,23 @@ pub fn active_language() -> ptt_settings::UiLanguage {
         .ui_language
 }
 
+/// The user's own outlier band for one game, or the shipped default if
+/// settings are unreadable.
+///
+/// Read from the same knob the daily fold is run with, because the identity
+/// check compares its own top rate against that fold's: two different bands
+/// would have the two sides disagreeing about which rows exist.
+#[must_use]
+pub fn active_outlier_factor(game: ptt_core::Game) -> u64 {
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    ptt_settings::SettingsStore::release_default_from(Path::new(&local))
+        .load()
+        .settings
+        .market_tuning(game)
+        .risk
+        .top_book_outlier_factor
+}
+
 /// The saved calibration for the profile the pipeline actually runs.
 pub fn apply_saved_calibration() -> Vec<String> {
     apply_saved_calibration_for(active_profile())
@@ -362,6 +408,9 @@ pub struct LivePipeline {
     /// analysis window can be clamped with zero work inside the loop. A
     /// season started mid-session reaches the next session.
     season_floor: Option<chrono::DateTime<chrono::Utc>>,
+    /// The band that decides which rows are too far outside their own side to
+    /// price from, read once at open like the rest of the tuning.
+    outlier_factor: u64,
     /// Which language the pipeline's own warnings are written in, read once
     /// at open. The pipeline normally hands the interface typed facts and lets
     /// it do the wording, but the bilingual report catalogue lives in this
@@ -401,6 +450,7 @@ impl LivePipeline {
             context_key,
             sequence: 0,
             season_floor,
+            outlier_factor: active_outlier_factor(profile.game),
             language: active_language(),
         })
     }
@@ -428,6 +478,7 @@ impl LivePipeline {
             context_key,
             sequence,
             season_floor,
+            outlier_factor,
             language,
         } = self;
         run_session(
@@ -490,9 +541,14 @@ impl LivePipeline {
                             return;
                         }
                     };
-                    if let Err(error) =
-                        warn_then_persist(store, &capture, *season_floor, *language, &mut on_event)
-                    {
+                    if let Err(error) = warn_then_persist(
+                        store,
+                        &capture,
+                        *season_floor,
+                        *outlier_factor,
+                        *language,
+                        &mut on_event,
+                    ) {
                         on_event(PipelineEvent::Skipped("persist-failed".to_owned()));
                         on_event(PipelineEvent::Fault(format!(
                             "book NOT stored ({need_id} -> {have_id}): persist: {error}"

@@ -48,6 +48,11 @@ fn context() -> MarketContext {
 
 /// A book of exalted-for-chaos whose only taker row quotes `rate`.
 fn capture(captured_at: DateTime<Utc>, rate: &str) -> ConfirmedCapture {
+    capture_of(captured_at, &[rate])
+}
+
+/// A book of exalted-for-chaos whose taker side quotes `rates`, top row first.
+fn capture_of(captured_at: DateTime<Utc>, rates: &[&str]) -> ConfirmedCapture {
     let context = context();
     let provenance = CaptureProvenance {
         draft_id: "draft-1".to_owned(),
@@ -68,18 +73,22 @@ fn capture(captured_at: DateTime<Utc>, rate: &str) -> ConfirmedCapture {
             .clone(),
         parser_assets_sha256: context.observation_identity.parser_assets_sha256.clone(),
     };
-    let rows = vec![
-        ConfirmedOrderRow::try_new(
-            QuoteSide::Available,
-            0,
-            Comparator::Exact,
-            rate,
-            "920",
-            false,
-            Some(990_000),
-        )
-        .expect("row"),
-    ];
+    let rows = rates
+        .iter()
+        .enumerate()
+        .map(|(row_index, rate)| {
+            ConfirmedOrderRow::try_new(
+                QuoteSide::Available,
+                u8::try_from(row_index).expect("row index"),
+                Comparator::Exact,
+                rate,
+                "920",
+                false,
+                Some(990_000),
+            )
+            .expect("row")
+        })
+        .collect();
     ConfirmedCapture::try_new(
         captured_at,
         context,
@@ -131,6 +140,9 @@ fn rollup(utc_day: &str, rate: (u64, u64)) -> PairDayRollupRow {
     }
 }
 
+/// Runs the guard and collects what it said. The outlier band is the shipped
+/// `risk.top_book_outlier_factor` default, which is the band the daily fold
+/// these tests compare against runs with.
 fn drain(
     store: &mut MarketStore,
     capture: &ConfirmedCapture,
@@ -141,6 +153,7 @@ fn drain(
         store,
         capture,
         season_floor,
+        3,
         UiLanguage::English,
         &mut |event| {
             if let PipelineEvent::Warning(message) = event {
@@ -186,6 +199,36 @@ fn a_pair_with_no_history_is_never_doubted() {
     let mut store = store("no-history");
 
     let capture = capture(at(10), "1:10000");
+    let (warnings, outcome) = drain(&mut store, &capture, None);
+
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert!(outcome.is_ok(), "{outcome:?}");
+}
+
+/// One misread row must not be able to speak for the whole book.
+///
+/// The daily fold on the other side of the comparison drops the rows that sit
+/// outside their own side's band before it takes the day's top rate. A check
+/// that keeps them is measuring two different things against each other: a
+/// single row that lost a decimal point becomes this book's "best rate", and
+/// the pair gets doubted on the strength of a row the baseline never saw.
+#[test]
+fn one_outlier_row_does_not_speak_for_the_whole_book() {
+    let mut store = store("outlier-row");
+    store
+        .replace_day_rollups(
+            "poe2",
+            "2026-08-09",
+            &[rollup("2026-08-09", (1, 100))],
+            12,
+            at(10),
+        )
+        .expect("rollup");
+
+    // Four rows agree on 1:100 and match yesterday's median exactly; the fifth
+    // lost the zeroes off its denominator and reads a hundred times better
+    // than its own side, which is what an OCR misread looks like.
+    let capture = capture_of(at(10), &["1:100", "1:100", "1:100", "1:100", "1:1"]);
     let (warnings, outcome) = drain(&mut store, &capture, None);
 
     assert!(warnings.is_empty(), "{warnings:?}");
