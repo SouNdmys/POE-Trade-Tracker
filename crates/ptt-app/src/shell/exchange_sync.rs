@@ -190,6 +190,7 @@ impl AppShell {
 
 /// 抓一个小时的三种下场。正向和回补只关心"要不要继续"，复查段却要把
 /// "又查了一次"和"真的补回来了"分开——所以不能只返回一个 bool。
+#[derive(Debug, PartialEq, Eq)]
 enum Fetched {
     /// 还没发布：这一段收工，下一轮再续。
     Deferred,
@@ -376,21 +377,20 @@ fn run_sync_round(
                         return Ok(Fetched::Empty);
                     }
                 }
-            } else {
-                published_hours += 1;
-                for row in &hour.markets {
-                    *league_counts.entry(row.league.clone()).or_default() += 1;
-                }
-                let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
-                    .rows_for_league(league)
-                    .map(|row| to_storage_row(hour_ts, row))
-                    .collect();
-                league_rows += rows.len();
-                store
-                    .replace_exchange_hour(game, league, hour_ts, &rows, now)
-                    .map_err(|error| format!("store {hour_ts}: {error}"))?;
             }
-            Ok(Fetched::Rows)
+            published_hours += 1;
+            for row in &hour.markets {
+                *league_counts.entry(row.league.clone()).or_default() += 1;
+            }
+            let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
+                .rows_for_league(league)
+                .map(|row| to_storage_row(hour_ts, row))
+                .collect();
+            league_rows += rows.len();
+            store
+                .replace_exchange_hour(game, league, hour_ts, &rows, now)
+                .map_err(|error| format!("store {hour_ts}: {error}"))?;
+            Ok(league_hour_verdict(rows.len()))
         };
     for hour_ts in &forward {
         match fetch_one(*hour_ts, &mut store)? {
@@ -453,6 +453,20 @@ fn run_sync_round(
         // 等发布这一件事，照常睡到整点。恰好整 48 的边界多空转一轮，无害。
         caught_up: planned < 48,
     })
+}
+
+/// 一个已发布小时的下场，只按**这个联赛**筛出来的行数算。
+///
+/// CDN 的小时文件装着所有联赛，"文件里有市场"回答的是"这一小时发布了没有"；
+/// 复查段问的却是另一件事——那个洞补上了吗。拿前者当后者，复查就会把
+/// 筛完仍是 0 行的小时报成"refilled"，白白重折那一天还把页面标脏。
+/// 探针 `--audit` 一直是对的那一侧：筛完 `rows.is_empty()` 就跳过。
+fn league_hour_verdict(league_rows: usize) -> Fetched {
+    if league_rows == 0 {
+        Fetched::Empty
+    } else {
+        Fetched::Rows
+    }
 }
 
 /// 小时属于哪个 UTC 日。日折的键是这个字符串，补洞后要照它点名重折。
@@ -753,6 +767,17 @@ mod exchange_sync_tests {
         );
         assert!(notice.contains("Solo Self-Found Allflame"), "{notice}");
         assert!(!notice.contains("PL99999"), "{notice}");
+    }
+
+    /// CDN 的小时文件装的是**所有**联赛。文件里有市场，不等于我们这个联赛
+    /// 有行——复查段挑的正是"文件有市场、本联赛 0 行"那种 mark，所以拿
+    /// "文件非空"当修复成功，等于每次复查都宣布洞补好了：日志报
+    /// "refilled 4"、那天被强制重折、页面被标脏，而洞一个都没少。
+    /// 探针 `--audit` 一直是对的那一侧（筛完 `rows.is_empty()` 就 continue）。
+    #[test]
+    fn an_hour_counts_as_repaired_only_when_this_league_got_rows_back() {
+        assert_eq!(league_hour_verdict(0), Fetched::Empty);
+        assert_eq!(league_hour_verdict(7), Fetched::Rows);
     }
 
     #[test]
