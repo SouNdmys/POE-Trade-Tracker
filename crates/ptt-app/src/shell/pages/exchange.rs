@@ -94,6 +94,18 @@ impl AppShell {
                     .text_size(fs(FS_10_5))
                     .text_color(c(TEXT_META)),
                 )
+                .when(model.confirmed_empty_hours > 0, |row| {
+                    // 一个都没有就别摆这个 0：页头每多一个常驻数字，
+                    // 真正在变的那几个就更难被看见。
+                    row.child(
+                        mono(ptt_runtime::report_text::fill(
+                            text.exchange_empty_hours,
+                            &[&model.confirmed_empty_hours.to_string()],
+                        ))
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META)),
+                    )
+                })
                 .child(
                     mono(format!("{} {drift}", text.exchange_drift))
                         .text_size(fs(FS_10_5))

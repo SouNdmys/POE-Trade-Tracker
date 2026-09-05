@@ -259,6 +259,8 @@ pub struct Text {
     pub exchange_retention_label: &'static str,
     pub exchange_settings_hint: &'static str,
     pub exchange_data_days: &'static str,
+    /// 窗口里"抓过、但官方那一小时确实没有数据"的小时数。
+    pub exchange_empty_hours: &'static str,
     pub exchange_synced_through: &'static str,
     pub exchange_sync_failed: &'static str,
     /// 联赛名可疑的页面提示（日志行留英文，这两句跟界面语言走）。
@@ -916,6 +918,7 @@ impl Text {
             ("exchange_retention_label", self.exchange_retention_label),
             ("exchange_settings_hint", self.exchange_settings_hint),
             ("exchange_data_days", self.exchange_data_days),
+            ("exchange_empty_hours", self.exchange_empty_hours),
             ("exchange_synced_through", self.exchange_synced_through),
             ("exchange_sync_failed", self.exchange_sync_failed),
             (
@@ -1459,6 +1462,7 @@ pub static ENGLISH: Text = Text {
     exchange_retention_label: "hourly detail kept (days)",
     exchange_settings_hint: "left: how many days of history to pull back (never earlier than the season start -- set it large to pull the whole season). right: hourly detail is folded into daily lines, then kept this many days before cleanup -- daily lines are kept forever.",
     exchange_data_days: "data {}d",
+    exchange_empty_hours: "{} empty h",
     exchange_synced_through: "synced to {} ({} h behind)",
     exchange_sync_failed: "last sync failed: {}",
     exchange_league_rows_missing: "{} hours stored but none for this league - check the league name",
@@ -2023,6 +2027,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     exchange_retention_label: "小时明细保留(天)",
     exchange_settings_hint: "左：往回拉多少天的历史（不会早于赛季起点；想拉全季就填大，比如 95）。右：小时级明细折成日线后再留几天，到期清明细——日线永久保留。",
     exchange_data_days: "数据 {} 天",
+    exchange_empty_hours: "空小时 {} 个",
     exchange_synced_through: "同步至 {}（落后 {} 小时）",
     exchange_sync_failed: "上次同步失败：{}",
     exchange_league_rows_missing: "存了 {} 个小时，但没有一行属于这个联赛 — 检查联赛名",

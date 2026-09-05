@@ -3568,6 +3568,10 @@ pub struct ExchangeModel {
     /// 手上真实握有的日线天数。涨跌选择器的上限由它定：
     /// 只回补了 14 天就别让人选 30，选了也是假的。
     pub data_days: u32,
+    /// 小时明细窗口里"抓过但确实没有数据"的小时数。由 loader 填。
+    /// 摆出来是诚实：这些小时不会被算进任何均值，但它们确实缺着——
+    /// 数字一直不降就说明官方那段是真空，不是同步坏了。
+    pub confirmed_empty_hours: u32,
     /// 面板核对（阶段 4 的落地形态）。由 loader 填充：它要按抓取时刻逐点
     /// 查小时表，模型函数不碰 store。`None` = loader 没做这一步（探针的纯
     /// 模型路径）。
@@ -4258,6 +4262,7 @@ pub fn exchange_model(
             days.dedup();
             u32::try_from(days.len()).unwrap_or(u32::MAX)
         },
+        confirmed_empty_hours: 0,
         reconcile: None,
         historical: as_of.is_some(),
         ledger: None,
