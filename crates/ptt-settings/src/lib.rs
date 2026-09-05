@@ -566,6 +566,12 @@ pub struct ExchangeTuning {
     /// 临时状态带不过去。
     #[serde(default)]
     pub as_of_day: String,
+    /// 上一轮同步在官方数据里见到的**全部**联赛名，按市场数从多到少。
+    /// 联赛下拉的选项就是它——用户猜不出 CDN 里的写法（3.29 在里面叫
+    /// "Allflame"，不叫 "Curse of the Allflame"），让他从见过的名字里挑。
+    /// 空 = 还没成功同步过，界面退回文本框。
+    #[serde(default)]
+    pub leagues_seen: Vec<String>,
 }
 
 fn default_exchange_backfill_days() -> u64 {
@@ -586,6 +592,7 @@ impl Default for ExchangeTuning {
             hour_retention_days: default_exchange_hour_retention_days(),
             trend_days: default_exchange_trend_days(),
             as_of_day: String::new(),
+            leagues_seen: Vec::new(),
         }
     }
 }
@@ -935,6 +942,25 @@ mod tests {
         let loaded = store.load();
         assert_eq!(loaded.status, LoadStatus::Loaded);
         assert_eq!(loaded.settings.hotkeys.toggle_watch, "Alt+F10");
+    }
+
+    /// `leagues_seen` is the league dropdown's source; every settings file
+    /// written before it existed must still load, with an empty list, so the
+    /// page falls back to the text box instead of the whole file resetting.
+    #[test]
+    fn a_settings_file_written_before_leagues_seen_still_loads() {
+        let store = temp_store("no-leagues-seen");
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        fs::write(
+            store.path(),
+            br#"{"schema_version": 1, "market": {"poe2": {"exchange": {"league": "Allflame", "backfill_days": 30}}}}"#,
+        )
+        .unwrap();
+        let loaded = store.load();
+        assert_eq!(loaded.status, LoadStatus::Loaded);
+        let exchange = &loaded.settings.market_tuning(Game::Poe2).exchange;
+        assert_eq!(exchange.league, "Allflame");
+        assert!(exchange.leagues_seen.is_empty());
     }
 
     /// The convert ladder used to be a tuning knob; files that still carry

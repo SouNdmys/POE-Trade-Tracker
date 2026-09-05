@@ -117,6 +117,22 @@ impl AppShell {
                                 // 新数据落库了，正开着的页面得知道账变了。
                                 this.report_stale = true;
                             }
+                            // 联赛下拉的选项来自这里。只在非空时写：一轮全是
+                            // "还没发布"的空小时会看到零个联赛，那不是
+                            // "联赛都没了"，别把上一轮的好名单擦掉。
+                            if !round.leagues_seen.is_empty()
+                                && this.settings.market_tuning(game).exchange.leagues_seen
+                                    != round.leagues_seen
+                            {
+                                this.settings
+                                    .market_tuning_mut(game)
+                                    .exchange
+                                    .leagues_seen
+                                    .clone_from(&round.leagues_seen);
+                                if let Err(error) = this.settings_store.save(&this.settings) {
+                                    this.push_log(format!("settings save failed: {error}"));
+                                }
+                            }
                             // 页面级落点：联赛名可疑要一直挂在交易所页上，
                             // 直到某一轮真的收到了这个联赛的行；其它成功轮清掉旧错。
                             let notice = round.league_name_suspect.then(|| {
@@ -194,9 +210,11 @@ struct SyncRound {
     repaired: usize,
     /// 小时发布了、这个联赛却一行都没有——最常见的原因是联赛名拼错。
     league_name_suspect: bool,
-    /// 数据里实际出现的联赛名（按市场数从多到少，最多几条）。联赛名错了的时候，
+    /// 数据里实际出现的**全部**联赛名，按市场数从多到少。联赛名错了的时候，
     /// 光说"检查联赛名"没用——POE1 的 3.29 在 CDN 里叫 "Allflame"，
     /// 不叫 "Curse of the Allflame"，用户猜不到，得把正确答案摆出来。
+    /// 不截断是因为它同时喂着联赛下拉：用户要追的可能正是沉在底下的
+    /// 私人联赛。摆不下是显示那一侧的事，见 `LEAGUE_HINT_LIMIT`。
     leagues_seen: Vec<String>,
     /// 这轮之后水位已到最新。false = 撞上单轮上限，还有历史欠着，
     /// 立刻续跑下一轮而不是睡到整点。
@@ -225,7 +243,7 @@ impl SyncRound {
             if !self.leagues_seen.is_empty() {
                 line.push_str(&format!(
                     " (leagues in the data: {})",
-                    self.leagues_seen.join(", ")
+                    league_hint(&self.leagues_seen)
                 ));
             }
             return line;
@@ -429,7 +447,7 @@ fn run_sync_round(
         repaired,
         total_days,
         league_name_suspect: published_hours >= 3 && league_rows == 0,
-        leagues_seen: top_leagues(league_counts, 5),
+        leagues_seen: top_leagues(league_counts, usize::MAX),
         // 计划排满 48（正向或回补被预算截断）就必然还有欠账；
         // 计划不满时，即便最新小时"还没发布"（deferred），剩下的也只有
         // 等发布这一件事，照常睡到整点。恰好整 48 的边界多空转一轮，无害。
@@ -476,14 +494,29 @@ fn league_suspect_notice(text: &crate::i18n::Text, stored: usize, leagues: &[Str
         notice.push_str(" · ");
         notice.push_str(&ptt_runtime::report_text::fill(
             text.exchange_leagues_in_data,
-            &[&leagues.join(", ")],
+            &[&league_hint(leagues)],
         ));
     }
     notice
 }
 
-/// 联赛名按市场数从多到少排，只留前几个：正式联赛和标准都在前面，
-/// 私人联赛（PL 编号）市场少，自然沉底不占提示。
+/// 一行日志和一句页面提示各自摆得下几个联赛名。
+///
+/// 全量名单归 `leagues_seen`（下拉要它），这里只管"读得完"：一个赛季的
+/// CDN 里几十个私人联赛，全铺出来就没人会去读那句话了。
+const LEAGUE_HINT_LIMIT: usize = 5;
+
+fn league_hint(leagues: &[String]) -> String {
+    leagues
+        .iter()
+        .take(LEAGUE_HINT_LIMIT)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// 联赛名按市场数从多到少排：正式联赛和标准都在前面，私人联赛（PL 编号）
+/// 市场少，自然沉底。`limit` 是给提示用的；下拉要全量，传 `usize::MAX`。
 fn top_leagues(counts: std::collections::BTreeMap<String, usize>, limit: usize) -> Vec<String> {
     let mut ranked: Vec<(String, usize)> = counts.into_iter().collect();
     ranked.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
@@ -675,6 +708,51 @@ mod exchange_sync_tests {
             top_leagues(counts, 3),
             vec!["Allflame", "Standard", "Hardcore Allflame"]
         );
+    }
+
+    /// 联赛下拉要列全：用户想追的很可能就是沉在底下的私人联赛（PLxxxxx）
+    /// 或硬核分账，砍到前五就等于告诉他"你那个联赛不存在"。
+    /// 于是这一轮记住全部，而"摆不下"的责任落到显示那一侧——
+    /// 一行日志和一句页面提示都塞不进四十个名字。
+    #[test]
+    fn every_league_in_the_data_survives_not_just_the_top_five() {
+        let counts = std::collections::BTreeMap::from([
+            ("Allflame".to_owned(), 1465),
+            ("Standard".to_owned(), 415),
+            ("Hardcore Allflame".to_owned(), 323),
+            ("Hardcore".to_owned(), 120),
+            ("Solo Self-Found Allflame".to_owned(), 60),
+            ("Bored BroSF III (PL85538)".to_owned(), 1),
+            ("Zzz Private (PL99999)".to_owned(), 1),
+        ]);
+        let all = top_leagues(counts, usize::MAX);
+        assert_eq!(all.len(), 7);
+        // 排序不变：正式联赛在前，私人联赛沉底。
+        assert_eq!(all[0], "Allflame");
+        assert_eq!(all.last().unwrap(), "Zzz Private (PL99999)");
+
+        // 记全了，但两处提示各自只摆前五。
+        let round = SyncRound {
+            stored: 5,
+            days_folded: 0,
+            days_pruned: 0,
+            rechecked: 0,
+            repaired: 0,
+            league_name_suspect: true,
+            caught_up: true,
+            total_days: 0,
+            leagues_seen: all.clone(),
+        };
+        let line = round.log_line();
+        assert!(line.contains("Solo Self-Found Allflame"), "{line}");
+        assert!(!line.contains("PL99999"), "{line}");
+        let notice = league_suspect_notice(
+            crate::i18n::text(ptt_settings::UiLanguage::English),
+            5,
+            &all,
+        );
+        assert!(notice.contains("Solo Self-Found Allflame"), "{notice}");
+        assert!(!notice.contains("PL99999"), "{notice}");
     }
 
     #[test]
