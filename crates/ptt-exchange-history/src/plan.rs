@@ -9,8 +9,8 @@ pub enum EmptyHourVerdict {
     /// 距 now 太近：可能只是还没发布（实测延迟 1–2 小时），不写 mark，
     /// 下一轮同步自然重试。
     RetryLater,
-    /// 足够老还空着 = 真的没数据（赛季开始前）。写 market_count=0 的 mark，
-    /// 永不重访。
+    /// 足够老还空着 = 大概率真的没数据（赛季开始前）。写 market_count=0 的 mark。
+    /// 只是"大概率"：这个结论由 `plan_recheck` 软过期，一天后还会被复查一次。
     ConfirmedEmpty,
 }
 
@@ -100,6 +100,38 @@ pub fn plan_backward(
         }
         hour_ts -= 3600;
     }
+    hours
+}
+
+/// 空小时的软过期：一天。写下 mark 那一刻的判断可能只是"还没发布"，
+/// 隔一天再看一眼几乎零成本，而永久固化的代价是一个永远补不回来的空洞。
+const RECHECK_STALE_SECONDS: i64 = 24 * 3600;
+
+/// 复查地平线：一周。
+///
+/// 没有这条线，软标记就不会过期——`replace_exchange_hour` 每次写都刷新
+/// `fetched_at`，只看"24 小时没查过"会退化成"每天把全部空小时重查一遍"。
+/// 有了地平线，一个空小时最多被复查六次就自然冻结，赛季开始前那一大段
+/// 真空不会永远占着每轮的抓取预算。
+const RECHECK_HORIZON_SECONDS: i64 = 7 * 24 * 3600;
+
+/// 这一轮该复查哪些"确认为空"的小时，升序，最多 `max_hours` 个。
+///
+/// 收裸元组 `(hour_ts, market_count, fetched_at_ts)` 而不是存储层的 mark 类型：
+/// 计划这一层是纯算术，不该认识数据库。
+#[must_use]
+pub fn plan_recheck(marks: &[(i64, u32, i64)], now_ts: i64, max_hours: usize) -> Vec<i64> {
+    let mut hours: Vec<i64> = marks
+        .iter()
+        .filter(|(hour_ts, market_count, fetched_at_ts)| {
+            *market_count == 0
+                && now_ts - *fetched_at_ts >= RECHECK_STALE_SECONDS
+                && now_ts - *hour_ts <= RECHECK_HORIZON_SECONDS
+        })
+        .map(|(hour_ts, _, _)| *hour_ts)
+        .collect();
+    hours.sort_unstable();
+    hours.truncate(max_hours);
     hours
 }
 
@@ -194,6 +226,31 @@ mod plan_tests {
         assert!(!hours.is_empty());
         // 计划里不含已折叠区间的任何小时，且真的够到了更深处。
         assert!(hours.iter().all(|hour_ts| *hour_ts < folded_floor));
+    }
+
+    /// 官方发布延迟实测 1–2 小时、偶尔更久：三小时护栏之外写下的"确认为空"
+    /// 有可能只是"还没发布"。把它当永久结论，就把一次发布延迟固化成了一个
+    /// 永远补不回来的空洞——所以 mark 是软的：隔一天再看一眼，看一周。
+    #[test]
+    fn a_confirmed_empty_hour_becomes_revisitable_after_a_day() {
+        let stale_empty = (NOW - 5 * 3600, 0u32, NOW - 25 * 3600);
+        // 刚查过：软标记还没过期，这一轮别浪费请求。
+        let fresh_empty = (NOW - 6 * 3600, 0u32, NOW - 2 * 3600);
+        // 有数据的小时不复查——CDN 不可变，抓到过就是定论。
+        let stale_filled = (NOW - 7 * 3600, 42u32, NOW - 25 * 3600);
+        // 超出地平线：赛季开始前那段真空永久冻结，不再占预算。
+        let ancient_empty = (NOW - 8 * 24 * 3600, 0u32, NOW - 25 * 3600);
+        let marks = vec![ancient_empty, stale_filled, fresh_empty, stale_empty];
+        assert_eq!(plan_recheck(&marks, NOW, 10), vec![stale_empty.0]);
+
+        // 预算是界不是目标：这一轮补几个，剩下的下一轮接着来（同 plan_fetch）。
+        let many: Vec<(i64, u32, i64)> = (1..=6)
+            .map(|index| (NOW - index * 3600, 0u32, NOW - 25 * 3600))
+            .collect();
+        let picked = plan_recheck(&many, NOW, 4);
+        assert_eq!(picked.len(), 4);
+        assert!(picked.windows(2).all(|pair| pair[1] == pair[0] + 3600));
+        assert_eq!(picked[0], NOW - 6 * 3600);
     }
 
     #[test]
