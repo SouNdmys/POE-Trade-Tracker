@@ -244,6 +244,11 @@ struct SyncRound {
     rechecked: usize,
     /// 其中几个真的补回了数据——发布延迟穿过了三小时护栏的证据。
     repaired: usize,
+    /// 复查段中途抓取失败的原因。只是一句话，不是整轮的败因：
+    /// 正向段已经落库了，让整轮失败会跳过日折和清理，而
+    /// `repaired_days` 只活在内存里——这轮补好的那天从此再也不会被重折
+    /// （日折看 mark 数判"这天没变化"，补一行不改 mark 数），洞就永久留在日线上。
+    recheck_error: Option<String>,
     /// 小时发布了、这个联赛却一行都没有——最常见的原因是联赛名拼错。
     league_name_suspect: bool,
     /// 数据里实际出现的**全部**联赛名，按市场数从多到少。联赛名错了的时候，
@@ -266,6 +271,7 @@ impl SyncRound {
             || self.days_pruned > 0
             || self.repaired > 0
             || self.league_name_suspect
+            || self.recheck_error.is_some()
     }
 
     /// 六测反馈：`folded 1d` 被读成了同步进度。进度就说进度——
@@ -294,6 +300,11 @@ impl SyncRound {
                 " (re-checked {} empty h, refilled {})",
                 self.rechecked, self.repaired
             ));
+        }
+        if let Some(error) = &self.recheck_error {
+            // 复查半途断了不是这一轮的败因，但也不能咽下去：
+            // 剩下那几个洞得等下一轮，用户至少要知道为什么。
+            line.push_str(&format!(" (recheck stopped: {error})"));
         }
         line
     }
@@ -441,18 +452,9 @@ fn run_sync_round(
             _ => stored += 1,
         }
     }
-    let mut rechecked = 0usize;
-    let mut repaired = 0usize;
-    let mut repaired_days = std::collections::BTreeSet::<String>::new();
-    for hour_ts in &recheck {
-        rechecked += 1;
-        // 复查不算"同步进度"：还是空的那一次只刷新了冷却时间，把它记进
-        // `stored` 会让日志每轮都报"+4h"，用户读到的是假的进度。
-        if let Fetched::Rows = fetch_one(*hour_ts, Segment::Recheck, &mut store)? {
-            repaired += 1;
-            repaired_days.insert(utc_day_of(*hour_ts));
-        }
-    }
+    let recheck = run_recheck(&recheck, |hour_ts| {
+        fetch_one(hour_ts, Segment::Recheck, &mut store)
+    });
 
     // 折叠和清理搭这班车，不再开第二个定时器。
     let fold = ptt_runtime::exchange_rollup::ensure_exchange_day_rollups(
@@ -461,7 +463,7 @@ fn run_sync_round(
         league,
         now,
         32,
-        &repaired_days,
+        &recheck.repaired_days,
     )?;
     let prune = ptt_runtime::exchange_rollup::prune_exchange_hours(
         &mut store,
@@ -479,8 +481,9 @@ fn run_sync_round(
         stored,
         days_folded: fold.days_processed.len(),
         days_pruned: prune.days_deleted.len(),
-        rechecked,
-        repaired,
+        rechecked: recheck.rechecked,
+        repaired: recheck.repaired,
+        recheck_error: recheck.error,
         total_days,
         league_name_suspect: votes.suspect(),
         leagues_seen: top_leagues(league_counts, usize::MAX),
@@ -489,6 +492,48 @@ fn run_sync_round(
         // 等发布这一件事，照常睡到整点。恰好整 48 的边界多空转一轮，无害。
         caught_up: planned < 48,
     })
+}
+
+/// 复查段的账目。
+#[derive(Default)]
+struct Recheck {
+    /// 这轮复查了几个小时。
+    rechecked: usize,
+    /// 其中几个真的补回了本联赛的数据。
+    repaired: usize,
+    /// 补回来的小时落在哪几天——这几天要点名重折。
+    repaired_days: std::collections::BTreeSet<String>,
+    /// 复查段栽在哪一次抓取上。
+    error: Option<String>,
+}
+
+/// 跑一遍复查段。抓取出错只停在这里，不往外抛。
+///
+/// 复查是顺路补洞，不是这一轮的正事：正向段的小时早已落库，让整轮失败
+/// 只会跳过后面的日折和清理，而"这几天要重折"的名单只活在内存里——
+/// 日折看 mark 数判"这天没变化"，补一行不改 mark 数，所以那一天从此
+/// 再也不会被重折，洞就永久留在日线上（等小时明细过了保留期被清掉，
+/// 连补救的机会都没了）。断了就收工，剩下的洞下一轮再说。
+fn run_recheck(hours: &[i64], mut fetch: impl FnMut(i64) -> Result<Fetched, String>) -> Recheck {
+    let mut outcome = Recheck::default();
+    for hour_ts in hours {
+        match fetch(*hour_ts) {
+            Ok(fetched) => {
+                // 复查不算"同步进度"：还是空的那一次只刷新了冷却时间，把它记进
+                // `stored` 会让日志每轮都报"+4h"，用户读到的是假的进度。
+                outcome.rechecked += 1;
+                if let Fetched::Rows = fetched {
+                    outcome.repaired += 1;
+                    outcome.repaired_days.insert(utc_day_of(*hour_ts));
+                }
+            }
+            Err(error) => {
+                outcome.error = Some(error);
+                break;
+            }
+        }
+    }
+    outcome
 }
 
 /// 一个已发布小时的下场，只按**这个联赛**筛出来的行数算。
@@ -672,6 +717,7 @@ mod exchange_sync_tests {
             days_pruned: 0,
             rechecked: 0,
             repaired: 0,
+            recheck_error: None,
             league_name_suspect: false,
             caught_up: true,
             total_days: 30,
@@ -688,6 +734,7 @@ mod exchange_sync_tests {
             days_pruned: 0,
             rechecked: 0,
             repaired: 0,
+            recheck_error: None,
             league_name_suspect: true,
             caught_up: true,
             total_days: 0,
@@ -707,6 +754,7 @@ mod exchange_sync_tests {
             days_pruned: 0,
             rechecked: 0,
             repaired: 0,
+            recheck_error: None,
             league_name_suspect: true,
             caught_up: true,
             total_days: 0,
@@ -788,6 +836,7 @@ mod exchange_sync_tests {
             days_pruned: 0,
             rechecked: 0,
             repaired: 0,
+            recheck_error: None,
             league_name_suspect: true,
             caught_up: true,
             total_days: 0,
@@ -841,6 +890,54 @@ mod exchange_sync_tests {
         with_rows.record(Segment::Sync, 0);
         with_rows.record(Segment::Sync, 0);
         assert!(!with_rows.suspect());
+    }
+
+    /// 复查段的一次 CDN 抖动不该把整轮拖下水。整轮失败会跳过日折和清理，
+    /// 而"这几天要重折"的名单只活在内存里——日折看 mark 数判"这天没变化"，
+    /// 补一行不改 mark 数，所以那一天从此再也不会被重折，洞永久留在日线上
+    /// （等小时明细过了保留期被清掉，连补救的机会都没了）。
+    /// 所以：失败只停复查段，已经补回来的那几天照样交出去重折。
+    #[test]
+    fn a_failed_recheck_fetch_stops_the_segment_without_losing_the_repairs() {
+        // 2024-01-02T00:00Z 起的三个整点，前两个在同一天。
+        let hours = [1_704_153_600, 1_704_157_200, 1_704_240_000];
+        let mut calls = 0usize;
+        let outcome = run_recheck(&hours, |_| {
+            calls += 1;
+            match calls {
+                1 => Ok(Fetched::Rows),
+                2 => Err("fetch 1704157200: connection reset".to_owned()),
+                _ => Ok(Fetched::Rows),
+            }
+        });
+        // 断在第二次：第一次的修复必须留下，那一天照样进重折名单。
+        assert_eq!(outcome.rechecked, 1);
+        assert_eq!(outcome.repaired, 1);
+        assert_eq!(
+            outcome.repaired_days.iter().collect::<Vec<_>>(),
+            vec!["2024-01-02"]
+        );
+        // 剩下那个小时不再试：这一轮的复查到此为止。
+        assert_eq!(calls, 2);
+        // 原因不能咽下去，得能写进日志行。
+        let round = SyncRound {
+            stored: 3,
+            days_folded: 1,
+            days_pruned: 0,
+            rechecked: outcome.rechecked,
+            repaired: outcome.repaired,
+            recheck_error: outcome.error.clone(),
+            league_name_suspect: false,
+            caught_up: true,
+            total_days: 12,
+            leagues_seen: Vec::new(),
+        };
+        assert!(round.worth_a_log_line());
+        assert!(
+            round.log_line().contains("connection reset"),
+            "{}",
+            round.log_line()
+        );
     }
 
     #[test]
