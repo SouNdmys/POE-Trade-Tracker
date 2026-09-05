@@ -117,18 +117,15 @@ impl AppShell {
                                 // 新数据落库了，正开着的页面得知道账变了。
                                 this.report_stale = true;
                             }
-                            // 联赛下拉的选项来自这里。只在非空时写：一轮全是
-                            // "还没发布"的空小时会看到零个联赛，那不是
-                            // "联赛都没了"，别把上一轮的好名单擦掉。
-                            if !round.leagues_seen.is_empty()
-                                && this.settings.market_tuning(game).exchange.leagues_seen
-                                    != round.leagues_seen
-                            {
-                                this.settings
-                                    .market_tuning_mut(game)
-                                    .exchange
-                                    .leagues_seen
-                                    .clone_from(&round.leagues_seen);
+                            // 联赛下拉的选项来自这里。合并而不是覆盖，理由见
+                            // `merge_leagues_seen`；名单没真的变就不写盘。
+                            let merged = merge_leagues_seen(
+                                &this.settings.market_tuning(game).exchange.leagues_seen,
+                                &round.leagues_seen,
+                            );
+                            if merged != this.settings.market_tuning(game).exchange.leagues_seen {
+                                this.settings.market_tuning_mut(game).exchange.leagues_seen =
+                                    merged;
                                 if let Err(error) = this.settings_store.save(&this.settings) {
                                     this.push_log(format!("settings save failed: {error}"));
                                 }
@@ -622,6 +619,26 @@ fn top_leagues(counts: std::collections::BTreeMap<String, usize>, limit: usize) 
         .collect()
 }
 
+/// 下拉里该摆哪些联赛名：本轮见到的在前（`top_leagues` 已按市场数排好），
+/// 设置里已有、本轮没见到的按原顺序接在后面。
+///
+/// 不能整份覆盖。冷启动那一轮抓 48 小时，见得到几十个联赛；追平之后一轮
+/// 只抓 1 小时，那一小时里没成交的私人联赛和硬核分账一个都不会出现——
+/// 覆盖等于一小时后把它们从下拉里删掉，而用户想追的往往正是沉在底下那个。
+/// 联赛名单是"见过就记住"，不是"这一小时的快照"。
+///
+/// 返回值和设置里的一模一样就别写盘：settings.json 是 fsync+rename，
+/// 还是在界面线程上做的。
+fn merge_leagues_seen(stored: &[String], seen: &[String]) -> Vec<String> {
+    let mut merged = seen.to_vec();
+    for name in stored {
+        if !merged.contains(name) {
+            merged.push(name.clone());
+        }
+    }
+    merged
+}
+
 /// 一轮跑完时的处置：这轮的结论还算不算数，下一轮什么时候开。
 #[derive(Debug, PartialEq, Eq)]
 struct RoundDisposition {
@@ -938,6 +955,57 @@ mod exchange_sync_tests {
             "{}",
             round.log_line()
         );
+    }
+
+    /// 冷启动那一轮抓 48 小时，见得到几十个联赛；追平之后一轮只抓 1 小时，
+    /// 那一小时里没成交的私人联赛和硬核分账就一个都不出现。整份覆盖等于
+    /// 一小时后把它们从下拉里删掉——用户想追的往往正是沉在底下那个。
+    /// 所以：本轮见到的按市场数排前面，设置里已有、本轮没见到的按原顺序接后面。
+    #[test]
+    fn leagues_seen_merge_into_the_stored_list_instead_of_replacing_it() {
+        let stored: Vec<String> = [
+            "Allflame",
+            "Standard",
+            "Hardcore Allflame",
+            "Hardcore",
+            "Solo Self-Found Allflame",
+            "Ruthless Allflame",
+            "Bored BroSF III (PL85538)",
+            "Zzz Private (PL99999)",
+        ]
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect();
+        // 稳态一轮：只有那一小时里成交过的三个联赛露了面。
+        let seen: Vec<String> = ["Standard", "Allflame", "Hardcore"]
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect();
+
+        let merged = merge_leagues_seen(&stored, &seen);
+        assert_eq!(merged.len(), 8, "{merged:?}");
+        assert_eq!(merged[..3], seen[..], "{merged:?}");
+        assert!(
+            merged.contains(&"Zzz Private (PL99999)".to_owned()),
+            "{merged:?}"
+        );
+        // 本轮没见到的那五个保持设置里的相对顺序。
+        assert_eq!(
+            merged[3..],
+            [
+                "Hardcore Allflame".to_owned(),
+                "Solo Self-Found Allflame".to_owned(),
+                "Ruthless Allflame".to_owned(),
+                "Bored BroSF III (PL85538)".to_owned(),
+                "Zzz Private (PL99999)".to_owned(),
+            ]
+        );
+
+        // 整轮都是"还没发布"的空小时：名单原样不动，也就不写盘
+        // （settings.json 是 fsync+rename，还是在界面线程上）。
+        assert_eq!(merge_leagues_seen(&stored, &[]), stored);
+        // 见到的和存的一模一样：同样不写盘。
+        assert_eq!(merge_leagues_seen(&stored, &stored), stored);
     }
 
     #[test]
