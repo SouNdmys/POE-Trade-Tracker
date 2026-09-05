@@ -10,17 +10,17 @@ use ptt_trade_domain::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// How far a listing's visible stock may sit from its own side's median
-/// before the band names it.
+/// How far above every other row on its own side a listing's visible stock
+/// may sit before the band names it.
 ///
 /// Deliberately an order of magnitude, and deliberately not a user knob.
 /// `top_book_outlier_factor` already lets the reader tune the *rate* band,
 /// and a second dial pulling on the same rows would leave two bands to
 /// reconcile every time one of them fired. Ten catches the failure this
-/// exists for — an OCR reading that gained or lost a digit — and clears a
-/// genuinely deep listing, which is routinely a few times the median and
-/// almost never ten. Calibrate it against a full season's captures before
-/// promoting it to a setting.
+/// exists for — an OCR reading that gained a digit — and clears a genuinely
+/// deep listing, which is routinely a few times its neighbours and almost
+/// never ten. Calibrate it against a full season's captures before promoting
+/// it to a setting.
 pub const STOCK_OUTLIER_FACTOR: u64 = 10;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -916,8 +916,8 @@ pub fn top_book_outlier_quote_ids(
     outliers
 }
 
-/// The quote ids whose visible stock sits `factor` times *above* their own
-/// side's median.
+/// The quote ids whose visible stock is more than `factor` times *every other
+/// row* on their own side.
 ///
 /// A companion to [`top_book_outlier_quote_ids`] and not a clause inside it,
 /// because the two catch opposite failures and deserve opposite verdicts. A
@@ -925,13 +925,23 @@ pub fn top_book_outlier_quote_ids(
 /// wrong *or* is the deep listing that fills the whole order, so this one
 /// names rows and never removes them.
 ///
-/// The band is one-sided on purpose. A row far *below* its side's median is
+/// The band is one-sided on purpose. A row far *below* its side-mates is
 /// arithmetically the same picture whether the OCR dropped a digit (1855 read
 /// as 185) or someone simply bought most of the listing out — and the second
 /// is what an order book does all day, so a badge there would fire constantly
-/// and carry no information. A row far *above* the median is the digit the
-/// reader *gained* (1855 read as 18550), and real listings that far past their
+/// and carry no information. A row far *above* them is the digit the reader
+/// *gained* (1855 read as 18550), and real listings that far past their
 /// neighbours are rare enough that the badge still means something.
+///
+/// The baseline is the biggest *other* row on the side rather than the side's
+/// median, because a median is a number a sold-out majority drags down with
+/// it: a side reading 2, 3, 5, 100, 120, 150 has a median of 5, and the three
+/// healthy listings would each measure twenty times the band. The largest
+/// rival cannot be dragged anywhere. A gained digit dwarfs the entire side by
+/// construction, while no number of picked-over rows makes a healthy row look
+/// oversized — so this baseline says yes to exactly the case worth saying it
+/// for, and at most one row per side can be named, which is what one misread
+/// digit looks like.
 ///
 /// Fewer than three rows on a side get no verdict at all. The rate band falls
 /// back to the front row there, but that fallback rests on a panel semantic
@@ -940,7 +950,7 @@ pub fn top_book_outlier_quote_ids(
 /// compare against.
 ///
 /// **The caller must hand in one panel side's worth of rows at most**, for
-/// the same reason the rate band does: the baseline is a median within
+/// the same reason the rate band does: the baseline is drawn from within
 /// `source_side`, and quote ids are only unique within a snapshot.
 #[must_use]
 pub fn stock_outlier_quote_ids(
@@ -971,20 +981,20 @@ pub fn stock_outlier_quote_ids(
                 .then_with(|| left.original_row_index.cmp(&right.original_row_index))
                 .then_with(|| left.quote_id.cmp(&right.quote_id))
         });
-        // Element selection, lower middle when even: no averaging, no
-        // division, and no minority of rows can drag it — the same reason the
-        // rate band picks its baseline this way.
-        let median = edges[(edges.len() - 1) / 2].stock;
-        // A side that is mostly sold out has no scale to be out of, and
-        // `factor * 0` would accuse every remaining row. Empty listings are
+        // Sorted ascending, so only the deepest row can ever clear the bar:
+        // every other row is measured against a rival at least its own size.
+        // That is the rule, not a shortcut — at most one row per side can be
+        // named, which is what one misread digit looks like.
+        let deepest = edges[edges.len() - 1];
+        let largest_rival = edges[edges.len() - 2].stock;
+        // One live listing among sold-out neighbours is a thin side, not a
+        // misread, and `factor * 0` would accuse it. Empty listings are
         // `NoStock`'s business.
-        if median == 0 {
+        if largest_rival == 0 {
             continue;
         }
-        for edge in edges.iter() {
-            if edge.stock > factor.saturating_mul(median) {
-                outliers.insert(edge.quote_id.clone());
-            }
+        if deepest.stock > factor.saturating_mul(largest_rival) {
+            outliers.insert(deepest.quote_id.clone());
         }
     }
     outliers
@@ -1678,14 +1688,14 @@ mod tests {
         row
     }
 
-    /// B-2: a stock that lost a digit passes every rate check — the price is
+    /// B-2: a stock that gained a digit passes every rate check — the price is
     /// right, only the depth is wrong — and then walks into coverage, the
     /// liquidity class and the radar's ordering, all of which sum stock. The
     /// band names it. It must not remove it: a real whale listing looks
     /// exactly the same from here, and the tracker reports, it does not
     /// adjudicate.
     #[test]
-    fn a_stock_ten_times_its_side_median_is_flagged_but_not_rejected() {
+    fn a_stock_ten_times_its_whole_side_is_flagged_but_not_rejected() {
         let observations = vec![
             taker_row_with_stock("honest-a", 0, 100),
             taker_row_with_stock("honest-b", 1, 120),
@@ -1794,9 +1804,32 @@ mod tests {
         );
     }
 
-    /// A side of two rows has no majority to take a median from, and unlike
-    /// the rate band there is no front-row fallback worth having: the first
-    /// listing is the best price, never the deepest one.
+    /// Late in a listing's life most of a side is picked over. A side reading
+    /// 2, 3, 5, 100, 120, 150 has a median of 5, and against that baseline the
+    /// three healthy listings all measure twenty times the band — three badges
+    /// on the only rows worth trading with. The baseline has to be something a
+    /// sold-out majority cannot drag down.
+    #[test]
+    fn a_sold_out_majority_does_not_make_the_healthy_rows_oversized() {
+        let observations = vec![
+            taker_row_with_stock("picked-a", 0, 2),
+            taker_row_with_stock("picked-b", 1, 3),
+            taker_row_with_stock("picked-c", 2, 5),
+            taker_row_with_stock("healthy-a", 3, 100),
+            taker_row_with_stock("healthy-b", 4, 120),
+            taker_row_with_stock("healthy-c", 5, 150),
+        ];
+        let flagged = stock_outlier_quote_ids(&observations, STOCK_OUTLIER_FACTOR);
+        assert!(
+            flagged.is_empty(),
+            "no row towers over the whole side, so none is a misread: {flagged:?}"
+        );
+    }
+
+    /// A side of two rows is not a side to tower over — one listing being ten
+    /// times the only other one is an ordinary deep-versus-shallow pair. And
+    /// unlike the rate band there is no front-row fallback worth having: the
+    /// first listing is the best price, never the deepest one.
     #[test]
     fn a_two_row_side_gets_no_stock_verdict() {
         assert!(
