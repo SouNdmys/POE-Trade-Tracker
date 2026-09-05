@@ -3586,6 +3586,35 @@ pub struct ExchangeModel {
     pub window_hours: Option<Option<u32>>,
 }
 
+/// 窗口里"抓过、却真的没有数据"的小时数——只数联赛第一个有数据的小时之后的。
+///
+/// 起点必须是数据自己给的：回补一路抓到设置的下限，把开服之前也抓了一遍，
+/// 那一大段官方本来就没有任何成交，是结构性真空而不是洞。一并计入的话页头
+/// 会摆出几十个空小时的假警报，真正该盯的那一两个洞反而淹在里面。
+/// 一个有数据的小时都没有（联赛还没开始，或者联赛名写错了）就没有起点，
+/// 也就谈不上缺口——报 0。
+///
+/// 收裸切片 `(hour_ts, market_count)` 而不是存储层的 mark 类型：这是纯算术，
+/// 顺序也不假设，调用方给什么序都算得对。
+#[must_use]
+pub fn empty_hours_since_first_published(hour_marks: &[(i64, u32)]) -> u32 {
+    let Some(first_published) = hour_marks
+        .iter()
+        .filter(|(_, market_count)| *market_count > 0)
+        .map(|(hour_ts, _)| *hour_ts)
+        .min()
+    else {
+        return 0;
+    };
+    u32::try_from(
+        hour_marks
+            .iter()
+            .filter(|(hour_ts, market_count)| *market_count == 0 && *hour_ts > first_published)
+            .count(),
+    )
+    .unwrap_or(u32::MAX)
+}
+
 // ---------------------------------------------------------------------------
 // 小时账本（P12）：整段保留期的逐资产小时序列
 // ---------------------------------------------------------------------------
@@ -8986,5 +9015,35 @@ mod exchange_window_tests {
         assert_eq!(model.rows[0].asset_id.to_string(), "divine-orb");
         assert_eq!(model.rows[0].volume_per_hour_anchor, 90_000);
         assert_eq!(model.rows[1].volume_per_hour_anchor, 600);
+    }
+}
+
+#[cfg(test)]
+mod empty_hour_count_tests {
+    use super::*;
+
+    const HOUR: i64 = 1_788_159_600;
+
+    /// 回补会一路抓到设置的下限，包括联赛开服之前——那段官方本来就没有任何
+    /// 成交，是结构性真空，不是"洞"。把它算进去，页头会摆出几十个空小时的
+    /// 假警报，真正该注意的那一两个洞反而淹在里面。
+    #[test]
+    fn the_count_starts_at_the_leagues_first_published_hour() {
+        let mut marks: Vec<(i64, u32)> = (0..5).map(|index| (HOUR + index * 3600, 0)).collect();
+        marks.push((HOUR + 5 * 3600, 12));
+        marks.push((HOUR + 6 * 3600, 0));
+        marks.push((HOUR + 7 * 3600, 9));
+        marks.push((HOUR + 8 * 3600, 0));
+        marks.push((HOUR + 9 * 3600, 7));
+        assert_eq!(empty_hours_since_first_published(&marks), 2);
+    }
+
+    /// 一个有数据的小时都没有 = 联赛还没开始（或者联赛名写错了）。没有起点
+    /// 就没有"缺口"这回事，报 0 比报"全缺"诚实。
+    #[test]
+    fn a_league_with_no_data_at_all_has_no_holes() {
+        let marks: Vec<(i64, u32)> = (0..5).map(|index| (HOUR + index * 3600, 0)).collect();
+        assert_eq!(empty_hours_since_first_published(&marks), 0);
+        assert_eq!(empty_hours_since_first_published(&[]), 0);
     }
 }

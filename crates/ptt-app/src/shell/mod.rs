@@ -2105,16 +2105,16 @@ fn load_exchange(
     let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
     model.synced_through = watermark;
     model.hours_behind = watermark.map_or(0, |mark| ((newest_complete - mark) / 3600).max(0));
-    // 小时 mark 随明细一起被清理，所以这个计数天然只覆盖保留窗内的小时。
-    model.confirmed_empty_hours = u32::try_from(
-        store
-            .list_exchange_hour_marks(game, &league)
-            .map_err(|error| format!("hour marks: {error}"))?
-            .iter()
-            .filter(|mark| mark.market_count == 0)
-            .count(),
-    )
-    .unwrap_or(u32::MAX);
+    // 小时 mark 随明细一起被清理，所以这个计数天然只覆盖保留窗内的小时；
+    // 开服之前那段真空由 `empty_hours_since_first_published` 挡在起点之外。
+    let hour_marks: Vec<(i64, u32)> = store
+        .list_exchange_hour_marks(game, &league)
+        .map_err(|error| format!("hour marks: {error}"))?
+        .iter()
+        .map(|mark| (mark.hour_ts, mark.market_count))
+        .collect();
+    model.confirmed_empty_hours =
+        ptt_runtime::reports::empty_hours_since_first_published(&hour_marks);
     // 小时账本是"现在"的读数，历史视角下不算（与小时行一样）。
     if as_of.is_none() {
         model.ledger = load_exchange_ledger(&store, request, &league, watermark)?;
