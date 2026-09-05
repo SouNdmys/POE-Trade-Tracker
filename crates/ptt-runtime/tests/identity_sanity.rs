@@ -1,13 +1,14 @@
 //! B-3: a book whose rate is orders of magnitude off its own pair's recent
-//! history is flagged before it is stored — and stored anyway.
+//! history is stored, and then flagged — never rejected.
 //!
 //! The guard runs on the live capture path, so the rule it must never break is
-//! "a guard that cannot read is not a reason to lose a book". Both tests below
-//! exist to pin that: one that the flag fires, one that a pair with no history
-//! is never doubted.
+//! "a guard that cannot read is not a reason to lose a book". The tests below
+//! exist to pin that: the flag fires and the book is still in the database, a
+//! pair with no history is never doubted, and the one case where nothing may
+//! be said at all is the write that did not happen.
 
 use chrono::{DateTime, TimeZone, Utc};
-use ptt_runtime::pipeline::{PipelineEvent, warn_then_persist};
+use ptt_runtime::pipeline::{PipelineEvent, persist_then_warn};
 use ptt_settings::UiLanguage;
 use ptt_storage::{MarketStore, PairDayRollupRow};
 use ptt_trade_domain::{
@@ -149,7 +150,7 @@ fn drain(
     season_floor: Option<DateTime<Utc>>,
 ) -> (Vec<String>, Result<(), String>) {
     let mut warnings = Vec::new();
-    let outcome = warn_then_persist(
+    let outcome = persist_then_warn(
         store,
         capture,
         season_floor,
@@ -203,6 +204,39 @@ fn a_pair_with_no_history_is_never_doubted() {
 
     assert!(warnings.is_empty(), "{warnings:?}");
     assert!(outcome.is_ok(), "{outcome:?}");
+}
+
+/// A warning that ends "the book was stored anyway" must not outlive the
+/// write it is promising.
+///
+/// The two lines land on different surfaces in the app — the warning in the
+/// log, the failure in the fault banner — and in `watch-probe` they print one
+/// after the other, so a warning sent ahead of a failed write leaves the user
+/// reading two lines that contradict each other about whether the book exists.
+#[test]
+fn a_failed_write_is_never_announced_as_stored_anyway() {
+    let mut store = store("persist-failed");
+    store
+        .replace_day_rollups(
+            "poe2",
+            "2026-08-09",
+            &[rollup("2026-08-09", (1, 100))],
+            12,
+            at(10),
+        )
+        .expect("rollup");
+
+    // The first pass stores the book and flags it, exactly as it should.
+    let capture = capture(at(10), "1:10000");
+    let (warnings, outcome) = drain(&mut store, &capture, None);
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert!(outcome.is_ok(), "{outcome:?}");
+
+    // The same book again: its snapshot id is already taken, so the write
+    // fails — and nothing may claim it was stored.
+    let (warnings, outcome) = drain(&mut store, &capture, None);
+    assert!(outcome.is_err(), "the second write must fail: {outcome:?}");
+    assert!(warnings.is_empty(), "{warnings:?}");
 }
 
 /// One misread row must not be able to speak for the whole book.

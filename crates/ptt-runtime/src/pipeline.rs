@@ -63,13 +63,20 @@ pub fn magnitude_suspect(
     baseline.is_some_and(|baseline| top_rate.differs_by_more_than(baseline, factor))
 }
 
-/// Flags the book's identity, then stores it either way.
+/// Stores the book, then flags its identity — and only once it really is
+/// stored.
 ///
 /// A function of its own rather than four lines inside the loop, because this
 /// is the only place the "flag, never reject" rule is expressed and the rest
 /// of [`LivePipeline::run`] needs a real screen to reach. A test can drive
 /// exactly this, in exactly this order.
-pub fn warn_then_persist(
+///
+/// The order is the promise: the warning's last clause says the book was
+/// stored anyway, so sending it before the write means a failed write leaves
+/// that sentence standing next to the fault that contradicts it. The verdict
+/// is still reached before the write — reading the history afterwards would
+/// have this capture's own rows in it — but it is only spoken afterwards.
+pub fn persist_then_warn(
     store: &mut MarketStore,
     capture: &ptt_trade_domain::ConfirmedCapture,
     season_floor: Option<chrono::DateTime<chrono::Utc>>,
@@ -77,11 +84,12 @@ pub fn warn_then_persist(
     language: ptt_settings::UiLanguage,
     on_event: &mut impl FnMut(PipelineEvent),
 ) -> Result<(), ptt_storage::StorageError> {
-    if let Some(warning) = identity_warning(store, capture, season_floor, outlier_factor, language)
-    {
+    let warning = identity_warning(store, capture, season_floor, outlier_factor, language);
+    store.persist_capture(capture)?;
+    if let Some(warning) = warning {
         on_event(PipelineEvent::Warning(warning));
     }
-    store.persist_capture(capture)
+    Ok(())
 }
 
 /// The sentence to show when this book's magnitude does not match its pair's
@@ -541,7 +549,7 @@ impl LivePipeline {
                             return;
                         }
                     };
-                    if let Err(error) = warn_then_persist(
+                    if let Err(error) = persist_then_warn(
                         store,
                         &capture,
                         *season_floor,
