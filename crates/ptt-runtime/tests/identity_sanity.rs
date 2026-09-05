@@ -108,12 +108,12 @@ fn store(name: &str) -> MarketStore {
     MarketStore::open(&path).expect("store")
 }
 
-/// Yesterday's fold for exalted-for-chaos, with `rate` as the day's median
-/// top taker rate.
-fn yesterday_rollup(rate: (u64, u64)) -> PairDayRollupRow {
+/// One day's fold for exalted-for-chaos, with `rate` as the day's median top
+/// taker rate.
+fn rollup(utc_day: &str, rate: (u64, u64)) -> PairDayRollupRow {
     PairDayRollupRow {
         game: "poe2".to_owned(),
-        utc_day: "2026-08-09".to_owned(),
+        utc_day: utc_day.to_owned(),
         need_asset_id: "exalted-orb".to_owned(),
         have_asset_id: "chaos-orb".to_owned(),
         snapshot_count: 12,
@@ -131,13 +131,23 @@ fn yesterday_rollup(rate: (u64, u64)) -> PairDayRollupRow {
     }
 }
 
-fn drain(store: &mut MarketStore, capture: &ConfirmedCapture) -> (Vec<String>, Result<(), String>) {
+fn drain(
+    store: &mut MarketStore,
+    capture: &ConfirmedCapture,
+    season_floor: Option<DateTime<Utc>>,
+) -> (Vec<String>, Result<(), String>) {
     let mut warnings = Vec::new();
-    let outcome = warn_then_persist(store, capture, UiLanguage::English, &mut |event| {
-        if let PipelineEvent::Warning(message) = event {
-            warnings.push(message);
-        }
-    })
+    let outcome = warn_then_persist(
+        store,
+        capture,
+        season_floor,
+        UiLanguage::English,
+        &mut |event| {
+            if let PipelineEvent::Warning(message) = event {
+                warnings.push(message);
+            }
+        },
+    )
     .map_err(|error| error.to_string());
     (warnings, outcome)
 }
@@ -149,14 +159,14 @@ fn a_book_a_hundred_times_off_yesterdays_median_is_warned_about_and_still_stored
         .replace_day_rollups(
             "poe2",
             "2026-08-09",
-            &[yesterday_rollup((1, 100))],
+            &[rollup("2026-08-09", (1, 100))],
             12,
             at(10),
         )
         .expect("rollup");
 
     let capture = capture(at(10), "1:10000");
-    let (warnings, outcome) = drain(&mut store, &capture);
+    let (warnings, outcome) = drain(&mut store, &capture, None);
 
     assert_eq!(warnings.len(), 1, "{warnings:?}");
     assert!(
@@ -176,8 +186,49 @@ fn a_pair_with_no_history_is_never_doubted() {
     let mut store = store("no-history");
 
     let capture = capture(at(10), "1:10000");
-    let (warnings, outcome) = drain(&mut store, &capture);
+    let (warnings, outcome) = drain(&mut store, &capture, None);
 
     assert!(warnings.is_empty(), "{warnings:?}");
+    assert!(outcome.is_ok(), "{outcome:?}");
+}
+
+/// The baseline must not reach back past the league's own start.
+///
+/// Two leagues price the same currency an order of magnitude apart as a
+/// matter of course, and the daily fold has no league column to tell them
+/// apart — so without this clamp every book captured in the first days of a
+/// new league is measured against the old league's prices, and every book
+/// looks wrong.
+#[test]
+fn a_previous_leagues_rollup_is_never_the_baseline() {
+    // The league started midway through 08-10: 08-09 is entirely the old
+    // league, and 08-10's own fold is half of each with no way to separate
+    // them. The book is captured on 08-11, so both days are in the window.
+    let season_floor = Utc
+        .with_ymd_and_hms(2026, 8, 10, 15, 0, 0)
+        .single()
+        .expect("time");
+    let capture = capture(at(11), "1:10000");
+
+    let mut fresh_league = store("previous-league");
+    for day in ["2026-08-09", "2026-08-10"] {
+        fresh_league
+            .replace_day_rollups("poe2", day, &[rollup(day, (1, 100))], 12, at(11))
+            .expect("rollup");
+    }
+    let (warnings, outcome) = drain(&mut fresh_league, &capture, Some(season_floor));
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert!(outcome.is_ok(), "{outcome:?}");
+
+    // The clamp is not a blanket mute: a league that started long ago leaves
+    // the same two days inside the window, and the book is flagged as before.
+    let mut old_league = store("same-league");
+    for day in ["2026-08-09", "2026-08-10"] {
+        old_league
+            .replace_day_rollups("poe2", day, &[rollup(day, (1, 100))], 12, at(11))
+            .expect("rollup");
+    }
+    let (warnings, outcome) = drain(&mut old_league, &capture, Some(at(1)));
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
     assert!(outcome.is_ok(), "{outcome:?}");
 }

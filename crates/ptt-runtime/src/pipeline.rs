@@ -72,10 +72,11 @@ pub fn magnitude_suspect(
 pub fn warn_then_persist(
     store: &mut MarketStore,
     capture: &ptt_trade_domain::ConfirmedCapture,
+    season_floor: Option<chrono::DateTime<chrono::Utc>>,
     language: ptt_settings::UiLanguage,
     on_event: &mut impl FnMut(PipelineEvent),
 ) -> Result<(), ptt_storage::StorageError> {
-    if let Some(warning) = identity_warning(store, capture, language) {
+    if let Some(warning) = identity_warning(store, capture, season_floor, language) {
         on_event(PipelineEvent::Warning(warning));
     }
     store.persist_capture(capture)
@@ -90,10 +91,11 @@ pub fn warn_then_persist(
 fn identity_warning(
     store: &MarketStore,
     capture: &ptt_trade_domain::ConfirmedCapture,
+    season_floor: Option<chrono::DateTime<chrono::Utc>>,
     language: ptt_settings::UiLanguage,
 ) -> Option<String> {
     let top_rate = top_taker_rate(&capture.rows)?;
-    let baseline = recent_median_top_taker_rate(store, capture)?;
+    let baseline = recent_median_top_taker_rate(store, capture, season_floor)?;
     if !magnitude_suspect(&top_rate, Some(&baseline), IDENTITY_SANITY_FACTOR) {
         return None;
     }
@@ -132,13 +134,30 @@ fn top_taker_rate(rows: &[ptt_trade_domain::ConfirmedOrderRow]) -> Option<ptt_tr
 /// not more so that a stale week of prices never becomes today's yardstick.
 /// The daily fold rather than the previous book: it is already a median over
 /// a whole day, which is what makes a ten-fold gap mean something.
+///
+/// `season_floor` is what keeps the window inside one league. Rollups are
+/// keyed on game and day alone — no league column, and last season's folds are
+/// never deleted — so three raw days across a league change would measure a
+/// new league's book against the old league's prices, which differ by an order
+/// of magnitude as a matter of course. The league's *first* day is excluded
+/// too, not just the days before it: a league that starts mid-afternoon leaves
+/// one fold holding both leagues' snapshots, and the fold cannot tell them
+/// apart. An empty window means no baseline, and no baseline always passes.
 fn recent_median_top_taker_rate(
     store: &MarketStore,
     capture: &ptt_trade_domain::ConfirmedCapture,
+    season_floor: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Option<ptt_trade_domain::Ratio> {
     let today = capture.captured_at.date_naive();
-    let from = (today - chrono::Days::new(3)).to_string();
-    let to = (today - chrono::Days::new(1)).to_string();
+    let earliest = today - chrono::Days::new(3);
+    let latest = today - chrono::Days::new(1);
+    let from_day = season_floor.map_or(earliest, |floor| {
+        earliest.max(floor.date_naive() + chrono::Days::new(1))
+    });
+    if from_day > latest {
+        return None;
+    }
+    let (from, to) = (from_day.to_string(), latest.to_string());
     let rows = store
         .load_rollups(crate::rollup::game_key(capture.context.game), &from, &to)
         .ok()?;
@@ -471,7 +490,8 @@ impl LivePipeline {
                             return;
                         }
                     };
-                    if let Err(error) = warn_then_persist(store, &capture, *language, &mut on_event)
+                    if let Err(error) =
+                        warn_then_persist(store, &capture, *season_floor, *language, &mut on_event)
                     {
                         on_event(PipelineEvent::Skipped("persist-failed".to_owned()));
                         on_event(PipelineEvent::Fault(format!(
