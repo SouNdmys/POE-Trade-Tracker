@@ -115,7 +115,12 @@ const RECHECK_STALE_SECONDS: i64 = 24 * 3600;
 /// 真空不会永远占着每轮的抓取预算。
 const RECHECK_HORIZON_SECONDS: i64 = 7 * 24 * 3600;
 
-/// 这一轮该复查哪些"确认为空"的小时，升序，最多 `max_hours` 个。
+/// 这一轮该复查哪些"确认为空"的小时，降序（新 → 旧），最多 `max_hours` 个。
+///
+/// 降序是刻意的，和 `plan_fetch` 的升序不是一回事：复查要救的是**发布延迟**
+/// 留下的洞，那种洞永远长在最新的一头，而且过几小时就真的能补上。赛季早期
+/// 那段结构性真空同样符合"空且过期"，却再查一百次也不会有数据；升序会让它
+/// 先把每轮那几个名额吃干净，真正补得回来的洞要排一天多才轮得到。
 ///
 /// 收裸元组 `(hour_ts, market_count, fetched_at_ts)` 而不是存储层的 mark 类型：
 /// 计划这一层是纯算术，不该认识数据库。
@@ -130,7 +135,7 @@ pub fn plan_recheck(marks: &[(i64, u32, i64)], now_ts: i64, max_hours: usize) ->
         })
         .map(|(hour_ts, _, _)| *hour_ts)
         .collect();
-    hours.sort_unstable();
+    hours.sort_unstable_by(|left, right| right.cmp(left));
     hours.truncate(max_hours);
     hours
 }
@@ -249,8 +254,23 @@ mod plan_tests {
             .collect();
         let picked = plan_recheck(&many, NOW, 4);
         assert_eq!(picked.len(), 4);
-        assert!(picked.windows(2).all(|pair| pair[1] == pair[0] + 3600));
-        assert_eq!(picked[0], NOW - 6 * 3600);
+        assert!(picked.windows(2).all(|pair| pair[1] == pair[0] - 3600));
+        assert_eq!(picked[0], NOW - 3600);
+    }
+
+    /// 软标记要救的是"发布晚了"造成的洞，那些洞永远在最新的那一头。赛季早期
+    /// 那段真空同样符合复查条件，可它再查一百次也不会有数据——升序会让它先把
+    /// 每轮那 4 个名额吃光，真正补得回来的洞要排一天多才轮得到。
+    #[test]
+    fn rechecks_start_from_the_newest_empty_hour() {
+        let marks: Vec<(i64, u32, i64)> = (1..=3)
+            .map(|index| (NOW - index * 3600, 0u32, NOW - 25 * 3600))
+            .collect();
+        // 预算 2、三个都合格：拿到的必须是最新的两个，且从新到旧排。
+        assert_eq!(
+            plan_recheck(&marks, NOW, 2),
+            vec![NOW - 3600, NOW - 2 * 3600]
+        );
     }
 
     #[test]
