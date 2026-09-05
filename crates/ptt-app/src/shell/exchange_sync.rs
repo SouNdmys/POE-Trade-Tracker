@@ -113,7 +113,7 @@ impl AppShell {
                     match outcome {
                         Some(Ok(round)) => {
                             this.exchange_sync_failures = 0;
-                            if round.stored > 0 || round.days_folded > 0 {
+                            if round.stored > 0 || round.days_folded > 0 || round.repaired > 0 {
                                 // 新数据落库了，正开着的页面得知道账变了。
                                 this.report_stale = true;
                             }
@@ -172,11 +172,26 @@ impl AppShell {
     }
 }
 
+/// 抓一个小时的三种下场。正向和回补只关心"要不要继续"，复查段却要把
+/// "又查了一次"和"真的补回来了"分开——所以不能只返回一个 bool。
+enum Fetched {
+    /// 还没发布：这一段收工，下一轮再续。
+    Deferred,
+    /// 写下了 mark，这一小时确实没有行。
+    Empty,
+    /// 写下了 mark 和行。
+    Rows,
+}
+
 /// 一轮同步的账目。安静的轮次（没新东西）不占日志——流水灯只留得住一句话。
 struct SyncRound {
     stored: usize,
     days_folded: usize,
     days_pruned: usize,
+    /// 这轮复查了几个软过期的空小时。
+    rechecked: usize,
+    /// 其中几个真的补回了数据——发布延迟穿过了三小时护栏的证据。
+    repaired: usize,
     /// 小时发布了、这个联赛却一行都没有——最常见的原因是联赛名拼错。
     league_name_suspect: bool,
     /// 数据里实际出现的联赛名（按市场数从多到少，最多几条）。联赛名错了的时候，
@@ -192,7 +207,11 @@ struct SyncRound {
 
 impl SyncRound {
     fn worth_a_log_line(&self) -> bool {
-        self.stored > 0 || self.days_folded > 0 || self.days_pruned > 0 || self.league_name_suspect
+        self.stored > 0
+            || self.days_folded > 0
+            || self.days_pruned > 0
+            || self.repaired > 0
+            || self.league_name_suspect
     }
 
     /// 六测反馈：`folded 1d` 被读成了同步进度。进度就说进度——
@@ -215,6 +234,13 @@ impl SyncRound {
         if self.days_pruned > 0 {
             line.push_str(&format!(" (pruned {}d of hourly detail)", self.days_pruned));
         }
+        if self.rechecked > 0 {
+            // 复查段自己出声，别混进 `+Nh`：那个数是同步进度，这个是补洞。
+            line.push_str(&format!(
+                " (re-checked {} empty h, refilled {})",
+                self.rechecked, self.repaired
+            ));
+        }
         line
     }
 }
@@ -225,7 +251,9 @@ fn run_sync_round(
     exchange: &ptt_settings::ExchangeTuning,
 ) -> Result<SyncRound, String> {
     use ptt_exchange_history::fetch::ExchangeFetcher;
-    use ptt_exchange_history::plan::{EmptyHourVerdict, classify_empty, plan_backward, plan_fetch};
+    use ptt_exchange_history::plan::{
+        EmptyHourVerdict, classify_empty, plan_backward, plan_fetch, plan_recheck,
+    };
 
     let league = exchange.league.trim();
     let mut store = ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
@@ -256,12 +284,11 @@ fn run_sync_round(
     // 剩余预算往回补：用户把回补天数改大时，历史从这里长出来。
     // 首测教训：正向计划只会从水位往前走，"设置没生效"就是缺了这半边。
     // 两段分开循环——正向最新小时"还没发布"只该停下正向，不该饿死回补。
+    let marks = store
+        .list_exchange_hour_marks(game, league)
+        .map_err(|error| format!("marks: {error}"))?;
     let backward = if forward.len() < 48 {
-        let earliest = store
-            .list_exchange_hour_marks(game, league)
-            .map_err(|error| format!("marks: {error}"))?
-            .first()
-            .map(|mark| mark.hour_ts);
+        let earliest = marks.first().map(|mark| mark.hour_ts);
         // 已折成完整日线的天不再抓（五测的死循环：小时明细超出保留窗被清，
         // 只认小时 mark 的计划就永远重抓那段）。小时层是脚手架，日线是账本。
         let folded: std::collections::BTreeSet<String> = store
@@ -286,6 +313,17 @@ fn run_sync_round(
     } else {
         Vec::new()
     };
+    // 复查一小撮软过期的空小时。三小时护栏之外写下的"确认为空"可能只是
+    // 官方发布晚了，一天后再看一眼几乎零成本；预算刻意压到 4，复查是
+    // 顺路修补，不该和正事抢这一轮的请求。
+    let recheck = plan_recheck(
+        &marks
+            .iter()
+            .map(|mark| (mark.hour_ts, mark.market_count, mark.fetched_at.timestamp()))
+            .collect::<Vec<_>>(),
+        now.timestamp(),
+        4,
+    );
 
     let fetcher = ExchangeFetcher::new();
     let planned = forward.len() + backward.len();
@@ -295,7 +333,7 @@ fn run_sync_round(
     let mut league_counts = std::collections::BTreeMap::<String, usize>::new();
     let mut throttled = false;
     let mut fetch_one =
-        |hour_ts: i64, store: &mut ptt_storage::MarketStore| -> Result<bool, String> {
+        |hour_ts: i64, store: &mut ptt_storage::MarketStore| -> Result<Fetched, String> {
             if throttled {
                 // 对公开 CDN 的礼貌间隔。六测嫌慢，从 250ms 降到 100ms——
                 // 串行请求本身就是限速，这只是别贴脸的余量。
@@ -310,12 +348,14 @@ fn run_sync_round(
             if hour.markets.is_empty() {
                 match classify_empty(hour_ts, now.timestamp()) {
                     // 可能只是还没发布：不写 mark，这一段收工，下一轮再续。
-                    EmptyHourVerdict::RetryLater => return Ok(false),
+                    EmptyHourVerdict::RetryLater => return Ok(Fetched::Deferred),
                     EmptyHourVerdict::ConfirmedEmpty => {
+                        // 重写 mark 也刷新 fetched_at，复查的一周地平线就是
+                        // 靠这个往前走的：查一次、冷却一天，六次之后自然冻结。
                         store
                             .replace_exchange_hour(game, league, hour_ts, &[], now)
                             .map_err(|error| format!("store {hour_ts}: {error}"))?;
-                        stored += 1;
+                        return Ok(Fetched::Empty);
                     }
                 }
             } else {
@@ -331,25 +371,43 @@ fn run_sync_round(
                 store
                     .replace_exchange_hour(game, league, hour_ts, &rows, now)
                     .map_err(|error| format!("store {hour_ts}: {error}"))?;
-                stored += 1;
             }
-            Ok(true)
+            Ok(Fetched::Rows)
         };
     for hour_ts in &forward {
-        if !fetch_one(*hour_ts, &mut store)? {
-            break;
+        match fetch_one(*hour_ts, &mut store)? {
+            Fetched::Deferred => break,
+            _ => stored += 1,
         }
     }
     for hour_ts in &backward {
         // 回补的小时都足够老，不会撞"还没发布"；撞上也照常跳段。
-        if !fetch_one(*hour_ts, &mut store)? {
-            break;
+        match fetch_one(*hour_ts, &mut store)? {
+            Fetched::Deferred => break,
+            _ => stored += 1,
+        }
+    }
+    let mut rechecked = 0usize;
+    let mut repaired = 0usize;
+    let mut repaired_days = std::collections::BTreeSet::<String>::new();
+    for hour_ts in &recheck {
+        rechecked += 1;
+        // 复查不算"同步进度"：还是空的那一次只刷新了冷却时间，把它记进
+        // `stored` 会让日志每轮都报"+4h"，用户读到的是假的进度。
+        if let Fetched::Rows = fetch_one(*hour_ts, &mut store)? {
+            repaired += 1;
+            repaired_days.insert(utc_day_of(*hour_ts));
         }
     }
 
     // 折叠和清理搭这班车，不再开第二个定时器。
     let fold = ptt_runtime::exchange_rollup::ensure_exchange_day_rollups(
-        &mut store, game, league, now, 32,
+        &mut store,
+        game,
+        league,
+        now,
+        32,
+        &repaired_days,
     )?;
     let prune = ptt_runtime::exchange_rollup::prune_exchange_hours(
         &mut store,
@@ -367,6 +425,8 @@ fn run_sync_round(
         stored,
         days_folded: fold.days_processed.len(),
         days_pruned: prune.days_deleted.len(),
+        rechecked,
+        repaired,
         total_days,
         league_name_suspect: published_hours >= 3 && league_rows == 0,
         leagues_seen: top_leagues(league_counts, 5),
@@ -375,6 +435,12 @@ fn run_sync_round(
         // 等发布这一件事，照常睡到整点。恰好整 48 的边界多空转一轮，无害。
         caught_up: planned < 48,
     })
+}
+
+/// 小时属于哪个 UTC 日。日折的键是这个字符串，补洞后要照它点名重折。
+fn utc_day_of(hour_ts: i64) -> String {
+    chrono::DateTime::from_timestamp(hour_ts, 0)
+        .map_or_else(|| "?".to_owned(), |ts| ts.format("%Y-%m-%d").to_string())
 }
 
 fn to_storage_row(
@@ -521,6 +587,8 @@ mod exchange_sync_tests {
             stored: 0,
             days_folded: 0,
             days_pruned: 0,
+            rechecked: 0,
+            repaired: 0,
             league_name_suspect: false,
             caught_up: true,
             total_days: 30,
@@ -535,6 +603,8 @@ mod exchange_sync_tests {
             stored: 5,
             days_folded: 0,
             days_pruned: 0,
+            rechecked: 0,
+            repaired: 0,
             league_name_suspect: true,
             caught_up: true,
             total_days: 0,
@@ -552,6 +622,8 @@ mod exchange_sync_tests {
             stored: 5,
             days_folded: 0,
             days_pruned: 0,
+            rechecked: 0,
+            repaired: 0,
             league_name_suspect: true,
             caught_up: true,
             total_days: 0,

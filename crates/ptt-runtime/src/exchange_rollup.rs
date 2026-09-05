@@ -8,7 +8,7 @@
 //! 折叠只折"覆盖完整"的过去天：一个有洞的天折出来的成交量是悄悄偏小的，
 //! 而 day mark 一旦盖上就不会重折——宁可跳过并报告，等洞补齐。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use ptt_storage::{ExchangeDayMarketRow, ExchangeHourMark, MarketStore};
@@ -31,12 +31,17 @@ pub struct ExchangePruneOutcome {
 }
 
 /// 把没折的完整过去天折成日线。今天结构性排除（还没过完）。
+///
+/// `force_days` 里的天无条件重折。小时 mark 的**条数**是"这天变了没有"的
+/// 唯一线索，而复查把一个空小时抓回来时条数纹丝不动——洞补上了，日线还是
+/// 旧的。修复方只有自己知道动了哪几天，所以由它点名。
 pub fn ensure_exchange_day_rollups(
     store: &mut MarketStore,
     game: &str,
     league: &str,
     now: DateTime<Utc>,
     max_days_per_run: usize,
+    force_days: &BTreeSet<String>,
 ) -> Result<ExchangeRollupOutcome, String> {
     let mut outcome = ExchangeRollupOutcome::default();
     let marks = store
@@ -69,7 +74,7 @@ pub fn ensure_exchange_day_rollups(
             continue;
         }
         let marks_now = u32::try_from(day_marks.len()).unwrap_or(u32::MAX);
-        if done.get(day).copied() == Some(marks_now) {
+        if !force_days.contains(day) && done.get(day).copied() == Some(marks_now) {
             outcome.days_already_done += 1;
             continue;
         }
@@ -255,7 +260,8 @@ mod exchange_rollup_tests {
         let mut store = MarketStore::open_in_memory().expect("store");
         write_hours(&mut store, DAY_START, 24);
         let outcome =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("fold");
         assert_eq!(outcome.days_processed, vec!["2026-08-30".to_owned()]);
         let days = store
             .load_exchange_days("poe2", LEAGUE, "2026-08-30", "2026-08-30")
@@ -265,7 +271,8 @@ mod exchange_rollup_tests {
         assert_eq!(days[0].hours_covered, 24);
         // 重跑：已折的天跳过，不重算。
         let again =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("again");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("again");
         assert!(again.days_processed.is_empty());
         assert_eq!(again.days_already_done, 1);
     }
@@ -277,13 +284,15 @@ mod exchange_rollup_tests {
         // 缺 10:00 这一格，之后继续。
         write_hours(&mut store, DAY_START + 11 * 3600, 13);
         let outcome =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("fold");
         assert!(outcome.days_processed.is_empty());
         assert_eq!(outcome.days_skipped.len(), 1);
         // 洞补上之后，同一个入口自然折出来。
         write_hours(&mut store, DAY_START + 10 * 3600, 1);
         let healed =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("heal");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("heal");
         assert_eq!(healed.days_processed.len(), 1);
     }
 
@@ -293,7 +302,8 @@ mod exchange_rollup_tests {
         let mut store = MarketStore::open_in_memory().expect("store");
         write_hours(&mut store, DAY_START + 12 * 3600, 12);
         let outcome =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("fold");
         assert_eq!(outcome.days_processed.len(), 1);
     }
 
@@ -304,11 +314,13 @@ mod exchange_rollup_tests {
         let mut store = MarketStore::open_in_memory().expect("store");
         write_hours(&mut store, DAY_START + 12 * 3600, 12);
         let first =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("fold");
         assert_eq!(first.days_processed.len(), 1);
         write_hours(&mut store, DAY_START, 12);
         let healed =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("refold");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("refold");
         assert_eq!(healed.days_processed, vec!["2026-08-30".to_owned()]);
         let days = store
             .load_exchange_days("poe2", LEAGUE, "2026-08-30", "2026-08-30")
@@ -317,13 +329,59 @@ mod exchange_rollup_tests {
         assert_eq!(days[0].volume_a, 24 * 400);
     }
 
+    /// 复查把一个"确认为空"的小时抓回来了：mark 的条数一点没变（还是 24），
+    /// 而"这天要不要重折"就是靠条数判断的——洞补上了，日线还停在旧数上。
+    /// 修复方点名那一天，才能让账跟着变。
+    #[test]
+    fn a_repaired_hour_forces_its_day_to_refold() {
+        let mut store = MarketStore::open_in_memory().expect("store");
+        write_hours(&mut store, DAY_START, 23);
+        let hole = DAY_START + 23 * 3600;
+        store
+            .replace_exchange_hour("poe2", LEAGUE, hole, &[], now())
+            .expect("confirmed-empty mark");
+        let first =
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("fold");
+        assert_eq!(first.days_processed, vec!["2026-08-30".to_owned()]);
+        assert_eq!(volume_of_the_day(&store), 23 * 400);
+
+        // 一天后的复查发现这小时其实发布了，只是晚了。
+        write_hours(&mut store, hole, 1);
+        let unforced =
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("unforced");
+        assert!(unforced.days_processed.is_empty());
+        assert_eq!(volume_of_the_day(&store), 23 * 400);
+
+        let forced = ensure_exchange_day_rollups(
+            &mut store,
+            "poe2",
+            LEAGUE,
+            now(),
+            32,
+            &BTreeSet::from(["2026-08-30".to_owned()]),
+        )
+        .expect("forced");
+        assert_eq!(forced.days_processed, vec!["2026-08-30".to_owned()]);
+        assert_eq!(volume_of_the_day(&store), 24 * 400);
+    }
+
+    fn volume_of_the_day(store: &MarketStore) -> u64 {
+        store
+            .load_exchange_days("poe2", LEAGUE, "2026-08-30", "2026-08-30")
+            .expect("days")[0]
+            .volume_a
+    }
+
     #[test]
     fn today_is_structurally_excluded() {
         let mut store = MarketStore::open_in_memory().expect("store");
         // 只写"今天"（now 所在天）的小时。
         write_hours(&mut store, DAY_START + 24 * 3600, 8);
         let outcome =
-            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+            ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+                .expect("fold");
         assert!(outcome.days_processed.is_empty());
         assert!(outcome.days_skipped.is_empty());
     }
@@ -340,7 +398,8 @@ mod exchange_rollup_tests {
         assert!(refused.days_deleted.is_empty());
         assert_eq!(refused.days_refused.len(), 1);
 
-        ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+        ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+            .expect("fold");
         // 还在保留窗内时，一根小时线都不能动。
         let kept = prune_exchange_hours(&mut store, "poe2", LEAGUE, now(), 1).expect("kept");
         assert!(kept.days_deleted.is_empty());
@@ -365,7 +424,8 @@ mod exchange_rollup_tests {
     fn retention_zero_is_fully_off() {
         let mut store = MarketStore::open_in_memory().expect("store");
         write_hours(&mut store, DAY_START, 24);
-        ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32).expect("fold");
+        ensure_exchange_day_rollups(&mut store, "poe2", LEAGUE, now(), 32, &BTreeSet::new())
+            .expect("fold");
         let outcome = prune_exchange_hours(&mut store, "poe2", LEAGUE, now(), 0).expect("prune");
         assert!(outcome.days_deleted.is_empty());
         assert!(outcome.days_refused.is_empty());

@@ -506,6 +506,7 @@ mod probe {
                 &self.league,
                 now,
                 32,
+                &BTreeSet::new(),
             )?;
             println!(
                 "ingest: hours={} league-rows={league_rows} days-folded={} skipped={} already-done={}",
@@ -960,6 +961,9 @@ mod probe {
         /// 复查确认为空的小时。CDN 不可变、可重查：当时空、现在有数据,
         /// 说明护栏被穿了(发布延迟超过三小时)。修复就是重抓覆写——
         /// `replace_exchange_hour` 连 mark 带行整体换,不需要删除原语。
+        ///
+        /// 补完洞必须点名让那天重折：空 mark 换成有数据的 mark，条数不变，
+        /// 而日折的"这天变了没有"就是看条数——不点名的话洞补上了、日线还是错的。
         fn audit(&self) -> Result<(), String> {
             let mut store =
                 ptt_storage::MarketStore::open(ptt_runtime::pipeline::default_database_path())
@@ -975,6 +979,7 @@ mod probe {
             let now = chrono::Utc::now();
             let mut throttled = false;
             let mut repaired = 0usize;
+            let mut repaired_days = BTreeSet::new();
             for hour_ts in empties {
                 // 走缓存优先的同一条取数路,审计本身不该打爆 CDN。
                 let bytes = self.load_hour(hour_ts.max(0) as u64, &mut throttled)?;
@@ -996,8 +1001,20 @@ mod probe {
                     rows.len(),
                 );
                 repaired += 1;
+                repaired_days.insert(format_day(hour_ts.max(0) as u64));
             }
-            println!("audit: repaired {repaired}");
+            let fold = ptt_runtime::exchange_rollup::ensure_exchange_day_rollups(
+                &mut store,
+                &self.realm,
+                &self.league,
+                now,
+                32,
+                &repaired_days,
+            )?;
+            println!(
+                "audit: repaired {repaired}, refolded {} day(s)",
+                fold.days_processed.len(),
+            );
             Ok(())
         }
     }
