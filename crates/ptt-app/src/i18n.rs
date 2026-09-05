@@ -502,6 +502,8 @@ pub struct Text {
     pub monitor_queue_legend: &'static str,
     /// 跳过原因面板右上的总帧数:`{} 帧`
     pub monitor_skip_frames: &'static str,
+    /// 身份存疑注记的标签前缀;判词本身由 runtime 的 `report_text` 生成。
+    pub monitor_identity_warning: &'static str,
 
     // -- watchlist ignored probes (§5 忽略去抓) --
     /// 「已忽略 {} 对」
@@ -1142,6 +1144,7 @@ impl Text {
             ("monitor_cycles_losing", self.monitor_cycles_losing),
             ("monitor_queue_legend", self.monitor_queue_legend),
             ("monitor_skip_frames", self.monitor_skip_frames),
+            ("monitor_identity_warning", self.monitor_identity_warning),
             ("ignored_probes_count", self.ignored_probes_count),
             ("ignored_probes_review", self.ignored_probes_review),
             ("ignored_probes_restore", self.ignored_probes_restore),
@@ -1666,6 +1669,7 @@ pub static ENGLISH: Text = Text {
     monitor_cycles_losing: "every cycle loses - only the one-way conversion is worth doing",
     monitor_queue_legend: "queued - it shows on the HUD's bottom line",
     monitor_skip_frames: "{} frames",
+    monitor_identity_warning: "identity in doubt",
 
     ignored_probes_count: "{} pairs ignored",
     ignored_probes_review: "review and restore",
@@ -2232,6 +2236,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     monitor_cycles_losing: "闭环都在亏 —— 这个盘口只有单向兑换值得做",
     monitor_queue_legend: "已排队 —— 会出现在游戏浮窗最底那一行",
     monitor_skip_frames: "{} 帧",
+    monitor_identity_warning: "身份存疑",
 
     ignored_probes_count: "已忽略 {} 对",
     ignored_probes_review: "查看并恢复",

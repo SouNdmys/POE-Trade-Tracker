@@ -513,6 +513,11 @@ pub struct AppShell {
     exchange_sync_error: Option<String>,
     /// 连续失败的轮数，成功一轮归零；决定下一轮是半分钟后还是整点后再试。
     exchange_sync_failures: u32,
+    /// 管道最近一次「这本书身份存疑」的判词，监视器摆着它。
+    /// 和 `exchange_sync_error` 同一个道理：日志只留得住最后一行，而这句话
+    /// 是和「Accepted」同一帧发出来的，进日志等于没说。规则见
+    /// [`identity_notice_after`]。
+    last_identity_warning: Option<String>,
     /// 哪一次检查/安装的答案有资格写回来。
     ///
     /// 和 `report_generation` 同一个道理,只是这里的迟到更夸张:一次下载可以
@@ -920,6 +925,7 @@ impl AppShell {
             exchange_sync_restart_pending: false,
             exchange_sync_error: None,
             exchange_sync_failures: 0,
+            last_identity_warning: None,
             #[cfg(windows)]
             update_generation: 0,
             #[cfg(windows)]
@@ -1005,6 +1011,7 @@ impl AppShell {
                 return;
             }
             let mut book_accepted = false;
+            let mut incoming_warning: Option<String> = None;
             for event in events {
                 match event {
                     UiEvent::Accepted {
@@ -1045,8 +1052,13 @@ impl AppShell {
                     }
                     // Into the log rather than the fault banner: the book was
                     // kept, so the run is still healthy — this is a note to
-                    // read, not a state to recover from.
-                    UiEvent::Warning(message) => self.push_log(message),
+                    // read, not a state to recover from. The log alone is not
+                    // enough to read it in, though: see `incoming_warning`
+                    // below.
+                    UiEvent::Warning(message) => {
+                        self.push_log(message.clone());
+                        incoming_warning = Some(message);
+                    }
                     UiEvent::Fault(message) => {
                         self.fault = Some(message);
                         self.watching = false;
@@ -1058,6 +1070,15 @@ impl AppShell {
                     }
                 }
             }
+            // 身份警告有自己的一格,不进日志就没了:管道是先发警告、
+            // 紧接着发「Accepted」的,状态栏只显示日志最后一行,盘口标题
+            // 一 push 就把它盖住。`self.watching` 上面刚被 Fault/Stopped
+            // 更新过,所以监视一停这格就跟着空。
+            self.last_identity_warning = identity_notice_after(
+                self.last_identity_warning.take(),
+                incoming_warning,
+                self.watching,
+            );
             // 待抓条只在盘口真的进来时才需要重算(覆盖缺口随书变),
             // 跳过帧不动它——不然待机时每一帧都去读一遍库。
             if book_accepted && self.hud_visible {
@@ -1094,6 +1115,9 @@ impl AppShell {
                     backend.stop();
                 }
                 self.watching = false;
+                // 后端那句 `Stopped` 随 backend 一起丢掉了,没人再来清这格。
+                // 同 `identity_notice_after` 的规则:监视停了,注记跟着走。
+                self.last_identity_warning = None;
             } else {
                 // 装完更新还没重启就开监视,是把新的原生识别库加载进旧进程
                 // ——见 `UpdateState::blocks_a_new_watch`。拦在这里,而不是
@@ -2549,6 +2573,62 @@ fn standby_skip_split(skips: &BTreeMap<String, u64>) -> (u64, u64) {
     let standby = skips.get("not-book-view").copied().unwrap_or(0);
     let total: u64 = skips.values().sum();
     (total - standby, standby)
+}
+
+/// 这一帧过后,监视器上那行「身份存疑」注记该是什么。
+///
+/// 警告不能只进日志:状态栏只显示日志最后一行,而管道是在同一帧里先发
+/// 警告、紧接着发「Accepted」的,后 push 的那行盘口标题立刻把警告盖掉,
+/// 用户从来没见过它。所以警告另存一格,没有新警告的那些帧要原样留着——
+/// 这一格的全部意义就是不被下一行盖掉。
+///
+/// `still_watching` 为假就清空:注记说的是"刚才那本书",监视停了就没有
+/// 那本书了,留着只会让下次开监视时看到一句上一轮的旧话。
+fn identity_notice_after(
+    current: Option<String>,
+    incoming: Option<String>,
+    still_watching: bool,
+) -> Option<String> {
+    if !still_watching {
+        return None;
+    }
+    incoming.or(current)
+}
+
+#[cfg(test)]
+mod identity_notice_tests {
+    use super::identity_notice_after;
+
+    /// 这是这行注记存在的理由:警告和「Accepted」是同一帧里前后脚发出来
+    /// 的,盘口标题一 push 就把状态栏那一格占了。没有新警告的帧必须原样
+    /// 留着旧的,否则和从前一样看不见。
+    #[test]
+    fn a_frame_without_a_new_warning_keeps_the_old_one() {
+        let kept = identity_notice_after(Some("suspect identity".to_owned()), None, true);
+        assert_eq!(kept.as_deref(), Some("suspect identity"));
+    }
+
+    /// 下一条警告顶掉上一条:摆着的永远是最近一次的判断。
+    #[test]
+    fn a_newer_warning_replaces_the_one_on_screen() {
+        let shown = identity_notice_after(Some("older".to_owned()), Some("newer".to_owned()), true);
+        assert_eq!(shown.as_deref(), Some("newer"));
+    }
+
+    /// 监视停了就清掉:注记说的是刚才那本书。
+    #[test]
+    fn stopping_the_watch_clears_the_notice() {
+        assert_eq!(
+            identity_notice_after(Some("suspect identity".to_owned()), None, false),
+            None
+        );
+    }
+
+    /// 从来没有过警告就没有这行,页面上不该多出一条空注记。
+    #[test]
+    fn nothing_to_say_shows_nothing() {
+        assert_eq!(identity_notice_after(None, None, true), None);
+    }
 }
 
 #[cfg(all(test, windows))]

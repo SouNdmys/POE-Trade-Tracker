@@ -59,6 +59,7 @@ impl AppShell {
             .gap(px(SP_8))
             .p(px(SP_10))
             .child(self.health_band())
+            .children(self.identity_notice())
             .child(
                 div()
                     .flex_1()
@@ -89,6 +90,44 @@ impl AppShell {
                             .child(self.skips_panel()),
                     ),
             )
+    }
+
+    /// 「这本书身份存疑」那一行,健康带底下。
+    ///
+    /// 摆在页面上而不是只写进日志:状态栏只显示日志最后一行,而管道是先发
+    /// 警告、紧接着发「Accepted」的,盘口标题一 push 就把它盖了——这句话
+    /// 从前根本没人看得见。琥珀色不是红色:书照常落库了,这是让人回头核对
+    /// 通货名字的提醒,不是要去抢救的故障。
+    fn identity_notice(&self) -> Option<gpui::Div> {
+        let warning = self.last_identity_warning.clone()?;
+        let text = self.text();
+        Some(
+            div()
+                .flex_none()
+                .h_flex()
+                .items_center()
+                .gap(px(SP_8))
+                .px_3()
+                .py(px(6.))
+                .bg(c(WARN_WASH))
+                .border_1()
+                .border_color(c(WARN_LINE))
+                .child(div().size(px(6.)).flex_none().rounded_full().bg(c(WARN)))
+                .child(
+                    div()
+                        .flex_none()
+                        .text_size(fs(FS_10_5))
+                        .text_color(c(TEXT_META))
+                        .child(text.monitor_identity_warning),
+                )
+                .child(
+                    mono(warning)
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_size(fs(FS_11_5))
+                        .text_color(c(WARN_TEXT)),
+                ),
+        )
     }
 
     /// 56px 健康带:数据是不是活的,一眼一个答案。
