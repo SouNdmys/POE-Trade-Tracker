@@ -425,8 +425,8 @@ pub struct AppShell {
     /// 这是并列的第二条路。
     pub(crate) exchange_league_select: pages::convert::AssetSelect,
     /// 选单上次按 (选项表, 选中值) 装配的签名，变了才重建选项。
-    /// 也是"设置里的联赛变了"的信号：变了才把文本框拨到新值，
-    /// 否则每帧回写会把用户正在敲的半个名字抹掉。
+    /// 文本框只跟第二项走：选项表是后台每轮重算的，跟着它回写会把用户
+    /// 正在敲的半个名字抹掉。
     pub(crate) exchange_league_synced: (Vec<String>, String),
     /// 涨跌天数下拉（二测反馈：轮换按钮不如选单，且上限要跟数据走）。
     pub(crate) exchange_trend_select: pages::convert::AssetSelect,

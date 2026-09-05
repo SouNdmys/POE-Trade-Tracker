@@ -510,8 +510,8 @@ impl AppShell {
     /// 重建选项需要 window，后台答案带不动它，所以在 render 里做——
     /// 和涨跌选择器同一个套路，靠签名挡住重复重建。
     /// 顺便把文本框拨到设置里的值：从下拉选完之后框还写着旧名字，
-    /// 用户再按一次"保存"就把刚选的联赛又改回去了。只在签名变了时拨，
-    /// 每帧回写会把正在敲的半个名字抹掉。
+    /// 用户再按一次"保存"就把刚选的联赛又改回去了。回写只跟联赛名走，
+    /// 不跟选项表走——理由见 [`league_sync_plan`]。
     #[cfg(windows)]
     pub(crate) fn sync_exchange_league_select(
         &mut self,
@@ -535,12 +535,13 @@ impl AppShell {
         if !selected.is_empty() && !leagues.contains(&selected) {
             leagues.insert(0, selected.clone());
         }
-        if self.exchange_league_synced == (leagues.clone(), selected.clone()) {
+        let plan = league_sync_plan(&self.exchange_league_synced, &leagues, &selected);
+        if !plan.rebuild_options && !plan.write_input {
             return;
         }
         self.exchange_league_synced = (leagues.clone(), selected.clone());
 
-        if self.exchange_league_input.read(cx).value() != selected.as_str() {
+        if plan.write_input && self.exchange_league_input.read(cx).value() != selected.as_str() {
             let value = selected.clone();
             self.exchange_league_input
                 .update(cx, |state, cx| state.set_value(value, window, cx));
@@ -570,6 +571,102 @@ impl AppShell {
 impl AppShell {
     pub(crate) fn season_panel(&mut self, _cx: &mut Context<Self>) -> gpui::Div {
         div()
+    }
+}
+
+/// 这一帧要做的两件事,分开判断。
+#[cfg(windows)]
+#[derive(Debug, PartialEq, Eq)]
+struct LeagueSyncPlan {
+    /// 重建下拉选项(选项表或选中值变了)。
+    rebuild_options: bool,
+    /// 把文本框拨到设置里保存的联赛名。
+    write_input: bool,
+}
+
+/// 决定这一帧要不要重建下拉、要不要回写文本框。
+///
+/// 两件事必须分开看,因为它们跟着不同的东西变:选项表 `leagues_seen` 是
+/// 后台同步每轮从当轮抓到的小时文件重算的,私人联赛来来去去,顺序抖一下
+/// 就是一次"变化";而文本框只该跟着设置里保存的联赛名走。两件事共用一个
+/// 签名时,后台抖一下就把用户正在敲的半个名字抹回旧值——正是回写本来
+/// 要防的事的反面,而且随后按"保存"因为名字没变成了空操作。
+#[cfg(windows)]
+fn league_sync_plan(
+    synced: &(Vec<String>, String),
+    leagues: &[String],
+    league: &str,
+) -> LeagueSyncPlan {
+    LeagueSyncPlan {
+        rebuild_options: synced.0.as_slice() != leagues || synced.1 != league,
+        write_input: synced.1 != league,
+    }
+}
+
+#[cfg(all(test, windows))]
+mod season_tests {
+    use super::{LeagueSyncPlan, league_sync_plan};
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|name| (*name).to_owned()).collect()
+    }
+
+    /// 后台同步换了一批私人联赛,选项要重建,但文本框不许动:
+    /// 用户可能正在里面敲名字。
+    #[test]
+    fn league_list_churn_rebuilds_options_without_touching_the_box() {
+        let synced = (
+            names(&["Rise of the Abyssal", "SSF Abyss"]),
+            "Rise of the Abyssal".to_owned(),
+        );
+        let plan = league_sync_plan(
+            &synced,
+            &names(&["Rise of the Abyssal", "SSF Abyss", "Private (PL12345)"]),
+            "Rise of the Abyssal",
+        );
+        assert_eq!(
+            plan,
+            LeagueSyncPlan {
+                rebuild_options: true,
+                write_input: false,
+            }
+        );
+    }
+
+    /// 设置里的联赛名变了(从下拉选了一个)才回写文本框,
+    /// 否则框里还写着旧名字,再按一次"保存"就把刚选的改回去了。
+    #[test]
+    fn a_changed_saved_league_writes_the_box() {
+        let synced = (
+            names(&["Standard", "Rise of the Abyssal"]),
+            "Standard".to_owned(),
+        );
+        let plan = league_sync_plan(
+            &synced,
+            &names(&["Standard", "Rise of the Abyssal"]),
+            "Rise of the Abyssal",
+        );
+        assert_eq!(
+            plan,
+            LeagueSyncPlan {
+                rebuild_options: true,
+                write_input: true,
+            }
+        );
+    }
+
+    /// 什么都没变的那一帧两件事都不做——render 每帧都会调到这里。
+    #[test]
+    fn an_unchanged_frame_does_nothing() {
+        let synced = (names(&["Standard"]), "Standard".to_owned());
+        let plan = league_sync_plan(&synced, &names(&["Standard"]), "Standard");
+        assert_eq!(
+            plan,
+            LeagueSyncPlan {
+                rebuild_options: false,
+                write_input: false,
+            }
+        );
     }
 }
 
