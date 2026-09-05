@@ -200,6 +200,41 @@ enum Fetched {
     Rows,
 }
 
+/// 这一小时是为哪一段抓的。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Segment {
+    /// 正向补到最新，或往回补历史。
+    Sync,
+    /// 顺路复查早先记成"确认为空"的小时。
+    Recheck,
+}
+
+/// "联赛名可疑"的票箱。
+#[derive(Default)]
+struct SuspectVotes {
+    published_hours: usize,
+    league_rows: usize,
+}
+
+impl SuspectVotes {
+    /// 只有正向/回补的小时有投票权。复查段专挑早就确认为空的小时，多半躺在
+    /// 赛季开始之前——0 行是它们的常态，不是联赛名的罪证。让它们投票，
+    /// 一个已追平、这轮只做了复查的轮次就能凑够三小时零行，
+    /// 对完全正确的联赛名喊"检查联赛名"。
+    fn record(&mut self, segment: Segment, league_rows: usize) {
+        if segment == Segment::Recheck {
+            return;
+        }
+        self.published_hours += 1;
+        self.league_rows += league_rows;
+    }
+
+    /// 发布了的小时够多、却一行都没筛出来——最常见的原因是联赛名拼错。
+    fn suspect(&self) -> bool {
+        self.published_hours >= 3 && self.league_rows == 0
+    }
+}
+
 /// 一轮同步的账目。安静的轮次（没新东西）不占日志——流水灯只留得住一句话。
 struct SyncRound {
     stored: usize,
@@ -347,60 +382,61 @@ fn run_sync_round(
     let fetcher = ExchangeFetcher::new();
     let planned = forward.len() + backward.len();
     let mut stored = 0usize;
-    let mut league_rows = 0usize;
-    let mut published_hours = 0usize;
+    let mut votes = SuspectVotes::default();
+    // 联赛名单相反：复查段见到的名字照收。下拉多一个名字总比少一个好。
     let mut league_counts = std::collections::BTreeMap::<String, usize>::new();
     let mut throttled = false;
-    let mut fetch_one =
-        |hour_ts: i64, store: &mut ptt_storage::MarketStore| -> Result<Fetched, String> {
-            if throttled {
-                // 对公开 CDN 的礼貌间隔。六测嫌慢，从 250ms 降到 100ms——
-                // 串行请求本身就是限速，这只是别贴脸的余量。
-                std::thread::sleep(Duration::from_millis(100));
-            }
-            throttled = true;
-            let bytes = fetcher
-                .fetch_hour(game, hour_ts as u64)
-                .map_err(|error| format!("fetch {hour_ts}: {error}"))?;
-            let hour = ptt_exchange_history::parse_hour(&bytes)
-                .map_err(|error| format!("parse {hour_ts}: {error}"))?;
-            if hour.markets.is_empty() {
-                match classify_empty(hour_ts, now.timestamp()) {
-                    // 可能只是还没发布：不写 mark，这一段收工，下一轮再续。
-                    EmptyHourVerdict::RetryLater => return Ok(Fetched::Deferred),
-                    EmptyHourVerdict::ConfirmedEmpty => {
-                        // 重写 mark 也刷新 fetched_at，复查的一周地平线就是
-                        // 靠这个往前走的：查一次、冷却一天，六次之后自然冻结。
-                        store
-                            .replace_exchange_hour(game, league, hour_ts, &[], now)
-                            .map_err(|error| format!("store {hour_ts}: {error}"))?;
-                        return Ok(Fetched::Empty);
-                    }
+    let mut fetch_one = |hour_ts: i64,
+                         segment: Segment,
+                         store: &mut ptt_storage::MarketStore|
+     -> Result<Fetched, String> {
+        if throttled {
+            // 对公开 CDN 的礼貌间隔。六测嫌慢，从 250ms 降到 100ms——
+            // 串行请求本身就是限速，这只是别贴脸的余量。
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        throttled = true;
+        let bytes = fetcher
+            .fetch_hour(game, hour_ts as u64)
+            .map_err(|error| format!("fetch {hour_ts}: {error}"))?;
+        let hour = ptt_exchange_history::parse_hour(&bytes)
+            .map_err(|error| format!("parse {hour_ts}: {error}"))?;
+        if hour.markets.is_empty() {
+            match classify_empty(hour_ts, now.timestamp()) {
+                // 可能只是还没发布：不写 mark，这一段收工，下一轮再续。
+                EmptyHourVerdict::RetryLater => return Ok(Fetched::Deferred),
+                EmptyHourVerdict::ConfirmedEmpty => {
+                    // 重写 mark 也刷新 fetched_at，复查的一周地平线就是
+                    // 靠这个往前走的：查一次、冷却一天，六次之后自然冻结。
+                    store
+                        .replace_exchange_hour(game, league, hour_ts, &[], now)
+                        .map_err(|error| format!("store {hour_ts}: {error}"))?;
+                    return Ok(Fetched::Empty);
                 }
             }
-            published_hours += 1;
-            for row in &hour.markets {
-                *league_counts.entry(row.league.clone()).or_default() += 1;
-            }
-            let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
-                .rows_for_league(league)
-                .map(|row| to_storage_row(hour_ts, row))
-                .collect();
-            league_rows += rows.len();
-            store
-                .replace_exchange_hour(game, league, hour_ts, &rows, now)
-                .map_err(|error| format!("store {hour_ts}: {error}"))?;
-            Ok(league_hour_verdict(rows.len()))
-        };
+        }
+        for row in &hour.markets {
+            *league_counts.entry(row.league.clone()).or_default() += 1;
+        }
+        let rows: Vec<ptt_storage::ExchangeHourMarketRow> = hour
+            .rows_for_league(league)
+            .map(|row| to_storage_row(hour_ts, row))
+            .collect();
+        votes.record(segment, rows.len());
+        store
+            .replace_exchange_hour(game, league, hour_ts, &rows, now)
+            .map_err(|error| format!("store {hour_ts}: {error}"))?;
+        Ok(league_hour_verdict(rows.len()))
+    };
     for hour_ts in &forward {
-        match fetch_one(*hour_ts, &mut store)? {
+        match fetch_one(*hour_ts, Segment::Sync, &mut store)? {
             Fetched::Deferred => break,
             _ => stored += 1,
         }
     }
     for hour_ts in &backward {
         // 回补的小时都足够老，不会撞"还没发布"；撞上也照常跳段。
-        match fetch_one(*hour_ts, &mut store)? {
+        match fetch_one(*hour_ts, Segment::Sync, &mut store)? {
             Fetched::Deferred => break,
             _ => stored += 1,
         }
@@ -412,7 +448,7 @@ fn run_sync_round(
         rechecked += 1;
         // 复查不算"同步进度"：还是空的那一次只刷新了冷却时间，把它记进
         // `stored` 会让日志每轮都报"+4h"，用户读到的是假的进度。
-        if let Fetched::Rows = fetch_one(*hour_ts, &mut store)? {
+        if let Fetched::Rows = fetch_one(*hour_ts, Segment::Recheck, &mut store)? {
             repaired += 1;
             repaired_days.insert(utc_day_of(*hour_ts));
         }
@@ -446,7 +482,7 @@ fn run_sync_round(
         rechecked,
         repaired,
         total_days,
-        league_name_suspect: published_hours >= 3 && league_rows == 0,
+        league_name_suspect: votes.suspect(),
         leagues_seen: top_leagues(league_counts, usize::MAX),
         // 计划排满 48（正向或回补被预算截断）就必然还有欠账；
         // 计划不满时，即便最新小时"还没发布"（deferred），剩下的也只有
@@ -778,6 +814,33 @@ mod exchange_sync_tests {
     fn an_hour_counts_as_repaired_only_when_this_league_got_rows_back() {
         assert_eq!(league_hour_verdict(0), Fetched::Empty);
         assert_eq!(league_hour_verdict(7), Fetched::Rows);
+    }
+
+    /// 复查段专挑早就确认为空的小时，多半躺在赛季开始之前——它们 0 行是常态。
+    /// 让它们投票，一个"已追平、这轮只做了复查"的轮次就会凑够三小时、
+    /// 零行，对完全正确的联赛名喊"检查联赛名"（`stored == 0` 时那句还会
+    /// 写成"0 hours stored but 0 league rows"，读起来更莫名其妙）。
+    #[test]
+    fn rechecked_hours_do_not_vote_on_whether_the_league_name_is_wrong() {
+        let mut recheck_only = SuspectVotes::default();
+        for _ in 0..4 {
+            recheck_only.record(Segment::Recheck, 0);
+        }
+        assert!(!recheck_only.suspect());
+
+        // 正向段的空小时照旧该报警：那些小时是"应该有我们联赛的数据"的。
+        let mut forward = SuspectVotes::default();
+        for _ in 0..3 {
+            forward.record(Segment::Sync, 0);
+        }
+        assert!(forward.suspect());
+
+        // 只要正向段筛出过一行，联赛名就不冤枉。
+        let mut with_rows = SuspectVotes::default();
+        with_rows.record(Segment::Sync, 12);
+        with_rows.record(Segment::Sync, 0);
+        with_rows.record(Segment::Sync, 0);
+        assert!(!with_rows.suspect());
     }
 
     #[test]
