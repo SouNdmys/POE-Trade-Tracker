@@ -120,169 +120,94 @@
     "trade_list_order": 24
   },
   {
-    "id": "thaumaturgic_flux_level_1",
+    "id": "cryptic_key",
     "in_game_category": "通貨",
     "trade_list_order": 25
   },
   {
-    "id": "thaumaturgic_flux_level_2",
+    "id": "lesser_jewellers_orb",
     "in_game_category": "通貨",
     "trade_list_order": 26
   },
   {
-    "id": "thaumaturgic_flux_level_3",
+    "id": "greater_jewellers_orb",
     "in_game_category": "通貨",
     "trade_list_order": 27
   },
   {
-    "id": "thaumaturgic_flux_level_4",
+    "id": "perfect_jewellers_orb",
     "in_game_category": "通貨",
     "trade_list_order": 28
   },
   {
-    "id": "thaumaturgic_flux_level_5",
+    "id": "transmutation_shard",
     "in_game_category": "通貨",
     "trade_list_order": 29
   },
   {
-    "id": "thaumaturgic_flux_level_6",
+    "id": "regal_shard",
     "in_game_category": "通貨",
     "trade_list_order": 30
   },
   {
-    "id": "thaumaturgic_flux_level_7",
+    "id": "artificers_shard",
     "in_game_category": "通貨",
     "trade_list_order": 31
   },
   {
-    "id": "thaumaturgic_flux_level_8",
+    "id": "chance_shard",
     "in_game_category": "通貨",
     "trade_list_order": 32
   },
   {
-    "id": "thaumaturgic_flux_level_9",
+    "id": "armourers_scrap",
     "in_game_category": "通貨",
     "trade_list_order": 33
   },
   {
-    "id": "thaumaturgic_flux_level_10",
+    "id": "blacksmiths_whetstone",
     "in_game_category": "通貨",
     "trade_list_order": 34
   },
   {
-    "id": "thaumaturgic_flux_level_11",
+    "id": "arcanists_etcher",
     "in_game_category": "通貨",
     "trade_list_order": 35
   },
   {
-    "id": "thaumaturgic_flux_level_12",
+    "id": "glassblowers_bauble",
     "in_game_category": "通貨",
     "trade_list_order": 36
   },
   {
-    "id": "thaumaturgic_flux_level_13",
+    "id": "gemcutters_prism",
     "in_game_category": "通貨",
     "trade_list_order": 37
   },
   {
-    "id": "thaumaturgic_flux_level_14",
+    "id": "scroll_of_wisdom",
     "in_game_category": "通貨",
     "trade_list_order": 38
   },
   {
-    "id": "thaumaturgic_flux_level_15",
+    "id": "thaumaturgic_flux_level_1",
     "in_game_category": "通貨",
     "trade_list_order": 39
   },
   {
-    "id": "thaumaturgic_flux_level_16",
+    "id": "thaumaturgic_flux_level_2",
     "in_game_category": "通貨",
     "trade_list_order": 40
   },
   {
-    "id": "thaumaturgic_flux_level_17",
+    "id": "thaumaturgic_flux_level_3",
     "in_game_category": "通貨",
     "trade_list_order": 41
   },
   {
-    "id": "thaumaturgic_flux_level_18",
+    "id": "thaumaturgic_flux_level_4",
     "in_game_category": "通貨",
     "trade_list_order": 42
-  },
-  {
-    "id": "thaumaturgic_flux_level_19",
-    "in_game_category": "通貨",
-    "trade_list_order": 43
-  },
-  {
-    "id": "thaumaturgic_flux_level_20",
-    "in_game_category": "通貨",
-    "trade_list_order": 44
-  },
-  {
-    "id": "lesser_jewellers_orb",
-    "in_game_category": "通貨",
-    "trade_list_order": 45
-  },
-  {
-    "id": "greater_jewellers_orb",
-    "in_game_category": "通貨",
-    "trade_list_order": 46
-  },
-  {
-    "id": "perfect_jewellers_orb",
-    "in_game_category": "通貨",
-    "trade_list_order": 47
-  },
-  {
-    "id": "transmutation_shard",
-    "in_game_category": "通貨",
-    "trade_list_order": 48
-  },
-  {
-    "id": "regal_shard",
-    "in_game_category": "通貨",
-    "trade_list_order": 49
-  },
-  {
-    "id": "artificers_shard",
-    "in_game_category": "通貨",
-    "trade_list_order": 50
-  },
-  {
-    "id": "chance_shard",
-    "in_game_category": "通貨",
-    "trade_list_order": 51
-  },
-  {
-    "id": "armourers_scrap",
-    "in_game_category": "通貨",
-    "trade_list_order": 52
-  },
-  {
-    "id": "blacksmiths_whetstone",
-    "in_game_category": "通貨",
-    "trade_list_order": 53
-  },
-  {
-    "id": "arcanists_etcher",
-    "in_game_category": "通貨",
-    "trade_list_order": 54
-  },
-  {
-    "id": "glassblowers_bauble",
-    "in_game_category": "通貨",
-    "trade_list_order": 55
-  },
-  {
-    "id": "gemcutters_prism",
-    "in_game_category": "通貨",
-    "trade_list_order": 56
-  },
-  {
-    "id": "scroll_of_wisdom",
-    "in_game_category": "通貨",
-    "trade_list_order": 57
   },
   {
     "id": "lesser_body_essence",
@@ -490,7 +415,7 @@
     "trade_list_order": 41
   },
   {
-    "id": "greater_abrasion_essence",
+    "id": "greater_infinite_essence",
     "in_game_category": "精髓",
     "trade_list_order": 42
   },
@@ -525,37 +450,37 @@
     "trade_list_order": 48
   },
   {
-    "id": "greater_ruin_essence",
+    "id": "greater_abrasion_essence",
     "in_game_category": "精髓",
     "trade_list_order": 49
   },
   {
-    "id": "greater_command_essence",
+    "id": "greater_battle_essence",
     "in_game_category": "精髓",
     "trade_list_order": 50
   },
   {
-    "id": "greater_battle_essence",
+    "id": "greater_sorcery_essence",
     "in_game_category": "精髓",
     "trade_list_order": 51
   },
   {
-    "id": "greater_sorcery_essence",
+    "id": "greater_ruin_essence",
     "in_game_category": "精髓",
     "trade_list_order": 52
   },
   {
-    "id": "greater_haste_essence",
+    "id": "greater_command_essence",
     "in_game_category": "精髓",
     "trade_list_order": 53
   },
   {
-    "id": "greater_alacrity_essence",
+    "id": "greater_haste_essence",
     "in_game_category": "精髓",
     "trade_list_order": 54
   },
   {
-    "id": "greater_infinite_essence",
+    "id": "greater_alacrity_essence",
     "in_game_category": "精髓",
     "trade_list_order": 55
   },
@@ -915,69 +840,79 @@
     "trade_list_order": 14
   },
   {
-    "id": "refined_flesh_catalyst",
+    "id": "necrotic_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 15
   },
   {
-    "id": "refined_neural_catalyst",
+    "id": "refined_flesh_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 16
   },
   {
-    "id": "refined_carapace_catalyst",
+    "id": "refined_neural_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 17
   },
   {
-    "id": "refined_uul_netols_catalyst",
+    "id": "refined_carapace_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 18
   },
   {
-    "id": "refined_xophs_catalyst",
+    "id": "refined_uul_netols_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 19
   },
   {
-    "id": "refined_tuls_catalyst",
+    "id": "refined_xophs_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 20
   },
   {
-    "id": "refined_eshs_catalyst",
+    "id": "refined_tuls_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 21
   },
   {
-    "id": "refined_chayulas_catalyst",
+    "id": "refined_eshs_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 22
   },
   {
-    "id": "refined_reaver_catalyst",
+    "id": "refined_chayulas_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 23
   },
   {
-    "id": "refined_sibilant_catalyst",
+    "id": "refined_reaver_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 24
   },
   {
-    "id": "refined_skittering_catalyst",
+    "id": "refined_sibilant_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 25
   },
   {
-    "id": "refined_adaptive_catalyst",
+    "id": "refined_skittering_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 26
   },
   {
-    "id": "breachlord_sac",
+    "id": "refined_adaptive_catalyst",
     "in_game_category": "裂痕聯盟",
     "trade_list_order": 27
+  },
+  {
+    "id": "refined_necrotic_catalyst",
+    "in_game_category": "裂痕聯盟",
+    "trade_list_order": 28
+  },
+  {
+    "id": "breachlord_sac",
+    "in_game_category": "裂痕聯盟",
+    "trade_list_order": 29
   },
   {
     "id": "broken_jawbone",
@@ -1130,54 +1065,74 @@
     "trade_list_order": 5
   },
   {
-    "id": "vaal_armourers_infuser",
+    "id": "yaomacs_sacrifice_orb",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 6
   },
   {
-    "id": "vaal_blacksmiths_infuser",
+    "id": "kopecs_sacrifice_orb",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 7
   },
   {
-    "id": "vaal_arcanists_infuser",
+    "id": "kamasas_sacrifice_orb",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 8
   },
   {
-    "id": "vaal_catalysing_infuser",
+    "id": "yuguls_sacrifice_orb",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 9
   },
   {
-    "id": "orb_of_extraction",
+    "id": "vaal_armourers_infuser",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 10
   },
   {
-    "id": "vaal_siphoner",
+    "id": "vaal_blacksmiths_infuser",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 11
   },
   {
-    "id": "guatelitzi_hypothesis",
+    "id": "vaal_arcanists_infuser",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 12
   },
   {
-    "id": "citaqualotl_hypothesis",
+    "id": "vaal_catalysing_infuser",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 13
   },
   {
-    "id": "jiquani_hypothesis",
+    "id": "orb_of_extraction",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 14
   },
   {
-    "id": "quipolatl_hypothesis",
+    "id": "vaal_siphoner",
     "in_game_category": "阿茲里的神廟",
     "trade_list_order": 15
+  },
+  {
+    "id": "guatelitzi_hypothesis",
+    "in_game_category": "阿茲里的神廟",
+    "trade_list_order": 16
+  },
+  {
+    "id": "citaqualotl_hypothesis",
+    "in_game_category": "阿茲里的神廟",
+    "trade_list_order": 17
+  },
+  {
+    "id": "jiquani_hypothesis",
+    "in_game_category": "阿茲里的神廟",
+    "trade_list_order": 18
+  },
+  {
+    "id": "quipolatl_hypothesis",
+    "in_game_category": "阿茲里的神廟",
+    "trade_list_order": 19
   },
   {
     "id": "cowardly_fate",
@@ -1210,69 +1165,89 @@
     "trade_list_order": 6
   },
   {
-    "id": "dawn_vault_key",
+    "id": "origin_cradle",
     "in_game_category": "碎片",
     "trade_list_order": 7
   },
   {
-    "id": "xeshts_vault_key",
+    "id": "origin_spark",
     "in_game_category": "碎片",
     "trade_list_order": 8
   },
   {
-    "id": "trialmaster_vault_key",
+    "id": "origin_core",
     "in_game_category": "碎片",
     "trade_list_order": 9
   },
   {
-    "id": "ritual_vault_key",
+    "id": "call_of_the_shadows",
     "in_game_category": "碎片",
     "trade_list_order": 10
   },
   {
-    "id": "tangmazu_vault_key",
+    "id": "dawn_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 11
   },
   {
-    "id": "olroths_vault_key",
+    "id": "xeshts_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 12
   },
   {
-    "id": "arbiter_vault_key",
+    "id": "trialmaster_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 13
   },
   {
-    "id": "zarokhs_vault_key_against_the_darkness",
+    "id": "ritual_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 14
   },
   {
-    "id": "zarokhs_vault_key_sandstorm_veil",
+    "id": "tangmazu_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 15
   },
   {
-    "id": "zarokhs_vault_key_bonds_of_benediction",
+    "id": "olroths_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 16
   },
   {
-    "id": "zarokhs_vault_key_sekhemas_resolve",
+    "id": "arbiter_vault_key",
     "in_game_category": "碎片",
     "trade_list_order": 17
   },
   {
-    "id": "zarokhs_vault_key_temporal_object",
+    "id": "zarokhs_vault_key_against_the_darkness",
     "in_game_category": "碎片",
     "trade_list_order": 18
   },
   {
-    "id": "azmeri_vault_key",
+    "id": "zarokhs_vault_key_sandstorm_veil",
     "in_game_category": "碎片",
     "trade_list_order": 19
+  },
+  {
+    "id": "zarokhs_vault_key_bonds_of_benediction",
+    "in_game_category": "碎片",
+    "trade_list_order": 20
+  },
+  {
+    "id": "zarokhs_vault_key_sekhemas_resolve",
+    "in_game_category": "碎片",
+    "trade_list_order": 21
+  },
+  {
+    "id": "zarokhs_vault_key_temporal_object",
+    "in_game_category": "碎片",
+    "trade_list_order": 22
+  },
+  {
+    "id": "azmeri_vault_key",
+    "in_game_category": "碎片",
+    "trade_list_order": 23
   },
   {
     "id": "lesser_desert_rune",
@@ -2010,189 +1985,199 @@
     "trade_list_order": 147
   },
   {
-    "id": "omen_of_sinistral_alchemy",
+    "id": "omen_of_refreshment",
     "in_game_category": "祭祀",
     "trade_list_order": 1
   },
   {
-    "id": "omen_of_dextral_alchemy",
+    "id": "omen_of_resurgence",
     "in_game_category": "祭祀",
     "trade_list_order": 2
   },
   {
-    "id": "omen_of_sinistral_coronation",
+    "id": "omen_of_amelioration",
     "in_game_category": "祭祀",
     "trade_list_order": 3
   },
   {
-    "id": "omen_of_dextral_coronation",
+    "id": "omen_of_sinistral_exaltation",
     "in_game_category": "祭祀",
     "trade_list_order": 4
   },
   {
-    "id": "omen_of_homogenising_coronation",
+    "id": "omen_of_dextral_exaltation",
     "in_game_category": "祭祀",
     "trade_list_order": 5
   },
   {
-    "id": "omen_of_refreshment",
+    "id": "omen_of_catalysing_exaltation",
     "in_game_category": "祭祀",
     "trade_list_order": 6
   },
   {
-    "id": "omen_of_resurgence",
+    "id": "omen_of_whittling",
     "in_game_category": "祭祀",
     "trade_list_order": 7
   },
   {
-    "id": "omen_of_corruption",
+    "id": "omen_of_sinistral_erasure",
     "in_game_category": "祭祀",
     "trade_list_order": 8
   },
   {
-    "id": "omen_of_amelioration",
+    "id": "omen_of_dextral_erasure",
     "in_game_category": "祭祀",
     "trade_list_order": 9
   },
   {
-    "id": "omen_of_sinistral_exaltation",
+    "id": "omen_of_chaotic_rarity",
     "in_game_category": "祭祀",
     "trade_list_order": 10
   },
   {
-    "id": "omen_of_dextral_exaltation",
+    "id": "omen_of_chaotic_quantity",
     "in_game_category": "祭祀",
     "trade_list_order": 11
   },
   {
-    "id": "omen_of_homogenising_exaltation",
+    "id": "omen_of_chaotic_monsters",
     "in_game_category": "祭祀",
     "trade_list_order": 12
   },
   {
-    "id": "omen_of_catalysing_exaltation",
+    "id": "omen_of_chaotic_effectiveness",
     "in_game_category": "祭祀",
     "trade_list_order": 13
   },
   {
-    "id": "omen_of_greater_annulment",
+    "id": "omen_of_sinistral_annulment",
     "in_game_category": "祭祀",
     "trade_list_order": 14
   },
   {
-    "id": "omen_of_whittling",
+    "id": "omen_of_dextral_annulment",
     "in_game_category": "祭祀",
     "trade_list_order": 15
   },
   {
-    "id": "omen_of_sinistral_erasure",
+    "id": "omen_of_chance",
     "in_game_category": "祭祀",
     "trade_list_order": 16
   },
   {
-    "id": "omen_of_dextral_erasure",
+    "id": "omen_of_the_ancients",
     "in_game_category": "祭祀",
     "trade_list_order": 17
   },
   {
-    "id": "omen_of_chaotic_rarity",
+    "id": "omen_of_dextral_crystallisation",
     "in_game_category": "祭祀",
     "trade_list_order": 18
   },
   {
-    "id": "omen_of_chaotic_quantity",
+    "id": "omen_of_sinistral_crystallisation",
     "in_game_category": "祭祀",
     "trade_list_order": 19
   },
   {
-    "id": "omen_of_chaotic_monsters",
+    "id": "omen_of_greater_exaltation",
     "in_game_category": "祭祀",
     "trade_list_order": 20
   },
   {
-    "id": "omen_of_chaotic_effectiveness",
+    "id": "omen_of_the_blessed",
     "in_game_category": "祭祀",
     "trade_list_order": 21
   },
   {
-    "id": "omen_of_sinistral_annulment",
+    "id": "omen_of_sanctification",
     "in_game_category": "祭祀",
     "trade_list_order": 22
   },
   {
-    "id": "omen_of_dextral_annulment",
+    "id": "omen_of_gambling",
     "in_game_category": "祭祀",
     "trade_list_order": 23
   },
   {
-    "id": "omen_of_chance",
+    "id": "omen_of_bartering",
     "in_game_category": "祭祀",
     "trade_list_order": 24
   },
   {
-    "id": "omen_of_the_ancients",
+    "id": "omen_of_answered_prayers",
     "in_game_category": "祭祀",
     "trade_list_order": 25
   },
   {
-    "id": "omen_of_dextral_crystallisation",
+    "id": "omen_of_the_hunt",
     "in_game_category": "祭祀",
     "trade_list_order": 26
   },
   {
-    "id": "omen_of_sinistral_crystallisation",
+    "id": "omen_of_reinforcements",
     "in_game_category": "祭祀",
     "trade_list_order": 27
   },
   {
-    "id": "omen_of_greater_exaltation",
+    "id": "omen_of_secret_compartments",
     "in_game_category": "祭祀",
     "trade_list_order": 28
   },
   {
-    "id": "omen_of_the_blessed",
+    "id": "head_of_the_king",
     "in_game_category": "祭祀",
     "trade_list_order": 29
   },
   {
-    "id": "omen_of_sanctification",
+    "id": "an_audience_with_the_king",
     "in_game_category": "祭祀",
     "trade_list_order": 30
   },
   {
-    "id": "omen_of_gambling",
+    "id": "sacred_bloom",
     "in_game_category": "祭祀",
     "trade_list_order": 31
   },
   {
-    "id": "omen_of_bartering",
+    "id": "omen_of_sinistral_alchemy",
     "in_game_category": "祭祀",
     "trade_list_order": 32
   },
   {
-    "id": "omen_of_answered_prayers",
+    "id": "omen_of_dextral_alchemy",
     "in_game_category": "祭祀",
     "trade_list_order": 33
   },
   {
-    "id": "omen_of_the_hunt",
+    "id": "omen_of_sinistral_coronation",
     "in_game_category": "祭祀",
     "trade_list_order": 34
   },
   {
-    "id": "omen_of_reinforcements",
+    "id": "omen_of_dextral_coronation",
     "in_game_category": "祭祀",
     "trade_list_order": 35
   },
   {
-    "id": "omen_of_secret_compartments",
+    "id": "omen_of_homogenising_coronation",
     "in_game_category": "祭祀",
     "trade_list_order": 36
   },
   {
-    "id": "head_of_the_king",
+    "id": "omen_of_corruption",
     "in_game_category": "祭祀",
     "trade_list_order": 37
+  },
+  {
+    "id": "omen_of_homogenising_exaltation",
+    "in_game_category": "祭祀",
+    "trade_list_order": 38
+  },
+  {
+    "id": "omen_of_greater_annulment",
+    "in_game_category": "祭祀",
+    "trade_list_order": 39
   },
   {
     "id": "tupatati_soul_core",
@@ -2343,6 +2328,91 @@
     "id": "estazunti_convalescence_soul_core",
     "in_game_category": "靈魂核心",
     "trade_list_order": 30
+  },
+  {
+    "id": "jiquani_automation_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 31
+  },
+  {
+    "id": "jiquani_malediction_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 32
+  },
+  {
+    "id": "jiquani_targeting_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 33
+  },
+  {
+    "id": "jiquani_rallying_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 34
+  },
+  {
+    "id": "jiquani_radiance_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 35
+  },
+  {
+    "id": "jiquani_severing_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 36
+  },
+  {
+    "id": "jiquani_rippling_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 37
+  },
+  {
+    "id": "jiquani_quaking_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 38
+  },
+  {
+    "id": "jiquani_munitions_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 39
+  },
+  {
+    "id": "jiquani_snares_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 40
+  },
+  {
+    "id": "jiquani_abundance_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 41
+  },
+  {
+    "id": "jiquani_squalls_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 42
+  },
+  {
+    "id": "jiquani_thundering_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 43
+  },
+  {
+    "id": "atziri_devotion_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 44
+  },
+  {
+    "id": "atziri_vitality_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 45
+  },
+  {
+    "id": "atziri_alacrity_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 46
+  },
+  {
+    "id": "atziri_inoculation_soul_core",
+    "in_game_category": "靈魂核心",
+    "trade_list_order": 47
   },
   {
     "id": "bear_idol",
@@ -3115,188 +3185,273 @@
     "trade_list_order": 77
   },
   {
-    "id": "expedition_logbook",
+    "id": "thaumaturgic_flux_level_5",
     "in_game_category": "死境探險",
     "trade_list_order": 1
   },
   {
-    "id": "shattered_triskelion",
+    "id": "thaumaturgic_flux_level_6",
     "in_game_category": "死境探險",
     "trade_list_order": 2
   },
   {
-    "id": "the_triskelion_reforged",
+    "id": "thaumaturgic_flux_level_7",
     "in_game_category": "死境探險",
     "trade_list_order": 3
   },
   {
-    "id": "aldurs_saga",
+    "id": "thaumaturgic_flux_level_8",
     "in_game_category": "死境探險",
     "trade_list_order": 4
   },
   {
-    "id": "medveds_saga",
+    "id": "thaumaturgic_flux_level_9",
     "in_game_category": "死境探險",
     "trade_list_order": 5
   },
   {
-    "id": "voranas_saga",
+    "id": "thaumaturgic_flux_level_10",
     "in_game_category": "死境探險",
     "trade_list_order": 6
   },
   {
-    "id": "uhtreds_saga",
+    "id": "thaumaturgic_flux_level_11",
     "in_game_category": "死境探險",
     "trade_list_order": 7
   },
   {
-    "id": "olroths_saga",
+    "id": "thaumaturgic_flux_level_12",
     "in_game_category": "死境探險",
     "trade_list_order": 8
   },
   {
-    "id": "verisium",
+    "id": "thaumaturgic_flux_level_13",
     "in_game_category": "死境探險",
     "trade_list_order": 9
   },
   {
-    "id": "exceptional_verisium",
+    "id": "thaumaturgic_flux_level_14",
     "in_game_category": "死境探險",
     "trade_list_order": 10
   },
   {
-    "id": "medveds_crest_of_the_circle",
+    "id": "thaumaturgic_flux_level_15",
     "in_game_category": "死境探險",
     "trade_list_order": 11
   },
   {
-    "id": "voranas_crest_of_the_scythe",
+    "id": "thaumaturgic_flux_level_16",
     "in_game_category": "死境探險",
     "trade_list_order": 12
   },
   {
-    "id": "uhtreds_crest_of_the_chalice",
+    "id": "thaumaturgic_flux_level_17",
     "in_game_category": "死境探險",
     "trade_list_order": 13
   },
   {
-    "id": "olroths_crest_of_the_sun",
+    "id": "thaumaturgic_flux_level_18",
     "in_game_category": "死境探險",
     "trade_list_order": 14
   },
   {
-    "id": "runic_alloy",
+    "id": "thaumaturgic_flux_level_19",
     "in_game_category": "死境探險",
     "trade_list_order": 15
   },
   {
-    "id": "adaptive_alloy",
+    "id": "thaumaturgic_flux_level_20",
     "in_game_category": "死境探險",
     "trade_list_order": 16
   },
   {
-    "id": "protective_alloy",
+    "id": "blazing_flux",
     "in_game_category": "死境探險",
     "trade_list_order": 17
   },
   {
-    "id": "expansive_alloy",
+    "id": "chilling_flux",
     "in_game_category": "死境探險",
     "trade_list_order": 18
   },
   {
-    "id": "swift_alloy",
+    "id": "crackling_flux",
     "in_game_category": "死境探險",
     "trade_list_order": 19
   },
   {
-    "id": "cyclonic_alloy",
+    "id": "void_flux",
     "in_game_category": "死境探險",
     "trade_list_order": 20
   },
   {
-    "id": "prismatic_alloy",
+    "id": "perfect_flux",
     "in_game_category": "死境探險",
     "trade_list_order": 21
   },
   {
-    "id": "mystic_alloy",
+    "id": "expedition_logbook",
     "in_game_category": "死境探險",
     "trade_list_order": 22
   },
   {
-    "id": "sovereign_alloy",
+    "id": "shattered_triskelion",
     "in_game_category": "死境探險",
     "trade_list_order": 23
   },
   {
-    "id": "celestial_alloy",
+    "id": "the_triskelion_reforged",
     "in_game_category": "死境探險",
     "trade_list_order": 24
   },
   {
-    "id": "transcendent_alloy",
+    "id": "aldurs_saga",
     "in_game_category": "死境探險",
     "trade_list_order": 25
   },
   {
-    "id": "the_runebinders_alloy",
+    "id": "medveds_saga",
     "in_game_category": "死境探險",
     "trade_list_order": 26
   },
   {
-    "id": "the_runefathers_alloy",
+    "id": "voranas_saga",
     "in_game_category": "死境探險",
     "trade_list_order": 27
   },
   {
-    "id": "blazing_flux",
+    "id": "uhtreds_saga",
     "in_game_category": "死境探險",
     "trade_list_order": 28
   },
   {
-    "id": "chilling_flux",
+    "id": "olroths_saga",
     "in_game_category": "死境探險",
     "trade_list_order": 29
   },
   {
-    "id": "crackling_flux",
+    "id": "verisium",
     "in_game_category": "死境探險",
     "trade_list_order": 30
   },
   {
-    "id": "void_flux",
+    "id": "exceptional_verisium",
     "in_game_category": "死境探險",
     "trade_list_order": 31
   },
   {
-    "id": "perfect_flux",
+    "id": "medveds_crest_of_the_circle",
     "in_game_category": "死境探險",
     "trade_list_order": 32
   },
   {
-    "id": "starlit_ore",
+    "id": "voranas_crest_of_the_scythe",
     "in_game_category": "死境探險",
     "trade_list_order": 33
   },
   {
-    "id": "venerable_starlit_ore",
+    "id": "uhtreds_crest_of_the_chalice",
     "in_game_category": "死境探險",
     "trade_list_order": 34
   },
   {
-    "id": "revered_starlit_ore",
+    "id": "olroths_crest_of_the_sun",
     "in_game_category": "死境探險",
     "trade_list_order": 35
   },
   {
-    "id": "veridical_starlit_ore",
+    "id": "liquid_verisium",
     "in_game_category": "死境探險",
     "trade_list_order": 36
   },
   {
-    "id": "warding_starlit_ore",
+    "id": "runic_alloy",
     "in_game_category": "死境探險",
     "trade_list_order": 37
+  },
+  {
+    "id": "adaptive_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 38
+  },
+  {
+    "id": "protective_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 39
+  },
+  {
+    "id": "expansive_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 40
+  },
+  {
+    "id": "swift_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 41
+  },
+  {
+    "id": "cyclonic_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 42
+  },
+  {
+    "id": "prismatic_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 43
+  },
+  {
+    "id": "mystic_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 44
+  },
+  {
+    "id": "sovereign_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 45
+  },
+  {
+    "id": "celestial_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 46
+  },
+  {
+    "id": "transcendent_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 47
+  },
+  {
+    "id": "the_runebinders_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 48
+  },
+  {
+    "id": "the_runefathers_alloy",
+    "in_game_category": "死境探險",
+    "trade_list_order": 49
+  },
+  {
+    "id": "starlit_ore",
+    "in_game_category": "死境探險",
+    "trade_list_order": 50
+  },
+  {
+    "id": "venerable_starlit_ore",
+    "in_game_category": "死境探險",
+    "trade_list_order": 51
+  },
+  {
+    "id": "revered_starlit_ore",
+    "in_game_category": "死境探險",
+    "trade_list_order": 52
+  },
+  {
+    "id": "veridical_starlit_ore",
+    "in_game_category": "死境探險",
+    "trade_list_order": 53
+  },
+  {
+    "id": "warding_starlit_ore",
+    "in_game_category": "死境探險",
+    "trade_list_order": 54
   }
 ]

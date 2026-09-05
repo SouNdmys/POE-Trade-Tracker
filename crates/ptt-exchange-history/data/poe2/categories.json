@@ -96,83 +96,7 @@
     "category": "通貨"
   },
   {
-    "id": "thaumaturgic_flux_level_1",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_2",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_3",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_4",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_5",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_6",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_7",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_8",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_9",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_10",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_11",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_12",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_13",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_14",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_15",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_16",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_17",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_18",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_19",
-    "category": "通貨"
-  },
-  {
-    "id": "thaumaturgic_flux_level_20",
+    "id": "cryptic_key",
     "category": "通貨"
   },
   {
@@ -225,6 +149,22 @@
   },
   {
     "id": "scroll_of_wisdom",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_1",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_2",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_3",
+    "category": "通貨"
+  },
+  {
+    "id": "thaumaturgic_flux_level_4",
     "category": "通貨"
   },
   {
@@ -392,7 +332,7 @@
     "category": "精髓"
   },
   {
-    "id": "greater_abrasion_essence",
+    "id": "greater_infinite_essence",
     "category": "精髓"
   },
   {
@@ -420,11 +360,7 @@
     "category": "精髓"
   },
   {
-    "id": "greater_ruin_essence",
-    "category": "精髓"
-  },
-  {
-    "id": "greater_command_essence",
+    "id": "greater_abrasion_essence",
     "category": "精髓"
   },
   {
@@ -436,15 +372,19 @@
     "category": "精髓"
   },
   {
+    "id": "greater_ruin_essence",
+    "category": "精髓"
+  },
+  {
+    "id": "greater_command_essence",
+    "category": "精髓"
+  },
+  {
     "id": "greater_haste_essence",
     "category": "精髓"
   },
   {
     "id": "greater_alacrity_essence",
-    "category": "精髓"
-  },
-  {
-    "id": "greater_infinite_essence",
     "category": "精髓"
   },
   {
@@ -732,6 +672,10 @@
     "category": "裂痕聯盟"
   },
   {
+    "id": "necrotic_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
     "id": "refined_flesh_catalyst",
     "category": "裂痕聯盟"
   },
@@ -777,6 +721,10 @@
   },
   {
     "id": "refined_adaptive_catalyst",
+    "category": "裂痕聯盟"
+  },
+  {
+    "id": "refined_necrotic_catalyst",
     "category": "裂痕聯盟"
   },
   {
@@ -904,6 +852,22 @@
     "category": "阿茲里的神廟"
   },
   {
+    "id": "yaomacs_sacrifice_orb",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "kopecs_sacrifice_orb",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "kamasas_sacrifice_orb",
+    "category": "阿茲里的神廟"
+  },
+  {
+    "id": "yuguls_sacrifice_orb",
+    "category": "阿茲里的神廟"
+  },
+  {
     "id": "vaal_armourers_infuser",
     "category": "阿茲里的神廟"
   },
@@ -965,6 +929,22 @@
   },
   {
     "id": "weathered_crisis_fragment",
+    "category": "碎片"
+  },
+  {
+    "id": "origin_cradle",
+    "category": "碎片"
+  },
+  {
+    "id": "origin_spark",
+    "category": "碎片"
+  },
+  {
+    "id": "origin_core",
+    "category": "碎片"
+  },
+  {
+    "id": "call_of_the_shadows",
     "category": "碎片"
   },
   {
@@ -1608,35 +1588,11 @@
     "category": "符文"
   },
   {
-    "id": "omen_of_sinistral_alchemy",
-    "category": "祭祀"
-  },
-  {
-    "id": "omen_of_dextral_alchemy",
-    "category": "祭祀"
-  },
-  {
-    "id": "omen_of_sinistral_coronation",
-    "category": "祭祀"
-  },
-  {
-    "id": "omen_of_dextral_coronation",
-    "category": "祭祀"
-  },
-  {
-    "id": "omen_of_homogenising_coronation",
-    "category": "祭祀"
-  },
-  {
     "id": "omen_of_refreshment",
     "category": "祭祀"
   },
   {
     "id": "omen_of_resurgence",
-    "category": "祭祀"
-  },
-  {
-    "id": "omen_of_corruption",
     "category": "祭祀"
   },
   {
@@ -1652,15 +1608,7 @@
     "category": "祭祀"
   },
   {
-    "id": "omen_of_homogenising_exaltation",
-    "category": "祭祀"
-  },
-  {
     "id": "omen_of_catalysing_exaltation",
-    "category": "祭祀"
-  },
-  {
-    "id": "omen_of_greater_annulment",
     "category": "祭祀"
   },
   {
@@ -1753,6 +1701,46 @@
   },
   {
     "id": "head_of_the_king",
+    "category": "祭祀"
+  },
+  {
+    "id": "an_audience_with_the_king",
+    "category": "祭祀"
+  },
+  {
+    "id": "sacred_bloom",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_alchemy",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_alchemy",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_sinistral_coronation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_dextral_coronation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_homogenising_coronation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_corruption",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_homogenising_exaltation",
+    "category": "祭祀"
+  },
+  {
+    "id": "omen_of_greater_annulment",
     "category": "祭祀"
   },
   {
@@ -1873,6 +1861,74 @@
   },
   {
     "id": "estazunti_convalescence_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_automation_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_malediction_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_targeting_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_rallying_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_radiance_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_severing_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_rippling_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_quaking_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_munitions_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_snares_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_abundance_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_squalls_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "jiquani_thundering_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "atziri_devotion_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "atziri_vitality_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "atziri_alacrity_soul_core",
+    "category": "靈魂核心"
+  },
+  {
+    "id": "atziri_inoculation_soul_core",
     "category": "靈魂核心"
   },
   {
@@ -2492,6 +2548,90 @@
     "category": "寶石"
   },
   {
+    "id": "thaumaturgic_flux_level_5",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_6",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_7",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_8",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_9",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_10",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_11",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_12",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_13",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_14",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_15",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_16",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_17",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_18",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_19",
+    "category": "死境探險"
+  },
+  {
+    "id": "thaumaturgic_flux_level_20",
+    "category": "死境探險"
+  },
+  {
+    "id": "blazing_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "chilling_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "crackling_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "void_flux",
+    "category": "死境探險"
+  },
+  {
+    "id": "perfect_flux",
+    "category": "死境探險"
+  },
+  {
     "id": "expedition_logbook",
     "category": "死境探險"
   },
@@ -2548,6 +2688,10 @@
     "category": "死境探險"
   },
   {
+    "id": "liquid_verisium",
+    "category": "死境探險"
+  },
+  {
     "id": "runic_alloy",
     "category": "死境探險"
   },
@@ -2597,26 +2741,6 @@
   },
   {
     "id": "the_runefathers_alloy",
-    "category": "死境探險"
-  },
-  {
-    "id": "blazing_flux",
-    "category": "死境探險"
-  },
-  {
-    "id": "chilling_flux",
-    "category": "死境探險"
-  },
-  {
-    "id": "crackling_flux",
-    "category": "死境探險"
-  },
-  {
-    "id": "void_flux",
-    "category": "死境探險"
-  },
-  {
-    "id": "perfect_flux",
     "category": "死境探險"
   },
   {

@@ -13,7 +13,7 @@ use ptt_core::Game;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-/// Embedded POE2 catalog: 660 currency-exchange assets transcribed from poe2db
+/// Embedded POE2 catalog: 691 currency-exchange assets transcribed from poe2db
 /// (Traditional Chinese primary, English secondary), carried over from
 /// POE2-Trade-Tracker-Electron `data/currencies/currency_master.zh_tw.json`.
 ///
@@ -24,8 +24,8 @@ use sha2::{Digest, Sha256};
 /// weight in every build.
 pub const POE2_CATALOG_JSON: &str = include_str!("../data/poe2/currency_master.zh_tw.json");
 pub const POE2_CATALOG_SHA256: &str =
-    "8094644293bbd9c6aaeeae45eeae35a6ba92c4180ec9359d76498538735dbe28";
-pub const POE2_CATALOG_ENTRIES: usize = 660;
+    "0b6ea8a7ba4afd20ef3906a8c169a79a937494d69bd7befb583ebad5c040874c";
+pub const POE2_CATALOG_ENTRIES: usize = 691;
 
 /// POE1 catalog: 1,047 assets across 16 categories, transcribed from in-game
 /// selector screenshots in both languages.

@@ -40,7 +40,7 @@ pub fn live_context(profile: ProfileId, league: &str) -> Result<MarketContext, D
         ),
         ProfileGame::Poe2 => (
             ptt_catalog::POE2_CATALOG_SHA256,
-            "poe2-catalog-660",
+            "poe2-catalog-691",
             Game::Poe2,
         ),
     };

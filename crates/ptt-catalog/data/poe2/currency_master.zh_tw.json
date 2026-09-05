@@ -144,123 +144,9 @@
     "aliases": []
   },
   {
-    "id": "thaumaturgic_flux_level_1",
-    "name_zh_tw": "奇術溶劑（等級1）",
-    "name_en": "Thaumaturgic Flux (Level 1)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_2",
-    "name_zh_tw": "奇術溶劑（等級2）",
-    "name_en": "Thaumaturgic Flux (Level 2)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_3",
-    "name_zh_tw": "奇術溶劑（等級3）",
-    "name_en": "Thaumaturgic Flux (Level 3)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_4",
-    "name_zh_tw": "奇術溶劑（等級4）",
-    "name_en": "Thaumaturgic Flux (Level 4)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_5",
-    "name_zh_tw": "奇術溶劑（等級5）",
-    "name_en": "Thaumaturgic Flux (Level 5)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_6",
-    "name_zh_tw": "奇術溶劑（等級6）",
-    "name_en": "Thaumaturgic Flux (Level 6)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_7",
-    "name_zh_tw": "奇術溶劑（等級7）",
-    "name_en": "Thaumaturgic Flux (Level 7)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_8",
-    "name_zh_tw": "奇術溶劑（等級8）",
-    "name_en": "Thaumaturgic Flux (Level 8)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_9",
-    "name_zh_tw": "奇術溶劑（等級9）",
-    "name_en": "Thaumaturgic Flux (Level 9)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_10",
-    "name_zh_tw": "奇術溶劑（等級10）",
-    "name_en": "Thaumaturgic Flux (Level 10)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_11",
-    "name_zh_tw": "奇術溶劑（等級11）",
-    "name_en": "Thaumaturgic Flux (Level 11)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_12",
-    "name_zh_tw": "奇術溶劑（等級12）",
-    "name_en": "Thaumaturgic Flux (Level 12)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_13",
-    "name_zh_tw": "奇術溶劑（等級13）",
-    "name_en": "Thaumaturgic Flux (Level 13)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_14",
-    "name_zh_tw": "奇術溶劑（等級14）",
-    "name_en": "Thaumaturgic Flux (Level 14)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_15",
-    "name_zh_tw": "奇術溶劑（等級15）",
-    "name_en": "Thaumaturgic Flux (Level 15)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_16",
-    "name_zh_tw": "奇術溶劑（等級16）",
-    "name_en": "Thaumaturgic Flux (Level 16)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_17",
-    "name_zh_tw": "奇術溶劑（等級17）",
-    "name_en": "Thaumaturgic Flux (Level 17)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_18",
-    "name_zh_tw": "奇術溶劑（等級18）",
-    "name_en": "Thaumaturgic Flux (Level 18)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_19",
-    "name_zh_tw": "奇術溶劑（等級19）",
-    "name_en": "Thaumaturgic Flux (Level 19)",
-    "aliases": []
-  },
-  {
-    "id": "thaumaturgic_flux_level_20",
-    "name_zh_tw": "奇術溶劑（等級20）",
-    "name_en": "Thaumaturgic Flux (Level 20)",
+    "id": "cryptic_key",
+    "name_zh_tw": "晦澀之鑰",
+    "name_en": "Cryptic Key",
     "aliases": []
   },
   {
@@ -339,6 +225,30 @@
     "id": "scroll_of_wisdom",
     "name_zh_tw": "知識卷軸",
     "name_en": "Scroll of Wisdom",
+    "aliases": []
+  },
+  {
+    "id": "thaumaturgic_flux_level_1",
+    "name_zh_tw": "奇術溶劑（等級1）",
+    "name_en": "Thaumaturgic Flux (Level 1)",
+    "aliases": []
+  },
+  {
+    "id": "thaumaturgic_flux_level_2",
+    "name_zh_tw": "奇術溶劑（等級2）",
+    "name_en": "Thaumaturgic Flux (Level 2)",
+    "aliases": []
+  },
+  {
+    "id": "thaumaturgic_flux_level_3",
+    "name_zh_tw": "奇術溶劑（等級3）",
+    "name_en": "Thaumaturgic Flux (Level 3)",
+    "aliases": []
+  },
+  {
+    "id": "thaumaturgic_flux_level_4",
+    "name_zh_tw": "奇術溶劑（等級4）",
+    "name_en": "Thaumaturgic Flux (Level 4)",
     "aliases": []
   },
   {
@@ -588,9 +498,9 @@
     "aliases": []
   },
   {
-    "id": "greater_abrasion_essence",
-    "name_zh_tw": "高階磨礪精髓",
-    "name_en": "Greater Essence of Abrasion",
+    "id": "greater_infinite_essence",
+    "name_zh_tw": "高階無限精髓",
+    "name_en": "Greater Essence of the Infinite",
     "aliases": []
   },
   {
@@ -630,15 +540,9 @@
     "aliases": []
   },
   {
-    "id": "greater_ruin_essence",
-    "name_zh_tw": "高階毀滅精髓",
-    "name_en": "Greater Essence of Ruin",
-    "aliases": []
-  },
-  {
-    "id": "greater_command_essence",
-    "name_zh_tw": "高階命令精髓",
-    "name_en": "Greater Essence of Command",
+    "id": "greater_abrasion_essence",
+    "name_zh_tw": "高階磨礪精髓",
+    "name_en": "Greater Essence of Abrasion",
     "aliases": []
   },
   {
@@ -654,6 +558,18 @@
     "aliases": []
   },
   {
+    "id": "greater_ruin_essence",
+    "name_zh_tw": "高階毀滅精髓",
+    "name_en": "Greater Essence of Ruin",
+    "aliases": []
+  },
+  {
+    "id": "greater_command_essence",
+    "name_zh_tw": "高階命令精髓",
+    "name_en": "Greater Essence of Command",
+    "aliases": []
+  },
+  {
     "id": "greater_haste_essence",
     "name_zh_tw": "高階迅捷精髓",
     "name_en": "Greater Essence of Haste",
@@ -663,12 +579,6 @@
     "id": "greater_alacrity_essence",
     "name_zh_tw": "高階輕快精髓",
     "name_en": "Greater Essence of Alacrity",
-    "aliases": []
-  },
-  {
-    "id": "greater_infinite_essence",
-    "name_zh_tw": "高階無限精髓",
-    "name_en": "Greater Essence of the Infinite",
     "aliases": []
   },
   {
@@ -847,10 +757,10 @@
   },
   {
     "id": "ravens_reflection",
-    "name_zh_tw": "渡鴉的鏡像",
+    "name_zh_tw": "渡鴉之映",
     "name_en": "Raven's Reflection",
     "aliases": [
-      "渡鴉之映"
+      "渡鴉的鏡像"
     ]
   },
   {
@@ -1100,6 +1010,12 @@
     "aliases": []
   },
   {
+    "id": "necrotic_catalyst",
+    "name_zh_tw": "死靈催化劑",
+    "name_en": "Necrotic Catalyst",
+    "aliases": []
+  },
+  {
     "id": "refined_flesh_catalyst",
     "name_zh_tw": "精製血肉催化劑",
     "name_en": "Refined Flesh Catalyst",
@@ -1169,6 +1085,12 @@
     "id": "refined_adaptive_catalyst",
     "name_zh_tw": "精製適性催化劑",
     "name_en": "Refined Adaptive Catalyst",
+    "aliases": []
+  },
+  {
+    "id": "refined_necrotic_catalyst",
+    "name_zh_tw": "精製死靈催化劑",
+    "name_en": "Refined Necrotic Catalyst",
     "aliases": []
   },
   {
@@ -1343,9 +1265,7 @@
     "id": "core_destabiliser",
     "name_zh_tw": "核心擾亂器",
     "name_en": "Core Destabiliser",
-    "aliases": [
-      "核心擾亂器"
-    ]
+    "aliases": []
   },
   {
     "id": "ancient_infuser",
@@ -1357,6 +1277,30 @@
     "id": "vaal_cultivation_orb",
     "name_zh_tw": "瓦爾栽培寶珠",
     "name_en": "Vaal Cultivation Orb",
+    "aliases": []
+  },
+  {
+    "id": "yaomacs_sacrifice_orb",
+    "name_zh_tw": "堯馬克奉獻寶珠",
+    "name_en": "Yaomac's Orb of Sacrifice",
+    "aliases": []
+  },
+  {
+    "id": "kopecs_sacrifice_orb",
+    "name_zh_tw": "科佩克奉獻寶珠",
+    "name_en": "Kopec's Orb of Sacrifice",
+    "aliases": []
+  },
+  {
+    "id": "kamasas_sacrifice_orb",
+    "name_zh_tw": "卡瑪薩奉獻寶珠",
+    "name_en": "Kamasa's Orb of Sacrifice",
+    "aliases": []
+  },
+  {
+    "id": "yuguls_sacrifice_orb",
+    "name_zh_tw": "伊果奉獻寶珠",
+    "name_en": "Yugul's Orb of Sacrifice",
     "aliases": []
   },
   {
@@ -1461,6 +1405,30 @@
     "id": "weathered_crisis_fragment",
     "name_zh_tw": "風化危機碎片",
     "name_en": "Weathered Crisis Fragment",
+    "aliases": []
+  },
+  {
+    "id": "origin_cradle",
+    "name_zh_tw": "原初搖籃",
+    "name_en": "Origin Cradle",
+    "aliases": []
+  },
+  {
+    "id": "origin_spark",
+    "name_zh_tw": "原初光輝",
+    "name_en": "Origin Spark",
+    "aliases": []
+  },
+  {
+    "id": "origin_core",
+    "name_zh_tw": "原初核心",
+    "name_en": "Origin Core",
+    "aliases": []
+  },
+  {
+    "id": "call_of_the_shadows",
+    "name_zh_tw": "闇影呼喚",
+    "name_en": "Call of the Shadows",
     "aliases": []
   },
   {
@@ -2424,36 +2392,6 @@
     "aliases": []
   },
   {
-    "id": "omen_of_sinistral_alchemy",
-    "name_zh_tw": "左旋煉金之兆",
-    "name_en": "Omen of Sinistral Alchemy",
-    "aliases": []
-  },
-  {
-    "id": "omen_of_dextral_alchemy",
-    "name_zh_tw": "右旋煉金之兆",
-    "name_en": "Omen of Dextral Alchemy",
-    "aliases": []
-  },
-  {
-    "id": "omen_of_sinistral_coronation",
-    "name_zh_tw": "左旋加冕之兆",
-    "name_en": "Omen of Sinistral Coronation",
-    "aliases": []
-  },
-  {
-    "id": "omen_of_dextral_coronation",
-    "name_zh_tw": "右旋加冕之兆",
-    "name_en": "Omen of Dextral Coronation",
-    "aliases": []
-  },
-  {
-    "id": "omen_of_homogenising_coronation",
-    "name_zh_tw": "均勻加冕之兆",
-    "name_en": "Omen of Homogenising Coronation",
-    "aliases": []
-  },
-  {
     "id": "omen_of_refreshment",
     "name_zh_tw": "刷新之兆",
     "name_en": "Omen of Refreshment",
@@ -2463,12 +2401,6 @@
     "id": "omen_of_resurgence",
     "name_zh_tw": "復興之兆",
     "name_en": "Omen of Resurgence",
-    "aliases": []
-  },
-  {
-    "id": "omen_of_corruption",
-    "name_zh_tw": "腐化之兆",
-    "name_en": "Omen of Corruption",
     "aliases": []
   },
   {
@@ -2490,21 +2422,9 @@
     "aliases": []
   },
   {
-    "id": "omen_of_homogenising_exaltation",
-    "name_zh_tw": "均勻喜悅之兆",
-    "name_en": "Omen of Homogenising Exaltation",
-    "aliases": []
-  },
-  {
     "id": "omen_of_catalysing_exaltation",
     "name_zh_tw": "催化喜悅之兆",
     "name_en": "Omen of Catalysing Exaltation",
-    "aliases": []
-  },
-  {
-    "id": "omen_of_greater_annulment",
-    "name_zh_tw": "大幅廢止之兆",
-    "name_en": "Omen of Greater Annulment",
     "aliases": []
   },
   {
@@ -2515,7 +2435,7 @@
   },
   {
     "id": "omen_of_sinistral_erasure",
-    "name_zh_tw": "左旋抺除之兆",
+    "name_zh_tw": "左旋抹除之兆",
     "name_en": "Omen of Sinistral Erasure",
     "aliases": [
       "左旋抺除之兆"
@@ -2523,7 +2443,7 @@
   },
   {
     "id": "omen_of_dextral_erasure",
-    "name_zh_tw": "右旋抺除之兆",
+    "name_zh_tw": "右旋抹除之兆",
     "name_en": "Omen of Dextral Erasure",
     "aliases": [
       "右旋抺除之兆"
@@ -2645,8 +2565,70 @@
   },
   {
     "id": "head_of_the_king",
-    "name_zh_tw": "君王之首",
+    "name_zh_tw": "國王首級",
     "name_en": "Head of the King",
+    "aliases": [
+      "君王之首"
+    ]
+  },
+  {
+    "id": "an_audience_with_the_king",
+    "name_zh_tw": "覲見國王",
+    "name_en": "An Audience with the King",
+    "aliases": []
+  },
+  {
+    "id": "sacred_bloom",
+    "name_zh_tw": "聖綻之花",
+    "name_en": "Sacred Bloom",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_sinistral_alchemy",
+    "name_zh_tw": "左旋煉金之兆",
+    "name_en": "Omen of Sinistral Alchemy",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_dextral_alchemy",
+    "name_zh_tw": "右旋煉金之兆",
+    "name_en": "Omen of Dextral Alchemy",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_sinistral_coronation",
+    "name_zh_tw": "左旋加冕之兆",
+    "name_en": "Omen of Sinistral Coronation",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_dextral_coronation",
+    "name_zh_tw": "右旋加冕之兆",
+    "name_en": "Omen of Dextral Coronation",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_homogenising_coronation",
+    "name_zh_tw": "均勻加冕之兆",
+    "name_en": "Omen of Homogenising Coronation",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_corruption",
+    "name_zh_tw": "腐化之兆",
+    "name_en": "Omen of Corruption",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_homogenising_exaltation",
+    "name_zh_tw": "均勻喜悅之兆",
+    "name_en": "Omen of Homogenising Exaltation",
+    "aliases": []
+  },
+  {
+    "id": "omen_of_greater_annulment",
+    "name_zh_tw": "大幅廢止之兆",
+    "name_en": "Omen of Greater Annulment",
     "aliases": []
   },
   {
@@ -2834,6 +2816,108 @@
     "aliases": []
   },
   {
+    "id": "jiquani_automation_soul_core",
+    "name_zh_tw": "吉卡尼的自動化靈魂核心",
+    "name_en": "Jiquani's Soul Core of Automation",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_malediction_soul_core",
+    "name_zh_tw": "吉卡尼的惡語靈魂核心",
+    "name_en": "Jiquani's Soul Core of Malediction",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_targeting_soul_core",
+    "name_zh_tw": "吉卡尼的索敵靈魂核心",
+    "name_en": "Jiquani's Soul Core of Targeting",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_rallying_soul_core",
+    "name_zh_tw": "吉卡尼的號召靈魂核心",
+    "name_en": "Jiquani's Soul Core of Rallying",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_radiance_soul_core",
+    "name_zh_tw": "吉卡尼的輝耀靈魂核心",
+    "name_en": "Jiquani's Soul Core of Radiance",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_severing_soul_core",
+    "name_zh_tw": "吉卡尼的斷切靈魂核心",
+    "name_en": "Jiquani's Soul Core of Severing",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_rippling_soul_core",
+    "name_zh_tw": "吉卡尼的漣漪靈魂核心",
+    "name_en": "Jiquani's Soul Core of Rippling",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_quaking_soul_core",
+    "name_zh_tw": "吉卡尼的震顫靈魂核心",
+    "name_en": "Jiquani's Soul Core of Quaking",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_munitions_soul_core",
+    "name_zh_tw": "吉卡尼的彈藥靈魂核心",
+    "name_en": "Jiquani's Soul Core of Munitions",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_snares_soul_core",
+    "name_zh_tw": "吉卡尼的陷阱靈魂核心",
+    "name_en": "Jiquani's Soul Core of Snares",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_abundance_soul_core",
+    "name_zh_tw": "吉卡尼的豐饒靈魂核心",
+    "name_en": "Jiquani's Soul Core of Abundance",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_squalls_soul_core",
+    "name_zh_tw": "吉卡尼的狂風靈魂核心",
+    "name_en": "Jiquani's Soul Core of Squalls",
+    "aliases": []
+  },
+  {
+    "id": "jiquani_thundering_soul_core",
+    "name_zh_tw": "吉卡尼的雷鳴靈魂核心",
+    "name_en": "Jiquani's Soul Core of Thundering",
+    "aliases": []
+  },
+  {
+    "id": "atziri_devotion_soul_core",
+    "name_zh_tw": "阿茲里的奉獻靈魂核心",
+    "name_en": "Atziri's Soul Core of Devotion",
+    "aliases": []
+  },
+  {
+    "id": "atziri_vitality_soul_core",
+    "name_zh_tw": "阿茲里的活力靈魂核心",
+    "name_en": "Atziri's Soul Core of Vitality",
+    "aliases": []
+  },
+  {
+    "id": "atziri_alacrity_soul_core",
+    "name_zh_tw": "阿茲里的敏捷靈魂核心",
+    "name_en": "Atziri's Soul Core of Alacrity",
+    "aliases": []
+  },
+  {
+    "id": "atziri_inoculation_soul_core",
+    "name_zh_tw": "阿茲里的免疫靈魂核心",
+    "name_en": "Atziri's Soul Core of Inoculation",
+    "aliases": []
+  },
+  {
     "id": "bear_idol",
     "name_zh_tw": "巨熊魔偶",
     "name_en": "Bear Idol",
@@ -2861,9 +2945,7 @@
     "id": "python_idol",
     "name_zh_tw": "蝮蛇魔偶",
     "name_en": "Snake Idol",
-    "aliases": [
-      "蝮蛇魔偶"
-    ]
+    "aliases": []
   },
   {
     "id": "wolf_idol",
@@ -2881,9 +2963,7 @@
     "id": "nightbird_idol",
     "name_zh_tw": "夜梟魔偶",
     "name_en": "Owl Idol",
-    "aliases": [
-      "夜梟魔偶"
-    ]
+    "aliases": []
   },
   {
     "id": "bull_idol",
@@ -2911,9 +2991,11 @@
   },
   {
     "id": "masaris_idol",
-    "name_zh_tw": "馬薩里斯魔偶",
+    "name_zh_tw": "瑪薩里歐斯魔偶",
     "name_en": "Idol of Maxarius",
-    "aliases": []
+    "aliases": [
+      "馬薩里斯魔偶"
+    ]
   },
   {
     "id": "eeshta_idol",
@@ -3861,9 +3943,7 @@
     "id": "ratha_assault",
     "name_zh_tw": "菈妲的強襲",
     "name_en": "Ratha's Assault",
-    "aliases": [
-      "菈妲的強襲"
-    ]
+    "aliases": []
   },
   {
     "id": "arjun_medal",
@@ -3929,9 +4009,7 @@
     "id": "amanamu_tithe",
     "name_zh_tw": "阿姆那姆的稅賦",
     "name_en": "Amanamu's Tithe",
-    "aliases": [
-      "阿姆那姆的稅賦"
-    ]
+    "aliases": []
   },
   {
     "id": "xoph_pyre",
@@ -4270,6 +4348,164 @@
     "aliases": []
   },
   {
+    "id": "thaumaturgic_flux_level_5",
+    "name_zh_tw": "奇術熔劑（等級5）",
+    "name_en": "Thaumaturgic Flux (Level 5)",
+    "aliases": [
+      "奇術溶劑（等級5）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_6",
+    "name_zh_tw": "奇術熔劑（等級6）",
+    "name_en": "Thaumaturgic Flux (Level 6)",
+    "aliases": [
+      "奇術溶劑（等級6）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_7",
+    "name_zh_tw": "奇術熔劑（等級7）",
+    "name_en": "Thaumaturgic Flux (Level 7)",
+    "aliases": [
+      "奇術溶劑（等級7）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_8",
+    "name_zh_tw": "奇術熔劑（等級8）",
+    "name_en": "Thaumaturgic Flux (Level 8)",
+    "aliases": [
+      "奇術溶劑（等級8）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_9",
+    "name_zh_tw": "奇術熔劑（等級9）",
+    "name_en": "Thaumaturgic Flux (Level 9)",
+    "aliases": [
+      "奇術溶劑（等級9）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_10",
+    "name_zh_tw": "奇術熔劑（等級10）",
+    "name_en": "Thaumaturgic Flux (Level 10)",
+    "aliases": [
+      "奇術溶劑（等級10）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_11",
+    "name_zh_tw": "奇術熔劑（等級11）",
+    "name_en": "Thaumaturgic Flux (Level 11)",
+    "aliases": [
+      "奇術溶劑（等級11）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_12",
+    "name_zh_tw": "奇術熔劑（等級12）",
+    "name_en": "Thaumaturgic Flux (Level 12)",
+    "aliases": [
+      "奇術溶劑（等級12）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_13",
+    "name_zh_tw": "奇術熔劑（等級13）",
+    "name_en": "Thaumaturgic Flux (Level 13)",
+    "aliases": [
+      "奇術溶劑（等級13）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_14",
+    "name_zh_tw": "奇術熔劑（等級14）",
+    "name_en": "Thaumaturgic Flux (Level 14)",
+    "aliases": [
+      "奇術溶劑（等級14）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_15",
+    "name_zh_tw": "奇術熔劑（等級15）",
+    "name_en": "Thaumaturgic Flux (Level 15)",
+    "aliases": [
+      "奇術溶劑（等級15）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_16",
+    "name_zh_tw": "奇術熔劑（等級16）",
+    "name_en": "Thaumaturgic Flux (Level 16)",
+    "aliases": [
+      "奇術溶劑（等級16）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_17",
+    "name_zh_tw": "奇術熔劑（等級17）",
+    "name_en": "Thaumaturgic Flux (Level 17)",
+    "aliases": [
+      "奇術溶劑（等級17）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_18",
+    "name_zh_tw": "奇術熔劑（等級18）",
+    "name_en": "Thaumaturgic Flux (Level 18)",
+    "aliases": [
+      "奇術溶劑（等級18）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_19",
+    "name_zh_tw": "奇術熔劑（等級19）",
+    "name_en": "Thaumaturgic Flux (Level 19)",
+    "aliases": [
+      "奇術溶劑（等級19）"
+    ]
+  },
+  {
+    "id": "thaumaturgic_flux_level_20",
+    "name_zh_tw": "奇術熔劑（等級20）",
+    "name_en": "Thaumaturgic Flux (Level 20)",
+    "aliases": [
+      "奇術溶劑（等級20）"
+    ]
+  },
+  {
+    "id": "blazing_flux",
+    "name_zh_tw": "烈火熔劑",
+    "name_en": "Blazing Flux",
+    "aliases": []
+  },
+  {
+    "id": "chilling_flux",
+    "name_zh_tw": "冰寒熔劑",
+    "name_en": "Chilling Flux",
+    "aliases": []
+  },
+  {
+    "id": "crackling_flux",
+    "name_zh_tw": "碎雷熔劑",
+    "name_en": "Crackling Flux",
+    "aliases": []
+  },
+  {
+    "id": "void_flux",
+    "name_zh_tw": "虛空熔劑",
+    "name_en": "Void Flux",
+    "aliases": []
+  },
+  {
+    "id": "perfect_flux",
+    "name_zh_tw": "完美熔劑",
+    "name_en": "Perfect Flux",
+    "aliases": []
+  },
+  {
     "id": "expedition_logbook",
     "name_zh_tw": "探險日誌",
     "name_en": "Expedition Logbook",
@@ -4354,6 +4590,12 @@
     "aliases": []
   },
   {
+    "id": "liquid_verisium",
+    "name_zh_tw": "液態維里西姆",
+    "name_en": "Liquid Verisium",
+    "aliases": []
+  },
+  {
     "id": "runic_alloy",
     "name_zh_tw": "符文合金",
     "name_en": "Runic Alloy",
@@ -4429,36 +4671,6 @@
     "id": "the_runefathers_alloy",
     "name_zh_tw": "符文之父的合金",
     "name_en": "The Runefather's Alloy",
-    "aliases": []
-  },
-  {
-    "id": "blazing_flux",
-    "name_zh_tw": "烈火熔劑",
-    "name_en": "Blazing Flux",
-    "aliases": []
-  },
-  {
-    "id": "chilling_flux",
-    "name_zh_tw": "冰寒熔劑",
-    "name_en": "Chilling Flux",
-    "aliases": []
-  },
-  {
-    "id": "crackling_flux",
-    "name_zh_tw": "碎雷熔劑",
-    "name_en": "Crackling Flux",
-    "aliases": []
-  },
-  {
-    "id": "void_flux",
-    "name_zh_tw": "虛空熔劑",
-    "name_en": "Void Flux",
-    "aliases": []
-  },
-  {
-    "id": "perfect_flux",
-    "name_zh_tw": "生育寶珠",
-    "name_en": "Perfect Flux",
     "aliases": []
   },
   {
