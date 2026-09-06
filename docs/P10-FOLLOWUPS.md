@@ -1131,7 +1131,8 @@ across 40 targets」。条目仍为 0——不是新闸门，是库里最新抓�
     顺序接在后面——名单是"见过就记住"，不是"这一小时的快照"。合并结果和设置里一模一样
     就不写盘；原来那个"只在非空时写"的守卫也就不需要了，整轮空小时时合并结果本来就等于
     原名单。
-- **"全部保留"档的成交量封顶在 30 天**（**仍待拍板**）：`reports.rs:3658`
+- **"全部保留"档的成交量封顶在 30 天**（**已修（改法 B）2026-09-06**，见 commit
+  `exchange page: the all-kept chip says how many days the ledger really holds`）：`reports.rs:3658`
   （`exchange_ledger_window_hours` 把 `hour_retention_days` 夹在 1..30，`0` 也当 30）；
   调用在 `shell/mod.rs:2208` 与 `exchange_probe.rs:225`。用户设 45 天保留时表头写
   "全部保留"、实际只算 30 天小时明细，而同一行的走势小图用日线画满全部天数。两种改法各要
@@ -1142,13 +1143,24 @@ across 40 targets」。条目仍为 0——不是新闸门，是库里最新抓�
     一次读约 1.0M 行（30 天 × 每小时约 1.4k 市场，release 实测读库 0.6–2.2 s + 建账 1.0 s），
     365 天约 22M 行——那不是"慢一点"，是每次水位前进都要重来一次的量。真要放开，
     **建议上限 90** 而不是无限。
-  - **改法 B：把 chip 文案改成真实跨度**。改 `ExchangeRange::label`（`shell/mod.rs:264`）
-    的签名让它拿得到天数、i18n 那四个字段（`exchange_range_24h/3d/7d/all`）跟着改，
-    以及 `exchange.rs:386` 的成交列表头。**零性能代价**，但**小图仍然画满**（走势小图画的是
-    日线，不受账本窗口管），所以只是不再说谎，两个数仍然不同源。真正的麻烦在拿数：
-    `retention_days` 挂在 `ExchangeLedgerModel`（`reports.rs:3630`）上，`ExchangeModel`
-    本身**没有这个字段**，而 `ExchangeModel.ledger` 在**历史视角下是 `None`**——
-    表头得在没有账本的时候也能写出一句不假的话。
+  - **改法 B：把 chip 文案改成真实跨度**（**选了这条**）。改 `ExchangeRange::label`
+    （`shell/mod.rs:264`）的签名让它拿得到天数、i18n 那四个字段
+    （`exchange_range_24h/3d/7d/all`）跟着改，以及 `exchange.rs:386` 的成交列表头。
+    **零性能代价**，但**小图仍然画满**（走势小图画的是日线，不受账本窗口管），所以只是不再
+    说谎，两个数仍然不同源。真正的麻烦在拿数：`retention_days` 挂在 `ExchangeLedgerModel`
+    （`reports.rs:3630`）上，`ExchangeModel` 本身**没有这个字段**，而 `ExchangeModel.ledger`
+    在**历史视角下是 `None`**——表头得在没有账本的时候也能写出一句不假的话。
+
+  **落地形态（2026-09-06）**：`ExchangeRange::label` 多收一个
+  `ledger_window_hours: Option<u32>`、返回 `String`。天数**现算**（`hours / 24`）而不是另存
+  字段——chip 和账本从此不可能各说各话。`None` = 没有账本（历史视角），那时退回旧文案
+  `exchange_range_all`（"全部保留" / "all kept"），**不显示一个编出来的天数**；有账本时走新
+  文案 `exchange_range_all_days`（`"{}天"` / `"{}d"`），钳位起没起作用都报真数：保留 45 天写
+  "30天"，保留 15 天写 "15天"。三个调用点（成交列表头、档位条、明细栏里的档位条）都从
+  `ExchangeModel.ledger.is_some()` 决定给不给天数。Season 页 `exchange_settings_hint` 补了一句
+  "小时账本最多看 30 天，填得再大也只是让小时行在库里多躺一阵"——保留天数管的是**清理时机**
+  （`prune_exchange_hours`），不是能看多远，这两件事过去从没在界面上分开说过。
+  回归测试 `shell::exchange_range_label_tests`。**小图仍然画满全部天数，这条没动。**
 
 ## 1.1.0 之后待拍板/待校准（2026-09-06 记）
 

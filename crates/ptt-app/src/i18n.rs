@@ -244,7 +244,11 @@ pub struct Text {
     pub exchange_range_24h: &'static str,
     pub exchange_range_3d: &'static str,
     pub exchange_range_7d: &'static str,
+    /// 没有账本时（历史视角）最后一档的写法——那时天数无从算起。
     pub exchange_range_all: &'static str,
+    /// 有账本时最后一档的写法：账本真装了几天。窗口钳在 30 天，
+    /// 保留设 45 天却写"全部保留"就是句假话，所以这里报的是真跨度。
+    pub exchange_range_all_days: &'static str,
     pub exchange_detail_none: &'static str,
     pub exchange_detail_latest: &'static str,
     pub exchange_detail_window_volume: &'static str,
@@ -898,6 +902,7 @@ impl Text {
             ("exchange_range_3d", self.exchange_range_3d),
             ("exchange_range_7d", self.exchange_range_7d),
             ("exchange_range_all", self.exchange_range_all),
+            ("exchange_range_all_days", self.exchange_range_all_days),
             ("exchange_detail_none", self.exchange_detail_none),
             ("exchange_detail_latest", self.exchange_detail_latest),
             (
@@ -1453,6 +1458,7 @@ pub static ENGLISH: Text = Text {
     exchange_range_3d: "3d",
     exchange_range_7d: "7d",
     exchange_range_all: "all kept",
+    exchange_range_all_days: "{}d",
     exchange_detail_none: "the hourly ledger is a now-view; it is empty in a historical view",
     exchange_detail_latest: "latest hour",
     exchange_detail_window_volume: "window volume",
@@ -1467,7 +1473,7 @@ pub static ENGLISH: Text = Text {
     exchange_hover_hour_of_day: "{}:00-{}:00 · total {}",
     exchange_backfill_label: "history to pull (days)",
     exchange_retention_label: "hourly detail kept (days)",
-    exchange_settings_hint: "left: how many days of history to pull back (never earlier than the season start -- set it large to pull the whole season). right: hourly detail is folded into daily lines, then kept this many days before cleanup -- daily lines are kept forever.",
+    exchange_settings_hint: "left: how many days of history to pull back (never earlier than the season start -- set it large to pull the whole season). right: hourly detail is folded into daily lines, then kept this many days before cleanup -- daily lines are kept forever. the exchange page's hourly ledger reads 30 days at most, so anything above that only keeps the raw hours on disk for longer.",
     exchange_data_days: "data {}d",
     exchange_empty_hours: "{} empty h",
     exchange_synced_through: "synced to {} ({} h behind)",
@@ -2020,6 +2026,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     exchange_range_3d: "3天",
     exchange_range_7d: "7天",
     exchange_range_all: "全部保留",
+    exchange_range_all_days: "{}天",
     exchange_detail_none: "小时账本只看现在，历史视角下为空",
     exchange_detail_latest: "最新小时",
     exchange_detail_window_volume: "窗口成交额",
@@ -2034,7 +2041,7 @@ pub static SIMPLIFIED_CHINESE: Text = Text {
     exchange_hover_hour_of_day: "{}:00–{}:00 · 合计 {}",
     exchange_backfill_label: "拉取历史(天)",
     exchange_retention_label: "小时明细保留(天)",
-    exchange_settings_hint: "左：往回拉多少天的历史（不会早于赛季起点；想拉全季就填大，比如 95）。右：小时级明细折成日线后再留几天，到期清明细——日线永久保留。",
+    exchange_settings_hint: "左：往回拉多少天的历史（不会早于赛季起点；想拉全季就填大，比如 95）。右：小时级明细折成日线后再留几天，到期清明细——日线永久保留。交易所页的小时账本最多看 30 天，填得再大也只是让小时行在库里多躺一阵。",
     exchange_data_days: "数据 {} 天",
     exchange_empty_hours: "空小时 {} 个",
     exchange_synced_through: "同步至 {}（落后 {} 小时）",

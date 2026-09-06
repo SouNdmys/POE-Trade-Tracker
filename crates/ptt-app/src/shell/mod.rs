@@ -260,12 +260,33 @@ impl ExchangeRange {
         }
     }
 
-    pub(crate) fn label(self, text: &'static crate::i18n::Text) -> &'static str {
+    /// chip 文案。`ledger_window_hours` = 账本这一刻真正装得下的小时数
+    /// （`None` = 没有账本，也就是历史视角）。
+    ///
+    /// 最后一档过去写死"全部保留"，可账本窗口钳在 30 天
+    /// （`exchange_ledger_window_hours`）：保留设 45 天时表头说"全部"、
+    /// 列里只有 30 天的量。一个说谎的表头比没有表头更贵，所以这一档报的是
+    /// 账本真装的天数。没有账本时算不出真数，与其编一个不如退回旧文案。
+    ///
+    /// 天数从窗口小时数现算而不是另存一个字段：chip 和账本从此不可能各说各话。
+    pub(crate) fn label(
+        self,
+        text: &'static crate::i18n::Text,
+        ledger_window_hours: Option<u32>,
+    ) -> String {
         match self {
-            Self::Hours24 => text.exchange_range_24h,
-            Self::Days3 => text.exchange_range_3d,
-            Self::Days7 => text.exchange_range_7d,
-            Self::AllKept => text.exchange_range_all,
+            Self::Hours24 => text.exchange_range_24h.to_owned(),
+            Self::Days3 => text.exchange_range_3d.to_owned(),
+            Self::Days7 => text.exchange_range_7d.to_owned(),
+            Self::AllKept => ledger_window_hours.map_or_else(
+                || text.exchange_range_all.to_owned(),
+                |hours| {
+                    ptt_runtime::report_text::fill(
+                        text.exchange_range_all_days,
+                        &[&(hours / 24).to_string()],
+                    )
+                },
+            ),
         }
     }
 
@@ -2768,5 +2789,81 @@ mod hud_tests {
     #[test]
     fn the_mini_card_adds_up_to_its_rows() {
         assert_eq!(5 + 20 + 20 + 20 + 18 + 5, HUD_SIZE_MINI.1);
+    }
+}
+
+#[cfg(test)]
+mod exchange_range_label_tests {
+    use super::ExchangeRange;
+    use crate::i18n::text;
+    use ptt_settings::UiLanguage;
+
+    /// 保留天数 → 账本窗口小时数，走的就是生产那条路
+    /// （钳位在 `exchange_ledger_window_hours` 里，测试不复制它）。
+    fn window_hours(retention_days: u64) -> u32 {
+        let mut tuning = ptt_settings::MarketTuning::default();
+        tuning.exchange.hour_retention_days = retention_days;
+        ptt_runtime::reports::exchange_ledger_window_hours(&tuning)
+    }
+
+    /// 保留设 45 天，账本窗口却钳在 30 天：chip 写"全部保留"，
+    /// 成交列里其实只有 30 天的量。表头说的话必须等于列里的数。
+    #[test]
+    fn the_all_kept_chip_names_the_days_the_ledger_really_holds() {
+        let hours = Some(window_hours(45));
+        assert_eq!(
+            ExchangeRange::AllKept.label(text(UiLanguage::Chinese), hours),
+            "30天",
+            "chip 说的跨度和账本真装的对不上"
+        );
+        assert_eq!(
+            ExchangeRange::AllKept.label(text(UiLanguage::English), hours),
+            "30d"
+        );
+    }
+
+    /// 钳位没起作用时报的也是真数——chip 从此永远说账本装了几天。
+    #[test]
+    fn a_retention_under_the_clamp_reads_as_itself() {
+        let hours = Some(window_hours(15));
+        assert_eq!(
+            ExchangeRange::AllKept.label(text(UiLanguage::Chinese), hours),
+            "15天"
+        );
+        assert_eq!(
+            ExchangeRange::AllKept.label(text(UiLanguage::English), hours),
+            "15d"
+        );
+    }
+
+    /// 历史视角下账本不存在，天数也就无从算起。宁可退回旧文案，
+    /// 也不要摆一个编出来的数字。
+    #[test]
+    fn without_a_ledger_the_chip_falls_back_to_the_old_words() {
+        assert_eq!(
+            ExchangeRange::AllKept.label(text(UiLanguage::Chinese), None),
+            "全部保留"
+        );
+        assert_eq!(
+            ExchangeRange::AllKept.label(text(UiLanguage::English), None),
+            "all kept"
+        );
+    }
+
+    /// 另外三档是固定窗口，账本多长都不改口。
+    #[test]
+    fn the_fixed_tiers_read_the_same_with_or_without_a_ledger() {
+        let english = text(UiLanguage::English);
+        for range in [
+            ExchangeRange::Hours24,
+            ExchangeRange::Days3,
+            ExchangeRange::Days7,
+        ] {
+            assert_eq!(
+                range.label(english, Some(window_hours(45))),
+                range.label(english, None),
+                "{range:?} 的文案跟着账本变了"
+            );
+        }
     }
 }

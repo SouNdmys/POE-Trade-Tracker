@@ -377,18 +377,29 @@ impl AppShell {
             head = head.child(band);
         }
 
+        // 账本这一刻真正装得下多少小时——"全部保留"那一档的 chip 报的就是它，
+        // 而不是"全部"：窗口钳在 30 天，保留设 45 天时"全部"是句假话。
+        // 历史视角没有账本（`ledger` 为 `None`），那时算不出真数，档位文案退回旧写法。
+        let ledger_window_hours = model
+            .ledger
+            .as_ref()
+            .map(|_| ptt_runtime::reports::exchange_ledger_window_hours(&self.settings_tuning()));
+
         // ---- 表头 ----
         // 成交列的表头带上当前档位：列里的数是按它算的，不标就是哑谜。
         let volume_label = if model.window_hours.is_some() {
             format!(
                 "{} · {}",
                 text.exchange_col_volume,
-                self.exchange_range.label(text)
+                self.exchange_range.label(text, ledger_window_hours)
             )
         } else {
             text.exchange_col_volume.to_owned()
         };
-        let range_row = div().px_3().pb_1().child(self.exchange_range_row(cx));
+        let range_row = div()
+            .px_3()
+            .pb_1()
+            .child(self.exchange_range_row(ledger_window_hours, cx));
         let header = div()
             .px_3()
             .py_1()
@@ -549,9 +560,16 @@ impl AppShell {
             .child(detail)
     }
 
-    /// 时段档位条：24h / 3d / 7d / 全部保留。当前档金字 + 2px 金下划线，
+    /// 时段档位条：24h / 3d / 7d / 账本全长。当前档金字 + 2px 金下划线，
     /// 同雷达页页签的语汇。切档标脏页面：账本已按水位缓存，重算只是重排。
-    fn exchange_range_row(&self, cx: &mut Context<Self>) -> gpui::Div {
+    ///
+    /// `ledger_window_hours` 由调用方从账本算出（`None` = 没有账本），
+    /// 最后一档的文案要它才说得出真天数。
+    fn exchange_range_row(
+        &self,
+        ledger_window_hours: Option<u32>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
         let text = self.text();
         let current = self.exchange_range;
         let mut row = div().h_flex().items_center().gap(px(SP_8));
@@ -579,7 +597,7 @@ impl AppShell {
                 chip.text_color(c(TEXT_SECONDARY))
                     .hover(|style| style.bg(c(HOVER)))
             };
-            row = row.child(chip.child(SharedString::from(range.label(text).to_string())));
+            row = row.child(chip.child(SharedString::from(range.label(text, ledger_window_hours))));
         }
         row
     }
@@ -610,6 +628,11 @@ impl AppShell {
                 .child(div().p_3().child(empty_state(text.exchange_detail_none)));
         };
         let ledger = &ledger_model.ledger;
+        // 走到这里账本一定在（上面的 `else` 已经挡掉了没有账本的情形），
+        // 所以这条档位条永远报得出真天数。
+        let ledger_window_hours = Some(ptt_runtime::reports::exchange_ledger_window_hours(
+            &self.settings_tuning(),
+        ));
         let hours = self.exchange_range.hours();
         let asset = &row.asset_id;
         let points = ledger.points_in(asset, hours);
@@ -637,7 +660,7 @@ impl AppShell {
                 text.exchange_detail_mean,
                 &compact_amount(mean, language),
             ))
-            .child(self.exchange_range_row(cx));
+            .child(self.exchange_range_row(ledger_window_hours, cx));
 
         if let Some((start, end)) = ledger.window(hours) {
             // 本地时区只在这条绘制边界上出现；账本本身是 UTC 整点。
