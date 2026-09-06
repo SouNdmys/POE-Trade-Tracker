@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use chrono::{DateTime, TimeZone, Utc};
-use ptt_runtime::pipeline::{PipelineEvent, persist_then_warn};
+use ptt_runtime::pipeline::{PipelineEvent, ensure_baseline_rollups, persist_then_warn};
 use ptt_settings::UiLanguage;
 use ptt_storage::{MarketStore, PairDayRollupRow};
 use ptt_trade_domain::{
@@ -244,6 +244,33 @@ fn a_book_a_hundred_times_off_yesterdays_median_is_warned_about_and_still_stored
         .load_observations(&capture.context.stable_key(), None)
         .expect("load");
     assert!(!stored.is_empty(), "the flagged book was not stored");
+}
+
+/// The guard must have a baseline without anyone opening the Analytics page.
+///
+/// Yesterday's books sit on disk as raw captures until something folds them
+/// into a day, and that fold used to happen only on the way into Analytics.
+/// A session that only ever watches never goes there, so it had no folds at
+/// all — and because a missing baseline always passes, the guard stayed
+/// silent in exactly the session it was written for. The database here holds
+/// nothing but a raw capture from yesterday: the watch has to build the fold
+/// itself before the hundred-fold book can be flagged.
+#[test]
+fn the_watch_builds_its_own_baseline_out_of_raw_captures() {
+    let mut store = store("baseline-from-raw");
+    // Yesterday exactly as a watch-only session leaves it: books stored, no
+    // rollup anywhere.
+    store
+        .persist_capture(&capture(at(9), "1:100"))
+        .expect("persist");
+
+    ensure_baseline_rollups(&mut store, Game::Poe2, at(10), 3).expect("rollups");
+
+    let capture = capture(at(10), "1:10000");
+    let (warnings, outcome) = drain(&mut store, &capture, None);
+
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert!(outcome.is_ok(), "{outcome:?}");
 }
 
 #[test]

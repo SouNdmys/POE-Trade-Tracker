@@ -1234,10 +1234,16 @@ across 40 targets」。条目仍为 0——不是新闸门，是库里最新抓�
   里的 `?` 也和上面 `a89d38b` 修掉的形状一样：抓取或解析一失败，整个 `audit` 就在
   `ensure_exchange_day_rollups` 之前返回，已经修好的那几天不会被重折。两条都是既有问题，
   不是这一夜带进来的。
-- **B-3 的日折只有打开 Analytics 页才生成**。`ensure_daily_rollups` 在生产里只有一个调用点
+- ~~**B-3 的日折只有打开 Analytics 页才生成**~~。**已修 2026-09-06**（见提交
+  `pipeline: the watch builds yesterday's rollups itself, so the identity check has a baseline
+  without the Analytics page`；这条是自指的，所以记的是标题不是 hash）：走的是第一条出路，
+  `LivePipeline::run` 开头先调 `pipeline::ensure_baseline_rollups`，它就是 `load_analytics`
+  那一个 `ensure_daily_rollups`，同样的 `MAX_ROLLUP_DAYS_PER_RUN` 和同一个 outlier band——
+  没有第二套口径。折失败只发一条 `PipelineEvent::Warning` 就继续开工：守门没有尺子顶多不响，
+  不该拿整场监视去换一条警告。原问题：`ensure_daily_rollups` 在生产里只有一个调用点
   ——`shell/mod.rs` 的 `load_analytics`（另一个是 `analytics_probe`）。只开监视、从不点开
   Analytics 页的会话**没有任何日折**，于是身份守门永远读不到基线，而"读不到就放行"意味着
-  它永远不响。两条出路：把 rollup 保证塞进采集管道，或者把这个前提写进界面/文档明说。
+  它永远不响。
 - **`pipeline.rs` 的 `opening_the_store_is_cheap` 也用固定共享临时路径** `ptt-open-cost`
   ——和 `cf37713` 修掉的是同一个形状，只是它不带 WAL 残留的后果，所以这次没一起改。
 - **故障文案 `book NOT stored` 打的是 `need -> have`**（`pipeline.rs` 两处），

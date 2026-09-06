@@ -171,6 +171,13 @@ pub struct ReportText {
     /// reports and never rejects — a warning that reads like a rejection
     /// would send the user looking for a book that is already there.
     pub identity_magnitude_suspect: &'static str,
+    /// The watch could not build the daily folds the identity flag compares
+    /// against. Slots: the reason.
+    ///
+    /// Has to say that books are still being stored, because this sentence
+    /// arrives at the start of a session and would otherwise read as "the
+    /// watch did not start". Only the check goes quiet.
+    pub identity_baseline_unavailable: &'static str,
 }
 
 #[must_use]
@@ -284,6 +291,7 @@ pub static REPORT_ENGLISH: ReportText = ReportText {
     analytics_marker_high_turnover: "high-turnover",
     analytics_marker_greedy: "greedy-fit",
     identity_magnitude_suspect: "{} -> {}: this book's best rate {} is nowhere near the recent daily median {} - check the currency names, the book was stored anyway",
+    identity_baseline_unavailable: "the daily baseline for the currency-name check could not be built ({}) - books are still being stored, only the check stays quiet",
 };
 
 pub static REPORT_CHINESE: ReportText = ReportText {
@@ -389,6 +397,7 @@ pub static REPORT_CHINESE: ReportText = ReportText {
     analytics_marker_high_turnover: "高流转",
     analytics_marker_greedy: "适合贪婪",
     identity_magnitude_suspect: "{} -> {}：这本书最好的一档 {} 和最近的日中位 {} 差了一个量级——书照常落库了，但先核对一下通货名字",
+    identity_baseline_unavailable: "通货名核对用的日折基线没能生成（{}）——书照常落库，只是这一道核对暂时不响",
 };
 
 /// Fills a template's `{}` slots, in order.
@@ -1186,6 +1195,11 @@ fn report_pairs() -> Vec<(&'static str, &'static str, &'static str)> {
             "identity_magnitude_suspect",
             REPORT_ENGLISH.identity_magnitude_suspect,
             REPORT_CHINESE.identity_magnitude_suspect,
+        ),
+        (
+            "identity_baseline_unavailable",
+            REPORT_ENGLISH.identity_baseline_unavailable,
+            REPORT_CHINESE.identity_baseline_unavailable,
         ),
     ]
 }

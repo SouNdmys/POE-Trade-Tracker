@@ -211,6 +211,38 @@ fn recent_median_top_taker_rate(
         .next_back()
 }
 
+/// Builds the daily folds [`recent_median_top_taker_rate`] reads its baseline
+/// from, so that watching is enough to keep the guard fed.
+///
+/// The fold used to exist only as a side effect of opening the Analytics
+/// page. A session that only ever watched therefore had no folds at all, and
+/// "no baseline always passes" meant the identity guard could never once
+/// speak — the one session shape it was written for was the one shape it was
+/// silent in.
+///
+/// The same call the Analytics page makes, keyed through
+/// [`crate::rollup::game_key`] like the guard's own read: one builder with two
+/// callers, rather than a second one here that could fold the days its own way
+/// and leave the guard measuring against a baseline no page ever shows.
+///
+/// Cheap after the first run: a marked day is skipped on a mark read, and
+/// today is never a candidate, so a session that starts twice in one day
+/// re-reads the marks and folds nothing.
+pub fn ensure_baseline_rollups(
+    store: &mut MarketStore,
+    game: ptt_trade_domain::Game,
+    now: chrono::DateTime<chrono::Utc>,
+    outlier_factor: u64,
+) -> Result<crate::rollup::RollupOutcome, String> {
+    crate::rollup::ensure_daily_rollups(
+        store,
+        crate::rollup::game_key(game),
+        now,
+        crate::rollup::MAX_ROLLUP_DAYS_PER_RUN,
+        outlier_factor,
+    )
+}
+
 /// One order row of an accepted book.
 ///
 /// The panel's own fields rather than a sentence about them, so the interface
@@ -477,6 +509,23 @@ impl LivePipeline {
         cancel: &AtomicBool,
         mut on_event: impl FnMut(PipelineEvent),
     ) -> SessionStats {
+        // Before the first frame, because the identity guard runs on every
+        // accepted book and reads its baseline out of these folds. A failure
+        // costs the guard its voice for this session and nothing else, so it
+        // is said out loud and then stepped over: refusing to watch because
+        // an optional check has no yardstick would trade the whole session
+        // for one warning.
+        if let Err(error) = ensure_baseline_rollups(
+            &mut self.store,
+            self.context.game,
+            chrono::Utc::now(),
+            self.outlier_factor,
+        ) {
+            on_event(PipelineEvent::Warning(crate::report_text::fill(
+                crate::report_text::report(self.language).identity_baseline_unavailable,
+                &[&error],
+            )));
+        }
         // Split the borrows: the session holds the route for the whole run
         // while the callback needs the store and the counter mutably.
         let Self {
