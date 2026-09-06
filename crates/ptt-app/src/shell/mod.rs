@@ -2120,13 +2120,22 @@ fn load_exchange(
     let as_of =
         chrono::NaiveDate::parse_from_str(request.tuning.exchange.as_of_day.trim(), "%Y-%m-%d")
             .ok();
-    // 小时窗口 48h:激增基准要 8+ 小时,最新价要最近的完整小时。
-    let hour_rows = if as_of.is_some() {
-        Vec::new()
+    // 水位与欠账：进度是存储层的事实，模型函数不碰 store。小时窗口也钉在
+    // 水位上（右侧账本一直是这么数的），所以水位得先读出来。
+    let watermark = store
+        .exchange_watermark(game, &league)
+        .map_err(|error| format!("watermark: {error}"))?;
+    // 小时窗口 48h,终点是水位不是 now:见 `exchange_hour_window`。
+    let hour_window = if as_of.is_some() {
+        None
     } else {
-        store
-            .load_exchange_hours(game, &league, now.timestamp() - 48 * 3600, now.timestamp())
-            .map_err(|error| format!("hours: {error}"))?
+        ptt_runtime::reports::exchange_hour_window(watermark)
+    };
+    let hour_rows = match hour_window {
+        Some((from, to)) => store
+            .load_exchange_hours(game, &league, from, to)
+            .map_err(|error| format!("hours: {error}"))?,
+        None => Vec::new(),
     };
     // 日窗口 60 天:日折行小而永久,窗口宽一点让"回补 30 天 + 30 天涨跌"
     // 都装得下;真正算多少天由涨跌选择器和数据长度决定。
@@ -2136,16 +2145,13 @@ fn load_exchange(
     let day_rows = store
         .load_exchange_days(game, &league, &from_day, &to_day)
         .map_err(|error| format!("days: {error}"))?;
-    // 水位与欠账在这里补进模型：进度是存储层的事实，模型函数不碰 store。
-    let watermark = store
-        .exchange_watermark(game, &league)
-        .map_err(|error| format!("watermark: {error}"))?;
     let mut model = ptt_runtime::reports::exchange_model(
         &day_rows,
         &hour_rows,
         &league,
         request.profile.game,
         &request.tuning,
+        watermark,
     )?;
     let newest_complete = now.timestamp().div_euclid(3600) * 3600 - 3600;
     model.synced_through = watermark;

@@ -284,21 +284,21 @@ mod probe {
             }
 
             // 表格按同一档位重排：和页面一样先算 48 小时的默认口径，再套窗口。
-            let now = chrono::Utc::now();
-            let hour_rows = store
-                .load_exchange_hours(
-                    &self.realm,
-                    &self.league,
-                    now.timestamp() - 48 * 3600,
-                    now.timestamp(),
-                )
-                .map_err(|error| format!("hours: {error}"))?;
+            // 窗口终点是水位，不是 now——账本用的就是这个终点，两边得一致。
+            let watermark = ledger.synced_through;
+            let hour_rows = match ptt_runtime::reports::exchange_hour_window(watermark) {
+                Some((from, to)) => store
+                    .load_exchange_hours(&self.realm, &self.league, from, to)
+                    .map_err(|error| format!("hours: {error}"))?,
+                None => Vec::new(),
+            };
             let mut model = ptt_runtime::reports::exchange_model(
                 &[],
                 &hour_rows,
                 &self.league,
                 self.game,
                 &tuning,
+                watermark,
             )?;
             ptt_runtime::reports::apply_exchange_window(&mut model, &ledger.ledger, hours);
             println!(

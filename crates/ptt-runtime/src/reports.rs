@@ -4114,14 +4114,35 @@ const RADAR_LIMIT: usize = 5;
 /// 同样是首过值，等新赛季的干净数据校准。
 const RADAR_MIN_BASELINE_ANCHOR_VOLUME: u64 = 200;
 
+/// 表格里小时级列的窗口长度：激增基准要 8+ 小时的自史，最新价要最近的
+/// 完整小时，48 小时两头都装得下还留了余量。
+const EXCHANGE_HOUR_WINDOW_HOURS: i64 = 48;
+
+/// 小时级列的窗口 `[起, 止)`——终点是**同步水位**，不是"现在"。
+///
+/// 官方数据本来就晚一两个小时，同步再落后一点（实测落后过 166 小时），
+/// 以"现在"为终点就一行也框不到：整列「–」，而同一页右边的账本从水位
+/// 往前数照样有数——一页两本账对不上，比慢一点更难解释。页头已经写着
+/// 落后多少小时，所以以水位为终点不算冒充"现在"。
+/// 从没同步过就没有水位，也就没有窗口：小时侧照旧空着。
+#[must_use]
+pub fn exchange_hour_window(watermark: Option<i64>) -> Option<(i64, i64)> {
+    let end = watermark?;
+    Some((end - EXCHANGE_HOUR_WINDOW_HOURS * 3600, end + 3600))
+}
+
 /// 官方交易所总览。自产 `ExchangePulse`，所以和 `analytics_model` 一样
 /// 没有 `MarketPulse` 参数——两套脉搏分域，不互相注入。
+///
+/// `watermark` 是该联赛已抓小时的最大 `hour_ts`（存储层的事实，模型不碰
+/// store）：小时级列以它为终点，见 `exchange_hour_window`。
 pub fn exchange_model(
     day_rows: &[ptt_storage::ExchangeDayMarketRow],
     hour_rows: &[ptt_storage::ExchangeHourMarketRow],
     league: &str,
     game: ptt_core::Game,
     tuning: &MarketTuning,
+    watermark: Option<i64>,
 ) -> Result<ExchangeModel, String> {
     let mapping =
         ptt_exchange_history::mapping::index(game).map_err(|error| format!("mapping: {error}"))?;
@@ -4133,8 +4154,14 @@ pub fn exchange_model(
     // 小时行整个不看——它们是"现在"的账，和截至那天无关。
     let as_of =
         chrono::NaiveDate::parse_from_str(tuning.exchange.as_of_day.trim(), "%Y-%m-%d").ok();
-    let hour_rows: &[ptt_storage::ExchangeHourMarketRow] =
-        if as_of.is_some() { &[] } else { hour_rows };
+    let hour_window = if as_of.is_some() {
+        None
+    } else {
+        exchange_hour_window(watermark)
+    };
+    let in_window = |row: &&ptt_storage::ExchangeHourMarketRow| {
+        hour_window.is_some_and(|(from, to)| row.hour_ts >= from && row.hour_ts < to)
+    };
 
     let mut day_stats = Vec::with_capacity(day_rows.len());
     for row in day_rows {
@@ -4157,7 +4184,7 @@ pub fn exchange_model(
         });
     }
     let mut hour_stats = Vec::with_capacity(hour_rows.len());
-    for row in hour_rows {
+    for row in hour_rows.iter().filter(in_window) {
         total_rows += 1;
         let (Some(asset_a), Some(asset_b)) = (
             exchange_domain_id(&mapping, &mut cache, &row.asset_a),
@@ -4228,7 +4255,12 @@ pub fn exchange_model(
     // 候选 = 不在任何关注类列表里的资产（"从没关注过的"），三信号取其一，
     // 每资产只讲最强的那个故事。无流通量门槛是用户明确的豁免：这条是
     // 注意力信号，不是可执行承诺。
-    let gaps = exchange_price_gaps(hour_rows, &mapping, &mut cache, &anchor);
+    let gaps = exchange_price_gaps(
+        hour_rows.iter().filter(in_window),
+        &mapping,
+        &mut cache,
+        &anchor,
+    );
     let mut radar: Vec<ExchangeRadarItem> = rows
         .iter()
         .filter(|row| !row.tracked)
@@ -4303,8 +4335,8 @@ pub fn exchange_model(
 ///
 /// 快照区间只在这里被消费——它是"现在挂着的价"，VWAP 是"实际成交的价"，
 /// 两者的差就是大雷达第三信号的原料。u128 交叉相乘，不走浮点。
-fn exchange_price_gaps(
-    hour_rows: &[ptt_storage::ExchangeHourMarketRow],
+fn exchange_price_gaps<'a>(
+    hour_rows: impl IntoIterator<Item = &'a ptt_storage::ExchangeHourMarketRow>,
     mapping: &BTreeMap<String, String>,
     cache: &mut BTreeMap<String, Option<MarketAssetId>>,
     anchor: &MarketAssetId,
@@ -4383,8 +4415,9 @@ pub fn exchange_report(
     game: ptt_core::Game,
     tuning: &MarketTuning,
     language: UiLanguage,
+    watermark: Option<i64>,
 ) -> Result<Vec<String>, String> {
-    let model = exchange_model(day_rows, hour_rows, league, game, tuning)?;
+    let model = exchange_model(day_rows, hour_rows, league, game, tuning, watermark)?;
     Ok(render_exchange(&model, language))
 }
 
@@ -8047,11 +8080,24 @@ mod exchange_model_tests {
         }
     }
 
+    /// 固定的一小时。小时级列以同步水位为终点，所以给行造时刻的测试
+    /// 都要把水位一起给出来。
+    const HOUR: i64 = 1_788_159_600;
+
     fn hour_row(volume_a: u64, volume_b: u64) -> ptt_storage::ExchangeHourMarketRow {
+        hour_row_at(HOUR, DIVINE, volume_a, volume_b)
+    }
+
+    fn hour_row_at(
+        hour_ts: i64,
+        asset_b: &str,
+        volume_a: u64,
+        volume_b: u64,
+    ) -> ptt_storage::ExchangeHourMarketRow {
         ptt_storage::ExchangeHourMarketRow {
-            hour_ts: 1_788_159_600,
+            hour_ts,
             asset_a: EXALTED.to_owned(),
-            asset_b: DIVINE.to_owned(),
+            asset_b: asset_b.to_owned(),
             volume_a,
             volume_b,
             lowest_stock_a: volume_a,
@@ -8082,8 +8128,15 @@ mod exchange_model_tests {
             ..MarketTuning::default()
         };
         let hours = vec![hour_row(4150, 10)];
-        let model =
-            exchange_model(&[], &hours, "Allflame", ptt_core::Game::Poe1, &tuning).expect("model");
+        let model = exchange_model(
+            &[],
+            &hours,
+            "Allflame",
+            ptt_core::Game::Poe1,
+            &tuning,
+            Some(HOUR),
+        )
+        .expect("model");
         assert_eq!(model.coverage_percent, 100);
         assert_eq!(model.anchor_asset_id.to_string(), "divine-orb");
         assert_eq!(model.rows.len(), 1);
@@ -8109,6 +8162,7 @@ mod exchange_model_tests {
             "Runes of Aldur",
             ptt_core::Game::Poe2,
             &tuning(),
+            Some(HOUR),
         )
         .expect("model");
         assert_eq!(model.coverage_percent, 100);
@@ -8147,6 +8201,7 @@ mod exchange_model_tests {
             "Runes of Aldur",
             ptt_core::Game::Poe2,
             &tuning(),
+            None,
         )
         .expect("model");
         assert_eq!(model.coverage_percent, 50);
@@ -8168,6 +8223,7 @@ mod exchange_model_tests {
             "Runes of Aldur",
             ptt_core::Game::Poe2,
             &tuning,
+            Some(HOUR),
         )
         .expect("model");
         assert!(model.historical);
@@ -8204,6 +8260,7 @@ mod exchange_model_tests {
             "Forbidden Rites",
             ptt_core::Game::Poe2,
             &tuning(),
+            None,
         )
         .expect("model");
 
@@ -8239,6 +8296,63 @@ mod exchange_model_tests {
             }),
             "{:?}",
             model.radar
+        );
+    }
+
+    #[test]
+    fn the_hour_columns_count_back_from_the_watermark_not_from_now() {
+        // 同步落后 100 小时（实测落后过 166）：终点钉在"现在"的话，48 小时
+        // 窗口一行都框不到，价值/成交/深度整列是「–」，而同一页右边的账本
+        // 从水位往前数照样有数。终点改成水位，两本账就对得上了。
+        let watermark = (chrono::Utc::now().timestamp() - 100 * 3600).div_euclid(3600) * 3600;
+        let hours = vec![hour_row_at(watermark, DIVINE, 4150, 10)];
+        let model = exchange_model(
+            &[],
+            &hours,
+            "Forbidden Rites",
+            ptt_core::Game::Poe2,
+            &tuning(),
+            Some(watermark),
+        )
+        .expect("model");
+
+        assert_eq!(model.hours_seen, 1);
+        let divine = &model.rows[0];
+        assert_eq!(divine.asset_id.to_string(), "divine-orb");
+        assert_eq!(
+            divine.value_in_anchor,
+            Some(ptt_trade_domain::Ratio::from_parts(415, 1).expect("ratio"))
+        );
+        assert!(divine.volume_per_hour_anchor > 0);
+    }
+
+    #[test]
+    fn a_caught_up_watermark_leaves_the_hour_columns_where_they_were() {
+        // 追平时（水位 = 最近的完整小时）表格必须和以前一模一样——这条改动
+        // 只救落后的那种夜，不许顺手改掉正常情况下的数。同时钉住窗口仍是
+        // 48 小时长：水位前 60 小时的那行照旧在窗口外。
+        let watermark = chrono::Utc::now().timestamp().div_euclid(3600) * 3600 - 3600;
+        let hours = vec![
+            hour_row_at(watermark, DIVINE, 4150, 10),
+            hour_row_at(watermark - 60 * 3600, CHAOS, 1_000, 100),
+        ];
+        let model = exchange_model(
+            &[],
+            &hours,
+            "Forbidden Rites",
+            ptt_core::Game::Poe2,
+            &tuning(),
+            Some(watermark),
+        )
+        .expect("model");
+
+        assert_eq!(model.hours_seen, 1);
+        assert_eq!(model.rows.len(), 1);
+        let divine = &model.rows[0];
+        assert_eq!(divine.asset_id.to_string(), "divine-orb");
+        assert_eq!(
+            divine.value_in_anchor,
+            Some(ptt_trade_domain::Ratio::from_parts(415, 1).expect("ratio"))
         );
     }
 }
@@ -8911,6 +9025,8 @@ mod exchange_window_tests {
     const DIVINE: &str = "Metadata/Items/Currency/CurrencyModValues";
     const CHAOS: &str = "Metadata/Items/Currency/CurrencyRerollRare";
     const HOUR: i64 = 1_788_159_600;
+    /// 同步水位 = 最后那一小时。表格的小时窗口以它为终点，档位重排也从它往前数。
+    const WATERMARK: i64 = HOUR + 30 * 3600;
 
     fn hour_row(
         hour_ts: i64,
@@ -8955,10 +9071,12 @@ mod exchange_window_tests {
 
     #[test]
     fn a_narrow_window_re_ranks_by_recent_volume() {
-        // 神圣七天前一小时成交 90000 崇高，之后沉默；混沌只在最后一小时成交 600。
+        // 神圣 30 小时前一小时成交 90000 崇高，之后沉默；混沌只在最后一小时
+        // 成交 600。两小时都在水位往前 48 小时里，所以表格两行都在；档位
+        // 24h 才把神圣那小时甩出去。
         let rows = vec![
             hour_row(HOUR, DIVINE, 90_000, 300),
-            hour_row(HOUR + 7 * 24 * 3600, CHAOS, 600, 60),
+            hour_row(WATERMARK, CHAOS, 600, 60),
         ];
         let mut model = exchange_model(
             &[],
@@ -8966,6 +9084,7 @@ mod exchange_window_tests {
             "Runes of Aldur",
             ptt_core::Game::Poe2,
             &tuning(),
+            Some(WATERMARK),
         )
         .expect("model");
         assert_eq!(model.rows[0].asset_id.to_string(), "divine-orb");
@@ -8992,7 +9111,7 @@ mod exchange_window_tests {
     fn window_none_uses_every_hour_in_the_ledger() {
         let rows = vec![
             hour_row(HOUR, DIVINE, 90_000, 300),
-            hour_row(HOUR + 7 * 24 * 3600, CHAOS, 600, 60),
+            hour_row(WATERMARK, CHAOS, 600, 60),
         ];
         let mut model = exchange_model(
             &[],
@@ -9000,6 +9119,7 @@ mod exchange_window_tests {
             "Runes of Aldur",
             ptt_core::Game::Poe2,
             &tuning(),
+            Some(WATERMARK),
         )
         .expect("model");
         let lean_rows: Vec<_> = rows.iter().map(lean).collect();
